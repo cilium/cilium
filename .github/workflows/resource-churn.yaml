@@ -40,11 +40,11 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.230.0
+  eksctl_version: v0.231.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.36.3
+  kubectl_version: v1.37.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 580.0.0
+  gcloud_version: 592.0.0
 
   test_name: resource-churn
 
@@ -55,7 +55,7 @@ env:
 
 jobs:
   resource-churn:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Churn Scenario
     timeout-minutes: 150
     strategy:
@@ -189,7 +189,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.27.2
+          go-version: 1.27.3
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -217,7 +217,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -544,7 +544,7 @@ jobs:
       # Refresh credentials in case they expire while we run baseline.
       - name: Refresh AWS CLI credentials
         if: ${{ steps.vars.outputs.run_baseline == 'true' }}
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -629,7 +629,7 @@ jobs:
       # may have expired during the (potentially long-running) test.
       - name: Set up AWS CLI credentials
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -693,7 +693,7 @@ jobs:
       # For now upload as separate artifacts so its easy to access.
       - name: Upload test result dashboard
         if: ${{ always() && steps.render-dashboards.outputs.dashboard_path != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dashboard-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
           path: ${{ steps.render-dashboards.outputs.dashboard_path }}
@@ -703,7 +703,7 @@ jobs:
 
       - name: Upload test Cilium agent node logs
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cilium-logs-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
           path: ./perf-tests/clusterloader2/report/*/node-logs.zip
@@ -711,7 +711,7 @@ jobs:
 
       - name: Upload cilium sysdumps
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cilium-sysdumps-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
           path: ./perf-tests/clusterloader2/report/*/cilium-sysdump.zip
@@ -725,7 +725,7 @@ jobs:
   merge-artifacts:
     if: ${{ always() }}
     name: Merge Artifacts
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: resource-churn
     steps:
       - name: Merge Sysdumps

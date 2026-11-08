@@ -1243,8 +1243,8 @@ encryption:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.15.5"
-            digest: "sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481"
+            tag: "1.16.0"
+            digest: "sha256:ab3a8ce70435374cc5d84c81eabf0278dc046ddbc0a736d59694ba9e5975b1b6"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE agent service account
@@ -1300,8 +1300,8 @@ encryption:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.15.5"
-            digest: "sha256:584a9c5cc95b9457f5033e7e4488d603fffe5ec48a80c4dba14b05c5e1c2c384"
+            tag: "1.16.0"
+            digest: "sha256:ff546f4c62dafc479a0cd79eae9a7b6df2975754d75efd31706098e0d7548837"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE server service account
@@ -3080,9 +3080,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074"
+    tag: "v1.40.2-1793367197-e19484665a61a41d63009f0ce1bc5cf0e218803c"
     pullPolicy: "Always"
-    digest: "sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22"
+    digest: "sha256:683ce70e9c67d194164a2525a1115e4b6571c0d3f5a41be6f4c07e18618538f9"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -3747,8 +3747,8 @@ nodeinit:
     # @schema
     override: ~
     repository: "quay.io/cilium/startup-script"
-    tag: "1792666708-8c1b3e5"
-    digest: "sha256:d7aca2a73c58463a50384b2c4aeb535722dfa969f55bc01205b5f2aaf8b20da6"
+    tag: "1793630414-e47a187"
+    digest: "sha256:f6d8cc0d4210ef3905631994d5b4c906d35580c9d928f778aa489f51edd2bdd6"
     useDigest: true
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
@@ -3854,9 +3854,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074"
+      tag: "v1.40.2-1793367197-e19484665a61a41d63009f0ce1bc5cf0e218803c"
       pullPolicy: "Always"
-      digest: "sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22"
+      digest: "sha256:683ce70e9c67d194164a2525a1115e4b6571c0d3f5a41be6f4c07e18618538f9"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
