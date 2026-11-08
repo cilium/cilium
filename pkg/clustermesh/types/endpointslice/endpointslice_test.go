@@ -83,6 +83,21 @@ func TestClusterEndpointSliceValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "valid endpoint node name",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "qux", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Endpoints: []slim_discovery_v1.Endpoint{{NodeName: new("node.example.com")}},
+			},
+		},
+		{
+			name: "invalid endpoint node name",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "qux", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Endpoints: []slim_discovery_v1.Endpoint{{NodeName: new("node@cluster")}},
+			},
+			errcontains: "invalid endpoint node name",
+		},
+		{
 			name: "valid dotted EndpointSlice name",
 			eps: ClusterEndpointSlice{
 				Cluster: "foo", Namespace: "bar", Name: "slice.example", AddressType: slim_discovery_v1.AddressTypeIPv4,
