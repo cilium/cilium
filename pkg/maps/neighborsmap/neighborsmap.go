@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/mac"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -33,40 +32,23 @@ type neighborsMap struct {
 	bpfMapV6 *bpf.Map
 }
 
-func newMap(maxMapEntries int, ipv4Enabled bool, ipv6Enabled bool) *neighborsMap {
-	m := &neighborsMap{}
-
+func (m *neighborsMap) init(reg *mapregistry.MapRegistry, ipv4Enabled, ipv6Enabled bool) error {
+	var err error
 	if ipv4Enabled {
-		m.bpfMapV4 = bpf.NewMap(map4Name,
-			ebpf.LRUHash,
-			&Key4{},
-			&Value{},
-			maxMapEntries,
-			0,
-		)
-	}
-
-	if ipv6Enabled {
-		m.bpfMapV6 = bpf.NewMap(map6Name,
-			ebpf.LRUHash,
-			&Key6{},
-			&Value{},
-			maxMapEntries,
-			0,
-		)
-	}
-
-	return m
-}
-
-func (m *neighborsMap) init() error {
-	if m.bpfMapV4 != nil {
+		m.bpfMapV4, err = bpf.NewMapFromRegistry(reg, map4Name, &Key4{}, &Value{})
+		if err != nil {
+			return fmt.Errorf("create neighbors v4 bpf map from registry: %w", err)
+		}
 		if err := m.bpfMapV4.Create(); err != nil {
 			return fmt.Errorf("failed to create neighbors v4 bpf map: %w", err)
 		}
 	}
 
-	if m.bpfMapV6 != nil {
+	if ipv6Enabled {
+		m.bpfMapV6, err = bpf.NewMapFromRegistry(reg, map6Name, &Key6{}, &Value{})
+		if err != nil {
+			return fmt.Errorf("create neighbors v6 bpf map from registry: %w", err)
+		}
 		if err := m.bpfMapV6.Create(); err != nil {
 			return fmt.Errorf("failed to create neighbors v6 bpf map: %w", err)
 		}
