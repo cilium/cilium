@@ -59,6 +59,7 @@ struct sock {
 int bpf_sock_destroy(struct sock_common *sk) __section(".ksyms");
 static int BPF_FUNC(seq_write, struct seq_file *m, const void *data,
 		    __u32 len);
+#define bpf_sk_storage_get sk_storage_get
 #endif
 
 static __always_inline
@@ -66,11 +67,20 @@ bool matches_v4(void *sk, __sock_cookie cookie)
 {
 	struct ipv4_revnat_tuple key = { };
 	struct sock *s = sk;
+	struct ipv4_sk_storage_entry *st;
+
+	if (!sk)
+		return false;
 
 	/* Ensure that sk is still connected to the backend. */
 	if (s->__sk_common.skc_daddr != cilium_sock_term_filter.address.addr4 ||
 	    s->__sk_common.skc_dport != bpf_htons(cilium_sock_term_filter.port))
 		return false;
+
+	st = bpf_sk_storage_get(&cilium_lb4_reverse_sk_v2, sk, 0, 0);
+	if (st && st->backend_address == cilium_sock_term_filter.address.addr4 &&
+	    st->backend_port == bpf_htons(cilium_sock_term_filter.port))
+		return true;
 
 	/* Ensure that sk was connected to the backend via a service VIP. */
 	key.address = cilium_sock_term_filter.address.addr4;
@@ -85,6 +95,10 @@ bool matches_v6(void *sk, __sock_cookie cookie)
 {
 	struct ipv6_revnat_tuple key = { };
 	struct sock *s = sk;
+	struct ipv6_sk_storage_entry *st;
+
+	if (!sk)
+		return false;
 
 	/* Ensure that sk is still connected to the backend. */
 	if (s->__sk_common.skc_dport != bpf_htons(cilium_sock_term_filter.port) ||
@@ -93,6 +107,13 @@ bool matches_v6(void *sk, __sock_cookie cookie)
 	    s->__sk_common.skc_v6_daddr.s6_addr32[2] != cilium_sock_term_filter.address.addr6.p3 ||
 	    s->__sk_common.skc_v6_daddr.s6_addr32[3] != cilium_sock_term_filter.address.addr6.p4)
 		return false;
+
+	st = bpf_sk_storage_get(&cilium_lb6_reverse_sk_v2, sk, 0, 0);
+	if (st && !memcmp(&st->backend_address,
+			  &cilium_sock_term_filter.address.addr6,
+			  sizeof(union v6addr)) &&
+	    st->backend_port == bpf_htons(cilium_sock_term_filter.port))
+		return true;
 
 	/* Ensure that sk was connected to the backend via a service VIP. */
 	key.address = cilium_sock_term_filter.address.addr6;
