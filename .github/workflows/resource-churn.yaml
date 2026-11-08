@@ -275,7 +275,7 @@ jobs:
           debug: "false"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@7ca7fc53c20275f5c10ef5f3557076691fd1d720 # v0.19.7
+        uses: cilium/cilium-cli@1ac7fa66909e3730ab3869c8ba7aa7d68f0197fd # v0.20.2
         timeout-minutes: 5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
