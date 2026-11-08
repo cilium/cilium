@@ -12,6 +12,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -60,7 +63,28 @@ func newRestoreEnv(t *testing.T) *restoreEnv {
 
 	var rawMaps maps.LBMaps
 	if testutils.IsPrivileged() {
-		r := &maps.BPFLBMaps{Log: log, Pinned: false, Cfg: cfg, ExtCfg: extCfg, MaglevCfg: maglevCfg}
+		var reg *registry.MapRegistry
+		h := hive.New(
+			registry.Cell,
+			cell.Invoke(func(r *registry.MapRegistry) error {
+				reg = r
+				for _, name := range []string{maps.MaglevOuter4MapName, maps.MaglevOuter6MapName} {
+					if err := r.Modify(name, func(p *registry.MapSpecPatch) {
+						p.InnerMap.ValueSize = maps.MaglevBackendLen * uint32(maglevCfg.TableSize)
+					}); err != nil {
+						return err
+					}
+				}
+				return nil
+			}),
+		)
+		require.NoError(t, h.Populate(log))
+		require.NoError(t, h.Start(log, context.Background()))
+		t.Cleanup(func() {
+			require.NoError(t, h.Stop(log, context.Background()))
+		})
+
+		r := &maps.BPFLBMaps{Log: log, Pinned: false, ExtCfg: extCfg, Registry: reg}
 		lc.Append(r)
 		rawMaps = r
 	} else {

@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -181,6 +182,7 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		dial.ServiceResolverCell,
 		ControlPlane,
 		metrics.Cell,
+		registry.Cell,
 		store.Cell,
 		cell.Invoke(func(legacy.DaemonInitialization) {
 			// with dry-run enabled it's enough to depend on DaemonInitialization

@@ -39,10 +39,11 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -67,41 +68,19 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 
 	svcs, epSlices := ServicesAndSlices(log, testSize)
 
-	var maps lbmaps.LBMaps
-	if testutils.IsPrivileged() {
-		bpfMaps := &lbmaps.BPFLBMaps{
-			Log:    log,
-			Pinned: false,
-			Cfg: loadbalancer.Config{
-				UserConfig: loadbalancer.UserConfig{
-					RetryBackoffMin:         time.Second,
-					RetryBackoffMax:         time.Second,
-					LBMapEntries:            3 * testSize,
-					LBServiceMapEntries:     3 * testSize,
-					LBBackendMapEntries:     3 * testSize,
-					LBRevNatEntries:         3 * testSize,
-					LBAffinityMapEntries:    3 * testSize,
-					LBSourceRangeAllTypes:   false,
-					LBSourceRangeMapEntries: 3 * testSize,
-					LBMaglevMapEntries:      3 * testSize,
-					LBSockRevNatEntries:     3 * testSize,
-				},
-				NodePortMin: loadbalancer.NodePortMinDefault,
-				NodePortMax: loadbalancer.NodePortMaxDefault,
-			},
-			ExtCfg: loadbalancer.ExternalConfig{
-				ZoneMapper:           &option.DaemonConfig{},
-				EnableIPv4:           true,
-				EnableIPv6:           true,
-				KubeProxyReplacement: true,
-			},
-			MaglevCfg: maglevConfig,
-		}
-		bpfMaps.Start(context.TODO())
-		maps = bpfMaps
-	} else {
-		maps = lbmaps.NewFakeLBMaps()
+	cfg := loadbalancer.Config{
+		UserConfig:  loadbalancer.DefaultUserConfig,
+		NodePortMin: loadbalancer.NodePortMinDefault,
+		NodePortMax: loadbalancer.NodePortMaxDefault,
 	}
+	cfg.LBMapEntries = 3 * testSize
+	cfg.LBServiceMapEntries = 3 * testSize
+	cfg.LBBackendMapEntries = 3 * testSize
+	cfg.LBRevNatEntries = 3 * testSize
+	cfg.LBAffinityMapEntries = 3 * testSize
+	cfg.LBSourceRangeMapEntries = 3 * testSize
+	cfg.LBMaglevMapEntries = 3 * testSize
+	cfg.LBSockRevNatEntries = 3 * testSize
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1000)
 	endpoints := make(chan resource.Event[*k8s.Endpoints], 1000)
@@ -111,7 +90,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		db     *statedb.DB
 		bo     *lbreconciler.BPFOps
 	)
-	h := testHive(maps, services, endpoints, &writer, &db, &bo)
+	h := testHive(cfg, services, endpoints, &writer, &db, &bo)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -512,7 +491,7 @@ var (
 	}
 )
 
-func testHive(maps lbmaps.LBMaps,
+func testHive(cfg loadbalancer.Config,
 	services chan resource.Event[*slim_corev1.Service],
 	endpoints chan resource.Event[*k8s.Endpoints],
 	writerPtr **writer.Writer,
@@ -537,21 +516,10 @@ func testHive(maps lbmaps.LBMaps,
 				func() cmtypes.ClusterInfo {
 					return cmtypes.ClusterInfo{}
 				},
-				func() loadbalancer.Config {
-					return loadbalancer.Config{
-						UserConfig:  loadbalancer.DefaultUserConfig,
-						NodePortMin: loadbalancer.NodePortMinDefault,
-						NodePortMax: loadbalancer.NodePortMaxDefault,
-					}
-				},
+				func() loadbalancer.Config { return cfg },
 				func() loadbalancer.ExternalConfig { return extConfig },
-
-				func(lc cell.Lifecycle) lbmaps.LBMaps {
-					if rm, ok := maps.(*lbmaps.BPFLBMaps); ok {
-						lc.Append(rm)
-					}
-					return maps
-				},
+				func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
+				func() *option.DaemonConfig { return &option.DaemonConfig{} },
 
 				func(lc cell.Lifecycle) (*maglev.Maglev, maglev.Config) {
 					m := maglev.New(maglevConfig, lc)
@@ -581,6 +549,11 @@ func testHive(maps lbmaps.LBMaps,
 
 			// Reconcile tables to BPF maps
 			lbreconciler.Cell,
+
+			// Provide the BPF maps via the map registry.
+			metrics.Cell,
+			registry.Cell,
+			lbmaps.Cell,
 
 			cell.Provide(reflectors.NetnsCookieSupportFunc),
 

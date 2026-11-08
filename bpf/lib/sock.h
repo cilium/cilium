@@ -37,8 +37,8 @@ struct {
 	__type(key, struct ipv4_revnat_tuple);
 	__type(value, struct ipv4_revnat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, 262144);
+	__uint(map_flags, 0);
 } cilium_lb4_reverse_sk __section_maps_btf;
 
 struct ipv6_revnat_tuple {
@@ -59,6 +59,6 @@ struct {
 	__type(key, struct ipv6_revnat_tuple);
 	__type(value, struct ipv6_revnat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, 262144);
+	__uint(map_flags, 0);
 } cilium_lb6_reverse_sk __section_maps_btf;

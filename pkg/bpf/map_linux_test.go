@@ -936,6 +936,9 @@ func TestPrivilegedCreateUnpinned(t *testing.T) {
 		&TestValue{},
 		maxEntries,
 		unix.BPF_F_NO_PREALLOC).WithCache()
+	// MapSpecs from the map registry are pinned by name. Creating a map
+	// unpinned must clear it so the map does not end up in the filesystem.
+	m.spec.Pinning = ebpf.PinByName
 	err := m.CreateUnpinned()
 	require.NoError(t, err)
 	exist, err := m.exist()

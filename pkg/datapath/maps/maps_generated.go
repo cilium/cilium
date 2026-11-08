@@ -463,7 +463,7 @@ func newCiliumLB4BackendsV3Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  12,
 		Value:      anyTypeByName(btf, "lb4_backend"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -492,7 +492,7 @@ func newCiliumLB4MaglevSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Value:      anyTypeByName(btf, "__u32"),
 		InnerMap:   newCiliumLB4MaglevInnerSpec(btf),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -518,7 +518,7 @@ func newCiliumLB4ReverseNATSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  6,
 		Value:      anyTypeByName(btf, "lb4_reverse_nat"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -546,7 +546,7 @@ func newCiliumLB4ServicesV2Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  12,
 		Value:      anyTypeByName(btf, "lb4_service"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -588,7 +588,7 @@ func newCiliumLB6BackendsV3Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  24,
 		Value:      anyTypeByName(btf, "lb6_backend"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -617,7 +617,7 @@ func newCiliumLB6MaglevSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Value:      anyTypeByName(btf, "__u32"),
 		InnerMap:   newCiliumLB6MaglevInnerSpec(btf),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -643,7 +643,7 @@ func newCiliumLB6ReverseNATSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  18,
 		Value:      anyTypeByName(btf, "lb6_reverse_nat"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -671,7 +671,7 @@ func newCiliumLB6ServicesV2Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  12,
 		Value:      anyTypeByName(btf, "lb6_service"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -713,7 +713,7 @@ func newCiliumLBAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "__u8"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }

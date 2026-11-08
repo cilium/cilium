@@ -9,12 +9,12 @@ import (
 	"iter"
 	"log/slog"
 	"net/netip"
-	"unsafe"
 
-	"golang.org/x/sys/unix"
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -27,13 +27,22 @@ type SkipLBMap interface {
 	AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value]
 	DeleteLB4(key *SkipLB4Key) error
 	DeleteLB6(key *SkipLB6Key) error
-	OpenOrCreate() error
-	Close() error
 }
 
-func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
-	skipLBMap := &skipLBMap{logger: logger}
+// ManagedSkipLBMap is a SkipLBMap with Hive lifecycle hooks. The maps are
+// created from the specs in the map registry when the lifecycle starts and
+// closed when it stops.
+type ManagedSkipLBMap interface {
+	SkipLBMap
+	cell.HookInterface
+}
 
+func NewSkipLBMap(logger *slog.Logger, reg *registry.MapRegistry) ManagedSkipLBMap {
+	return &skipLBMap{logger: logger, reg: reg}
+}
+
+// Start implements cell.HookInterface.
+func (m *skipLBMap) Start(cell.HookContext) error {
 	pinning := ebpf.PinByName
 	if testutils.IsPrivileged() {
 		// Running in privileged tests, don't pin the map.
@@ -41,53 +50,41 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 	}
 
 	if option.Config.EnableIPv4 {
-		skipLBMap.bpfMap4 = ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       SkipLB4MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
-			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-			Pinning:    pinning,
-		})
+		spec, err := m.reg.Get(SkipLB4MapName)
+		if err != nil {
+			return fmt.Errorf("getting %s map spec: %w", SkipLB4MapName, err)
+		}
+		spec.Pinning = pinning
+		m.bpfMap4 = ebpf.NewMap(m.logger, spec)
+		if err := m.bpfMap4.OpenOrCreate(); err != nil {
+			return fmt.Errorf("open or create %s: %w", SkipLB4MapName, err)
+		}
 	}
 	if option.Config.EnableIPv6 {
-		skipLBMap.bpfMap6 = ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       SkipLB6MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
-			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-			Pinning:    pinning,
-		})
-	}
-
-	return skipLBMap, nil
-}
-
-func (m *skipLBMap) OpenOrCreate() error {
-	if m.bpfMap4 != nil {
-		if err := m.bpfMap4.OpenOrCreate(); err != nil {
-			return fmt.Errorf("failed to open or create %s: %w", SkipLB4MapName, err)
+		spec, err := m.reg.Get(SkipLB6MapName)
+		if err != nil {
+			return fmt.Errorf("getting %s map spec: %w", SkipLB6MapName, err)
 		}
-	}
-	if m.bpfMap6 != nil {
+		spec.Pinning = pinning
+		m.bpfMap6 = ebpf.NewMap(m.logger, spec)
 		if err := m.bpfMap6.OpenOrCreate(); err != nil {
-			return fmt.Errorf("failed to open or create %s: %w", SkipLB6MapName, err)
+			return fmt.Errorf("open or create %s: %w", SkipLB6MapName, err)
 		}
 	}
+
 	return nil
 }
 
-func (m *skipLBMap) Close() (err error) {
-	if m.bpfMap4 != nil {
-		err = errors.Join(err, m.bpfMap4.Close())
+// Stop implements cell.HookInterface.
+func (m *skipLBMap) Stop(cell.HookContext) error {
+	return errors.Join(closeMap(m.bpfMap4), closeMap(m.bpfMap6))
+}
+
+func closeMap(m *ebpf.Map) error {
+	if m == nil {
+		return nil
 	}
-	if m.bpfMap6 != nil {
-		err = errors.Join(err, m.bpfMap6.Close())
-	}
-	return
+	return m.Close()
 }
 
 func (m *skipLBMap) AllLB4() iter.Seq2[*SkipLB4Key, *SkipLB4Value] {
@@ -152,6 +149,7 @@ func (m *skipLBMap) DeleteLB6(key *SkipLB6Key) error {
 
 type skipLBMap struct {
 	logger  *slog.Logger
+	reg     *registry.MapRegistry
 	bpfMap4 *ebpf.Map
 	bpfMap6 *ebpf.Map
 }
