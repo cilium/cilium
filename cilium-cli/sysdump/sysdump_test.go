@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
@@ -285,6 +286,108 @@ func TestKVStoreTask(t *testing.T) {
 	assert.Equal([]byte("{}"), data)
 }
 
+func TestCollectCiliumV2OrV2Alpha1Resource(t *testing.T) {
+	v2 := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumcidrgroups"}
+	v2alpha1 := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumcidrgroups"}
+
+	served := func(gv schema.GroupVersion, names ...string) listResult {
+		list := &unstructured.UnstructuredList{}
+		list.SetAPIVersion(gv.String())
+		list.SetKind("CiliumCIDRGroupList")
+		for _, name := range names {
+			item := unstructured.Unstructured{}
+			item.SetAPIVersion(gv.String())
+			item.SetKind("CiliumCIDRGroup")
+			item.SetName(name)
+			list.Items = append(list.Items, item)
+		}
+		return listResult{list: list}
+	}
+	notServed := func(gvr schema.GroupVersionResource) listResult {
+		return listResult{err: errors.NewNotFound(gvr.GroupResource(), "")}
+	}
+
+	tests := []struct {
+		name           string
+		lists          map[schema.GroupVersionResource]listResult
+		wantAPIVersion string
+		wantNames      []string
+		wantErr        bool
+	}{
+		{
+			name:           "v2",
+			lists:          map[schema.GroupVersionResource]listResult{v2: served(v2.GroupVersion(), "group-a", "group-b")},
+			wantAPIVersion: "cilium.io/v2",
+			wantNames:      []string{"group-a", "group-b"},
+		},
+		{
+			name:           "v2 with no groups",
+			lists:          map[schema.GroupVersionResource]listResult{v2: served(v2.GroupVersion())},
+			wantAPIVersion: "cilium.io/v2",
+		},
+		{
+			name: "v2alpha1 when v2 is not served",
+			lists: map[schema.GroupVersionResource]listResult{
+				v2:       notServed(v2),
+				v2alpha1: served(v2alpha1.GroupVersion(), "group-a"),
+			},
+			wantAPIVersion: "cilium.io/v2alpha1",
+			wantNames:      []string{"group-a"},
+		},
+		{
+			name: "neither version is served",
+			lists: map[schema.GroupVersionResource]listResult{
+				v2:       notServed(v2),
+				v2alpha1: notServed(v2alpha1),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeClient{
+				nodeList: &corev1.NodeList{
+					Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}}},
+				},
+				lists: tt.lists,
+			}
+			options := Options{
+				OutputFileName: "my-sysdump-<ts>",
+				Writer:         io.Discard,
+			}
+			collector, err := NewCollector(client, options, &nopHooks{}, time.Now())
+			assert.NoError(t, err)
+
+			task := collectCiliumV2OrV2Alpha1Resource(collector, "ciliumcidrgroups", "Cilium CIDR Groups")
+			assert.Equal(t, "Collecting Cilium CIDR Groups", task.Description)
+			err = task.Task(context.Background())
+			file := collector.AbsoluteTempPath("ciliumcidrgroups-<ts>.yaml")
+			if tt.wantErr {
+				assert.ErrorContains(t, err, "failed to collect Cilium CIDR Groups")
+				assert.True(t, errors.IsNotFound(err))
+				assert.NoFileExists(t, file)
+				return
+			}
+			assert.NoError(t, err)
+
+			data, err := os.ReadFile(file)
+			assert.NoError(t, err)
+			var got unstructured.UnstructuredList
+			assert.NoError(t, yaml.Unmarshal(data, &got))
+			assert.Equal(t, tt.wantAPIVersion, got.GetAPIVersion())
+			assert.Equal(t, "CiliumCIDRGroupList", got.GetKind())
+			var names []string
+			for _, item := range got.Items {
+				assert.Equal(t, tt.wantAPIVersion, item.GetAPIVersion())
+				assert.Equal(t, "CiliumCIDRGroup", item.GetKind())
+				names = append(names, item.GetName())
+			}
+			assert.Equal(t, tt.wantNames, names)
+		})
+	}
+}
+
 func TestListCiliumEndpointSlices(t *testing.T) {
 	assert := assert.New(t)
 	client := &fakeClient{}
@@ -446,9 +549,15 @@ type execResult struct {
 	err    error
 }
 
+type listResult struct {
+	list *unstructured.UnstructuredList
+	err  error
+}
+
 type fakeClient struct {
 	nodeList *corev1.NodeList
 	execs    map[execRequest]execResult
+	lists    map[schema.GroupVersionResource]listResult
 }
 
 func (c *fakeClient) ListCiliumNodeConfigs(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2.CiliumNodeConfigList, error) {
@@ -593,10 +702,6 @@ func (c *fakeClient) GetHelmValues(_ context.Context, _ string, _ string) (strin
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumCIDRGroups(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
-	panic("implement me")
-}
-
 func (c *fakeClient) ListCiliumClusterwideNetworkPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
 	panic("implement me")
 }
@@ -701,8 +806,12 @@ func (c *fakeClient) ListServices(_ context.Context, _ string, _ metav1.ListOpti
 	panic("implement me")
 }
 
-func (c *fakeClient) ListUnstructured(_ context.Context, _ schema.GroupVersionResource, _ *string, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
-	panic("implement me")
+func (c *fakeClient) ListUnstructured(_ context.Context, gvr schema.GroupVersionResource, _ *string, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	out, ok := c.lists[gvr]
+	if !ok {
+		panic("implement me")
+	}
+	return out.list, out.err
 }
 
 func (c *fakeClient) ListIngressClasses(_ context.Context, _ metav1.ListOptions) (*networkingv1.IngressClassList, error) {
