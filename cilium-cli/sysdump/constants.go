@@ -65,7 +65,6 @@ const (
 	ciliumEnvoyConfigsFileName               = "ciliumenvoyconfigs-<ts>.yaml"
 	ciliumEtcdSecretFileName                 = "cilium-etcd-secrets-secret-<ts>.yaml"
 	ciliumIdentitiesFileName                 = "ciliumidentities-<ts>.yaml"
-	ciliumCIDRGroupsFileName                 = "ciliumcidrgroups-<ts>.yaml"
 	ciliumL2AnnouncementPoliciesFileName     = "ciliuml2announcementpolicies-<ts>.yaml"
 	ciliumLocalRedirectPoliciesFileName      = "ciliumlocalredirectpolicies-<ts>.yaml"
 	ciliumLogsFileName                       = "logs-%s-%s-<ts>.log"

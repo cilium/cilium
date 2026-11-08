@@ -774,20 +774,6 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting Cilium CIDR Groups",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumCIDRGroups(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium CIDR Groups: %w", err)
-				}
-				if err := c.WriteYAML(ciliumCIDRGroupsFileName, v); err != nil {
-					return fmt.Errorf("failed to write Cilium CIDR Groups to file: %w", err)
-				}
-				return nil
-			},
-		},
-		{
 			Description: "Collecting Cilium local redirect policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -1581,6 +1567,7 @@ func (c *Collector) Run() error {
 	}
 	ciliumTasks = append(ciliumTasks, collectCiliumV2OrV2Alpha1Resource(c, "ciliumloadbalancerippools", "Cilium LoadBalancer IP Pools"))
 	ciliumTasks = append(ciliumTasks, collectCiliumV2OrV2Alpha1Resource(c, "ciliumpodippools", "Cilium Pod IP Pools"))
+	ciliumTasks = append(ciliumTasks, collectCiliumV2OrV2Alpha1Resource(c, "ciliumcidrgroups", "Cilium CIDR Groups"))
 	if c.Options.HubbleFlowsCount > 0 {
 		ciliumTasks = append(ciliumTasks, Task{
 			CreatesSubtasks: true,
