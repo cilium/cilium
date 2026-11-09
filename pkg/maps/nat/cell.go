@@ -19,54 +19,7 @@ import (
 var Cell = cell.Module(
 	"nat-maps",
 	"NAT Maps",
-	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) (bpf.MapOut[NatMap4], bpf.MapOut[NatMap6]) {
-		var out4 bpf.MapOut[NatMap4]
-		var out6 bpf.MapOut[NatMap6]
-		var ipv4Nat, ipv6Nat *Map
-
-		if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
-			return out4, out6
-		}
-
-		ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4, cfg.EnableIPv6)
-		if ipv4Nat != nil {
-			out4 = bpf.NewMapOut[NatMap4](ipv4Nat)
-		}
-		if ipv6Nat != nil {
-			out6 = bpf.NewMapOut[NatMap6](ipv6Nat)
-		}
-
-		lc.Append(cell.Hook{
-			OnStart: func(hc cell.HookContext) error {
-				if ipv4Nat != nil {
-					if err := ipv4Nat.OpenOrCreate(); err != nil {
-						return fmt.Errorf("open IPv4 nat map: %w", err)
-					}
-				}
-				if ipv6Nat != nil {
-					if err := ipv6Nat.OpenOrCreate(); err != nil {
-						return fmt.Errorf("open IPv6 nat map: %w", err)
-					}
-				}
-				return nil
-			},
-			OnStop: func(hc cell.HookContext) error {
-				if ipv4Nat != nil {
-					if err := ipv4Nat.Map.Close(); err != nil {
-						return err
-					}
-				}
-				if ipv6Nat != nil {
-					if err := ipv6Nat.Map.Close(); err != nil {
-						return err
-					}
-				}
-				return nil
-			},
-		})
-
-		return out4, out6
-	}),
+	cell.Provide(provideGlobalNATMaps),
 	cell.Provide(provideNATRetriesMap),
 )
 
@@ -82,6 +35,56 @@ type NatMap4 interface {
 type NatMap6 interface {
 	NatMap
 	DumpBatch6(func(*tuple.TupleKey6, *NatEntry6)) (count int, err error)
+}
+
+func provideGlobalNATMaps(lc cell.Lifecycle, registry *metrics.Registry, cfg *option.DaemonConfig,
+	kprCfg kpr.KPRConfig) (bpf.MapOut[NatMap4], bpf.MapOut[NatMap6]) {
+	var out4 bpf.MapOut[NatMap4]
+	var out6 bpf.MapOut[NatMap6]
+	var ipv4Nat, ipv6Nat *Map
+
+	if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
+		return out4, out6
+	}
+
+	ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4, cfg.EnableIPv6)
+	if ipv4Nat != nil {
+		out4 = bpf.NewMapOut[NatMap4](ipv4Nat)
+	}
+	if ipv6Nat != nil {
+		out6 = bpf.NewMapOut[NatMap6](ipv6Nat)
+	}
+
+	lc.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			if ipv4Nat != nil {
+				if err := ipv4Nat.OpenOrCreate(); err != nil {
+					return fmt.Errorf("open IPv4 nat map: %w", err)
+				}
+			}
+			if ipv6Nat != nil {
+				if err := ipv6Nat.OpenOrCreate(); err != nil {
+					return fmt.Errorf("open IPv6 nat map: %w", err)
+				}
+			}
+			return nil
+		},
+		OnStop: func(hc cell.HookContext) error {
+			if ipv4Nat != nil {
+				if err := ipv4Nat.Map.Close(); err != nil {
+					return err
+				}
+			}
+			if ipv6Nat != nil {
+				if err := ipv6Nat.Map.Close(); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	})
+
+	return out4, out6
 }
 
 // NATRetriesMap is a marker interface for the NAT retries map.
