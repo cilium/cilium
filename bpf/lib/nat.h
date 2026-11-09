@@ -173,8 +173,7 @@ struct {
 	__type(key, struct ipv4_ct_tuple);
 	__type(value, struct ipv4_nat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, 524288);
 } cilium_snat_v4_external __section_maps_btf;
 
 struct {
@@ -189,8 +188,7 @@ struct per_cluster_snat_mapping_ipv4_inner_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
 	__type(value, struct ipv4_nat_entry);
-	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, 524288);
 #ifndef BPF_TEST
 };
 #else
@@ -1328,8 +1326,7 @@ struct {
 	__type(key, struct ipv6_ct_tuple);
 	__type(value, struct ipv6_nat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, 524288);
 } cilium_snat_v6_external __section_maps_btf;
 
 struct {
@@ -1349,8 +1346,7 @@ struct {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);
 		__type(value, struct ipv6_nat_entry);
-		__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
-		__uint(map_flags, LRU_MEM_FLAVOR);
+		__uint(max_entries, 524288);
 	});
 } cilium_per_cluster_snat_v6_external __section_maps_btf;
 

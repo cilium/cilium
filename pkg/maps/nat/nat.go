@@ -6,6 +6,7 @@ package nat
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -374,15 +375,36 @@ func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
 	return nil
 }
 
-// GlobalMaps returns all global NAT maps.
-func GlobalMaps(registry *metrics.Registry, ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
-	if ipv4 {
-		ipv4Map = NewMap(registry, MapNameSnat4Global, IPv4, maxEntries())
+// OpenGlobalMaps opens the global NAT map(s) pinned by the agent.
+func OpenGlobalMaps(logger *slog.Logger, openIPv4, openIPv6 bool) (ipv4Map, ipv6Map *Map,
+	err error) {
+	if openIPv4 {
+		ipv4Map, err = openGlobalMap(logger, MapNameSnat4Global, IPv4, &NatKey4{}, &NatEntry4{})
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-	if ipv6 {
-		ipv6Map = NewMap(registry, MapNameSnat6Global, IPv6, maxEntries())
+	if openIPv6 {
+		ipv6Map, err = openGlobalMap(logger, MapNameSnat6Global, IPv6, &NatKey6{}, &NatEntry6{})
+		if err != nil {
+			if ipv4Map != nil {
+				_ = ipv4Map.Close()
+			}
+			return nil, nil, err
+		}
 	}
-	return
+
+	return ipv4Map, ipv6Map, nil
+}
+
+func openGlobalMap(logger *slog.Logger, name string, family IPFamily, key bpf.MapKey,
+	value bpf.MapValue) (*Map, error) {
+	path := bpf.MapPath(logger, name)
+	m, err := bpf.OpenMap(path, key, value)
+	if err != nil {
+		return nil, fmt.Errorf("loading pinned map %s: %w", path, err)
+	}
+	return &Map{family: family, Map: m}, nil
 }
 
 // ClusterMaps returns all NAT maps for given clusters

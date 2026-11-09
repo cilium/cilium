@@ -33,7 +33,10 @@ func init() {
 func flushCt() {
 	ipv4, ipv6 := getIpEnableStatuses()
 
-	nat4, nat6 := nat.GlobalMaps(nil, ipv4, ipv6)
+	// Open NAT maps separately so that a possible failure while opening the IPv4 map doesn't
+	// prevent flushing the IPv6 one.
+	nat4, _, _ := nat.OpenGlobalMaps(log, ipv4, false)
+	_, nat6, _ := nat.OpenGlobalMaps(log, false, ipv6)
 	if nat4 != nil {
 		if err := nat4.Open(); err != nil {
 			nat4 = nil
