@@ -96,7 +96,7 @@ All charts are signed with cosign. Verify before installing:
      --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
      quay.io/cilium/charts/cilium:<VERSION>
 
-See https://docs.sigstore.dev/cosign/installation/ for cosign installation.
+See https://docs.sigstore.dev/cosign/system_config/installation/ for cosign installation.
 
 **Pinning by Digest:**
 

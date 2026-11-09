@@ -95,7 +95,7 @@ These criteria ensure the long-term success of the project by justifying the
 inclusion of the new dependency into the project's codebase.
 
 .. _CNCF: https://www.cncf.io
-.. _allowed_licenses: https://github.com/cncf/foundation/blob/main/allowed-third-party-license-policy.md
+.. _allowed_licenses: https://github.com/cncf/foundation/blob/main/policies-guidance/allowed-third-party-license-policy.md
 .. _license_exceptions: https://github.com/cncf/foundation/tree/main/license-exceptions
 .. _licensecheck: https://github.com/cilium/cilium/blob/main/tools/licensecheck/allowed.go
 
