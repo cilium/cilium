@@ -7,9 +7,11 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/kpr"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -20,6 +22,7 @@ var Cell = cell.Module(
 	"nat-maps",
 	"NAT Maps",
 	cell.Provide(provideGlobalNATMaps),
+	cell.Invoke(configureGlobalNATMaps),
 	cell.Provide(provideNATRetriesMap),
 )
 
@@ -37,46 +40,62 @@ type NatMap6 interface {
 	DumpBatch6(func(*tuple.TupleKey6, *NatEntry6)) (count int, err error)
 }
 
-func provideGlobalNATMaps(lc cell.Lifecycle, registry *metrics.Registry, cfg *option.DaemonConfig,
+func provideGlobalNATMaps(lc cell.Lifecycle, mapRegistry *mapregistry.MapRegistry,
+	metricsRegistry *metrics.Registry, cfg *option.DaemonConfig,
 	kprCfg kpr.KPRConfig) (bpf.MapOut[NatMap4], bpf.MapOut[NatMap6]) {
 	var out4 bpf.MapOut[NatMap4]
 	var out6 bpf.MapOut[NatMap6]
-	var ipv4Nat, ipv6Nat *Map
+	ipv4NatMap := &Map{family: IPv4}
+	ipv6NatMap := &Map{family: IPv6}
 
 	if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
 		return out4, out6
 	}
 
-	ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4, cfg.EnableIPv6)
-	if ipv4Nat != nil {
-		out4 = bpf.NewMapOut[NatMap4](ipv4Nat)
+	if cfg.EnableIPv4 {
+		out4 = bpf.NewMapOut[NatMap4](ipv4NatMap)
 	}
-	if ipv6Nat != nil {
-		out6 = bpf.NewMapOut[NatMap6](ipv6Nat)
+	if cfg.EnableIPv6 {
+		out6 = bpf.NewMapOut[NatMap6](ipv6NatMap)
 	}
 
 	lc.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			if ipv4Nat != nil {
-				if err := ipv4Nat.OpenOrCreate(); err != nil {
+			var err error
+			if cfg.EnableIPv4 {
+				if ipv4NatMap.Map, err = bpf.NewMapFromRegistry(mapRegistry, MapNameSnat4Global,
+					&NatKey4{}, &NatEntry4{}); err != nil {
+					return fmt.Errorf("create IPv4 nat map from registry: %w", err)
+				}
+				ipv4NatMap.Map.WithCache().
+					WithEvents(cfg.GetEventBufferConfig(MapNameSnat4Global)).
+					WithPressureMetric(metricsRegistry)
+				if err := ipv4NatMap.OpenOrCreate(); err != nil {
 					return fmt.Errorf("open IPv4 nat map: %w", err)
 				}
 			}
-			if ipv6Nat != nil {
-				if err := ipv6Nat.OpenOrCreate(); err != nil {
+			if cfg.EnableIPv6 {
+				if ipv6NatMap.Map, err = bpf.NewMapFromRegistry(mapRegistry, MapNameSnat6Global,
+					&NatKey6{}, &NatEntry6{}); err != nil {
+					return fmt.Errorf("create IPv6 nat map from registry: %w", err)
+				}
+				ipv6NatMap.Map.WithCache().
+					WithEvents(cfg.GetEventBufferConfig(MapNameSnat6Global)).
+					WithPressureMetric(metricsRegistry)
+				if err := ipv6NatMap.OpenOrCreate(); err != nil {
 					return fmt.Errorf("open IPv6 nat map: %w", err)
 				}
 			}
 			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
-			if ipv4Nat != nil {
-				if err := ipv4Nat.Map.Close(); err != nil {
+			if m := ipv4NatMap.Map; m != nil {
+				if err := m.Close(); err != nil {
 					return err
 				}
 			}
-			if ipv6Nat != nil {
-				if err := ipv6Nat.Map.Close(); err != nil {
+			if m := ipv6NatMap.Map; m != nil {
+				if err := m.Close(); err != nil {
 					return err
 				}
 			}
@@ -85,6 +104,51 @@ func provideGlobalNATMaps(lc cell.Lifecycle, registry *metrics.Registry, cfg *op
 	})
 
 	return out4, out6
+}
+
+func configureGlobalNATMaps(reg *mapregistry.MapRegistry) error {
+	var flags uint32
+	if option.Config.BPFDistributedLRU {
+		flags |= unix.BPF_F_NO_COMMON_LRU
+	}
+	maxEntries := uint32(maxEntries())
+	if err := configureNATMap(reg, MapNameSnat4Global, flags, maxEntries); err != nil {
+		return err
+	}
+	if err := configureNATMap(reg, MapNameSnat6Global, flags, maxEntries); err != nil {
+		return err
+	}
+	if err := configurePerClusterNATMap(reg, perClusterIPv4OuterMap, flags,
+		maxEntries); err != nil {
+		return err
+	}
+	if err := configurePerClusterNATMap(reg, perClusterIPv6OuterMap, flags,
+		maxEntries); err != nil {
+		return err
+	}
+	return nil
+}
+
+func configureNATMap(reg *mapregistry.MapRegistry, mapName string, flags, maxEntries uint32) error {
+	if err := reg.Modify(mapName, func(patch *mapregistry.MapSpecPatch) {
+		patch.Flags = flags
+		patch.MaxEntries = maxEntries
+	}); err != nil {
+		return fmt.Errorf("error setting %s map flags and max entries: %w", mapName, err)
+	}
+	return nil
+}
+
+func configurePerClusterNATMap(reg *mapregistry.MapRegistry, mapName string, innerFlags,
+	innerMaxEntries uint32) error {
+	if err := reg.Modify(mapName, func(patch *mapregistry.MapSpecPatch) {
+		patch.InnerMap.Flags = innerFlags
+		patch.InnerMap.MaxEntries = innerMaxEntries
+	}); err != nil {
+		return fmt.Errorf("error setting %s inner map flags and max entries: %w", mapName,
+			err)
+	}
+	return nil
 }
 
 // NATRetriesMap is a marker interface for the NAT retries map.

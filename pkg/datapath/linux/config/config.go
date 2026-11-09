@@ -223,11 +223,6 @@ func (h *HeaderfileWriter) writeNodeConfig(w io.Writer, cfg *config.Config, with
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
-	cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
-
-	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
-
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", cmp.Or(option.Config.CTMapEntriesGlobalTCP, option.CTMapEntriesGlobalTCPDefault))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", cmp.Or(option.Config.CTMapEntriesGlobalAny, option.CTMapEntriesGlobalAnyDefault))
 
