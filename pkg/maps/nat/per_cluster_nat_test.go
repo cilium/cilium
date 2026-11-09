@@ -73,7 +73,7 @@ func TestPrivilegedPerClusterMaps(t *testing.T) {
 			require.NotZero(t, value, "Outer map not updated correctly (id=%v, family=%v)", id, om.family)
 
 			// After update, the inner map should exist
-			require.FileExists(t, path(t, &om.newInnerMap(id).Map), "Inner map not correctly present (id=%v, family=%v)", id, om.family)
+			require.FileExists(t, path(t, om.newInnerMap(id).Map), "Inner map not correctly present (id=%v, family=%v)", id, om.family)
 
 			// After update, it should be possible to get and open the inner map
 			im, err := GetClusterNATMap(id, om.family)
@@ -98,7 +98,7 @@ func TestPrivilegedPerClusterMaps(t *testing.T) {
 			require.Error(t, err, "Outer map not updated correctly (id=%v, family=%v)", id, om.family)
 
 			// After delete, the inner map should not exist
-			require.NoFileExists(t, path(t, &om.newInnerMap(id).Map), "Inner map not correctly deleted (id=%v, family=%v)", id, om.family)
+			require.NoFileExists(t, path(t, om.newInnerMap(id).Map), "Inner map not correctly deleted (id=%v, family=%v)", id, om.family)
 
 			// After delete, it should be no longer be possible to open the inner map
 			im, err := GetClusterNATMap(id, om.family)
@@ -150,7 +150,7 @@ func TestPrivilegedPerClusterMapsCleanup(t *testing.T) {
 				}
 
 				for _, id := range ids {
-					must(t, path(t, &om.newInnerMap(id).Map), "Inner map not correctly deleted (id=%v, family=%v)", id, om.family)
+					must(t, path(t, om.newInnerMap(id).Map), "Inner map not correctly deleted (id=%v, family=%v)", id, om.family)
 				}
 
 				must(t, path(t, om.Map), "Outer map not correctly deleted (family=%v)", om.family)

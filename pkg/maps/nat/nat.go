@@ -37,7 +37,7 @@ const (
 // Map represents a NAT map.
 // It also implements the NatMap interface.
 type Map struct {
-	bpf.Map
+	*bpf.Map
 	family IPFamily
 }
 
@@ -94,7 +94,7 @@ func NewMap(registry *metrics.Registry, name string, family IPFamily, entries in
 	}
 
 	return &Map{
-		Map: *bpf.NewMap(
+		Map: bpf.NewMap(
 			name,
 			ebpf.LRUHash,
 			mapKey,
@@ -139,7 +139,7 @@ func (m *Map) DumpBatch4(fn func(*tuple.TupleKey4, *NatEntry4)) (count int, err 
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
 
-	seq, errFn := bpf.BatchIterate[tuple.TupleKey4, NatEntry4](context.Background(), &m.Map)
+	seq, errFn := bpf.BatchIterate[tuple.TupleKey4, NatEntry4](context.Background(), m.Map)
 	for key, entry := range seq {
 		count++
 		fn(key, entry)
@@ -152,7 +152,7 @@ func (m *Map) DumpBatch6(fn func(*tuple.TupleKey6, *NatEntry6)) (count int, err 
 	if m.family != IPv6 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
-	seq, errFn := bpf.BatchIterate[tuple.TupleKey6, NatEntry6](context.Background(), &m.Map)
+	seq, errFn := bpf.BatchIterate[tuple.TupleKey6, NatEntry6](context.Background(), m.Map)
 	for key, entry := range seq {
 		count++
 		fn(key, entry)
@@ -161,16 +161,16 @@ func (m *Map) DumpBatch6(fn func(*tuple.TupleKey6, *NatEntry6)) (count int, err 
 }
 
 func (m *Map) Delete(k bpf.MapKey) (deleted bool, err error) {
-	deleted, err = (&m.Map).SilentDelete(k)
+	deleted, err = m.Map.SilentDelete(k)
 	return
 }
 
 func (m *Map) DumpStats() *bpf.DumpStats {
-	return bpf.NewDumpStats(&m.Map)
+	return bpf.NewDumpStats(m.Map)
 }
 
 func (m *Map) DumpReliablyWithCallback(cb bpf.DumpCallback, stats *bpf.DumpStats) error {
-	return (&m.Map).DumpReliablyWithCallback(cb, stats)
+	return m.Map.DumpReliablyWithCallback(cb, stats)
 }
 
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
@@ -237,14 +237,14 @@ type gcStats struct {
 
 func statStartGc(m *Map) gcStats {
 	return gcStats{
-		DumpStats: bpf.NewDumpStats(&m.Map),
+		DumpStats: bpf.NewDumpStats(m.Map),
 	}
 }
 
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := (&m.Map).DeleteLocked(key)
+		err := m.Map.DeleteLocked(key)
 		if err != nil {
 			m.Logger.Error("Unable to delete NAT entry",
 				logfields.Error, err,
@@ -261,7 +261,7 @@ func doFlush4(m *Map) gcStats {
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := (&m.Map).DeleteLocked(key)
+		err := m.Map.DeleteLocked(key)
 		if err != nil {
 			m.Logger.Error("Unable to delete NAT entry",
 				logfields.Error, err,
