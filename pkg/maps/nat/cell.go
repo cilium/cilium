@@ -15,10 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
-// ErrMapDisabled is the expected error will be if map was not created
-// due to configuration.
-var ErrMapDisabled = fmt.Errorf("nat map is disabled")
-
 // Cell exposes global nat maps via Hive.
 var Cell = cell.Module(
 	"nat-maps",
