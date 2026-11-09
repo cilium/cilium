@@ -875,12 +875,11 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.Equal(t, 8, node.Stats().IPv4.UsedIPs)
 }
 
-// TestNodeManagerReleaseAddress tests PreAllocate, MinAllocate and MaxAboveWatermark
+// TestNodeManagerReleaseAddress tests PreAllocate and MinAllocate
 // when release excess IP is enabled
 //
 // - MinAllocate 15
 // - PreAllocate 4
-// - MaxAboveWatermark 4
 func TestNodeManagerReleaseAddress(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
@@ -890,41 +889,40 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", 4, 15, 0)
-	cn.Spec.IPAM.MaxAboveWatermark = 4
 	mngr.Upsert(cn)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second))
 
 	node := mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 15, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
-	// Use 11 out of 19 IPs, no additional IPs should be allocated
+	// Use 11 out of 15 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 11))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 15, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 11, node.Stats().IPv4.UsedIPs)
 
-	// Use 19 out of 19 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
-	mngr.Upsert(updateCiliumNode(cn, 19))
+	// Use 15 out of 15 IPs, PreAllocate 4 must kick in and allocate 4 additional IPs
+	mngr.Upsert(updateCiliumNode(cn, 15))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 27, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 19, node.Stats().IPv4.UsedIPs)
+	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 15, node.Stats().IPv4.UsedIPs)
 
-	// Free some IPs, 5 excess IPs appears but only be released at interval based resync, so expect timeout here
+	// Free some IPs, 4 excess IPs appear but are only released at interval based resync, so expect timeout here
 	mngr.Upsert(updateCiliumNode(cn, 10))
 	require.Error(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 27, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
 
-	// Trigger resync manually, excess IPs should be released down to 18
-	// (10 used + 4 prealloc + 4 max-above-watermark)
+	// Trigger resync manually, excess IPs should be released down to 15
+	// (max(min-allocate 15, 10 used + 4 pre-allocate))
 	// Excess timestamps should be registered after this trigger
 	node.instanceSync.Trigger()
 
@@ -944,7 +942,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 15, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
 }
 
