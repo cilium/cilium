@@ -4,6 +4,7 @@ package testutils
 
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -55,6 +56,10 @@ func CreateStoreEndpoint(name string, namespace string, identity int64) *v2.Cili
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			OwnerReferences: []meta_v1.OwnerReference{{
+				Kind: "Pod",
+				UID:  k8sTypes.UID(name + "-uid"),
+			}},
 		},
 		Status: v2.EndpointStatus{
 			Identity: &v2.EndpointIdentity{
