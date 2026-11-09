@@ -106,6 +106,9 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 
 	mapping := m.mapping
 
+	// ces2 holds the stale cep7 and must be enqueued to prune it.
+	assertEnqueued(t, cesController.Controller, NewCESKey("ces2", "ns"))
+
 	for _, ces := range []*cilium_v2a1.CiliumEndpointSlice{ces1, ces2} {
 		for _, cep := range ces.Endpoints {
 			cesN, _ := mapping.getCESName(NewCEPName(cep.Name, "ns"))
@@ -121,6 +124,22 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 
 	cesController.queue.ShutDown()
 	hive.Stop(log, t.Context())
+}
+
+// assertEnqueued waits until all the given keys are queued.
+// Note: keys are drained from the queue, as nothing else consumes it in tests.
+func assertEnqueued(t *testing.T, c *Controller, want ...CESKey) {
+	t.Helper()
+
+	var got []CESKey
+	assert.EventuallyWithT(t, func(ct *assert.CollectT) {
+		for c.queue.Len() > 0 {
+			key, _, _ := c.queue.GetWithPriority()
+			c.queue.Done(key)
+			got = append(got, key)
+		}
+		assert.Subset(ct, got, want)
+	}, time.Second, 10*time.Millisecond)
 }
 
 func queueLengths(t *testing.T, c *Controller) (standardQueueLen, fastQueueLen int) {
@@ -842,17 +861,14 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	// pod8 (added while down) was placed in some CES via phase 5's
 	// onPodUpdate — either into an existing CES with capacity or a fresh
 	// one if none had room.
-	_, ok := m.mapping.getCESName(NewCEPName("pod8", "ns"))
+	cesName8, ok := m.mapping.getCESName(NewCEPName("pod8", "ns"))
 	assert.True(t, ok, "pod8 should be placed in a CES")
 
 	// Some CES(es) should have been enqueued for reconciliation:
 	// - ces2 because pod7 was skipped as stale.
 	// - the CES that received pod8 (via onPodUpdate's enqueue).
-	if err := testutils.WaitUntil(func() bool {
-		return cesController.queue.Len() >= 1
-	}, time.Second); err != nil {
-		t.Fatalf("expected CES(es) to be enqueued after bootstrap; queues empty")
-	}
+	assertEnqueued(t, cesController.Controller,
+		NewCESKey("ces2", "ns"), NewCESKey(string(cesName8), "ns"))
 
 	// Calling onPodUpdate again is idempotent for already-placed pods.
 	cesController.onPodUpdate(pod1)
