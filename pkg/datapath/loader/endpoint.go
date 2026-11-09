@@ -114,6 +114,31 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *
 	return hash, err
 }
 
+// defaultWorkloadConfig is the compile time configuration of the workload endpoints, whose options
+// do not affect the bpf_lxc template.
+type defaultWorkloadConfig struct{}
+
+func (*defaultWorkloadConfig) GetOptions() *option.IntOptions {
+	return option.NewIntOptions(&option.OptionLibrary{})
+}
+func (*defaultWorkloadConfig) RequireEgressProg() bool    { return false }
+func (*defaultWorkloadConfig) RequireBPFRouting() bool    { return false }
+func (*defaultWorkloadConfig) RequireEndpointRoute() bool { return false }
+func (*defaultWorkloadConfig) IsHost() bool               { return false }
+
+// PrecompileEndpointTemplate compiles the bpf_lxc template shared by the workload endpoints. It must
+// run after Reinitialize has recorded the datapath hash.
+func (l *loader) PrecompileEndpointTemplate(ctx context.Context) error {
+	// Like an endpoint build, hold the read lock so that Reinitialize cannot replace the hash
+	// meanwhile.
+	l.compilationLock.RLock()
+	defer l.compilationLock.RUnlock()
+	dirs := directoryInfo{Library: option.Config.BpfDir, Runtime: option.Config.StateDir}
+	cfg := wrap(&defaultWorkloadConfig{})
+	_, _, err := l.templateCache.fetchOrCompile(ctx, cfg, &dirs, nil)
+	return err
+}
+
 // Unload removes the datapath specific program aspects
 func (l *loader) Unload(ep endpoint.Endpoint) {
 	if ep.RequireEndpointRoute() {

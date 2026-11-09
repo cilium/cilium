@@ -58,6 +58,10 @@ func (f *Loader) EndpointTemplateReady() <-chan struct{} {
 	return ready
 }
 
+func (f *Loader) PrecompileEndpointTemplate(_ context.Context) error {
+	return nil
+}
+
 func (f *Loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
 	return nil
 }
