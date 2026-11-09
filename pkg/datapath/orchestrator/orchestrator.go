@@ -170,8 +170,22 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 	})
 
 	params.JobGroup.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
+	params.JobGroup.Add(job.OneShot("precompile-endpoint-template", o.precompileEndpointTemplate))
 
 	return o
+}
+
+// precompileEndpointTemplate compiles the bpf_lxc template as soon as the datapath is initialized.
+func (o *orchestrator) precompileEndpointTemplate(ctx context.Context, health cell.Health) error {
+	health.OK("Waiting for the datapath")
+	select {
+	case <-o.dpInitialized:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	health.OK("Pre-compiling the endpoint template")
+	return o.params.Loader.PrecompileEndpointTemplate(ctx)
 }
 
 func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error {

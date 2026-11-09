@@ -198,6 +198,29 @@ func TestObjectCacheParallel(t *testing.T) {
 	wg.Wait()
 }
 
+func TestPrecompileEndpointTemplate(t *testing.T) {
+	setupCompilationDirectories(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	cache := newObjectCache(hivetest.Logger(t), configWriterForTest(t), t.TempDir())
+	require.NoError(t, cache.UpdateDatapathHash(ctx, &localNodeConfig))
+	l := &loader{templateCache: cache, compilationLock: NewCompilationLock()}
+	require.NoError(t, l.PrecompileEndpointTemplate(ctx))
+
+	lib := option.GetEndpointMutableOptionLibrary()
+	ep := testutils.NewTestEndpoint(t)
+	ep.Opts = option.NewIntOptions(&lib)
+	for k := range lib {
+		ep.Opts.SetValidated(k, option.OptionEnabled)
+	}
+	stats := &metrics.SpanStat{}
+	_, _, err := cache.fetchOrCompile(ctx, &ep, getDirs(t), stats)
+	require.NoError(t, err)
+	require.Zero(t, stats.BpfCompilation.Total(), "an endpoint with any options reuses the precompiled template")
+}
+
 func configWriterForTest(t testing.TB) config.Writer {
 	t.Helper()
 
