@@ -1049,26 +1049,29 @@ func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, 
 	localGroups := n.localSubnetGroups()
 	newTun4, newDir4 := n.classifyRemoteCIDRs(newNode.GetIPv4AllocCIDRs(), localGroups)
 	newTun6, newDir6 := n.classifyRemoteCIDRs(newNode.GetIPv6AllocCIDRs(), localGroups)
-	var oldTun4, oldTun6 []netip.Prefix
+	var old4, old6 []netip.Prefix
 	if oldNode != nil {
-		oldTun4, _ = n.classifyRemoteCIDRs(oldNode.GetIPv4AllocCIDRs(), localGroups)
-		oldTun6, _ = n.classifyRemoteCIDRs(oldNode.GetIPv6AllocCIDRs(), localGroups)
+		old4 = oldNode.GetIPv4AllocCIDRs()
+		old6 = oldNode.GetIPv6AllocCIDRs()
 	}
 
-	addedTun4, removedTun4 := diffPrefixes(oldTun4, newTun4)
-	addedTun6, removedTun6 := diffPrefixes(oldTun6, newTun6)
+	_, removed4 := diffPrefixes(old4, newNode.GetIPv4AllocCIDRs())
+	_, removed6 := diffPrefixes(old6, newNode.GetIPv6AllocCIDRs())
+
+	// Reapply desired routes: classifying oldNode with the current topology
+	// cannot recover the route types installed before a topology change.
 
 	var errs error
-	if err := n.addNodeRoutes(addedTun4, isLocalNode); err != nil {
+	if err := n.addNodeRoutes(newTun4, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv4: %w", err))
 	}
-	if err := n.addNodeRoutes(addedTun6, isLocalNode); err != nil {
+	if err := n.addNodeRoutes(newTun6, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv6: %w", err))
 	}
-	if err := n.removeNodeRoutes(removedTun4, isLocalNode); err != nil {
+	if err := n.removeNodeRoutes(removed4, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv4: %w", err))
 	}
-	if err := n.removeNodeRoutes(removedTun6, isLocalNode); err != nil {
+	if err := n.removeNodeRoutes(removed6, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv6: %w", err))
 	}
 	// Defensive cleanup: a CIDR's classification may have changed since a prior

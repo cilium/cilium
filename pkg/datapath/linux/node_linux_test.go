@@ -832,6 +832,26 @@ func TestPrivilegedNodeUpdateHybridRouting(t *testing.T) {
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, otherGroupAlloc), "stale tunnel route for old CIDR should be gone")
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "no tunnel route expected for same-group CIDR")
 	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), "no direct route expected for same-group CIDR since we don't create them in the linux handler")
+
+	// Change only the topology: the unchanged node now needs a tunnel route.
+	wtx := db.WriteTxn(subnetTable)
+	_, _, err := subnetTable.Insert(wtx, subnetmap.NewSubnetEntry(sameGroupAlloc, 2))
+	require.NoError(t, err)
+	wtx.Commit()
+	mustUpdateNode(t, s.ns, lnh, nodev2, nodev2)
+	require.NotNil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "topology change must install the tunnel route")
+
+	// Repeating reconciliation must preserve the desired tunnel route.
+	mustUpdateNode(t, s.ns, lnh, nodev2, nodev2)
+	require.NotNil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc))
+
+	// Restore its original group without changing the node or its addresses.
+	wtx = db.WriteTxn(subnetTable)
+	_, _, err = subnetTable.Insert(wtx, subnetmap.NewSubnetEntry(sameGroupAlloc, 1))
+	require.NoError(t, err)
+	wtx.Commit()
+	mustUpdateNode(t, s.ns, lnh, nodev2, nodev2)
+	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "topology change must remove the tunnel route")
 	// delete the node: both route types should be attempted and removed.
 	mustDeleteNode(t, s.ns, lnh, nodev2)
 
