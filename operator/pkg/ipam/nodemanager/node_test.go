@@ -35,12 +35,11 @@ type testNeededDef struct {
 }
 
 type testExcessDef struct {
-	available         int
-	used              int
-	preallocate       int
-	minallocate       int
-	maxabovewatermark int
-	result            int
+	available   int
+	used        int
+	preallocate int
+	minallocate int
+	result      int
 }
 
 var neededDef = []testNeededDef{
@@ -57,16 +56,13 @@ var neededDef = []testNeededDef{
 }
 
 var excessDef = []testExcessDef{
-	{0, 0, 0, 16, 0, 0},
-	{15, 0, 8, 16, 8, 0},
-	{17, 0, 8, 16, 0, 1}, // 17 used, 8 pre-allocate, 16 min-allocate => 1 excess
-	{20, 0, 8, 16, 4, 0}, // 20 used, 8 pre-allocate, 16 min-allocate, 4 max-above-watermark => 0 excess
-	{21, 0, 8, 0, 4, 9},  // 21 used, 8 pre-allocate, 4 max-above-watermark => 9 excess
-	{20, 0, 8, 20, 8, 0},
-	{16, 1, 8, 16, 8, 0},
-	{20, 4, 8, 17, 8, 0},
-	{20, 4, 8, 0, 0, 8},
-	{20, 4, 8, 0, 8, 0},
+	{0, 0, 0, 16, 0},
+	{17, 0, 8, 16, 1}, // 17 available, 0 used, 8 pre-allocate, 16 min-allocate => 1 excess
+	{20, 0, 8, 20, 0},
+	{16, 1, 8, 16, 0},
+	{20, 4, 8, 17, 3},
+	{20, 4, 8, 0, 8},
+	{20, 10, 8, 16, 2}, // used + pre-allocate (18) exceeds min-allocate (16) => 2 excess
 }
 
 func TestCalculateNeededIPs(t *testing.T) {
@@ -78,7 +74,7 @@ func TestCalculateNeededIPs(t *testing.T) {
 
 func TestCalculateExcessIPs(t *testing.T) {
 	for _, d := range excessDef {
-		result := calculateExcessIPs(d.available, d.used, d.preallocate, d.minallocate, d.maxabovewatermark)
+		result := calculateExcessIPs(d.available, d.used, d.preallocate, d.minallocate)
 		require.Equal(t, d.result, result)
 	}
 }
@@ -393,7 +389,6 @@ func newPoolDemandNode(t *testing.T, requestedIPv4, requestedIPv6 int) *Node {
 	t.Helper()
 
 	cn := newCiliumNode("test-node", 8, 16, 0)
-	cn.Spec.IPAM.MaxAboveWatermark = 4
 	cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
 		{
 			Pool: defaults.IPAMDefaultIPPool,
@@ -500,7 +495,7 @@ func TestDetermineMaintenanceActionIPv6Only(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, a)
 		require.NotNil(t, a.allocation)
-		require.Zero(t, a.allocation.IPv4.MaxIPsToAllocate, "max-above-watermark and surge must not apply to IPv4")
+		require.Zero(t, a.allocation.IPv4.MaxIPsToAllocate, "no IPv4 addresses must be allocated on an IPv6-only node")
 		require.Equal(t, 1, a.allocation.IPv6.MaxPrefixesToAllocate)
 	})
 
@@ -512,7 +507,7 @@ func TestDetermineMaintenanceActionIPv6Only(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, a)
 		require.NotNil(t, a.allocation)
-		require.Equal(t, 16+4, a.allocation.IPv4.MaxIPsToAllocate)
+		require.Equal(t, 16, a.allocation.IPv4.MaxIPsToAllocate)
 		require.Equal(t, 1, a.allocation.IPv6.MaxPrefixesToAllocate)
 	})
 }
@@ -1004,7 +999,7 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 			markedMap[cidr] = past()
 		}
 		n := setupNode(t, mock, markedMap, true)
-		n.stats.IPv4.ExcessIPs = calculateExcessIPs(available, used, preAllocate, minAllocate, 0)
+		n.stats.IPv4.ExcessIPs = calculateExcessIPs(available, used, preAllocate, minAllocate)
 
 		_, err := n.handleMultiPoolCIDRRelease(t.Context())
 		require.NoError(t, err)
