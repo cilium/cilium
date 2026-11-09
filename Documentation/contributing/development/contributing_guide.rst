@@ -433,7 +433,7 @@ then you just add a line saying:
 If you need to add your sign off to a commit you have already made, please see `this article <https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/managing-commits/amending-a-commit>`_.
 
 Cilium follows the real names policy described in the CNCF `DCO Guidelines v1.0
-<https://github.com/cncf/foundation/blob/main/dco-guidelines.md>`_:
+<https://github.com/cncf/foundation/blob/main/policies-guidance/dco-guidelines.md>`_:
 
 ::
 

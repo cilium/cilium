@@ -15,7 +15,7 @@ Prerequisites
 
 You will need to `install cosign`_.
 
-.. _`install cosign`: https://docs.sigstore.dev/cosign/installation/
+.. _`install cosign`: https://docs.sigstore.dev/cosign/system_config/installation/
 
 Verify Signed Container Images
 ==============================

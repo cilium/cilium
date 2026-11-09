@@ -1,4 +1,4 @@
-To install Cilium on `k3s <https://rancher.com/docs/k3s/latest/en/quick-start/>`_,
+To install Cilium on `k3s <https://docs.k3s.io/quick-start>`_,
 perform the following steps:
 
 **Default Configuration:**
