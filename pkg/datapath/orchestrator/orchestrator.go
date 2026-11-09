@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -62,6 +63,11 @@ const (
 
 	// datapathInitDeadline matches the default startupProbe budget, failureThreshold 300 at periodSeconds 2.
 	datapathInitDeadline = 10 * time.Minute
+
+	// datapathReadyTimeout bounds how long the agent readiness is held back waiting for the endpoint
+	// template. It matches the endpoint creation timeout of the CNI plugin, beyond which waiting
+	// longer would not help, and it must stay well below datapathInitDeadline.
+	datapathReadyTimeout = 90 * time.Second
 )
 
 var DefaultConfig = Config{
@@ -124,6 +130,7 @@ type orchestratorParams struct {
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
+	DatapathReady       promise.Resolver[cni.DatapathReady]
 	XDPConfig           xdp.Config
 	LBConfig            loadbalancer.Config
 	LRPConfig           redirectpolicy.Config
@@ -176,7 +183,26 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 }
 
 // precompileEndpointTemplate compiles the bpf_lxc template as soon as the datapath is initialized.
+// Once the compile is over, successfully or not, or datapathReadyTimeout has elapsed, the agent
+// may be ready and the CNI configuration may be written.
+// todo(ekoops): remove this once BPF objects get pre-compiled.
 func (o *orchestrator) precompileEndpointTemplate(ctx context.Context, health cell.Health) error {
+	// A canceled job means the agent is stopping, which must not write the CNI configuration.
+	resolve := func() {
+		if ctx.Err() == nil {
+			o.params.DatapathReady.Resolve(cni.DatapathReady{})
+		}
+	}
+
+	// The compile goes on if it takes longer: only the readiness stops waiting for it.
+	timer := time.AfterFunc(datapathReadyTimeout, func() {
+		o.params.Log.Info("Endpoint template not compiled in time, no longer holding back the readiness",
+			logfields.Timeout, datapathReadyTimeout,
+		)
+		resolve()
+	})
+	defer timer.Stop()
+
 	health.OK("Waiting for the datapath")
 	select {
 	case <-o.dpInitialized:
@@ -185,7 +211,9 @@ func (o *orchestrator) precompileEndpointTemplate(ctx context.Context, health ce
 	}
 
 	health.OK("Pre-compiling the endpoint template")
-	return o.params.Loader.PrecompileEndpointTemplate(ctx)
+	err := o.params.Loader.PrecompileEndpointTemplate(ctx)
+	resolve()
+	return err
 }
 
 func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error {

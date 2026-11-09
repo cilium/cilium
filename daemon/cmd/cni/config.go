@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni/config"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
@@ -46,6 +47,8 @@ type cniConfigManager struct {
 
 	// watcher watches for changes in the CNI configuration directory
 	watcher *fsnotify.Watcher
+
+	datapathReady promise.Promise[DatapathReady]
 
 	status atomic.Pointer[models.Status]
 }
@@ -171,7 +174,7 @@ const cniControllerName = "write-cni-file"
 
 var cniControllerGroup = controller.NewGroup("write-cni-file")
 
-// startCNIConfWriter starts the CNI configuration file manager.
+// Start starts the CNI configuration file manager.
 //
 // This has two responsibilities:
 // - remove any existing non-Cilium CNI configuration files
@@ -190,11 +193,23 @@ var cniControllerGroup = controller.NewGroup("write-cni-file")
 // - cni-log-file=PATH -- A file for the CNI plugin to use for logging
 // - debug -- Whether or not the CNI plugin binary should be verbose
 func (c *cniConfigManager) Start(cell.HookContext) error {
+	// todo(ekoops): remove this once BPF objects get pre-compiled.
+	// Set the agent as not ready until the datapath is: the status is replaced only after that.
+	c.status.Store(&models.Status{
+		Msg:   "waiting for the datapath to be ready",
+		State: models.StatusStateFailure,
+	})
+
 	if c.config.WriteCNIConfWhenReady == "" {
-		c.status.Store(&models.Status{
-			Msg:   "CNI configuration management disabled",
-			State: models.StatusStateDisabled,
-		})
+		// todo(ekoops): remove this once BPF objects get pre-compiled.
+		go func() {
+			if _, err := c.datapathReady.Await(c.ctx); err == nil {
+				c.status.Store(&models.Status{
+					Msg:   "CNI configuration management disabled",
+					State: models.StatusStateDisabled,
+				})
+			}
+		}()
 		return nil
 	}
 
@@ -227,6 +242,10 @@ func (c *cniConfigManager) Start(cell.HookContext) error {
 		controller.ControllerParams{
 			Group: cniControllerGroup,
 			DoFunc: func(ctx context.Context) error {
+				// todo(ekoops): remove this once BPF objects get pre-compiled.
+				if _, err := c.datapathReady.Await(ctx); err != nil {
+					return err
+				}
 				err := c.setupCNIConfFile()
 				if err != nil {
 					c.logger.Info(

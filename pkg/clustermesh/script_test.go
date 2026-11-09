@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -125,6 +126,11 @@ func TestScript(t *testing.T) {
 				},
 				func() *ipcache.IPCache {
 					return nil
+				},
+				func() promise.Promise[cni.DatapathReady] {
+					resolver, ready := promise.New[cni.DatapathReady]()
+					resolver.Resolve(cni.DatapathReady{})
+					return ready
 				},
 			),
 

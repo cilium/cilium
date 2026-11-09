@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni/config"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -44,9 +45,26 @@ type CNIConfigManager interface {
 	ExternalRoutingEnabled() bool
 }
 
-func enableConfigManager(lc cell.Lifecycle, logger *slog.Logger, cfg config.Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
-	c := newConfigManager(logger, cfg, dcfg.Debug)
-	lc.Append(c)
+// DatapathReady signals that the datapath is ready to create endpoints.
+type DatapathReady struct{}
+
+type configManagerParams struct {
+	cell.In
+
+	Lifecycle    cell.Lifecycle
+	Logger       *slog.Logger
+	Config       config.Config
+	DaemonConfig *option.DaemonConfig // only for .Debug
+	// todo(ekoops): remove this once BPF objects get pre-compiled.
+	// DatapathReady keeps the agent not ready, and holds back the writing of a missing CNI
+	// configuration, until it is resolved, so that no pod is scheduled or created earlier.
+	DatapathReady promise.Promise[DatapathReady]
+}
+
+func enableConfigManager(p configManagerParams) CNIConfigManager {
+	c := newConfigManager(p.Logger, p.Config, p.DaemonConfig.Debug)
+	c.datapathReady = p.DatapathReady
+	p.Lifecycle.Append(c)
 	return c
 }
 

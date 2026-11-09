@@ -4,6 +4,7 @@
 package cni
 
 import (
+	"context"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,7 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/cmd/cni/config"
+	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestInstallCNIConfFile(t *testing.T) {
@@ -45,6 +49,32 @@ func TestInstallCNIConfFile(t *testing.T) {
 	val := gjson.GetBytes(data, "plugins.0.type")
 	assert.Equal(t, "cilium-cni", val.String())
 
+}
+
+func TestCNIConfWaitsForDatapath(t *testing.T) {
+	conf := path.Join(t.TempDir(), "05-cilium.conflist")
+	cfg := config.Config{
+		CNIChainingMode:       "none",
+		WriteCNIConfWhenReady: conf,
+	}
+	resolver, ready := promise.New[DatapathReady]()
+	c := newConfigManager(hivetest.Logger(t), cfg, false)
+	c.datapathReady = ready
+
+	assert.NoError(t, c.Start(t.Context()))
+	t.Cleanup(func() { c.Stop(context.Background()) })
+
+	written := func() bool {
+		_, err := os.Stat(conf)
+		return err == nil
+	}
+	assert.Never(t, written, 200*time.Millisecond, 10*time.Millisecond)
+	assert.Equal(t, models.StatusStateFailure, c.Status().State)
+	assert.Contains(t, c.Status().Msg, "datapath")
+
+	resolver.Resolve(DatapathReady{})
+	assert.Eventually(t, written, 5*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return c.Status().State == models.StatusStateOk }, 5*time.Second, 10*time.Millisecond)
 }
 
 func TestRenderCNIConfUnchained(t *testing.T) {

@@ -629,7 +629,7 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.CniFile != nil && d.statusResponse.CniFile.State == models.StatusStateFailure:
-		msg := "Could not write CNI config file: " + d.statusResponse.CniFile.Msg
+		msg := d.statusResponse.CniFile.Msg
 		sr.Cilium = &models.Status{
 			State: models.StatusStateFailure,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
