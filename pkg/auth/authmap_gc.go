@@ -7,6 +7,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
+
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -41,6 +45,10 @@ type authMapGarbageCollector struct {
 	endpointsCache       map[uint16]*endpoint.Endpoint
 	endpointsCacheSynced bool
 	endpointsCacheMutex  lock.RWMutex
+
+	// endpointCleanupTrigger runs cleanupEndpoints in its own job after an
+	// endpoint got deleted. See EndpointDeleted.
+	endpointCleanupTrigger job.Trigger
 }
 
 func (r *authMapGarbageCollector) Name() string {
@@ -66,6 +74,7 @@ func newAuthMapGC(logger *slog.Logger, authmap authMap, nodeIDHandler node.IDHan
 		ciliumNodesDeleted:         map[uint16]struct{}{},
 		ciliumIdentitiesDiscovered: map[identity.NumericIdentity]struct{}{},
 		ciliumIdentitiesDeleted:    map[identity.NumericIdentity]struct{}{},
+		endpointCleanupTrigger:     job.NewTrigger(),
 	}
 }
 
@@ -404,18 +413,38 @@ func (r *authMapGarbageCollector) EndpointCreated(ep *endpoint.Endpoint) {
 
 func (r *authMapGarbageCollector) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
 	r.endpointsCacheMutex.Lock()
-	delete(r.endpointsCache, ep.GetID16())
+	// The endpoint ID is released before this callback runs, so a new
+	// endpoint may already have taken it. Only remove our own entry.
+	if r.endpointsCache[ep.GetID16()] == ep {
+		delete(r.endpointsCache, ep.GetID16())
+	}
 	r.endpointsCacheMutex.Unlock()
 
-	// when an endpoint got removed clean the authmap entries
-	if err := r.cleanupEndpoints(context.Background()); err != nil {
-		r.logger.Warn("failed to cleanup auth map entries related to endpoint entries", logfields.Error, err)
-	}
+	// When an endpoint got removed, clean the authmap entries. Don't do it
+	// here: this callback runs while the endpoint manager holds its read lock,
+	// and cleanupEndpoints takes the lock of every cached endpoint. A
+	// concurrent Endpoint.Delete holds its endpoint lock and waits for the
+	// endpoint manager read lock (DeleteConfig.EndpointOwnsIP). Once a writer
+	// is queued on the endpoint manager lock (e.g. unexpose), that read lock is
+	// never granted and the agent deadlocks.
+	r.endpointCleanupTrigger.Trigger()
 }
 
 // EndpointRestored implements endpointmanager.Subscriber.
 func (r *authMapGarbageCollector) EndpointRestored(ep *endpoint.Endpoint) {
 	// No-op
+}
+
+// endpointCleanupJob runs cleanupEndpoints whenever an endpoint got deleted.
+func (r *authMapGarbageCollector) endpointCleanupJob() job.Job {
+	return job.Timer("auth-gc-endpoint-cleanup", func(ctx context.Context) error {
+		// Log and carry on, as EndpointDeleted did before. A returned error
+		// would keep the job degraded until the next endpoint deletion.
+		if err := r.cleanupEndpoints(ctx); err != nil {
+			r.logger.Warn("failed to cleanup auth map entries related to endpoint entries", logfields.Error, err)
+		}
+		return nil
+	}, 0, job.WithTrigger(r.endpointCleanupTrigger))
 }
 
 func (r *authMapGarbageCollector) cleanupEndpoints(_ context.Context) error {
@@ -426,14 +455,20 @@ func (r *authMapGarbageCollector) cleanupEndpoints(_ context.Context) error {
 	}
 	r.ciliumIdentitiesMutex.RUnlock()
 
+	// Don't hold endpointsCacheMutex while taking endpoint locks: the endpoint
+	// manager callbacks take endpointsCacheMutex while the endpoint manager
+	// lock is held, and Endpoint.Delete takes the endpoint manager lock while
+	// its endpoint lock is held.
 	r.endpointsCacheMutex.RLock()
+	endpoints := slices.Collect(maps.Values(r.endpointsCache))
+	r.endpointsCacheMutex.RUnlock()
+
 	idsInUse := map[identity.NumericIdentity]struct{}{}
-	for _, ep := range r.endpointsCache {
+	for _, ep := range endpoints {
 		if id, err := ep.GetSecurityIdentity(); err == nil && id != nil {
 			idsInUse[id.ID] = struct{}{}
 		}
 	}
-	r.endpointsCacheMutex.RUnlock()
 	r.ciliumIdentitiesMutex.RLock()
 	defer r.ciliumIdentitiesMutex.RUnlock()
 	for id := range r.ciliumIdentitiesDiscovered {

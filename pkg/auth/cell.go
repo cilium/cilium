@@ -184,6 +184,7 @@ func registerGCJobs(jobGroup job.Group, lifecycle cell.Lifecycle, mapGC *authMap
 
 	jobGroup.Add(job.Observer("auth-gc-identity-events", mapGC.handleIdentityChange, identityChanges))
 	jobGroup.Add(job.Timer("auth-gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
+	jobGroup.Add(mapGC.endpointCleanupJob())
 }
 
 type authHandlerResult struct {

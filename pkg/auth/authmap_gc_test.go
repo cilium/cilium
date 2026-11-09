@@ -9,11 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -328,6 +331,89 @@ func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1, "GC runs should delete all entries where the secrity ID no longer is in the endpoint map")
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policyTypes.AuthTypeSpire})
+}
+
+// signalingAuthMap signals each DeleteIf, so tests can wait for a GC job
+// without racing on the fake map.
+type signalingAuthMap struct {
+	*fakeAuthMap
+	deleted chan struct{}
+}
+
+func (m *signalingAuthMap) DeleteIf(predicate func(key authKey, info authInfo) bool) error {
+	defer func() {
+		select {
+		case m.deleted <- struct{}{}:
+		default:
+		}
+	}()
+	return m.fakeAuthMap.DeleteIf(predicate)
+}
+
+// EndpointDeleted is called by the endpoint manager while it holds its lock.
+// It must not clean up the auth map itself, because that locks every cached
+// endpoint and deadlocks with a concurrent endpoint deletion. The cleanup must
+// run in the endpoint cleanup job, started by the trigger.
+func Test_authMapGarbageCollector_EndpointDeletedTriggersCleanup(t *testing.T) {
+	authMap := &signalingAuthMap{
+		fakeAuthMap: &fakeAuthMap{
+			entries: map[authKey]authInfo{
+				{localIdentity: 2, remoteIdentity: 3, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+				{localIdentity: 3, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			},
+		},
+		deleted: make(chan struct{}, 1),
+	}
+	tlog := hivetest.Logger(t)
+	gc := newAuthMapGC(tlog, authMap, nil, nil)
+	deletedEP := &endpoint.Endpoint{ID: 1, SecurityIdentity: &identity.Identity{ID: 2}}
+	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
+		1: deletedEP,
+		2: {ID: 2, SecurityIdentity: &identity.Identity{ID: 3}},
+	}
+	gc.endpointsCacheSynced = true
+	gc.ciliumIdentitiesDiscovered = map[identity.NumericIdentity]struct{}{2: {}, 3: {}}
+	gc.ciliumIdentitiesSynced = true
+
+	gc.EndpointDeleted(deletedEP, endpoint.DeleteConfig{})
+	assert.Len(t, authMap.entries, 2, "EndpointDeleted must not clean up the auth map synchronously")
+	assert.NotContains(t, gc.endpointsCache, uint16(1))
+
+	h := hive.New(cell.Invoke(func(jg job.Group) {
+		jg.Add(gc.endpointCleanupJob())
+	}))
+	require.NoError(t, h.Start(tlog, t.Context()))
+	stopped := false
+	t.Cleanup(func() {
+		if !stopped {
+			require.NoError(t, h.Stop(tlog, context.Background()))
+		}
+	})
+
+	select {
+	case <-authMap.deleted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("endpoint cleanup job was not triggered")
+	}
+	// Stop the job before reading the fake map, which has no lock.
+	require.NoError(t, h.Stop(tlog, context.Background()))
+	stopped = true
+	assert.Empty(t, authMap.entries, "entries of the deleted endpoint's identity must be removed by the triggered job")
+}
+
+// The endpoint ID is released before EndpointDeleted runs. A late
+// EndpointDeleted must not remove a new endpoint that reuses the ID.
+func Test_authMapGarbageCollector_EndpointDeletedKeepsReusedID(t *testing.T) {
+	gc := newAuthMapGC(hivetest.Logger(t), &fakeAuthMap{entries: map[authKey]authInfo{}}, nil, nil)
+	oldEP := &endpoint.Endpoint{ID: 1}
+	newEP := &endpoint.Endpoint{ID: 1}
+	gc.endpointsCache = map[uint16]*endpoint.Endpoint{}
+
+	gc.EndpointCreated(oldEP)
+	gc.EndpointCreated(newEP)
+	gc.EndpointDeleted(oldEP, endpoint.DeleteConfig{})
+
+	assert.Same(t, newEP, gc.endpointsCache[1], "EndpointDeleted of the old endpoint must not remove the new endpoint with the same ID")
 }
 
 func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
