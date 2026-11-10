@@ -1604,6 +1604,24 @@ Helm CNI chaining option of ``cni.chainingMode=portmap``.
 By specifying ``kubeProxyReplacement=true`` the native hostPort support is
 automatically enabled and therefore no further action is required.
 
+During Pod creation, CNI ADD checks whether a requested HostPort is already in
+use by a host process. If it is, CNI rejects Pod sandbox creation with a port
+conflict error. The check is enabled by default. If you intentionally use
+HostPort to redirect a port already used by a host process, disable the check
+with the Helm value ``cni.checkHostPortConflict=false``. This check does not
+reserve the port against a later bind. The check uses Linux socket diagnostics
+(``INET_DIAG``) to efficiently look up listeners. If this support is not enabled
+the check falls back to using ``/proc/net/{tcp,tcp6,udp,udp6}``.
+
+Cluster administrators can further restrict HostPort use with Kubernetes
+`Pod Security Admission
+<https://kubernetes.io/docs/concepts/security/pod-security-admission/>`_.
+Enforcing the Baseline or Restricted Pod Security Standard for a namespace
+prevents Pods from requesting HostPorts. To allow only specific HostPorts or
+port ranges you can use a custom admission policy. See `Host Ports restrictions
+<https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline>`_
+for more.
+
 If the ``hostPort`` is specified without an additional ``hostIP``, then the
 Pod will be exposed to the outside world with the same local addresses from
 the node that were detected and used for exposing NodePort services, e.g.

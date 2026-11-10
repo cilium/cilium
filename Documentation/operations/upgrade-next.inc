@@ -50,6 +50,10 @@ notes carefully below to understand what to do during upgrade.
   ``10.0.0.0/24`` instead), duplicate ``cidrs`` entries, and IPv6 CIDRs with
   uppercase letters. Existing objects that break these rules are rejected the
   next time you edit them, so fix them before you change them.
+* During Pod creation, CNI ADD now checks whether a requested HostPort is
+  already in use by a host process and rejects the Pod if it is. If you
+  intentionally use HostPort to redirect a port that is already used by a host
+  process, set the Helm value ``cni.checkHostPortConflict=false``.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -116,6 +120,9 @@ The following options have been introduced in this version of Cilium:
   Operator installs and manages the Kubernetes ``ClusterNetworkPolicy`` CRD. It
   defaults to ``true``. Set it to ``false`` if you prefer to manage the CRD by
   other means.
+* The ``cni.checkHostPortConflict`` Helm value (``--cni-check-host-port-conflict`` agent flag)
+  controls whether Cilium checks whether a Pod HostPort conflicts with an existing
+  listener in the host network namespace. Defaults to ``true``.
 
 Changed Options
 ###############
