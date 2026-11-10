@@ -19,7 +19,7 @@ import (
 func TestPoolAccessor(t *testing.T) {
 	cn := &ciliumv2.CiliumNode{}
 	existing := ipamTypes.IPAMPoolSpec{
-		Requested: []ipamTypes.IPAMPoolRequest{{Pool: defaults.IPAMDefaultIPPool, Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 4}}},
+		Requested: []ipamTypes.IPAMPoolRequest{{Pool: defaults.IPAMDefaultIPPool, Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 4, IPv6Addrs: 4}}},
 		Allocated: []ipamTypes.IPAMPoolAllocation{{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.9/32"))}}},
 	}
 	require.True(t, poolAccessor.ToResource(cn, existing))
@@ -30,19 +30,19 @@ func TestPoolAccessor(t *testing.T) {
 		"primary": {Type: alibabaCloudTypes.ENITypePrimary, PrivateIPSets: []alibabaCloudTypes.PrivateIPSet{
 			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")), Primary: true},
 			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("10.0.0.2"))},
-		}},
+		}, IPv6Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/80"))}},
 		"secondary": {Type: alibabaCloudTypes.ENITypeSecondary, PrivateIPSets: []alibabaCloudTypes.PrivateIPSet{
 			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("10.0.0.4"))},
 			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("10.0.0.3")), Primary: true},
 			{},
 			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("2001:db8::1"))},
-		}},
+		}, IPv6Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:2::/80"))}},
 	}
 	got := poolAccessor.FromResource(cn)
 	require.Equal(t, existing.Requested, got.Requested)
 	require.Equal(t, []ipamTypes.IPAMPoolAllocation{{
 		Pool: defaults.IPAMDefaultIPPool, AllowFirstIP: true, AllowLastIP: true,
-		CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.3/32")), iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.4/32"))},
+		CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.3/32")), iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.4/32")), iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:2::/80"))},
 	}}, got.Allocated)
 	require.Equal(t, existing, cn.Spec.IPAM.Pools, "reading status must not mutate the CiliumNode")
 

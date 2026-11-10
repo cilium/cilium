@@ -72,17 +72,16 @@ func TestEndpointRulesManager(t *testing.T) {
 	require.False(t, found)
 }
 
-func TestEndpointRulesManagerAlibabaCloudIPv6(t *testing.T) {
+func TestEndpointRulesManagerDualStack(t *testing.T) {
 	db := statedb.New()
 	table, err := newEndpointRulesTable(db)
 	require.NoError(t, err)
 
 	manager := &endpointRulesManager{
-		enabled:  true,
-		ipamMode: ipamOption.IPAMAlibabaCloud,
-		logger:   slog.Default(),
-		db:       db,
-		table:    table,
+		enabled: true,
+		logger:  slog.Default(),
+		db:      db,
+		table:   table,
 	}
 	ep := newTestEndpoint(t, "container-a", "192.0.2.10", "2001:db8::10")
 
@@ -90,8 +89,8 @@ func TestEndpointRulesManagerAlibabaCloudIPv6(t *testing.T) {
 
 	v4, _, found := table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv4Address()))
 	require.True(t, found)
-	_, _, found = table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv6Address()))
-	require.False(t, found)
+	v6, _, found := table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv6Address()))
+	require.True(t, found)
 
 	txn := db.WriteTxn(table)
 	v4 = v4.Clone().SetStatus(statedbReconciler.StatusDone())
@@ -99,11 +98,24 @@ func TestEndpointRulesManagerAlibabaCloudIPv6(t *testing.T) {
 	require.NoError(t, err)
 	txn.Commit()
 
+	// IPv4 completion alone must not allow a dual-stack endpoint to proceed.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.ErrorIs(t, manager.WaitForEndpointRouting(ctx, ep), context.Canceled)
+
+	txn = db.WriteTxn(table)
+	v6 = v6.Clone().SetStatus(statedbReconciler.StatusDone())
+	_, _, err = table.Insert(txn, v6)
+	require.NoError(t, err)
+	txn.Commit()
+
 	err = manager.WaitForEndpointRouting(t.Context(), ep)
-	require.ErrorContains(t, err, "AlibabaCloud IPAM does not support IPv6 endpoint routing")
+	require.NoError(t, err)
 
 	manager.EndpointDeleted(ep, endpoint.DeleteConfig{})
 	_, _, found = table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv4Address()))
+	require.False(t, found)
+	_, _, found = table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv6Address()))
 	require.False(t, found)
 }
 
