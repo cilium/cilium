@@ -87,8 +87,13 @@ func (sll *LinuxSLL) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) er
 	sll.PacketType = LinuxSLLPacketType(binary.BigEndian.Uint16(data[0:2]))
 	sll.AddrType = binary.BigEndian.Uint16(data[2:4])
 	sll.AddrLen = binary.BigEndian.Uint16(data[4:6])
+	// The address field is a fixed 8-byte window at offset 6; anything larger is
+	// invalid and would otherwise wrap the uint16 addition below.
+	if sll.AddrLen > 8 {
+		return fmt.Errorf("Linux SLL invalid address length %d", sll.AddrLen)
+	}
 
-	sll.Addr = net.HardwareAddr(data[6 : sll.AddrLen+6])
+	sll.Addr = net.HardwareAddr(data[6 : 6+int(sll.AddrLen)])
 	sll.EthernetType = EthernetType(binary.BigEndian.Uint16(data[14:16]))
 	sll.BaseLayer = BaseLayer{data[:16], data[16:]}
 

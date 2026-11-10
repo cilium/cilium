@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 
 	"github.com/gopacket/gopacket"
 )
@@ -34,6 +35,10 @@ func (erspan2 *ERSPANII) LayerType() gopacket.LayerType { return LayerTypeERSPAN
 // DecodeFromBytes decodes the given bytes into this layer.
 func (erspan2 *ERSPANII) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	erspan2Length := 8
+	if len(data) < erspan2Length {
+		df.SetTruncated()
+		return errors.New("ERSPAN II header too short")
+	}
 	erspan2.Version = data[0] & 0xF0 >> 4
 	erspan2.VLANIdentifier = binary.BigEndian.Uint16(data[:2]) & 0x0FFF
 	erspan2.CoS = data[2] & 0xE0 >> 5

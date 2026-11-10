@@ -926,8 +926,8 @@ github.com/google/renameio/v2
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.6.1
-## explicit; go 1.24.0
+# github.com/gopacket/gopacket v1.7.2
+## explicit; go 1.25.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
 # github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
