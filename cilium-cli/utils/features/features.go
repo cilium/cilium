@@ -13,7 +13,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	ciliumdef "github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -278,9 +277,8 @@ func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
 }
 
 func ExtractL7PortRanges(ciliumVersion semver.Version) Status {
-	enabled := versioncheck.MustCompile(">=1.17.0")(ciliumVersion)
 	return Status{
-		Enabled: enabled,
+		Enabled: true,
 	}
 }
 

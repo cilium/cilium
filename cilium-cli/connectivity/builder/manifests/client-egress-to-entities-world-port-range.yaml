@@ -42,7 +42,5 @@ spec:
         protocol: UDP
       - port: "53"
         protocol: TCP
-    # Including 'world' here may still be needed for versions up to 1.16 (#997)
     toEntities:
       - host
-      - world

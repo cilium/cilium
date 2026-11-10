@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 //go:embed manifests/echo-ingress-l7-http.yaml
@@ -57,9 +56,6 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, templates map[string]st
 			}
 			// ipsec can't do node encryption, so just skip the test when routing=tunnel + kpr=1.
 			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
-				if !versioncheck.MustCompile(">=1.16.2")(ct.CiliumVersion) {
-					return false
-				}
 				ok, _ = ct.Features.MatchRequirements(
 					features.RequireEnabled(features.Tunnel),
 					features.RequireEnabled(features.KPR),
