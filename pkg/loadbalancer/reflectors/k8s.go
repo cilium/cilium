@@ -243,7 +243,10 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		case resource.Sync:
 			orphans := sets.New[loadbalancer.ServiceName]()
 			for svc := range p.Writer.Services().All(txn) {
-				if svc.Source == source.Kubernetes && !strings.Contains(svc.Name.Name(), hostPortServiceNameInfix) {
+				// Synthetic HostPort and LocalRedirect services aren't in the Kubernetes
+				// Service reflector's sync result, so don't delete them as orphans. Their
+				// names contain ':', which Kubernetes Service names cannot contain.
+				if svc.Source == source.Kubernetes && !strings.Contains(svc.Name.Name(), ":") {
 					orphans.Insert(svc.Name)
 				}
 			}

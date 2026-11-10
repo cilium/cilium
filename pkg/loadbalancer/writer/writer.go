@@ -342,11 +342,38 @@ func (w *Writer) isNodePortConflict(txn statedb.ReadTxn, addr loadbalancer.L3n4A
 // validateFrontends checks that the frontends being added are not already owned by other
 // services.
 func (w *Writer) validateFrontends(txn WriteTxn, fes ...loadbalancer.FrontendParams) error {
+	return w.validateFrontendsForService(txn, nil, fes...)
+}
+
+// canKubernetesServiceReplaceFrontend reports whether a Kubernetes-owned frontend can replace an
+// existing frontend.
+func canKubernetesServiceReplaceFrontend(incoming loadbalancer.SVCType, existing loadbalancer.SVCType) bool {
+	switch incoming {
+	case loadbalancer.SVCTypeClusterIP,
+		loadbalancer.SVCTypeLoadBalancer,
+		loadbalancer.SVCTypeExternalIPs,
+		loadbalancer.SVCTypeHostPort:
+		return existing == loadbalancer.SVCTypeLocalRedirect
+	default:
+		return false
+	}
+}
+
+func (w *Writer) validateFrontendsForService(txn WriteTxn, svc *loadbalancer.Service, fes ...loadbalancer.FrontendParams) error {
+	isKubernetesService := svc != nil && svc.Source == source.Kubernetes
+
 	// Validate that the frontends are not owned by other services.
-	for _, params := range fes {
-		fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address))
-		if found && !fe.ServiceName.Equal(params.ServiceName) {
-			return fmt.Errorf("%w: %s is owned by %s", loadbalancer.ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
+	for _, feParams := range fes {
+		fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(feParams.Address))
+		if found && !fe.ServiceName.Equal(feParams.ServiceName) {
+			// Under certain circumstances it's desirable for an incoming Kubernetes frontend
+			// to evict and replace another Frontend. For example, an addressMatcher LRP configured
+			// to an IP address owned by a Service should be evicted if we have a real Service
+			// frontend matching for it.
+			if isKubernetesService && canKubernetesServiceReplaceFrontend(feParams.Type, fe.Type) {
+				continue
+			}
+			return fmt.Errorf("%w: %s is owned by %s", loadbalancer.ErrFrontendConflict, feParams.Address.StringWithProtocol(), fe.ServiceName)
 		}
 	}
 	return nil
@@ -372,7 +399,7 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *loadbalancer.Servi
 	}
 	fes = filtered
 
-	if err := w.validateFrontends(txn, fes...); err != nil {
+	if err := w.validateFrontendsForService(txn, svc, fes...); err != nil {
 		return err
 	}
 
