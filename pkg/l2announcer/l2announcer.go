@@ -899,14 +899,7 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 }
 
 func (l2a *L2Announcer) leaseNamespace() string {
-	ns := l2a.params.DaemonConfig.K8sNamespace
-	// If due to any reason the CILIUM_K8S_NAMESPACE is not set we assume the operator
-	// to be in default namespace.
-	if ns == "" {
-		ns = metav1.NamespaceDefault
-	}
-
-	return ns
+	return l2a.params.DaemonConfig.K8sNamespace
 }
 
 const leasePrefix = "cilium-l2announce"
