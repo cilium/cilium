@@ -36,7 +36,7 @@ struct {
 	__type(key, struct l2_responder_v6_key);
 	__type(value, struct l2_responder_stats);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, L2_RESPONDER_MAP6_SIZE);
+	__uint(max_entries, 4096);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_l2_responder_v6 __section_maps_btf;
 
