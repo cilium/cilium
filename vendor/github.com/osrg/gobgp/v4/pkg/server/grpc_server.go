@@ -382,10 +382,16 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 	if len(opts) == 0 {
 		return status.Errorf(codes.InvalidArgument, "no events to watch")
 	}
+	// The callbacks run one at a time on the goroutine that calls onQueued
+	// before them, so queuedAt is the time of the event they are handling.
+	var queuedAt time.Time
 	simpleSend := func(paths []*api.Path, when time.Time) {
-		fn(&api.WatchEventResponse{Event: &api.WatchEventResponse_Table{Table: &api.WatchEventResponse_TableEvent{Paths: paths}}}, when)
+		fn(&api.WatchEventResponse{Event: &api.WatchEventResponse_Table{Table: &api.WatchEventResponse_TableEvent{
+			Paths:     paths,
+			Timestamp: tspb.New(queuedAt),
+		}}}, when)
 	}
-	err := s.bgpServer.WatchEvent(ctx, WatchEventMessageCallbacks{
+	err := s.bgpServer.watchEventQueued(ctx, WatchEventMessageCallbacks{
 		OnPathUpdate: func(pathList []*apiutil.Path, timestamp time.Time) {
 			paths := make([]*api.Path, 0, r.BatchSize)
 			for _, path := range pathList {
@@ -433,6 +439,7 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 								NeighborAddress:   apiutil.AddrOrEmpty(p.Conf.NeighborAddress),
 								NeighborInterface: p.Conf.NeighborInterface,
 								PeerGroup:         p.Conf.PeerGroup,
+								Description:       p.Conf.Description,
 							},
 							State: &api.PeerState{
 								PeerAsn:         p.State.PeerASN,
@@ -455,7 +462,7 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 				},
 			}, timestamp)
 		},
-	}, opts...)
+	}, func(t time.Time) { queuedAt = t }, opts...)
 	if err != nil {
 		return status.Errorf(codes.Aborted, "failed to watch event: %v", err)
 	}
@@ -518,76 +525,14 @@ func newRoutingPolicyFromApiStruct(arg *api.SetPoliciesRequest) (*oc.RoutingPoli
 	}, nil
 }
 
-func api2Path(resource api.TableType, path *api.Path, isWithdraw bool) (*table.Path, error) {
-	var pi *table.PeerInfo
-	var nlri bgp.NLRI
-	var nexthop netip.Addr
-
-	if path.SourceAsn != 0 {
-		id, err := netip.ParseAddr(path.SourceId)
-		if err != nil {
-			return nil, fmt.Errorf("invalid source ID: %w", err)
-		}
-		pi = &table.PeerInfo{
-			AS: path.SourceAsn,
-			ID: id,
-		}
-	}
-
-	nlri, err := apiutil.GetNativeNlri(path)
+// api2Path converts a path that AddPathStream receives. It uses the same
+// conversion as AddPath.
+func api2Path(resource api.TableType, path *api.Path) (*table.Path, error) {
+	p, err := api2apiutilPath(path)
 	if err != nil {
 		return nil, err
 	}
-
-	attrList, err := apiutil.GetNativePathAttributes(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO (sbezverk) At this poinnt nlri and path attributes are converted to native mode
-	// need to check if update with SR Policy nlri comes with mandatory route distinguisher
-	// extended community or NO_ADVERTISE community, with Tunnel Encapsulation Attribute 23
-	// and tunnel type 15. If it is not the case ignore update and log an error.
-
-	pattrs := make([]bgp.PathAttributeInterface, 0)
-	seen := make(map[bgp.BGPAttrType]struct{})
-	for _, attr := range attrList {
-		attrType := attr.GetType()
-		if _, ok := seen[attrType]; !ok {
-			seen[attrType] = struct{}{}
-		} else {
-			return nil, fmt.Errorf("duplicated path attribute type: %d", attrType)
-		}
-
-		switch a := attr.(type) {
-		case *bgp.PathAttributeNextHop:
-			nexthop = a.Value
-		case *bgp.PathAttributeMpReachNLRI:
-			if len(a.Value) == 0 {
-				return nil, fmt.Errorf("invalid mp reach attribute")
-			}
-			nexthop = a.Nexthop
-		default:
-			pattrs = append(pattrs, attr)
-		}
-	}
-
-	if !path.IsWithdraw && !nexthop.IsValid() {
-		return nil, fmt.Errorf("nexthop not found")
-	}
-	rf := bgp.NewFamily(uint16(path.Family.Afi), uint8(path.Family.Safi))
-	if resource != api.TableType_TABLE_TYPE_VRF && rf == bgp.RF_IPv4_UC && nexthop.Is4() {
-		pa, _ := bgp.NewPathAttributeNextHop(nexthop)
-		pattrs = append(pattrs, pa)
-	} else {
-		attr, _ := bgp.NewPathAttributeMpReachNLRI(rf, []bgp.PathNLRI{{NLRI: nlri}}, nexthop)
-		pattrs = append(pattrs, attr)
-	}
-
-	doWithdraw := isWithdraw || path.IsWithdraw
-	newPath := table.NewPath(rf, pi, bgp.PathNLRI{NLRI: nlri, ID: path.Identifier}, doWithdraw, pattrs, time.Now(), path.NoImplicitWithdraw)
-	newPath.SetIsFromExternal(path.IsFromExternal)
-	return newPath, nil
+	return apiutil2Path(p, resource == api.TableType_TABLE_TYPE_VRF)
 }
 
 func api2apiutilPath(path *api.Path) (*apiutil.Path, error) {
@@ -706,7 +651,7 @@ func (s *server) AddPathStream(stream api.GoBgpService_AddPathStreamServer) erro
 		}
 		pathList := make([]*table.Path, 0, len(arg.Paths))
 		for _, apiPath := range arg.Paths {
-			if path, err := api2Path(arg.TableType, apiPath, apiPath.IsWithdraw); err != nil {
+			if path, err := api2Path(arg.TableType, apiPath); err != nil {
 				return err
 			} else {
 				pathList = append(pathList, path)
@@ -982,6 +927,7 @@ func newBfdConfigFromAPIStruct(a *api.BfdPeerConfig) (oc.BfdConfig, error) {
 	return oc.BfdConfig{
 		Enabled:                  a.Enabled,
 		Port:                     uint16(a.Port),
+		Multihop:                 a.Multihop,
 		DesiredMinimumTxInterval: a.DesiredMinimumTxInterval,
 		RequiredMinimumReceive:   a.RequiredMinimumReceive,
 		DetectionMultiplier:      uint8(a.DetectionMultiplier),
@@ -1033,18 +979,10 @@ func newNeighborFromAPIStruct(a *api.Peer) (*oc.Neighbor, error) {
 			pconf.Config.RemovePrivateAs = oc.REMOVE_PRIVATE_AS_OPTION_REPLACE
 		}
 
+		// The capabilities in State come from the session, and toConfig
+		// builds them again for ListPeer. Do not read them from the
+		// request.
 		if a.State != nil {
-			localCaps, err := apiutil.UnmarshalCapabilities(a.State.LocalCap)
-			if err != nil {
-				return nil, err
-			}
-			remoteCaps, err := apiutil.UnmarshalCapabilities(a.State.RemoteCap)
-			if err != nil {
-				return nil, err
-			}
-			pconf.State.LocalCapabilityList = localCaps
-			pconf.State.RemoteCapabilityList = remoteCaps
-
 			if addr, err := netip.ParseAddr(a.State.RouterId); err == nil {
 				pconf.State.RemoteRouterId = addr
 			}
@@ -1492,15 +1430,7 @@ func newDefinedSetFromApiStruct(a *api.DefinedSet) (table.DefinedSet, error) {
 		}
 		return table.NewPrefixSetFromApiStruct(a.Name, prefixes)
 	case api.DefinedType_DEFINED_TYPE_NEIGHBOR:
-		list := make([]net.IPNet, 0, len(a.List))
-		for _, x := range a.List {
-			_, addr, err := net.ParseCIDR(x)
-			if err != nil {
-				return nil, fmt.Errorf("invalid address or prefix: %s", x)
-			}
-			list = append(list, *addr)
-		}
-		return table.NewNeighborSetFromApiStruct(a.Name, list)
+		return table.NewNeighborSetFromApiStruct(a.Name, a.List)
 	case api.DefinedType_DEFINED_TYPE_AS_PATH:
 		return table.NewAsPathSet(oc.AsPathSet{
 			AsPathSetName: a.Name,

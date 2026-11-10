@@ -130,6 +130,7 @@ type PeerConf struct {
 	NeighborAddress   netip.Addr
 	NeighborInterface string
 	PeerGroup         string
+	Description       string
 }
 type PeerState struct {
 	PeerASN           uint32

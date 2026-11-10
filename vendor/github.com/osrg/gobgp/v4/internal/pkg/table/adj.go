@@ -25,6 +25,7 @@ import (
 
 type AdjRib struct {
 	accepted map[bgp.Family]int
+	total    map[bgp.Family]int
 	table    map[bgp.Family]*Table
 	logger   *slog.Logger
 }
@@ -37,6 +38,7 @@ func NewAdjRib(logger *slog.Logger, rfList []bgp.Family) *AdjRib {
 	return &AdjRib{
 		table:    m,
 		accepted: make(map[bgp.Family]int),
+		total:    make(map[bgp.Family]int),
 		logger:   logger,
 	}
 }
@@ -102,6 +104,7 @@ func (adj *AdjRib) Update(pathList []*Path) []*Path {
 		if path.IsWithdraw {
 			if idx != -1 {
 				d.knownPathList = append(d.knownPathList[:idx], d.knownPathList[idx+1:]...)
+				adj.total[rf]--
 				if !old.IsRejected() {
 					adj.accepted[rf]--
 				}
@@ -127,6 +130,7 @@ func (adj *AdjRib) Update(pathList []*Path) []*Path {
 				d.knownPathList[idx] = path
 			} else {
 				d.knownPathList = append(d.knownPathList, path)
+				adj.total[rf]++
 				if !path.IsRejected() {
 					adj.accepted[rf]++
 				}
@@ -150,7 +154,8 @@ func (adj *AdjRib) UpdateAdjRibOut(pathList []*Path) {
 		if path == nil || path.IsEOR() {
 			continue
 		}
-		t := adj.table[path.GetFamily()]
+		rf := path.GetFamily()
+		t := adj.table[rf]
 		if t == nil {
 			continue
 		}
@@ -160,6 +165,7 @@ func (adj *AdjRib) UpdateAdjRibOut(pathList []*Path) {
 		shard.mu.Lock()
 		d := t.getOrCreateDest(shard, nlri, 0)
 		d.knownPathList = append(d.knownPathList, path)
+		adj.total[rf]++
 		shard.mu.Unlock()
 	}
 }
@@ -222,10 +228,9 @@ func (adj *AdjRib) PathList(rfList []bgp.Family, accepted bool) []*Path {
 
 func (adj *AdjRib) Count(rfList []bgp.Family) int {
 	count := 0
-	adj.walk(rfList, func(d *destination) bool {
-		count += len(d.knownPathList)
-		return false
-	})
+	for _, rf := range rfList {
+		count += adj.total[rf]
+	}
 	return count
 }
 
@@ -257,6 +262,7 @@ func (adj *AdjRib) Drop(rfList []bgp.Family) []*Path {
 	for _, rf := range rfList {
 		adj.table[rf] = newSingleShardTable(adj.logger, rf)
 		adj.accepted[rf] = 0
+		adj.total[rf] = 0
 	}
 	return l
 }
@@ -290,10 +296,16 @@ func (adj *AdjRib) DropStale(rfList []bgp.Family) []*Path {
 	return pathList
 }
 
+// StaleAll marks the paths in the Adj-RIB-In stale and returns the ones that
+// the caller must propagate. A path that is already stale is left as it is:
+// it was marked in an earlier restart and has been propagated.
 func (adj *AdjRib) StaleAll(rfList []bgp.Family) []*Path {
 	pathList := make([]*Path, 0, adj.Count(rfList))
 	adj.walkActive(rfList, func(d *destination) bool {
 		for i, p := range d.knownPathList {
+			if p.IsStale() {
+				continue
+			}
 			n := p.Clone(false)
 			n.MarkStale(true)
 			n.SetRejected(p.IsRejected())
@@ -308,8 +320,9 @@ func (adj *AdjRib) StaleAll(rfList []bgp.Family) []*Path {
 }
 
 // MarkLLGRStaleOrDrop attaches LLGR_STALE to the paths in the Adj-RIB-In and
-// removes the ones that carry NO_LLGR. It returns the paths that the caller
-// must propagate.
+// removes the ones that carry NO_LLGR. A path that already carries
+// LLGR_STALE is left as it is. It returns the paths that the caller must
+// propagate.
 //
 // As in DropStale, the list that goes to Update and the returned list are not
 // the same. A rejected path removed for NO_LLGR was never installed in the
@@ -328,6 +341,9 @@ func (adj *AdjRib) MarkLLGRStaleOrDrop(rfList []bgp.Family) []*Path {
 				if !p.IsRejected() {
 					pathList = append(pathList, n)
 				}
+			} else if p.IsLLGRStale() {
+				// Marked in an earlier restart, or received with it.
+				continue
 			} else {
 				n := p.Clone(false)
 				n.SetRejected(p.IsRejected())
@@ -359,11 +375,21 @@ func (adj *AdjRib) TableInfo(family bgp.Family) (*TableInfo, error) {
 	if _, ok := adj.table[family]; !ok {
 		return nil, fmt.Errorf("%s unsupported", family)
 	}
-	c := adj.Count([]bgp.Family{family})
-	a := adj.Accepted([]bgp.Family{family})
+	rf := []bgp.Family{family}
+	// A peer with ADD-PATH sends several paths for one destination, so
+	// the path count is not the destination count. There is no counter
+	// for destinations; walk the table instead. This is a management
+	// operation and is not on the update path.
+	d := 0
+	adj.walkActive(rf, func(dest *destination) bool {
+		if len(dest.knownPathList) != 0 {
+			d++
+		}
+		return false
+	})
 	return &TableInfo{
-		NumDestination: c,
-		NumPath:        c,
-		NumAccepted:    a,
+		NumDestination: d,
+		NumPath:        adj.Count(rf),
+		NumAccepted:    adj.Accepted(rf),
 	}, nil
 }

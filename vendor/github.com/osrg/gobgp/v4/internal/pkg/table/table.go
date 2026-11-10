@@ -52,6 +52,13 @@ func addrPrefixOnlySerialize(nlri bgp.NLRI) []byte {
 		copy(b[8:], T.Prefix.Addr().AsSlice())
 		b[8+byteLen] = uint8(T.Prefix.Bits())
 		return b
+	case *bgp.LsAddrPrefix:
+		// As in tableKey, a BGP-LS NLRI is told apart by its full
+		// serialized form: String omits fields (the OSPF area of a node)
+		// that make two NLRIs different destinations.
+		if serialized, err := T.Serialize(); err == nil {
+			return serialized
+		}
 	}
 	return []byte(nlri.String())
 }
@@ -406,7 +413,7 @@ func (t *Table) deletePathsByVrf(vrf *Vrf) []*Path {
 			}
 			if p.IsLocal() && vrf.Rd.String() == rd.String() {
 				pathList = append(pathList, p.Clone(true))
-				return
+				continue
 			}
 		}
 	})
@@ -894,6 +901,25 @@ func mustIPAddrPrefix(prefix netip.Prefix) *bgp.IPAddrPrefix {
 	return nlri
 }
 
+// checkLookupFamily returns an error when key, an address or a prefix, is
+// not of the IPv4 or IPv6 unicast family f. An IPv4 address on an IPv6
+// table would give a prefix longer than the address. A key that does not
+// parse is left to the lookup, which reports it.
+func checkLookupFamily(f bgp.Family, key string) error {
+	addr, err := netip.ParseAddr(key)
+	if err != nil {
+		prefix, err := netip.ParsePrefix(key)
+		if err != nil {
+			return nil
+		}
+		addr = prefix.Addr()
+	}
+	if addr.Is4() != (f == bgp.RF_IPv4_UC) {
+		return fmt.Errorf("%s does not match the %s family", key, f)
+	}
+	return nil
+}
+
 // ContainsCIDR checks if one IPNet is a subnet of another.
 func containsCIDR(n1, n2 *net.IPNet) bool {
 	ones1, _ := n1.Mask.Size()
@@ -930,6 +956,9 @@ func (t *Table) Select(option ...TableSelectOption) (*Table, error) {
 		case bgp.RF_IPv4_UC, bgp.RF_IPv6_UC:
 			for _, p := range prefixes {
 				key := p.Prefix
+				if err := checkLookupFamily(t.Family, key); err != nil {
+					return nil, err
+				}
 				switch p.LookupOption {
 				case apiutil.LOOKUP_LONGER:
 					ds, err := t.GetLongerPrefixDestinations(key)
@@ -1187,11 +1216,6 @@ func (t *Table) Info(option ...TableInfoOptions) *TableInfo {
 		NumCollision:   numC,
 	}
 }
-
-// DefaultRT is the uint64 encoding of the default (wildcard) Route Target used in RTC.
-// It indicates interest in all routes, regardless of their Route Targets.
-// In RouteTargetMembershipNLRI, this value is represented as a nil RouteTarget.
-const DefaultRT uint64 = 0
 
 type routeTargetMap map[uint64]bgp.ExtendedCommunityInterface
 

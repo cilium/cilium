@@ -2271,7 +2271,13 @@ type BfdState struct {
 	// Destination UDP port for BFD control packets.
 	// Using a non-default port deviates from RFC 5881,
 	// which explicitly mandates destination UDP port 3784.
+	// When multihop is true, the default is 4784 (RFC 5883).
 	Port uint16 `mapstructure:"port" json:"port,omitempty"`
+	// original -> gobgp:multihop
+	// gobgp:multihop's original type is boolean.
+	// Run a multihop BFD session (RFC 5883) instead of a single-hop
+	// one (RFC 5881).
+	Multihop bool `mapstructure:"multihop" json:"multihop,omitempty"`
 	// original -> gobgp:desired-minimum-tx-interval
 	// Desired minimum transmission interval for BFD control packets.
 	DesiredMinimumTxInterval uint32 `mapstructure:"desired-minimum-tx-interval" json:"desired-minimum-tx-interval,omitempty"`
@@ -2324,7 +2330,13 @@ type BfdConfig struct {
 	// Destination UDP port for BFD control packets.
 	// Using a non-default port deviates from RFC 5881,
 	// which explicitly mandates destination UDP port 3784.
+	// When multihop is true, the default is 4784 (RFC 5883).
 	Port uint16 `mapstructure:"port" json:"port,omitempty"`
+	// original -> gobgp:multihop
+	// gobgp:multihop's original type is boolean.
+	// Run a multihop BFD session (RFC 5883) instead of a single-hop
+	// one (RFC 5881).
+	Multihop bool `mapstructure:"multihop" json:"multihop,omitempty"`
 	// original -> gobgp:desired-minimum-tx-interval
 	// Desired minimum transmission interval for BFD control packets.
 	DesiredMinimumTxInterval uint32 `mapstructure:"desired-minimum-tx-interval" json:"desired-minimum-tx-interval,omitempty"`
@@ -2344,6 +2356,9 @@ func (lhs *BfdConfig) Equal(rhs *BfdConfig) bool {
 		return false
 	}
 	if lhs.Port != rhs.Port {
+		return false
+	}
+	if lhs.Multihop != rhs.Multihop {
 		return false
 	}
 	if lhs.DesiredMinimumTxInterval != rhs.DesiredMinimumTxInterval {

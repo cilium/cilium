@@ -17,6 +17,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/osrg/gobgp/v4/api"
 	"github.com/osrg/gobgp/v4/internal/pkg/table"
+	"github.com/osrg/gobgp/v4/pkg/config/oc"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v4/pkg/zebra"
 )
@@ -135,8 +137,8 @@ func filterOutExternalPath(paths []*table.Path) []*table.Path {
 		// Here filters out:
 		// - Nil path
 		// - External path (advertised from Zebra) in order avoid sending back
-		// - Unreachable path because invalidated by Zebra
-		if path == nil || path.IsFromExternal() || path.IsNexthopInvalid {
+		// - Unreachable non-withdraw path because invalidated by Zebra
+		if path == nil || path.IsFromExternal() || path.IsNexthopInvalid && !path.IsWithdraw {
 			continue
 		}
 		filteredPaths = append(filteredPaths, path)
@@ -349,9 +351,18 @@ func newPathFromIPRouteMessage(logger *slog.Logger, m *zebra.Message, version ui
 
 type mplsLabelParameter struct {
 	rangeSize     uint32
+	requested     bool // a GET_LABEL_CHUNK request waits for its response
 	maps          map[uint64]*table.Bitmap
 	unassignedVrf []*table.Vrf // Vrfs which are not assigned MPLS label
 }
+
+// The labels that a label chunk from zebra may hold. RFC 3032 Section 2.1
+// gives 0 to 3 special meanings and says "Values 4-15 are reserved.", and
+// "This 20-bit field carries the actual value of the Label."
+const (
+	minUnreservedMplsLabel = 16
+	maxMplsLabel           = 1<<20 - 1
+)
 
 type zebraClient struct {
 	client       *zebra.Client
@@ -364,9 +375,21 @@ type zebraClient struct {
 	dead         chan struct{}
 }
 
+// globalRibOptions returns the route selection options of the global RIB. A
+// zebra client runs in its own goroutine, so it must not read server.globalRib
+// directly: StartBgp replaces that table manager. The caller must not hold the
+// returned values across a management operation, because that would deadlock
+// with the dispatcher.
+func (z *zebraClient) globalRibOptions() (oc.RouteSelectionOptionsConfig, oc.UseMultiplePathsConfig) {
+	z.server.shared.mu.RLock()
+	defer z.server.shared.mu.RUnlock()
+
+	return z.server.globalRib.SelectionOptions(), z.server.globalRib.MultiplePathsOptions()
+}
+
 func (z *zebraClient) getPathListWithNexthopUpdate(body *zebra.NexthopUpdateBody) []*table.Path {
-	rib := table.NewTableManager(z.server.logger, nil,
-		z.server.globalRib.SelectionOptions(), z.server.globalRib.MultiplePathsOptions())
+	selectionOptions, multiplePathsOptions := z.globalRibOptions()
+	rib := table.NewTableManager(z.server.logger, nil, selectionOptions, multiplePathsOptions)
 
 	var rfList []bgp.Family
 	switch body.Prefix.Family {
@@ -470,8 +493,12 @@ func (z *zebraClient) loop() {
 					slog.Int("Start", int(body.Start)),
 					slog.Int("End", int(body.End)),
 				)
-				startEnd := uint64(body.Start)<<32 | uint64(body.End)
-				z.mplsLabel.maps[startEnd] = table.NewBitmap(int(body.End - body.Start + 1))
+				if err := z.addLabelChunk(body); err != nil {
+					z.server.logger.Warn("ignore a label chunk from zebra",
+						slog.String("Topic", "Zebra"),
+						slog.String("Error", err.Error()))
+					continue
+				}
 				for _, vrf := range z.mplsLabel.unassignedVrf {
 					if err := z.assignAndSendVrfMplsLabel(vrf); err != nil {
 						z.server.logger.Error("zebra failed to assign and send vrf mpls label",
@@ -485,7 +512,8 @@ func (z *zebraClient) loop() {
 		case ev := <-w.Event():
 			switch msg := ev.(type) {
 			case *watchEventBestPath:
-				if z.server.globalRib.UseMultiplePathsEnabled() {
+				_, multiplePathsOptions := z.globalRibOptions()
+				if multiplePathsOptions.Enabled {
 					for _, paths := range msg.MultiPathList {
 						z.updatePathByNexthopCache(paths)
 						for i := range msg.Vrf {
@@ -549,10 +577,7 @@ func (z *zebraClient) loop() {
 				body := newNexthopRegisterBody(msg.PathList, z.nexthopCache)
 				z.cacheLock.Unlock()
 				if body != nil {
-					vrfID := uint32(0)
-					err := z.server.ListVrf(context.Background(), &api.ListVrfRequest{Name: msg.Neighbor.Config.Vrf}, func(v *api.Vrf) {
-						vrfID = v.Id
-					})
+					vrfID, err := nexthopRegisterVrfID(z.server, msg.Neighbor)
 					if err != nil {
 						z.server.logger.Error("failed to get vrf id",
 							slog.String("Topic", "Zebra"),
@@ -571,6 +596,22 @@ func (z *zebraClient) loop() {
 			}
 		}
 	}
+}
+
+// nexthopRegisterVrfID returns the VRF ID to register the next hops of the
+// paths from n with. A path from no neighbor, such as one added through the
+// API, and a path from a neighbor in the global table use the default VRF.
+// ListVrf with an empty name lists all VRFs, so it is called only for a
+// neighbor in a VRF.
+func nexthopRegisterVrfID(s *BgpServer, n *oc.Neighbor) (uint32, error) {
+	if n == nil || n.Config.Vrf == "" {
+		return 0, nil
+	}
+	vrfID := uint32(0)
+	err := s.ListVrf(context.Background(), &api.ListVrfRequest{Name: n.Config.Vrf}, func(v *api.Vrf) {
+		vrfID = v.Id
+	})
+	return vrfID, err
 }
 
 func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nhtEnable bool, nhtDelay uint8, mplsLabelRangeSize uint32, software zebra.Software) (*zebraClient, error) {
@@ -595,6 +636,12 @@ func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nh
 		if cli != nil && err == nil {
 			usingVersion = ver
 			break
+		}
+		// Another version helps when zebra closes the connection on a
+		// version it does not support, not when zebra does not answer.
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return nil, err
 		}
 		// Retry with another Zebra message version
 		s.logger.Warn("cannot connect to Zebra with message version",
@@ -633,6 +680,8 @@ func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nh
 		pathVrfMap:   make(map[*table.Path]uint32),
 		mplsLabel: mplsLabelParameter{
 			rangeSize: mplsLabelRangeSize,
+			// Set before the loop starts, as the loop reads it.
+			requested: mplsLabelRangeSize > 0 && cli.SupportMpls(),
 			maps:      make(map[uint64]*table.Bitmap),
 		},
 		dead: make(chan struct{}),
@@ -644,6 +693,23 @@ func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nh
 		}
 	}
 	return w, nil
+}
+
+// addLabelChunk takes the label chunk that zebra sent in response to our
+// GET_LABEL_CHUNK request. gobgpd sends one request only, so a chunk that
+// comes without a request is not used. The size of the bitmap comes from the
+// chunk, so the chunk must hold only valid labels.
+func (z *zebraClient) addLabelChunk(body *zebra.GetLabelChunkBody) error {
+	if !z.mplsLabel.requested {
+		return fmt.Errorf("label chunk %d-%d was not requested", body.Start, body.End)
+	}
+	if body.Start > body.End || body.Start < minUnreservedMplsLabel || body.End > maxMplsLabel {
+		return fmt.Errorf("invalid label chunk %d-%d", body.Start, body.End)
+	}
+	z.mplsLabel.requested = false
+	startEnd := uint64(body.Start)<<32 | uint64(body.End)
+	z.mplsLabel.maps[startEnd] = table.NewBitmap(int(body.End - body.Start + 1))
+	return nil
 }
 
 func (z *zebraClient) assignMplsLabel() (uint32, error) {

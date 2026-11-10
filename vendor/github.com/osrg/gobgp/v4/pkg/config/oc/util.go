@@ -686,6 +686,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 		Bfd: &api.BfdPeerConfig{
 			Enabled:                  pconf.Bfd.Config.Enabled,
 			Port:                     uint32(pconf.Bfd.Config.Port),
+			Multihop:                 pconf.Bfd.Config.Multihop,
 			DesiredMinimumTxInterval: pconf.Bfd.Config.DesiredMinimumTxInterval,
 			RequiredMinimumReceive:   pconf.Bfd.Config.RequiredMinimumReceive,
 			DetectionMultiplier:      uint32(pconf.Bfd.Config.DetectionMultiplier),
@@ -860,6 +861,7 @@ func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 		Bfd: &api.BfdPeerConfig{
 			Enabled:                  pconf.Bfd.Config.Enabled,
 			Port:                     uint32(pconf.Bfd.Config.Port),
+			Multihop:                 pconf.Bfd.Config.Multihop,
 			DesiredMinimumTxInterval: pconf.Bfd.Config.DesiredMinimumTxInterval,
 			RequiredMinimumReceive:   pconf.Bfd.Config.RequiredMinimumReceive,
 			DetectionMultiplier:      uint32(pconf.Bfd.Config.DetectionMultiplier),

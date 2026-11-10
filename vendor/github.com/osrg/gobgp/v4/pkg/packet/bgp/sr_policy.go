@@ -109,10 +109,23 @@ func (s *SRPolicyNLRI) MarshalJSON() ([]byte, error) {
 }
 
 func NewSRPolicy(family Family, l uint32, d uint32, c uint32, ep []byte) (*SRPolicyNLRI, error) {
+	// The decoder accepts only these lengths, and Serialize writes the
+	// fixed fields at offsets that need them.
+	var nlriLen uint32
+	var epLen int
 	switch family {
-	case RF_SR_POLICY_IPv4, RF_SR_POLICY_IPv6:
+	case RF_SR_POLICY_IPv4:
+		nlriLen, epLen = SRPolicyIPv4NLRILen, 4
+	case RF_SR_POLICY_IPv6:
+		nlriLen, epLen = SRPolicyIPv6NLRILen, 16
 	default:
 		return nil, fmt.Errorf("invalid family: %d", family)
+	}
+	if l != nlriLen {
+		return nil, fmt.Errorf("invalid SR Policy NLRI length %d for %s, must be %d", l, family, nlriLen)
+	}
+	if len(ep) != epLen {
+		return nil, fmt.Errorf("invalid SR Policy endpoint length %d for %s, must be %d", len(ep), family, epLen)
 	}
 
 	return &SRPolicyNLRI{
@@ -395,6 +408,10 @@ func NewBSID(v []byte) (*BSID, error) {
 	var bsid *BSID
 	switch len(v) {
 	case 0:
+		// No BSID, as in a Binding SID sub-TLV of length 2.
+		bsid = &BSID{
+			Value: make([]byte, 0),
+		}
 	case 4:
 		t := binary.BigEndian.Uint32(v)
 		t <<= 12

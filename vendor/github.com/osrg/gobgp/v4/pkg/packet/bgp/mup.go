@@ -187,7 +187,12 @@ func parseMUPExtended(data []byte) (ExtendedCommunityInterface, error) {
 		localAdmin := binary.BigEndian.Uint16(data[6:8])
 		return NewMUPFourOctetAsSpecificExtended(subType, as, localAdmin), nil
 	}
-	return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("unknown mup subtype: %d", subType))
+	// RFC 7606 Section 7.14: an unrecognized Extended Community Type or
+	// Sub-Type MUST NOT be treated as an error.
+	return &UnknownExtended{
+		Type:  ExtendedCommunityAttrType(data[0]),
+		Value: data[1:8],
+	}, nil
 }
 
 // BGP MUP SAFI Architecture Type as described in
@@ -260,7 +265,10 @@ func (n *MUPNLRI) decodeFromBytes(data []byte, options ...*MarshallingOption) er
 	}
 	r, err := getMUPRouteType(n.ArchitectureType, n.RouteType)
 	if err != nil {
-		return err
+		// draft-ietf-bess-mup-safi-01 Section 3.1: "Any other Route
+		// Types MUST be silently ignored upon a receipt if a BGP
+		// speaker supports only 3gpp-5G architecture type."
+		return &unknownRouteTypeError{msg: err.Error(), len: 4 + int(n.Length)}
 	}
 	n.RouteTypeData = r
 	return n.RouteTypeData.DecodeFromBytes(data[:n.Length], n.Afi)

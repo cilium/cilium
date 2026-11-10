@@ -72,6 +72,45 @@ type PrefixSIDTLVInterface interface {
 	MarshalJSON() ([]byte, error)
 }
 
+// PrefixSIDUnknownTLV holds a TLV, Sub-TLV or Sub-Sub-TLV of a type that is
+// not implemented. RFC 8669 Section 3 requires unknown TLVs to be ignored and
+// propagated unmodified, and RFC 9252 Section 2 keeps unrecognized Sub-TLV and
+// Sub-Sub-TLV types when the attribute is propagated, so they are kept as
+// opaque values and re-serialized unchanged. All three header forms are
+// Type(1) + Length(2).
+type PrefixSIDUnknownTLV struct {
+	TLV
+	Value []byte
+}
+
+func (s *PrefixSIDUnknownTLV) DecodeFromBytes(data []byte) error {
+	value, err := s.TLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+	s.Value = append([]byte(nil), value...)
+	return nil
+}
+
+func (s *PrefixSIDUnknownTLV) Serialize() ([]byte, error) {
+	buf := make([]byte, 3+len(s.Value))
+	buf[0] = byte(s.Type)
+	binary.BigEndian.PutUint16(buf[1:3], uint16(len(s.Value)))
+	copy(buf[3:], s.Value)
+	return buf, nil
+}
+
+func (s *PrefixSIDUnknownTLV) String() string {
+	return fmt.Sprintf("{Unknown TLV: %d Value: %x}", s.Type, s.Value)
+}
+
+func (s *PrefixSIDUnknownTLV) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type  TLVType `json:"type"`
+		Value []byte  `json:"value"`
+	}{s.Type, s.Value})
+}
+
 type PrefixSIDAttribute struct {
 	TLVs []PrefixSIDTLVInterface
 }
@@ -102,7 +141,11 @@ func (p *PathAttributePrefixSID) DecodeFromBytes(data []byte, options ...*Marsha
 		return err
 	}
 
-	for len(tlvs) >= prefixSIDtlvHdrLen {
+	// A remainder too short for a TLV header, or a TLV whose declared
+	// Length runs past the attribute, fails TLV.DecodeFromBytes and makes
+	// the attribute malformed, which RFC 8669 Section 6 answers with
+	// attribute discard.
+	for len(tlvs) > 0 {
 		t := &TLV{}
 		_, err := t.DecodeFromBytes(tlvs)
 		if err != nil {
@@ -115,9 +158,22 @@ func (p *PathAttributePrefixSID) DecodeFromBytes(data []byte, options ...*Marsha
 			tlv = &SRv6ServiceTLV{
 				SubTLVs: make([]PrefixSIDTLVInterface, 0),
 			}
+		case TLVTypeLavelIndex:
+			// RFC 8669 Section 3.1: Length is 7.
+			if t.Length != 7 {
+				return malformedAttrListErr("decoding failed: Prefix SID Label-Index TLV malformed")
+			}
+			tlv = &PrefixSIDUnknownTLV{}
+		case TLVTypeOriginatorSRGB:
+			// RFC 8669 Section 3.2: Length is 2 + (non-zero multiple of 6).
+			if t.Length < 8 || (t.Length-2)%6 != 0 {
+				return malformedAttrListErr("decoding failed: Prefix SID Originator SRGB TLV malformed")
+			}
+			tlv = &PrefixSIDUnknownTLV{}
 		default:
-			tlvs = tlvs[t.Len():]
-			continue
+			// RFC 8669 Section 3: unknown TLVs MUST be ignored and
+			// propagated unmodified.
+			tlv = &PrefixSIDUnknownTLV{}
 		}
 
 		if err := tlv.DecodeFromBytes(tlvs); err != nil {
@@ -434,12 +490,8 @@ func (s *SRv6InformationSubTLV) DecodeFromBytes(data []byte) error {
 	p += 2
 	// reserved byte
 	p++
-	if p+subSubTLVHdrLen > end {
-		// There is no Sub Sub TLVs detected, returning
-		return nil
-	}
 	stlvs := data[p:end]
-	for len(stlvs) >= prefixSIDtlvHdrLen {
+	for len(stlvs) > 0 {
 		t := &SubSubTLV{}
 		_, err := t.DecodeFromBytes(stlvs)
 		if err != nil {
@@ -451,8 +503,11 @@ func (s *SRv6InformationSubTLV) DecodeFromBytes(data []byte) error {
 		case 1:
 			sstlv = &SRv6SIDStructureSubSubTLV{}
 		default:
-			stlvs = stlvs[t.Len():]
-			continue
+			// RFC 9252 Section 2: an unrecognized Sub-Sub-TLV is kept so
+			// the TLV propagates unmodified. Serialize sizes its buffer
+			// from this Sub-TLV's declared Length, so a dropped
+			// Sub-Sub-TLV would be written out as zero bytes.
+			sstlv = &PrefixSIDUnknownTLV{}
 		}
 
 		if err := sstlv.DecodeFromBytes(stlvs); err != nil {
@@ -709,7 +764,7 @@ func (s *SRv6ServiceTLV) DecodeFromBytes(data []byte) error {
 	}
 	stlvs = stlvs[1:] // RESERVED(1)
 
-	for len(stlvs) >= subTLVHdrLen {
+	for len(stlvs) > 0 {
 		t := &SubTLV{}
 		_, err := t.DecodeFromBytes(stlvs)
 		if err != nil {
@@ -723,18 +778,15 @@ func (s *SRv6ServiceTLV) DecodeFromBytes(data []byte) error {
 				SubSubTLVs: make([]PrefixSIDTLVInterface, 0),
 			}
 		default:
-			if len(stlvs) < t.Len() {
-				return malformedAttrListErr("SRv6ServiceTLV malformed")
-			}
-			stlvs = stlvs[t.Len():]
-			continue
+			// RFC 9252 Section 2: an unrecognized Sub-TLV is kept so the
+			// TLV propagates unmodified. Serialize sizes its buffer from
+			// the TLV's declared Length, so a dropped Sub-TLV would be
+			// written out as zero bytes.
+			stlv = &PrefixSIDUnknownTLV{}
 		}
 
 		if err := stlv.DecodeFromBytes(stlvs); err != nil {
 			return err
-		}
-		if len(stlvs) < t.Len() {
-			return malformedAttrListErr("SRv6ServiceTLV malformed")
 		}
 		stlvs = stlvs[t.Len():]
 		s.SubTLVs = append(s.SubTLVs, stlv)

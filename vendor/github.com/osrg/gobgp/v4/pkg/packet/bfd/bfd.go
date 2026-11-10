@@ -49,16 +49,20 @@ var (
 )
 
 type BFDHeader struct {
-	Version               uint8
-	Diagnostic            DiagnosticType
-	State                 StateType
-	Poll                  bool
-	Final                 bool
-	DetectTimeMultiplier  uint8
-	MyDiscriminator       uint32
-	YourDiscriminator     uint32
-	DesiredMinTxInterval  uint32
-	RequiredMinRxInterval uint32
+	Version                 uint8
+	Diagnostic              DiagnosticType
+	State                   StateType
+	Poll                    bool
+	Final                   bool
+	ControlPlaneIndependent bool
+	AuthPresent             bool
+	Demand                  bool
+	Multipoint              bool
+	DetectTimeMultiplier    uint8
+	MyDiscriminator         uint32
+	YourDiscriminator       uint32
+	DesiredMinTxInterval    uint32
+	RequiredMinRxInterval   uint32
 }
 
 func (h *BFDHeader) Validate() error {
@@ -122,7 +126,10 @@ func (h *BFDHeader) UnmarshalBinary(buf []byte) error {
 	h.State = StateType(buf[1] >> 6)
 	h.Poll = byteToBool(buf[1] >> 5 & 1)
 	h.Final = byteToBool(buf[1] >> 4 & 1)
-	// ignore other flags
+	h.ControlPlaneIndependent = byteToBool(buf[1] >> 3 & 1)
+	h.AuthPresent = byteToBool(buf[1] >> 2 & 1)
+	h.Demand = byteToBool(buf[1] >> 1 & 1)
+	h.Multipoint = byteToBool(buf[1] & 1)
 
 	h.DetectTimeMultiplier = buf[2]
 
@@ -143,7 +150,9 @@ func (h *BFDHeader) MarshalBinary() ([]byte, error) {
 	}
 
 	buf[0] = h.Version<<5 | byte(h.Diagnostic)&0x1f
-	buf[1] = byte(h.State)<<6 | boolToByte(h.Poll)<<5 | boolToByte(h.Final)<<4
+	buf[1] = byte(h.State)<<6 | boolToByte(h.Poll)<<5 | boolToByte(h.Final)<<4 |
+		boolToByte(h.ControlPlaneIndependent)<<3 | boolToByte(h.AuthPresent)<<2 |
+		boolToByte(h.Demand)<<1 | boolToByte(h.Multipoint)
 	buf[2] = h.DetectTimeMultiplier
 	buf[3] = byte(packetSizeMin)
 

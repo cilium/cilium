@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 )
@@ -1428,8 +1429,13 @@ func ReceiveSingleMsg(logger *slog.Logger, conn net.Conn, version uint8, softwar
 }
 
 // NewClient returns a Client instance (Client constructor)
+// handshakeTimeout bounds how long NewClient waits for zebra to accept the
+// connection and to send the first message. Without it, a zebra that accepts
+// the connection but does not answer blocks the caller forever.
+var handshakeTimeout = 30 * time.Second
+
 func NewClient(logger *slog.Logger, network, address string, typ RouteType, version uint8, software Software, mplsLabelRangeSize uint32) (*Client, error) {
-	conn, err := net.Dial(network, address)
+	conn, err := net.DialTimeout(network, address, handshakeTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -1492,12 +1498,20 @@ func NewClient(logger *slog.Logger, network, address string, typ RouteType, vers
 	}
 
 	// Try to receive the first message from Zebra.
+	if err := conn.SetReadDeadline(time.Now().Add(handshakeTimeout)); err != nil {
+		c.close()
+		return nil, err
+	}
 	if m, err := ReceiveSingleMsg(logger, conn, version, software, "Zebra"); err != nil {
 		c.close()
 		// Return error explicitly in order to retry connection.
 		return nil, err
 	} else if m != nil {
 		incoming <- m
+	}
+	if err := conn.SetReadDeadline(time.Time{}); err != nil {
+		c.close()
+		return nil, err
 	}
 
 	// Start receive loop only when the first message successfully received.
@@ -2689,45 +2703,25 @@ func (b *IPRouteBody) IsWithdraw(version uint8, software Software) bool {
 // Ref: zapi_ipv4_route in lib/zclient.c  of Quagga1.2.x&FRR3.x(ZAPI3&4)
 // Ref: zapi_route_encode in lib/zclient.c of FRR4&FRR5&FRR6&FRR7.x&FRR8 (ZAPI5&6)
 func (b *IPRouteBody) serialize(version uint8, software Software) ([]byte, error) {
-	var buf []byte
 	numNexthop := len(b.Nexthops)
-
-	bufInitSize := 12 // type(1)+instance(2)+flags(4)+message(4)+safi(1), frr7.4&newer
-	switch version {
-	case 2, 3:
-		bufInitSize = 5
-	case 4:
-		bufInitSize = 10
-	case 5:
-		bufInitSize = 9 // type(1)+instance(2)+flags(4)+message(1)+safi(1)
-	case 6:
-		if software.name == "frr" && software.version < 7.4 { // frr6, 7, 7.2, 7.3
-			bufInitSize = 9 // type(1)+instance(2)+flags(4)+message(1)+safi(1)
-		}
-	}
-	buf = make([]byte, bufInitSize)
-
-	buf[0] = uint8(b.Type.toEach(version)) // frr: stream_putc(s, api->type);
+	buf := make([]byte, 0, 12)
+	buf = append(buf, uint8(b.Type.toEach(version)))
 	if version < 4 {
-		buf[1] = uint8(b.Flags)
-		buf[2] = uint8(b.Message)
-		binary.BigEndian.PutUint16(buf[3:5], uint16(b.Safi))
-	} else { // version >= 4
-		// frr: stream_putw(s, api->instance);
-		binary.BigEndian.PutUint16(buf[1:3], b.instance)
-		// frr: stream_putl(s, api->flags);
-		binary.BigEndian.PutUint32(buf[3:7], uint32(b.Flags))
+		buf = append(buf, uint8(b.Flags), uint8(b.Message))
+		buf = binary.BigEndian.AppendUint16(buf, uint16(b.Safi))
+	} else {
+		buf = binary.BigEndian.AppendUint16(buf, b.instance)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(b.Flags))
 		if version == 6 && software.name == "frr" && software.version >= 7.5 {
-			// frr7.5 and newer: stream_putl(s, api->message);
-			binary.BigEndian.PutUint32(buf[7:11], uint32(b.Message))
-			buf[11] = uint8(b.Safi) // stream_putc(s, api->safi);
+			// FRR 7.5 widened the message flags from one to four bytes.
+			buf = binary.BigEndian.AppendUint32(buf, uint32(b.Message))
+			buf = append(buf, uint8(b.Safi))
 		} else {
-			// frr 7.4 and older: stream_putc(s, api->message);
-			buf[7] = uint8(b.Message)
+			buf = append(buf, uint8(b.Message))
 			if version > 4 {
-				buf[8] = uint8(b.Safi) // frr: stream_putc(s, api->safi);
-			} else { // version 2,3 and 4 (quagga, frr3)
-				binary.BigEndian.PutUint16(buf[8:10], uint16(b.Safi))
+				buf = append(buf, uint8(b.Safi))
+			} else {
+				buf = binary.BigEndian.AppendUint16(buf, uint16(b.Safi))
 			}
 		}
 	}
@@ -3229,30 +3223,18 @@ func (n *RegisteredNexthop) len() int {
 // Ref: sendmsg_zebra_rnh in bgpd/bgp_nht.c of FRR3.x (ZAPI4)
 // Ref: zclient_send_rnh in lib/zclient.c of FRR5&FRR6&FRR7.x&FRR8 (ZAPI5&6)
 func (n *RegisteredNexthop) serialize(version uint8, software Software) ([]byte, error) {
-	bufInitSize := 4
+	buf := make([]byte, 0, 7)
+	buf = append(buf, n.connected)
 	if version == 6 && software.name == "frr" && software.version >= 8.2 {
-		bufInitSize = 7
+		buf = append(buf, n.resolveViaDef)
+		buf = binary.BigEndian.AppendUint16(buf, uint16(SafiUnicast))
 	}
-	buf := make([]byte, bufInitSize)
-	// Connected (1 byte)
-	buf[0] = n.connected // stream_putc(s, (connected) ? 1 : 0);
-	pos := 1
-	if version == 6 && software.name == "frr" && software.version >= 8.2 {
-		buf[1] = n.resolveViaDef
-		binary.BigEndian.PutUint16(buf[1:3], uint16(SafiUnicast)) // stream_putw(s, PREFIX_FAMILY(p));
-		pos += 3
-	}
-	// Address Family (2 bytes)
-	binary.BigEndian.PutUint16(buf[pos:pos+2], n.Family) // stream_putw(s, PREFIX_FAMILY(p));
-	// pos += 2
-	// Prefix Length (1 byte)
+	buf = binary.BigEndian.AppendUint16(buf, n.Family)
 	addrByteLen, err := addressByteLength(uint8(n.Family))
 	if err != nil {
 		return nil, err
 	}
-
-	buf[3] = byte(addrByteLen * 8) // stream_putc(s, p->prefixlen);
-	// pos += 1
+	buf = append(buf, byte(addrByteLen*8))
 	// Prefix (variable)
 	switch n.Family {
 	case uint16(syscall.AF_INET):
