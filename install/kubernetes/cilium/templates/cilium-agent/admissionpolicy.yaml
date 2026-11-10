@@ -1,0 +1,58 @@
+{{- if and .Values.agent .Values.l2announcements.enabled .Values.serviceAccounts.cilium.create (not .Values.preflight.enabled) }}
+---
+# Enforce that the cilium agent can only affect leases
+# that start with "cilium-l2announce-"
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cilium-l2announce-lease-name
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.commonLabels }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["coordination.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["leases"]
+  matchConditions:
+    # only enforce requests from the agent's service account
+    - name: cilium-agent-service-account
+      expression: {{ printf "request.userInfo.username == 'system:serviceaccount:%s:%s'" ( include "cilium.namespace" . )  .Values.serviceAccounts.cilium.name | quote }}
+  validations:
+    # require that the affected names have the correct prefix
+    - expression: "request.name.startsWith('cilium-l2announce-')"
+      message: "Cilium agent Lease names must start with 'cilium-l2announce-'."
+      reason: Invalid
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cilium-l2announce-lease-name
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.commonLabels }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  policyName: cilium-l2announce-lease-name
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ include "cilium.namespace" . }}
+{{- end }}
