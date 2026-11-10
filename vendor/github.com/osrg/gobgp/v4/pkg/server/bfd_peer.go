@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -22,6 +23,10 @@ const (
 	bfdSourcePortMin = 49152
 	bfdSourcePortMax = 65535
 
+	// TTL or Hop Limit of sent and received BFD Control packets. See
+	// startClient and bfdServer.rxPacket for the RFC text.
+	bfdTTL = 255
+
 	// Some default values
 	defaultMultiplier = 3
 	defaultRxInterval = 1000 * time.Millisecond
@@ -41,6 +46,7 @@ type bfdPeerStats struct {
 	txError              atomic.Uint64
 	invalidDiscriminator atomic.Uint64
 	invalidMultiplier    atomic.Uint64
+	invalidTTL           atomic.Uint64
 	expired              atomic.Uint64
 }
 
@@ -51,6 +57,10 @@ type bfdPeer struct {
 	peerPort      int
 	localAddress  netip.Addr
 	bindInterface string
+	// multihop is true for a multihop session (RFC 5883). minTTL is the
+	// lowest TTL or Hop Limit of a received packet of such a session.
+	multihop bool
+	minTTL   int
 
 	udpClient *net.UDPConn
 
@@ -59,17 +69,35 @@ type bfdPeer struct {
 	state             atomic.Int32
 	myDiscriminator   uint32
 	yourDiscriminator uint32
-	multiplier        uint8
-	rxInterval        time.Duration
-	txInterval        time.Duration
+	// localDiag is the RFC's bfd.LocalDiag: the reason for the last change
+	// of the session state, sent in the Diag field. Confined to the peer's
+	// loop goroutine.
+	localDiag  bfd.DiagnosticType
+	multiplier uint8
+	rxInterval time.Duration
+	txInterval time.Duration
 
 	// desiredMinTx is the RFC's bfd.DesiredMinTxInterval: the value advertised in
 	// transmitted packets and one of the two terms of the transmit interval (see
-	// effectiveTxInterval). txInterval keeps its current meaning: the configured
-	// value, immutable after construction. Confined to the peer's loop goroutine, or
-	// to NewBfdPeer before that goroutine starts -- same discipline as
+	// effectiveTxInterval). txInterval is the configured value, which changes only
+	// through applyConfig. Confined to the peer's loop goroutine, or to NewBfdPeer
+	// before that goroutine starts -- same discipline as
 	// yourDiscriminator/expiryInterval, so no atomics.
 	desiredMinTx time.Duration
+	// remoteDetectMult and remoteDesiredMinTx are the peer's Detect Mult and Desired
+	// Min TX Interval from its last packet, the remote terms of the Detection Time
+	// (see detectionTime). Same confinement as desiredMinTx.
+	remoteDetectMult   uint8
+	remoteDesiredMinTx time.Duration
+	// heldTxInterval and heldRxInterval keep the previous bfd.DesiredMinTxInterval
+	// and bfd.RequiredMinRxInterval while a Poll Sequence announces a change that
+	// RFC 5880 Section 6.8.3 does not let take effect before the sequence ends: an
+	// increase of bfd.DesiredMinTxInterval while Up keeps the old transmit
+	// interval, and a reduction of bfd.RequiredMinRxInterval while Up keeps the old
+	// value in the Detection Time. Zero when nothing is held. Same confinement as
+	// desiredMinTx.
+	heldTxInterval time.Duration
+	heldRxInterval time.Duration
 	// remoteMinRxInterval is the RFC's bfd.RemoteMinRxInterval (Section 6.8.1): the
 	// peer's advertised Required Min RX Interval, the other term of the transmit
 	// interval. Same confinement as desiredMinTx.
@@ -84,19 +112,21 @@ type bfdPeer struct {
 	txJitterPct int
 	// pollSequence is true while a Poll Sequence is in flight: the P bit is set on
 	// periodic transmissions until a Final is received. Same confinement as desiredMinTx.
-	//
-	// Limitation: a bool carries no sequence identity, so a Final that answers a Poll
-	// from an earlier sequence terminates whichever sequence is in flight when it
-	// arrives. That is harmless today. A sequence starts only on the transition to
-	// Up, for a decrease of bfd.DesiredMinTxInterval that RFC 5880 Section 6.8.3
-	// lets take effect at once, so ending it early changes nothing. It matters once
-	// bfd.RequiredMinRxInterval, or bfd.DesiredMinTxInterval while Up, can change at
-	// runtime: Section 6.8.3 keeps the old Detection Time for a reduced
-	// RequiredMinRxInterval, and the old transmit interval for an increased
-	// DesiredMinTxInterval, until the sequence terminates, so a stale Final would
-	// apply those changes early. Such a change needs sequence identity here, or
-	// must wait for an in-flight sequence to end before it starts its own.
 	pollSequence bool
+	// pollSettling is true from the Final that terminates a Poll Sequence until a
+	// packet with the Final bit clear is received. A bool carries no sequence
+	// identity, so a late Final answering a Poll of the sequence that just ended
+	// would terminate a new one early and release its held values (see
+	// heldTxInterval). RFC 5880 Section 6.8.3 offers waiting for that packet as one
+	// way to tell the two apart, so a configuration change waits for it, and for
+	// any sequence in flight, before it starts its own (see applyNextConfig). Same
+	// confinement as desiredMinTx.
+	pollSettling bool
+
+	// nextConfig is a configuration handed over by updateConfig and not yet
+	// applied by the loop goroutine. eventConfig wakes the loop up for it.
+	nextConfig  atomic.Pointer[oc.BfdConfig]
+	eventConfig chan struct{}
 
 	eventStart    *time.Ticker
 	eventRxPacket chan *bfd.BFDHeader
@@ -106,15 +136,19 @@ type bfdPeer struct {
 	shutdownOnce  sync.Once
 	shutdownWait  sync.WaitGroup
 	stopped       atomic.Bool
+	resetCtx      context.Context
+	cancelReset   context.CancelFunc
 
 	stats bfdPeerStats
 }
 
 func NewBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, config oc.BfdConfig, bindInterface string) *bfdPeer {
-	return newBfdPeer(ps, logger, peerAddress, config, netip.Addr{}, bindInterface)
+	return newBfdPeer(ps, logger, peerAddress, config, netip.Addr{}, bindInterface, randomBFDMyDiscriminator(), 1)
 }
 
-func newBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, config oc.BfdConfig, localAddress netip.Addr, bindInterface string) *bfdPeer {
+// newBfdPeer creates a session. myDiscriminator must be nonzero and must not
+// be used by any other session; see bfdServer.newDiscriminator.
+func newBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, config oc.BfdConfig, localAddress netip.Addr, bindInterface string, myDiscriminator uint32, minTTL int) *bfdPeer {
 	peerPort := int(config.Port)
 	if peerPort == 0 {
 		peerPort = BfdServerPort
@@ -127,37 +161,24 @@ func newBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, confi
 		peerPort:      peerPort,
 		localAddress:  localAddress,
 		bindInterface: bindInterface,
+		multihop:      config.Multihop,
+		minTTL:        minTTL,
 
-		myDiscriminator: randomBFDMyDiscriminator(),
-		multiplier:      defaultMultiplier,
-		rxInterval:      defaultRxInterval,
-		txInterval:      defaultTxInterval,
+		myDiscriminator: myDiscriminator,
 		// RFC 5880 Section 6.8.1: bfd.RemoteMinRxInterval MUST be initialized
-		// to 1. Not the Go zero value: Section 6.8.7 reserves zero to mean the
-		// peer wants no periodic packets, which this implementation does not
-		// support. The distinction is currently inert -- desiredMinTx is always
-		// at least 1 microsecond -- but keeps the variable faithful to the RFC
-		// so zero can later be given its Section 6.8.7 meaning.
+		// to 1. Not the Go zero value: zero stops periodic transmission (see
+		// armTx).
 		remoteMinRxInterval: time.Microsecond,
 
 		eventStart:    time.NewTicker(time.Second),
 		eventRxPacket: make(chan *bfd.BFDHeader, 1),
 		eventShutdown: make(chan struct{}),
+		eventConfig:   make(chan struct{}, 1),
 	}
 
 	p.state.Store(int32(api.BfdSessionState_BFD_SESSION_STATE_DOWN))
 
-	if config.DetectionMultiplier > 0 {
-		p.multiplier = config.DetectionMultiplier
-	}
-
-	if config.RequiredMinimumReceive > 0 {
-		p.rxInterval = time.Duration(config.RequiredMinimumReceive) * time.Microsecond
-	}
-
-	if config.DesiredMinimumTxInterval > 0 {
-		p.txInterval = time.Duration(config.DesiredMinimumTxInterval) * time.Microsecond
-	}
+	p.multiplier, p.rxInterval, p.txInterval = bfdTimers(config)
 
 	p.expiryInterval = time.Duration(p.multiplier) * p.rxInterval
 
@@ -172,9 +193,41 @@ func newBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, confi
 	p.eventExpiry = time.NewTicker(p.expiryInterval)
 	p.eventExpiry.Stop()
 
+	p.resetCtx, p.cancelReset = context.WithCancel(context.Background())
 	p.shutdownWait.Add(1)
 	go p.loop()
 	return p
+}
+
+// bfdTimers returns the detection multiplier, bfd.RequiredMinRxInterval and the
+// configured transmit interval of config, with the defaults for unset values.
+func bfdTimers(config oc.BfdConfig) (uint8, time.Duration, time.Duration) {
+	multiplier := uint8(defaultMultiplier)
+	if config.DetectionMultiplier > 0 {
+		multiplier = config.DetectionMultiplier
+	}
+	rxInterval := defaultRxInterval
+	if config.RequiredMinimumReceive > 0 {
+		rxInterval = time.Duration(config.RequiredMinimumReceive) * time.Microsecond
+	}
+	txInterval := defaultTxInterval
+	if config.DesiredMinimumTxInterval > 0 {
+		txInterval = time.Duration(config.DesiredMinimumTxInterval) * time.Microsecond
+	}
+	return multiplier, rxInterval, txInterval
+}
+
+// updateConfig hands the session new timer settings: the detection multiplier,
+// the Desired Min TX Interval and the Required Min RX Interval. The other
+// settings need a new session; see bfdServer.addBfdPeer. It does not wait for
+// the loop goroutine, which may be waiting for the BGP lock held by our caller
+// (see Stop). The loop applies the latest settings handed over.
+func (p *bfdPeer) updateConfig(config oc.BfdConfig) {
+	p.nextConfig.Store(&config)
+	select {
+	case p.eventConfig <- struct{}{}:
+	default:
+	}
 }
 
 func (p *bfdPeer) Rx(packet *bfd.BFDHeader) bool {
@@ -195,6 +248,9 @@ func (p *bfdPeer) Rx(packet *bfd.BFDHeader) bool {
 func (p *bfdPeer) Stop() {
 	p.shutdownOnce.Do(func() {
 		p.stopped.Store(true)
+		// A BFD-down operation may be waiting for the BGP lock held by our lifecycle caller.
+		// Cancel it before waiting for the BFD loop, including its queued operation.
+		p.cancelReset()
 		close(p.eventShutdown)
 		p.shutdownWait.Wait()
 	})
@@ -216,10 +272,13 @@ func (p *bfdPeer) loop() {
 			p.tx()
 		case <-p.eventExpiry.C:
 			p.expiry()
+		case <-p.eventConfig:
 		case <-p.eventShutdown:
 			p.shutdown()
 			return
 		}
+		// Any event may be the one that lets a waiting configuration apply.
+		p.applyNextConfig()
 	}
 }
 
@@ -326,7 +385,7 @@ func (p *bfdPeer) startClient() {
 	//   If BFD authentication is not in use on a session, all BFD Control
 	//   packets for the session MUST be sent with a Time to Live (TTL) or Hop
 	//   Limit value of 255
-	err = netutils.SetUDPTTLSockopt(p.udpClient, 255)
+	err = netutils.SetUDPTTLSockopt(p.udpClient, bfdTTL)
 	if err != nil {
 		p.logger.Error("Can't set TTL to 255",
 			slog.String("Topic", "bfd"),
@@ -361,9 +420,27 @@ func (p *bfdPeer) startClient() {
 // RFC 5880 Section 6.8.7: a system MUST NOT transmit BFD Control packets at an
 // interval less than the larger of bfd.DesiredMinTxInterval and
 // bfd.RemoteMinRxInterval. desiredMinTx carries the Section 6.8.3 not-Up floor,
-// so the floor reaches the pacing through it.
+// so the floor reaches the pacing through it. While an increase of desiredMinTx
+// is held (see heldTxInterval), the previous value is used.
 func (p *bfdPeer) effectiveTxInterval() time.Duration {
-	return max(p.desiredMinTx, p.remoteMinRxInterval)
+	desiredMinTx := p.desiredMinTx
+	if p.heldTxInterval != 0 {
+		desiredMinTx = p.heldTxInterval
+	}
+	return max(desiredMinTx, p.remoteMinRxInterval)
+}
+
+// detectionTime is the Detection Time of RFC 5880 Section 6.8.4: the remote
+// Detect Mult multiplied by the negotiated receive interval, i.e. the greater
+// of our bfd.RequiredMinRxInterval and the remote Desired Min TX Interval.
+// While a reduction of bfd.RequiredMinRxInterval is held (see heldRxInterval),
+// the previous value is used.
+func (p *bfdPeer) detectionTime() time.Duration {
+	rxInterval := p.rxInterval
+	if p.heldRxInterval != 0 {
+		rxInterval = p.heldRxInterval
+	}
+	return time.Duration(p.remoteDetectMult) * max(rxInterval, p.remoteDesiredMinTx)
 }
 
 // armTx re-arms the transmit timer at the absolute pacing deadline
@@ -391,7 +468,17 @@ func (p *bfdPeer) effectiveTxInterval() time.Duration {
 // design that starves, because that anchor never advances. Go 1.23+ timer
 // semantics mean Reset discards any expiry already pending, so an overdue
 // receive landing on a fire cannot produce two packets.
+//
+// RFC 5880 Section 6.8.7: "A system MUST NOT periodically transmit BFD
+// Control packets if bfd.RemoteMinRxInterval is zero." The timer is then
+// stopped. A packet sent at a state change, or a Final sent in reply to a
+// Poll, is not periodic and still goes out. A later packet with a nonzero
+// value starts the timer again.
 func (p *bfdPeer) armTx() {
+	if p.remoteMinRxInterval == 0 {
+		p.eventTx.Stop()
+		return
+	}
 	remaining := time.Until(p.lastTx.Add(p.jitteredTxInterval()))
 	if remaining <= 0 {
 		p.tx()
@@ -441,35 +528,49 @@ func (p *bfdPeer) rxPacket(h *bfd.BFDHeader) {
 
 	p.stats.rxPacket.Add(1)
 
-	// RFC 5880 Section 6.8.4: Detection Time is the remote Detect Mult
-	// multiplied by the negotiated receive interval, i.e. the greater of our
-	// RequiredMinRxInterval and the remote DesiredMinTxInterval.
-	negotiatedRx := p.rxInterval
-	if remoteTx := time.Duration(h.DesiredMinTxInterval) * time.Microsecond; remoteTx > negotiatedRx {
-		negotiatedRx = remoteTx
-	}
-	p.expiryInterval = time.Duration(h.DetectTimeMultiplier) * negotiatedRx
-
-	// RFC 5880 Section 6.8.6: "Set bfd.RemoteMinRxInterval to the value of
-	// Required Min RX Interval." A received zero is stored verbatim; this
-	// implementation deliberately does not implement Section 6.8.7's meaning for
-	// zero (stop periodic transmission). The timer is re-armed once at the end
-	// of this function, after the state machine has run.
-	p.remoteMinRxInterval = time.Duration(h.RequiredMinRxInterval) * time.Microsecond
-
 	// RFC 5880 Section 6.8.6: "If a Poll Sequence is being transmitted by the local
 	// system and the Final (F) bit in the received packet is set, the Poll Sequence
 	// MUST be terminated." Section 6.8.6 lists this before the state processing,
 	// and so must this function: a Final ends the sequence that was in flight when
 	// the packet arrived, never one that the packet's own state transition starts.
-	if h.Final && p.pollSequence {
-		p.pollSequence = false
+	// The values held for the sequence are released here, before the Detection
+	// Time below, so this packet already uses the new one.
+	if h.Final {
+		if p.pollSequence {
+			p.pollSequence = false
+			p.heldTxInterval = 0
+			p.heldRxInterval = 0
+			p.pollSettling = true
+		}
+	} else {
+		p.pollSettling = false
 	}
+
+	p.remoteDetectMult = h.DetectTimeMultiplier
+	p.remoteDesiredMinTx = time.Duration(h.DesiredMinTxInterval) * time.Microsecond
+	p.expiryInterval = p.detectionTime()
+
+	// RFC 5880 Section 6.8.6: "Set bfd.RemoteMinRxInterval to the value of
+	// Required Min RX Interval." A zero stops periodic transmission (see
+	// armTx). The timer is re-armed once at the end of this function, after
+	// the state machine has run.
+	p.remoteMinRxInterval = time.Duration(h.RequiredMinRxInterval) * time.Microsecond
 
 	switch h.State {
 	case bfd.StateAdminDown:
+		// RFC 5882 Sections 3.2 and 4.2: AdminDown means the remote system took
+		// the session down administratively, not that the path failed. BGP has
+		// its own liveness detection, so the BGP session is left alone; only the
+		// BFD session goes Down.
 		if p.sessionState() != api.BfdSessionState_BFD_SESSION_STATE_DOWN {
-			p.remoteDown()
+			p.logger.Info("Remote peer signaled BFD admin down",
+				slog.String("Topic", "bfd"),
+				slog.String("Peer", p.peerAddress.String()),
+			)
+
+			// RFC 5880 Section 6.8.6: "Set bfd.LocalDiag to 3 (Neighbor
+			// signaled session down)".
+			p.setStateDown(bfd.DiagnosticNeighborSignaledSessionDown)
 		}
 	case bfd.StateDown:
 		switch p.sessionState() {
@@ -546,7 +647,12 @@ func (p *bfdPeer) jitteredTxInterval() time.Duration {
 func (p *bfdPeer) tx() {
 	p.lastTx = time.Now()
 	p.drawTxJitter()
-	p.eventTx.Reset(p.jitteredTxInterval())
+	if p.remoteMinRxInterval == 0 {
+		// No periodic packets (see armTx).
+		p.eventTx.Stop()
+	} else {
+		p.eventTx.Reset(p.jitteredTxInterval())
+	}
 
 	switch p.sessionState() {
 	case api.BfdSessionState_BFD_SESSION_STATE_UP:
@@ -571,11 +677,32 @@ func (p *bfdPeer) expiry() {
 
 	p.stats.expired.Add(1)
 
-	p.resetPeer()
-	p.setStateDown()
+	// Only an Up session that expires is a path failure. A session that
+	// expires in Init never came up. RFC 5882 Section 3.3 says: "The BFD
+	// state machine transitions that occur in the process of bringing up a
+	// BFD session in such situations SHOULD NOT cause a connectivity failure
+	// notification to the clients." We read the expiry in Init as such a
+	// transition. FRR and BIRD also reset BGP only on Up to Down.
+	if p.sessionState() == api.BfdSessionState_BFD_SESSION_STATE_UP {
+		p.bfdDown()
+	}
+	// RFC 5880 Section 6.8.4: "the local system MUST set bfd.SessionState to
+	// Down and bfd.LocalDiag to 1 (Control Detection Time Expired)."
+	p.setStateDown(bfd.DiagnosticControlDetectionTimeExpired)
 }
 
 func (p *bfdPeer) shutdown() {
+	// RFC 5880 Section 6.8.16: a disabled session goes to AdminDown, so the remote
+	// can tell it from a path failure and keep its clients up (RFC 5882 Section
+	// 3.2). The RFC asks for packets for a Detection Time; one is sent, as FRR
+	// does, so that removing a peer does not wait that long. A remote that holds
+	// no session with us has nothing to be told.
+	if p.yourDiscriminator != 0 {
+		p.state.Store(int32(api.BfdSessionState_BFD_SESSION_STATE_ADMIN_DOWN))
+		p.localDiag = bfd.DiagnosticAdministrativelyDown
+		p.sendPacket(bfd.StateAdminDown, false, false, p.yourDiscriminator)
+	}
+
 	p.stop()
 	p.eventStart.Stop()
 	p.eventTx.Stop()
@@ -588,17 +715,16 @@ func (p *bfdPeer) remoteDown() {
 		slog.String("Peer", p.peerAddress.String()),
 	)
 
-	p.resetPeer()
-	p.setStateDown()
+	p.bfdDown()
+	// RFC 5880 Section 6.8.6: "Set bfd.LocalDiag to 3 (Neighbor signaled
+	// session down)".
+	p.setStateDown(bfd.DiagnosticNeighborSignaledSessionDown)
 }
 
-func (p *bfdPeer) resetPeer() {
-	if err := p.peerState.ResetPeer(context.Background(), &api.ResetPeerRequest{
-		Address:       p.peerAddress.String(),
-		Communication: "BFD is down",
-		Soft:          false,
-	}); err != nil {
-		p.logger.Warn("ResetPeer failed",
+func (p *bfdPeer) bfdDown() {
+	if err := p.peerState.bfdDown(p.resetCtx, p.peerAddress); err != nil && !errors.Is(err, context.Canceled) {
+		// Cancellation is the retiring session withdrawing its own BFD-down operation.
+		p.logger.Warn("failed to close BGP session on BFD down",
 			slog.String("Topic", "bfd"),
 			slog.String("Peer", p.peerAddress.String()),
 			slog.String("Err", err.Error()),
@@ -614,6 +740,7 @@ func (p *bfdPeer) sendPacket(state bfd.StateType, poll bool, final bool, yourDis
 
 	packet := &bfd.BFDHeader{
 		Version:               1,
+		Diagnostic:            p.localDiag,
 		State:                 state,
 		Poll:                  poll,
 		Final:                 final,
@@ -675,11 +802,11 @@ func (p *bfdPeer) sessionStateToWire() bfd.StateType {
 // before we rely on it) does not apply to a session that has just been torn down. The
 // Down state itself tells the remote all it needs.
 //
-// The new interval takes effect immediately: Section 6.8.3 only forbids that for an
-// increase made while the session is Up, and the only increase here happens on the
-// transition out of Up. The timer is not touched here: every change comes from a
-// state transition, and the state setters transmit it at once through tx(), which
-// re-arms the timer.
+// The new interval is advertised at once. An increase made while the session is Up
+// does not take effect before the sequence ends (Section 6.8.3); applyConfig holds
+// the old one for that. The timer is not touched here: every change comes from a
+// state transition or from applyConfig, and both transmit it at once through tx(),
+// which re-arms the timer.
 func (p *bfdPeer) setDesiredMinTx(d time.Duration) {
 	if d == p.desiredMinTx {
 		return
@@ -690,7 +817,9 @@ func (p *bfdPeer) setDesiredMinTx(d time.Duration) {
 	}
 }
 
-func (p *bfdPeer) setStateDown() {
+// setStateDown moves the session to Down. diag is the reason, kept in
+// bfd.LocalDiag.
+func (p *bfdPeer) setStateDown(diag bfd.DiagnosticType) {
 	p.logger.Debug("Set state to DOWN",
 		slog.String("Topic", "bfd"),
 		slog.String("Peer", p.peerAddress.String()),
@@ -698,11 +827,15 @@ func (p *bfdPeer) setStateDown() {
 
 	p.state.Store(int32(api.BfdSessionState_BFD_SESSION_STATE_DOWN))
 	p.yourDiscriminator = 0
+	p.localDiag = diag
 
 	// The remote session is gone, and with it any Poll Sequence in flight: nobody is
 	// left to answer it, and Down packets with the Poll bit set would ask an unbound
 	// peer for a Final (see setDesiredMinTx).
 	p.pollSequence = false
+	p.pollSettling = false
+	p.heldTxInterval = 0
+	p.heldRxInterval = 0
 
 	// RFC 5880 Section 6.8.3: "When bfd.SessionState is not Up, the system MUST set
 	// bfd.DesiredMinTxInterval to a value of not less than one second (1,000,000
@@ -723,6 +856,9 @@ func (p *bfdPeer) setStateInit(yourDiscriminator uint32) {
 
 	p.state.Store(int32(api.BfdSessionState_BFD_SESSION_STATE_INIT))
 	p.yourDiscriminator = yourDiscriminator
+	// RFC 5880 does not say when bfd.LocalDiag is cleared. Like BIRD, clear
+	// it when the session moves to Init or Up; FRR clears it on Up.
+	p.localDiag = bfd.DiagnosticNoDiagnostic
 
 	// desiredMinTx is left untouched here: Init is only ever entered from Down
 	// (rxPacket's bfd.StateDown case), and Down already carries the RFC 5880 Section
@@ -740,6 +876,7 @@ func (p *bfdPeer) setStateUp(yourDiscriminator uint32) {
 
 	p.state.Store(int32(api.BfdSessionState_BFD_SESSION_STATE_UP))
 	p.yourDiscriminator = yourDiscriminator
+	p.localDiag = bfd.DiagnosticNoDiagnostic
 
 	// RFC 5880 Section 6.8.3: Up lifts the not-Up floor, restoring the configured
 	// interval, a change that starts a Poll Sequence unless it is a no-op.
@@ -750,5 +887,75 @@ func (p *bfdPeer) setStateUp(yourDiscriminator uint32) {
 	// Transmit the state change at once (RFC 5880 Section 6.8.7; see tx). This packet
 	// is also the first to carry the restored interval and the Poll bit, so the
 	// sequence starts now rather than at the end of the Down cadence.
+	p.tx()
+}
+
+// applyNextConfig applies a configuration handed over by updateConfig, unless a
+// Poll Sequence is in flight or has only just ended (see pollSettling): the
+// change may need a sequence of its own, and RFC 5880 Section 6.8.3 does not
+// allow two at once. The loop calls it after every event, so a waiting
+// configuration applies as soon as that is over. nextConfig is cleared only
+// after the configuration is applied, and only if no newer one was handed over
+// meanwhile; that one applies next.
+func (p *bfdPeer) applyNextConfig() {
+	if p.pollSequence || p.pollSettling {
+		return
+	}
+	config := p.nextConfig.Load()
+	if config == nil {
+		return
+	}
+	p.applyConfig(*config)
+	p.nextConfig.CompareAndSwap(config, nil)
+}
+
+// applyConfig changes the timer settings of a running session without affecting
+// its state, as RFC 5880 Section 6.8.3 allows: "The time values used to
+// determine BFD packet transmission intervals and the session Detection Time may
+// be modified at any time without affecting the state of the session."
+//
+// A change of bfd.DesiredMinTxInterval or bfd.RequiredMinRxInterval initiates a
+// Poll Sequence, as Section 6.8.3 requires, and both are sent in one packet so
+// that the Final answers them together. A change of the detection multiplier
+// needs none; the peer takes it from the next packet. While Up, an increase of
+// bfd.DesiredMinTxInterval keeps the previous transmit interval, and a reduction
+// of bfd.RequiredMinRxInterval keeps the previous Detection Time, until the
+// sequence ends. Any other change takes effect at once.
+func (p *bfdPeer) applyConfig(config oc.BfdConfig) {
+	multiplier, rxInterval, txInterval := bfdTimers(config)
+	if multiplier == p.multiplier && rxInterval == p.rxInterval && txInterval == p.txInterval {
+		return
+	}
+
+	up := p.sessionState() == api.BfdSessionState_BFD_SESSION_STATE_UP
+	desiredMinTx := txInterval
+	if !up {
+		// RFC 5880 Section 6.8.3: the not-Up floor (see setStateDown).
+		desiredMinTx = max(txInterval, bfdSlowTxInterval)
+	}
+	if up && desiredMinTx > p.desiredMinTx {
+		p.heldTxInterval = p.desiredMinTx
+	}
+	if up && rxInterval < p.rxInterval {
+		p.heldRxInterval = p.rxInterval
+	}
+
+	rxChanged := rxInterval != p.rxInterval
+	p.multiplier = multiplier
+	p.rxInterval = rxInterval
+	p.txInterval = txInterval
+	p.setDesiredMinTx(desiredMinTx)
+	if rxChanged && p.yourDiscriminator != 0 {
+		p.pollSequence = true
+	}
+
+	if p.remoteDetectMult != 0 {
+		p.expiryInterval = p.detectionTime()
+		if p.sessionState() == api.BfdSessionState_BFD_SESSION_STATE_INIT || up {
+			p.eventExpiry.Reset(p.expiryInterval)
+		}
+	}
+
+	// Transmit the new values at once (RFC 5880 Section 6.8.7; see tx).
 	p.tx()
 }

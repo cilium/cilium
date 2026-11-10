@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"os"
 	"sort"
@@ -57,9 +58,47 @@ type dumpPeer struct {
 	as   uint32
 }
 
+// mrtDumpState is the server state a table dump needs. dumpTable copies it
+// under shared.mu and then builds the dump without holding the lock.
+// handleFSMMessage takes shared.mu for reading on every BGP message, so a
+// dump that kept the lock would stop all BGP processing until it finished.
+type mrtDumpState struct {
+	rib       *table.TableManager
+	id        string
+	as        uint32
+	routerID  netip.Addr
+	neighbors map[netip.Addr]*peer
+}
+
+// dumpState copies the state dumpTable needs. It returns false when the
+// configured table name does not name a route server client.
+func (m *mrtWriter) dumpState() (*mrtDumpState, bool) {
+	m.s.shared.mu.RLock()
+	defer m.s.shared.mu.RUnlock()
+
+	st := &mrtDumpState{
+		rib:       m.s.globalRib,
+		id:        table.GLOBAL_RIB_NAME,
+		routerID:  m.s.bgpConfig.Global.Config.RouterId,
+		neighbors: maps.Clone(m.s.neighborMap),
+	}
+	if m.c.TableName.IsValid() {
+		peer, ok := m.s.neighborMap[m.c.TableName]
+		if !ok || !peer.isRouteServerClient() {
+			return nil, false
+		}
+		st.id = peer.ID()
+		st.as = peer.AS()
+		st.rib = m.s.rsRib
+	}
+	return st, true
+}
+
 func (m *mrtWriter) dumpTable() []*mrt.MRTMessage {
-	m.s.shared.mu.Lock()
-	defer m.s.shared.mu.Unlock()
+	st, ok := m.dumpState()
+	if !ok {
+		return []*mrt.MRTMessage{}
+	}
 
 	msgs := make([]*mrt.MRTMessage, 0)
 
@@ -128,38 +167,22 @@ func (m *mrtWriter) dumpTable() []*mrt.MRTMessage {
 		}
 	}
 
-	rib := m.s.globalRib
-	as := uint32(0)
-	id := table.GLOBAL_RIB_NAME
-	if m.c.TableName.IsValid() {
-		peer, ok := m.s.neighborMap[m.c.TableName]
-		if !ok {
-			return []*mrt.MRTMessage{}
-		}
-		if !peer.isRouteServerClient() {
-			return []*mrt.MRTMessage{}
-		}
-		id = peer.ID()
-		as = peer.AS()
-		rib = m.s.rsRib
-	}
-
-	for family, t := range rib.GetAllTablesMap() {
+	for family, t := range st.rib.GetAllTablesMap() {
 		for _, dst := range t.GetDestinations() {
-			if paths := dst.GetKnownPathList(id, as); len(paths) > 0 {
+			if paths := dst.GetKnownPathList(st.id, st.as); len(paths) > 0 {
 				entries := make([]*mrt.RibEntry, 0)
 				entriesAddPath := make([]*mrt.RibEntry, 0)
 				for _, path := range paths {
 					isAddPath := false
 					if path.IsLocal() {
 						isAddPath = true
-					} else if neighbor, ok := m.s.neighborMap[path.GetSource().Address]; ok {
+					} else if neighbor, ok := st.neighbors[path.GetSource().Address]; ok {
 						isAddPath = neighbor.isAddPathReceiveEnabled(family)
 					}
 					if !isAddPath {
-						entries = append(entries, mrt.NewRibEntry(idx(path), uint32(path.GetTimestamp().Unix()), 0, path.GetPathAttrs(), false))
+						entries = append(entries, mrt.NewRibEntry(idx(path), uint32(path.GetTimestamp().Unix()), 0, path.GetFullPathAttrs(), false))
 					} else {
-						entriesAddPath = append(entriesAddPath, mrt.NewRibEntry(idx(path), uint32(path.GetTimestamp().Unix()), path.RemoteID(), path.GetPathAttrs(), true))
+						entriesAddPath = append(entriesAddPath, mrt.NewRibEntry(idx(path), uint32(path.GetTimestamp().Unix()), path.RemoteID(), path.GetFullPathAttrs(), true))
 					}
 				}
 				if len(entries) > 0 {
@@ -186,7 +209,7 @@ func (m *mrtWriter) dumpTable() []*mrt.MRTMessage {
 			peers = append(peers, mrt.NewPeer(p.id, p.addr, p.as, true))
 		}
 
-		return mrt.NewMRTMessage(t, mrt.TABLE_DUMPv2, mrt.PEER_INDEX_TABLE, mrt.NewPeerIndexTable(m.s.bgpConfig.Global.Config.RouterId, "", peers))
+		return mrt.NewMRTMessage(t, mrt.TABLE_DUMPv2, mrt.PEER_INDEX_TABLE, mrt.NewPeerIndexTable(st.routerID, "", peers))
 	}()
 	if err != nil {
 		return []*mrt.MRTMessage{}
@@ -455,7 +478,7 @@ func (m *mrtManager) enable(c *oc.MrtConfig) error {
 func (m *mrtManager) disable(c *oc.MrtConfig) error {
 	w, ok := m.writer[c.FileName]
 	if !ok {
-		return fmt.Errorf("%s doesn't exists", c.FileName)
+		return fmt.Errorf("%s does not exist", c.FileName)
 	}
 	w.Stop()
 	delete(m.writer, c.FileName)

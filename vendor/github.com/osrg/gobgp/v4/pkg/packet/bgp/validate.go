@@ -2,7 +2,6 @@ package bgp
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -24,22 +23,43 @@ func ValidateUpdateMsg(m *BGPUpdate, rfs map[Family]BGPAddPathMode, isEBGP bool,
 
 	seen := make(map[BGPAttrType]PathAttributeInterface)
 	newAttrs := make([]PathAttributeInterface, 0, len(seen))
+	discarded := make(map[BGPAttrType]bool)
 	// check path attribute
 	for _, a := range m.PathAttributes {
 		// check duplication
 		if _, ok := seen[a.GetType()]; !ok {
 			seen[a.GetType()] = a
-			newAttrs = append(newAttrs, a)
+			// Only the NLRIs in the NLRI field use NEXT_HOP, so its
+			// value is not checked when there are none. RFC 4760 3:
+			// "An UPDATE message that carries no NLRI, other than the
+			// one encoded in the MP_REACH_NLRI attribute, SHOULD NOT
+			// carry the NEXT_HOP attribute. If such a message contains
+			// the NEXT_HOP attribute, the BGP speaker that receives the
+			// message SHOULD ignore this attribute."
+			if a.GetType() == BGP_ATTR_TYPE_NEXT_HOP && len(m.NLRI) == 0 {
+				newAttrs = append(newAttrs, a)
+				continue
+			}
 			// check specific path attribute
 			ok, err := ValidateAttribute(a, rfs, isEBGP, isConfed, loopbackNextHopAllowed)
 			if !ok {
 				msgErr := err.(*MessageError)
 				if msgErr.ErrorHandling == ERROR_HANDLING_SESSION_RESET {
 					return false, err
-				} else if msgErr.Stronger(strongestError) {
+				}
+				if msgErr.Stronger(strongestError) {
 					strongestError = err
 				}
+				// attribute-discard means the attribute must be
+				// removed so the malformed value is not stored or
+				// re-propagated. The FSM only logs this handling, so
+				// drop the attribute here instead of keeping it.
+				if msgErr.ErrorHandling == ERROR_HANDLING_ATTRIBUTE_DISCARD {
+					discarded[a.GetType()] = true
+					continue
+				}
 			}
+			newAttrs = append(newAttrs, a)
 		} else if a.GetType() == BGP_ATTR_TYPE_MP_REACH_NLRI || a.GetType() == BGP_ATTR_TYPE_MP_UNREACH_NLRI {
 			eMsg := "the path attribute appears twice. Type : " + strconv.Itoa(int(a.GetType()))
 			return false, NewMessageError(eCode, eSubCodeAttrList, nil, eMsg)
@@ -50,6 +70,14 @@ func ValidateUpdateMsg(m *BGPUpdate, rfs map[Family]BGPAddPathMode, isEBGP bool,
 				strongestError = e
 			}
 		}
+	}
+	// rfc6793 4.2.3. AS4_AGGREGATOR only replaces the AS of an AGGREGATOR
+	// carrying AS_TRANS. Without the AGGREGATOR it has nothing to apply
+	// to, so discard it too and keep processing the UPDATE.
+	if discarded[BGP_ATTR_TYPE_AGGREGATOR] {
+		newAttrs = slices.DeleteFunc(newAttrs, func(a PathAttributeInterface) bool {
+			return a.GetType() == BGP_ATTR_TYPE_AS4_AGGREGATOR
+		})
 	}
 	m.PathAttributes = newAttrs
 
@@ -89,6 +117,7 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 	eSubCodeBadNextHop := uint8(BGP_ERROR_SUB_INVALID_NEXT_HOP_ATTRIBUTE)
 	eSubCodeUnknown := uint8(BGP_ERROR_SUB_UNRECOGNIZED_WELL_KNOWN_ATTRIBUTE)
 	eSubCodeMalformedAspath := uint8(BGP_ERROR_SUB_MALFORMED_AS_PATH)
+	eSubCodeOptAttr := uint8(BGP_ERROR_SUB_OPTIONAL_ATTRIBUTE_ERROR)
 
 	checkPrefix := func(family Family, l []PathNLRI) error {
 		if _, ok := rfs[family]; !ok {
@@ -119,6 +148,17 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 		if err := checkPrefix(NewFamily(p.AFI, p.SAFI), p.Value); err != nil {
 			return false, err
 		}
+		// The FlowSpec families carry no next hop (RFC 8955 4: the field
+		// MUST be ignored), and neither does the opaque family.
+		if p.SAFI != SAFI_FLOW_SPEC_UNICAST && p.SAFI != SAFI_FLOW_SPEC_VPN && p.SAFI != SAFI_KEY_VALUE &&
+			!validNexthop(p.Nexthop, p.LinkLocalNexthop, loopbackNextHopAllowed) {
+			eMsg := "invalid nexthop address in MP_REACH_NLRI"
+			data, _ := a.Serialize()
+			e := NewMessageErrorWithErrorHandling(eCode, eSubCodeOptAttr, data, ERROR_HANDLING_TREAT_AS_WITHDRAW, nil, eMsg)
+			if e.(*MessageError).Stronger(strongestError) {
+				strongestError = e
+			}
+		}
 	case *PathAttributeOrigin:
 		v := p.Value
 		if v != BGP_ORIGIN_ATTR_TYPE_IGP &&
@@ -132,23 +172,7 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 			}
 		}
 	case *PathAttributeNextHop:
-
-		isZero := func(ip net.IP) bool {
-			res := ip[0] & 0xff
-			return res == 0x00
-		}
-
-		isClassDorE := func(ip net.IP) bool {
-			if ip.To4() == nil {
-				// needs to verify ipv6 too?
-				return false
-			}
-			res := ip[0] & 0xe0
-			return res == 0xe0
-		}
-		addr := net.IP(p.Value.AsSlice())
-		// check IP address represents host address
-		if !loopbackNextHopAllowed && p.Value.IsLoopback() || isZero(addr) || isClassDorE(addr) {
+		if !validNexthop(p.Value, netip.Addr{}, loopbackNextHopAllowed) {
 			eMsg := "invalid nexthop address"
 			data, _ := a.Serialize()
 			e := NewMessageErrorWithErrorHandling(eCode, eSubCodeBadNextHop, data, getErrorHandlingFromPathAttribute(p.GetType()), nil, eMsg)
@@ -157,6 +181,18 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 			}
 		}
 	case *PathAttributeAsPath:
+		// rfc7607 2. An UPDATE message with AS 0 in the AS_PATH attribute
+		// MUST be considered malformed and handled by the rfc7606 procedure,
+		// which for AS_PATH is treat-as-withdraw.
+		for _, param := range p.Value {
+			if slices.Contains(param.GetAS(), 0) {
+				e := NewMessageErrorWithErrorHandling(eCode, eSubCodeMalformedAspath, nil, getErrorHandlingFromPathAttribute(p.GetType()), nil, "AS_PATH contains AS 0")
+				if e.(*MessageError).Stronger(strongestError) {
+					strongestError = e
+				}
+				break
+			}
+		}
 		if isEBGP {
 			if isConfed {
 				if len(p.Value) == 0 {
@@ -179,6 +215,38 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 				}
 			}
 		}
+	case *PathAttributeAs4Path:
+		// rfc7607 2. AS 0 in the AS4_PATH attribute makes the UPDATE
+		// malformed. rfc7607 sends this to rfc6793, whose section 6
+		// handles a malformed AS4_PATH as attribute-discard.
+		for _, param := range p.Value {
+			if slices.Contains(param.GetAS(), 0) {
+				e := NewMessageErrorWithErrorHandling(eCode, eSubCodeMalformedAspath, nil, ERROR_HANDLING_ATTRIBUTE_DISCARD, nil, "AS4_PATH contains AS 0")
+				if e.(*MessageError).Stronger(strongestError) {
+					strongestError = e
+				}
+				break
+			}
+		}
+	case *PathAttributeAggregator:
+		// rfc7607 2. AS 0 in the AGGREGATOR attribute makes the UPDATE
+		// malformed. rfc7606 handles it as attribute-discard.
+		if p.Value.AS == 0 {
+			e := NewMessageErrorWithErrorHandling(eCode, uint8(BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST), nil, getErrorHandlingFromPathAttribute(p.GetType()), nil, "AGGREGATOR has AS 0")
+			if e.(*MessageError).Stronger(strongestError) {
+				strongestError = e
+			}
+		}
+	case *PathAttributeAs4Aggregator:
+		// rfc7607 2. AS 0 in the AS4_AGGREGATOR attribute makes the UPDATE
+		// malformed. rfc7607 sends this to rfc6793, whose section 6
+		// handles a malformed AS4_AGGREGATOR as attribute-discard.
+		if p.Value.AS == 0 {
+			e := NewMessageErrorWithErrorHandling(eCode, uint8(BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST), nil, ERROR_HANDLING_ATTRIBUTE_DISCARD, nil, "AS4_AGGREGATOR has AS 0")
+			if e.(*MessageError).Stronger(strongestError) {
+				strongestError = e
+			}
+		}
 	case *PathAttributeLargeCommunities:
 		uniq := make([]*LargeCommunity, 0, len(p.Values))
 		for _, x := range p.Values {
@@ -190,14 +258,39 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 		p.Values = uniq
 
 	case *PathAttributeUnknown:
+		// RFC 7606 does not revise this case of RFC 4271 6.3. Use
+		// treat-as-withdraw as BIRD and FRR do, since RFC 7606 Section 8
+		// prefers it to a session reset.
 		if p.GetFlags()&BGP_ATTR_FLAG_OPTIONAL == 0 {
 			eMsg := fmt.Sprintf("unrecognized well-known attribute %s", p.GetType())
 			data, _ := a.Serialize()
-			return false, NewMessageError(eCode, eSubCodeUnknown, data, eMsg)
+			e := NewMessageErrorWithErrorHandling(eCode, eSubCodeUnknown, data, ERROR_HANDLING_TREAT_AS_WITHDRAW, nil, eMsg)
+			if e.(*MessageError).Stronger(strongestError) {
+				strongestError = e
+			}
 		}
 	}
 
 	return strongestError == nil, strongestError
+}
+
+// validNexthop reports whether addr is a valid IP host address for a next
+// hop (RFC 4271 6.3): not unspecified, not loopback unless the session is on
+// loopback, not multicast, and for IPv4 not in 0.0.0.0/8 or class E either.
+// An unspecified IPv6 addr is accepted only when linkLocal is a link-local
+// address.
+func validNexthop(addr, linkLocal netip.Addr, loopbackAllowed bool) bool {
+	if addr.Is6() && addr.IsUnspecified() {
+		return linkLocal.IsLinkLocalUnicast()
+	}
+	if addr.IsUnspecified() || addr.IsMulticast() || addr.IsLoopback() && !loopbackAllowed {
+		return false
+	}
+	if addr.Is4() {
+		b := addr.As4()
+		return b[0] != 0 && b[0]&0xe0 != 0xe0
+	}
+	return true
 }
 
 // validator for PathAttribute

@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,18 +43,56 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time, 
 		return []*Path{NewEOR(f)}
 	}
 
+	// The attributes that an external peer must not send are removed here,
+	// once for the update, before the paths share them. A route server
+	// client is left alone.
+	//
+	// RFC 4271 5.1.5: "If it is contained in an UPDATE message that is
+	// received from an external peer, then this attribute MUST be ignored
+	// by the receiving speaker, except in the case of BGP Confederations
+	// [RFC3065]."
+	//
+	// RFC 7606 7.9: "if the ORIGINATOR_ID attribute is received from an
+	// external neighbor, it SHALL be discarded using the approach of
+	// "attribute discard"". 7.10 says the same for CLUSTER_LIST. We would
+	// otherwise act on them when reflecting the route.
+	//
+	// RFC 8097 2: "By default, implementations MUST drop the origin
+	// validation state extended community if received from an External
+	// BGP (EBGP) peer, without processing it further."
+	//
+	// TODO: a confederation peer has PeerType external, so LOCAL_PREF from
+	// it is removed too.
+	external := peerInfo != nil && peerInfo.PeerType == oc.PEER_TYPE_EXTERNAL && !peerInfo.RouteServerClient
+
+	// The next hops are kept out of the path attributes, so all the paths
+	// of the update share one attribute list and one hash.
 	attrs := make([]bgp.PathAttributeInterface, 0, len(update.PathAttributes))
+	var nexthop *bgp.PathAttributeNextHop
 	var reach *bgp.PathAttributeMpReachNLRI
 	var unreach *bgp.PathAttributeMpUnreachNLRI
 	for _, attr := range update.PathAttributes {
 		switch a := attr.(type) {
+		case *bgp.PathAttributeNextHop:
+			nexthop = a
 		case *bgp.PathAttributeMpReachNLRI:
 			reach = a
 		case *bgp.PathAttributeMpUnreachNLRI:
 			unreach = a
+		case *bgp.PathAttributeLocalPref, *bgp.PathAttributeOriginatorId, *bgp.PathAttributeClusterList:
+			if !external {
+				attrs = append(attrs, attr)
+			}
+		case *bgp.PathAttributeExtendedCommunities:
+			if !external || !slices.ContainsFunc(a.Value, isOriginValidationState) {
+				attrs = append(attrs, attr)
+				break
+			}
+			// The received attribute is left as it is.
+			if exts := slices.DeleteFunc(slices.Clone(a.Value), isOriginValidationState); len(exts) != 0 {
+				attrs = append(attrs, bgp.NewPathAttributeExtendedCommunities(exts))
+			}
 		default:
-			// update msg may not contain next_hop (type:3) in attr
-			// due to it uses MpReachNLRI and it also has empty update.NLRI
 			attrs = append(attrs, attr)
 		}
 	}
@@ -63,7 +102,7 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time, 
 	}
 
 	// one hash shared by every path of this update; must stay in sync
-	// with Path.updateHash (farm.Hash64 over attrs without MP_REACH_NLRI)
+	// with Path.updateHash (farm.Hash64 over the path attributes)
 	var hash uint64
 	if len(attrs) != 0 {
 		total := bytes.NewBuffer(make([]byte, 0))
@@ -84,37 +123,37 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time, 
 
 	pathList := make([]*Path, 0, listLen)
 
+	// The NLRIs in the NLRI field use NEXT_HOP, and the NLRIs in
+	// MP_REACH_NLRI do not. RFC 4760 3: "An UPDATE message that carries no
+	// NLRI, other than the one encoded in the MP_REACH_NLRI attribute,
+	// SHOULD NOT carry the NEXT_HOP attribute. If such a message contains
+	// the NEXT_HOP attribute, the BGP speaker that receives the message
+	// SHOULD ignore this attribute."
+	var v4Nexthops *Nexthops
+	if nexthop != nil && !treatAsWithdraw {
+		v4Nexthops = &Nexthops{global: nexthop.Value}
+	}
 	for _, nlri := range update.NLRI {
 		p := NewPath(bgp.RF_IPv4_UC, peerInfo, bgp.PathNLRI{NLRI: nlri.NLRI}, treatAsWithdraw, attrs, timestamp, false)
 		p.remoteID = nlri.ID
+		p.nh = v4Nexthops
 		p.SetHash(hash)
 		pathList = append(pathList, p)
 	}
 
 	if reach != nil {
-		nexthop := reach.Nexthop
+		family := bgp.NewFamily(reach.AFI, reach.SAFI)
 		// RFC 2545 allows a 32 byte next hop that carries a link-local
 		// address after the global one. Keep it, it is the only usable
 		// next hop when the peer has no global address on the link.
-		linkLocalNexthop := reach.LinkLocalNexthop
-		family := bgp.NewFamily(reach.AFI, reach.SAFI)
-
+		var mpNexthops *Nexthops
+		if !treatAsWithdraw {
+			mpNexthops = newMpReachNexthops(reach.Nexthop, reach.LinkLocalNexthop)
+		}
 		for _, nlri := range reach.Value {
-			// when build path from reach
-			// reachAttrs might not contain next_hop if `attrs` does not have one
-			// this happens when a MP peer send update to gobgp
-			// However nlri is always populated because how we build the path
-			// path.info{nlri: nlri}
-			// Compute a new attribute array for each path with one NLRI to make serialization
-			// of path attrs faster
-			reachAttrs := []bgp.PathAttributeInterface{}
-			if !treatAsWithdraw {
-				nlriAttr, _ := bgp.NewPathAttributeMpReachNLRI(family, []bgp.PathNLRI{nlri}, nexthop, linkLocalNexthop)
-				reachAttrs = makeAttributeList(attrs, nlriAttr)
-			}
-
-			p := NewPath(family, peerInfo, bgp.PathNLRI{NLRI: nlri.NLRI}, treatAsWithdraw, reachAttrs, timestamp, false)
+			p := NewPath(family, peerInfo, bgp.PathNLRI{NLRI: nlri.NLRI}, treatAsWithdraw, attrs, timestamp, false)
 			p.remoteID = nlri.ID
+			p.nh = mpNexthops
 			p.SetHash(hash)
 			pathList = append(pathList, p)
 		}
@@ -139,14 +178,9 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time, 
 	return pathList
 }
 
-func makeAttributeList(
-	attrs []bgp.PathAttributeInterface, reach *bgp.PathAttributeMpReachNLRI,
-) []bgp.PathAttributeInterface {
-	reachAttrs := make([]bgp.PathAttributeInterface, len(attrs)+1)
-	copy(reachAttrs, attrs)
-	// we sort attributes when creating a bgp message from paths
-	reachAttrs[len(reachAttrs)-1] = reach
-	return reachAttrs
+func isOriginValidationState(ec bgp.ExtendedCommunityInterface) bool {
+	_, ok := ec.(*bgp.ValidationExtended)
+	return ok
 }
 
 type TableManager struct {
@@ -237,14 +271,13 @@ func (manager *TableManager) AddVrf(name string, id uint32, rd bgp.RouteDistingu
 		ExportRt: exportRt,
 	}
 	msgs := make([]*Path, 0, len(importRt))
-	nexthop := netip.IPv4Unspecified()
 	for _, target := range importRt {
 		nlri := bgp.NewRouteTargetMembershipNLRI(info.AS, target)
 		pattr := make([]bgp.PathAttributeInterface, 0, 2)
 		pattr = append(pattr, bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP))
-		attr, _ := bgp.NewPathAttributeMpReachNLRI(bgp.RF_RTC_UC, []bgp.PathNLRI{{NLRI: nlri}}, nexthop)
-		pattr = append(pattr, attr)
-		msgs = append(msgs, NewPath(bgp.RF_RTC_UC, info, bgp.PathNLRI{NLRI: nlri}, false, pattr, time.Now(), false))
+		path := NewPath(bgp.RF_RTC_UC, info, bgp.PathNLRI{NLRI: nlri}, false, pattr, time.Now(), false)
+		path.setNexthops(Nexthops{global: netip.IPv4Unspecified()})
+		msgs = append(msgs, path)
 	}
 	return msgs, nil
 }

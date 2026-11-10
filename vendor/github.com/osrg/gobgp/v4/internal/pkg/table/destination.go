@@ -74,11 +74,10 @@ func (r *BestPathReason) String() string {
 }
 
 // PeerInfo contains a chunk of peer configuration that is used by table code to determine
-// how to handle path attributes. PeerInfo struct can be used both for individual peers
-// and peer groups when peer group is in shared policy mode and handles paths in bulk.
+// how to handle path attributes when a path is sent to a peer. There is one PeerInfo for
+// each peer session.
 //
-// It is also used to identify source of path to determine best path, but in that case it
-// can only be a peer, not a peer group.
+// It is also used to identify source of path to determine best path.
 //
 // Zero PeerInfo value denotes localSource (paths originated locally) - use localSource
 type PeerInfo struct {
@@ -86,7 +85,7 @@ type PeerInfo struct {
 	// a state based on AS/LocalAS Comparison
 	PeerType oc.PeerType
 
-	// AS Number, Address and BGP Identifier (not specified for peer groups) of the remote peer
+	// AS Number, Address and BGP Identifier of the remote peer
 	AS      uint32
 	ID      netip.Addr
 	Address netip.Addr
@@ -99,7 +98,7 @@ type PeerInfo struct {
 	LocalID      netip.Addr
 	LocalAddress netip.Addr
 
-	// A view of peer/peer group configuration used to compute path attributes correctly
+	// A view of peer configuration used to compute path attributes correctly
 	RouteReflectorClient    bool
 	RouteReflectorClusterID netip.Addr
 	RouteServerClient       bool
@@ -107,9 +106,35 @@ type PeerInfo struct {
 	Confederation           bool
 	RemovePrivateAs         oc.RemovePrivateAsOption
 
-	// PeerGroup contains name for peer group itself if this is PeerInfo for a peer group
-	// or the name of peer group this peer belongs to. Used for informational purposes.
+	// PeerGroup is the name of the peer group this peer belongs to. Used for
+	// informational purposes.
 	PeerGroup string
+
+	// localNh and addressNh are LocalAddress and Address as next hops.
+	// They are made once, so that setting them as the next hop of a path
+	// sent to the peer does not allocate. NewPeerInfo sets them; use
+	// localAddressNexthops and addressNexthops to read them.
+	localNh   *Nexthops
+	addressNh *Nexthops
+}
+
+// localAddressNexthops returns LocalAddress as next hops. It makes new
+// ones when info was not made by NewPeerInfo, or when LocalAddress was
+// changed after that.
+func (info *PeerInfo) localAddressNexthops() *Nexthops {
+	if n := info.localNh; n != nil && n.global == info.LocalAddress {
+		return n
+	}
+	return &Nexthops{global: info.LocalAddress}
+}
+
+// addressNexthops returns Address as next hops, in the same way as
+// localAddressNexthops.
+func (info *PeerInfo) addressNexthops() *Nexthops {
+	if n := info.addressNh; n != nil && n.global == info.Address {
+		return n
+	}
+	return &Nexthops{global: info.Address}
 }
 
 func (lhs *PeerInfo) Equal(rhs *PeerInfo) bool {
@@ -160,28 +185,8 @@ func NewPeerInfo(g *oc.Global, p *oc.Neighbor, AS, localAS uint32, ID, localID n
 		Confederation:           g.IsConfederationMember(AS),
 		RemovePrivateAs:         p.State.RemovePrivateAs,
 		PeerGroup:               p.Config.PeerGroup,
-	}
-}
-
-func NewPeerGroupInfo(g *oc.Global, p *oc.PeerGroup) *PeerInfo {
-	localAddr := p.Transport.Config.LocalAddress
-	if !localAddr.IsValid() {
-		localAddr = g.Config.RouterId
-	}
-
-	return &PeerInfo{
-		PeerType:                p.State.PeerType,
-		AS:                      p.Config.PeerAs,
-		LocalAS:                 p.Config.LocalAs,
-		LocalID:                 g.Config.RouterId,
-		LocalAddress:            localAddr,
-		RouteReflectorClient:    p.RouteReflector.Config.RouteReflectorClient,
-		RouteReflectorClusterID: p.RouteReflector.State.RouteReflectorClusterId,
-		RouteServerClient:       p.RouteServer.Config.RouteServerClient,
-		MultihopTtl:             p.EbgpMultihop.Config.MultihopTtl,
-		Confederation:           g.IsConfederationMember(p.Config.PeerAs),
-		RemovePrivateAs:         p.State.RemovePrivateAs,
-		PeerGroup:               p.Config.PeerGroupName,
+		localNh:                 &Nexthops{global: localAddr},
+		addressNh:               &Nexthops{global: addr},
 	}
 }
 

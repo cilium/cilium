@@ -261,8 +261,13 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 		n.RouteReflector.State.RouteReflectorClusterId = clusterId
 	}
 	if n.Bfd.Config.Port == 0 {
-		// RFC 5881: BFD control packets port
-		n.Bfd.Config.Port = 3784
+		if n.Bfd.Config.Multihop {
+			// RFC 5883: multihop BFD control packets port
+			n.Bfd.Config.Port = 4784
+		} else {
+			// RFC 5881: BFD control packets port
+			n.Bfd.Config.Port = 3784
+		}
 	}
 	if n.Bfd.Config.DetectionMultiplier == 0 {
 		n.Bfd.Config.DetectionMultiplier = 3
@@ -276,7 +281,11 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 	return nil
 }
 
-// SetPeerGroupStateValues fills State fields required for table.NewPeerGroupInfo.
+// SetPeerGroupStateValues fills the State fields of pg that follow from
+// its configuration: the local and peer AS, the peer type and the route
+// reflector cluster ID.
+//
+// Deprecated: nothing in gobgp uses it. It will be removed in v5.
 func SetPeerGroupStateValues(pg *PeerGroup, g *Global) error {
 	if pg.Config.LocalAs == 0 {
 		pg.Config.LocalAs = getLocalAsForPeer(g, pg.Config.PeerAs)
@@ -562,7 +571,7 @@ func OverwriteNeighborConfigWithPeerGroup(c *Neighbor, pg *PeerGroup) error {
 	overwriteConfig(&c.RouteReflector.Config, &pg.RouteReflector.Config, "neighbor.route-reflector.config", v, configured)
 	overwriteConfig(&c.AsPathOptions.Config, &pg.AsPathOptions.Config, "neighbor.as-path-options.config", v, configured)
 	overwriteConfig(&c.AddPaths.Config, &pg.AddPaths.Config, "neighbor.add-paths.config", v, configured)
-	overwriteConfig(&c.GracefulRestart.Config, &pg.GracefulRestart.Config, "neighbor.gradeful-restart.config", v, configured)
+	overwriteConfig(&c.GracefulRestart.Config, &pg.GracefulRestart.Config, "neighbor.graceful-restart.config", v, configured)
 	overwriteConfig(&c.ApplyPolicy.Config, &pg.ApplyPolicy.Config, "neighbor.apply-policy.config", v, configured)
 	overwriteConfig(&c.UseMultiplePaths.Config, &pg.UseMultiplePaths.Config, "neighbor.use-multiple-paths.config", v, configured)
 	overwriteConfig(&c.RouteServer.Config, &pg.RouteServer.Config, "neighbor.route-server.config", v, configured)

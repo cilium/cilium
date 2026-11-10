@@ -96,7 +96,7 @@ func (m *roaManager) AddServer(host string, lifetime int64) error {
 func (m *roaManager) DeleteServer(host string) error {
 	client, ok := m.clientMap[host]
 	if !ok {
-		return fmt.Errorf("ROA server doesn't exists %s", host)
+		return fmt.Errorf("ROA server does not exist %s", host)
 	}
 	client.stop()
 	m.table.DeleteAll(host)
@@ -119,7 +119,7 @@ func (m *roaManager) Disable(address string) error {
 		add, _, _ := net.SplitHostPort(network)
 		if add == address {
 			client.reset()
-			m.table.DeleteAll(add)
+			m.table.DeleteAll(network)
 			return nil
 		}
 	}
@@ -263,11 +263,13 @@ func (m *roaManager) handleRTRMsg(client *roaClient, state *oc.RpkiServerState, 
 			}
 		case *rtr.RTREndOfData:
 			received.EndOfData++
-			if client.sessionID != msg.SessionID {
-				// remove all ROAs related with the
-				// previous session
+			// RFC 8210 5.5: a Reset Query is answered with all the
+			// records the cache has, so replace the ROAs learned from
+			// it, not only when the Session ID changed.
+			if client.sessionID != msg.SessionID || client.resetQuery {
 				m.table.DeleteAll(client.host)
 			}
+			client.resetQuery = false
 			client.sessionID = msg.SessionID
 			client.serialNumber = msg.SerialNumber
 			client.endOfData = true
@@ -349,6 +351,7 @@ type roaClient struct {
 	timer        *time.Timer
 	lifetime     int64
 	endOfData    bool
+	resetQuery   bool // waiting for the End of Data answering a Reset Query
 	pendingROAs  []*table.ROA
 	cancelfnc    context.CancelFunc
 	ctx          context.Context
@@ -391,6 +394,7 @@ func (c *roaClient) softReset() error {
 		}
 		c.state.RpkiMessages.RpkiSent.ResetQuery++
 		c.endOfData = false
+		c.resetQuery = true
 		c.pendingROAs = make([]*table.ROA, 0)
 	}
 	return nil

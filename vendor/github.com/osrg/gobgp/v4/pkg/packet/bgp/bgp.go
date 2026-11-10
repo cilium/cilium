@@ -2794,6 +2794,17 @@ func (er *EVPNMacIPAdvertisementRoute) DecodeFromBytes(data []byte) error {
 	er.ETag = binary.BigEndian.Uint32(data[:4])
 	data = data[4:]
 	er.MacAddressLength = data[0]
+	// RFC 7432 Section 9.2.1 says:
+	//
+	//	The MAC Address Length field is in bits, and it is set to 48.  MAC
+	//	address length values other than 48 bits are outside the scope of
+	//	this document.
+	//
+	// The MAC is read as 6 octets and the length is not in the route key,
+	// so a route with another length would get the key of the 48-bit one.
+	if er.MacAddressLength != 48 {
+		return malformedAttrListErr(fmt.Sprintf("Invalid MAC address length: %d", er.MacAddressLength))
+	}
 	er.MacAddress = net.HardwareAddr(data[1:7])
 	er.IPAddressLength = data[7]
 	data = data[8:]
@@ -2918,7 +2929,13 @@ func (er *EVPNMacIPAdvertisementRoute) rd() RouteDistinguisherInterface {
 }
 
 func NewEVPNMacIPAdvertisementRoute(rd RouteDistinguisherInterface, esi EthernetSegmentIdentifier, etag uint32, macAddress string, ipAddress netip.Addr, labels []uint32) (*EVPNNLRI, error) {
-	mac, _ := net.ParseMAC(macAddress)
+	mac, err := net.ParseMAC(macAddress)
+	if err != nil {
+		return nil, err
+	}
+	if len(mac) != 6 {
+		return nil, fmt.Errorf("invalid MAC address %s: not 48 bits", macAddress)
+	}
 	return NewEVPNNLRI(EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT, &EVPNMacIPAdvertisementRoute{
 		RD:               rd,
 		ESI:              esi,
@@ -3290,6 +3307,10 @@ func NewEVPNIPPrefixRoute(rd RouteDistinguisherInterface, esi EthernetSegmentIde
 	}), nil
 }
 
+// EVPNIPMSIRoute is the EVPN type 9 route (RFC 9572).
+//
+// Deprecated: gobgp does not accept this route on receipt, and the API
+// cannot carry it. It will be removed in v5 (issue #3803).
 type EVPNIPMSIRoute struct {
 	RD   RouteDistinguisherInterface
 	ETag uint32
@@ -3329,7 +3350,7 @@ func (er *EVPNIPMSIRoute) DecodeFromBytes(data []byte) error {
 }
 
 func (er *EVPNIPMSIRoute) Serialize() ([]byte, error) {
-	buf := make([]byte, 20)
+	buf := make([]byte, 20) // RD(8) + ETag(4) + EC(8).
 
 	if er.RD != nil {
 		tbuf, err := er.RD.Serialize()
@@ -3345,8 +3366,11 @@ func (er *EVPNIPMSIRoute) Serialize() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return append(buf, ec...), nil
+	if len(ec) != 8 {
+		return nil, fmt.Errorf("invalid I-PMSI extended community length: %d", len(ec))
+	}
+	copy(buf[12:20], ec)
+	return buf, nil
 }
 
 func (er *EVPNIPMSIRoute) String() string {
@@ -3373,6 +3397,10 @@ func (er *EVPNIPMSIRoute) rd() RouteDistinguisherInterface {
 	return er.RD
 }
 
+// NewEVPNIPMSIRoute returns an EVPN type 9 route (RFC 9572).
+//
+// Deprecated: gobgp does not accept this route on receipt, and the API
+// cannot carry it. It will be removed in v5 (issue #3803).
 func NewEVPNIPMSIRoute(rd RouteDistinguisherInterface, etag uint32, ec ExtendedCommunityInterface) *EVPNNLRI {
 	return NewEVPNNLRI(EVPN_I_PMSI, &EVPNIPMSIRoute{
 		RD:   rd,
@@ -3412,7 +3440,11 @@ const (
 	EVPN_INCLUSIVE_MULTICAST_ETHERNET_TAG   = 3
 	EVPN_ETHERNET_SEGMENT_ROUTE             = 4
 	EVPN_IP_PREFIX                          = 5
-	EVPN_I_PMSI                             = 9
+	// EVPN_I_PMSI is the EVPN type 9 route (RFC 9572).
+	//
+	// Deprecated: gobgp does not accept this route on receipt, and the API
+	// cannot carry it. It will be removed in v5 (issue #3803).
+	EVPN_I_PMSI = 9
 )
 
 type EVPNNLRI struct {
@@ -3433,10 +3465,22 @@ func (n *EVPNNLRI) decodeFromBytes(data []byte, options ...*MarshallingOption) e
 	}
 	r, err := getEVPNRouteType(n.RouteType)
 	if err != nil {
-		return err
+		// RFC 7606 Section 5.4: "A BGP speaker advertising support
+		// for such a typed address family MUST handle routes with
+		// unrecognized NLRI types within that address family by
+		// discarding them, unless the relevant specification for
+		// that address family specifies otherwise."
+		return &unknownRouteTypeError{msg: err.Error(), len: 2 + int(n.Length)}
 	}
 	n.RouteTypeData = r
-	return n.RouteTypeData.DecodeFromBytes(data[:n.Length])
+	if err := n.RouteTypeData.DecodeFromBytes(data[:n.Length]); err != nil {
+		return err
+	}
+	// Serialize writes n.Length back, so the route must use all of it.
+	if n.RouteTypeData.Len() != int(n.Length) {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("EVPN route type %d length %d does not match its content", n.RouteType, n.Length))
+	}
+	return nil
 }
 
 func (n *EVPNNLRI) Serialize(options ...*MarshallingOption) ([]byte, error) {
@@ -3499,12 +3543,27 @@ func (n *EncapNLRI) decodeFromBytes(data []byte, options ...*MarshallingOption) 
 		eSubCode := uint8(BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST)
 		return NewMessageError(eCode, eSubCode, nil, "prefix misses length field")
 	}
+	var addrlen int
 	switch data[0] {
-	case net.IPv4len * 8, net.IPv6len * 8:
+	case net.IPv4len * 8:
+		addrlen = net.IPv4len
+	case net.IPv6len * 8:
+		addrlen = net.IPv6len
 	default:
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_INVALID_NETWORK_FIELD, nil, "nlri length isn't valid")
 	}
-	addr, _ := netip.AddrFromSlice(data[1:])
+	// The length octet fixes the endpoint size, so slice to it instead of
+	// taking the rest of the buffer. In an MP_REACH/MP_UNREACH carrying more
+	// than one Encap NLRI, the trailing bytes belong to the sibling NLRIs;
+	// AddrFromSlice(data[1:]) would read them as one over-long address and
+	// return an invalid Endpoint, mis-framing the rest of the list.
+	if len(data) < 1+addrlen {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_INVALID_NETWORK_FIELD, nil, "prefix bytes are short")
+	}
+	addr, ok := netip.AddrFromSlice(data[1 : 1+addrlen])
+	if !ok {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_INVALID_NETWORK_FIELD, nil, "nlri prefix is invalid")
+	}
 	n.Endpoint = addr
 	return nil
 }
@@ -4666,6 +4725,10 @@ type FlowSpecNLRI struct {
 	Value []FlowSpecComponentInterface
 	rf    Family
 	rd    RouteDistinguisherInterface
+	// true if the NLRI length was received in the RFC 8955
+	// extended-length 2-octet form. The form is allowed for any
+	// length, so Len() and Serialize() keep it to match the wire.
+	twoOctetLength bool
 }
 
 func (n *FlowSpecNLRI) Flat() map[string]string {
@@ -4681,9 +4744,13 @@ func (n *FlowSpecNLRI) decodeFromBytes(data []byte, options ...*MarshallingOptio
 		return malformedAttrListErr("not all flowspec component bytes available")
 	}
 	var length int
-	if data[0]>>4 == 0xf && len(data) > 2 {
-		length = int(binary.BigEndian.Uint16(data[:2]))
+	if data[0]>>4 == 0xf {
+		if len(data) < 2 {
+			return malformedAttrListErr("not all flowspec component bytes available")
+		}
+		length = int(binary.BigEndian.Uint16(data[:2]) & 0x0fff)
 		data = data[2:]
+		n.twoOctetLength = true
 	} else if len(data) > 1 {
 		length = int(data[0])
 		data = data[1:]
@@ -4795,16 +4862,14 @@ func (n *FlowSpecNLRI) Serialize(options ...*MarshallingOption) ([]byte, error) 
 		}
 		buf = append(buf, b...)
 	}
-	length := n.Len(options...)
-	if length > 0xfff {
+	length := len(buf)
+	if length > 0x0fff {
 		return nil, fmt.Errorf("too large: %d", length)
-	} else if length < 0xf0 {
-		length -= 1
+	} else if length < 0xf0 && !n.twoOctetLength {
 		buf = append([]byte{byte(length)}, buf...)
 	} else {
-		length -= 2
 		b := make([]byte, 2)
-		binary.BigEndian.PutUint16(buf, uint16(length))
+		binary.BigEndian.PutUint16(b, uint16(length)|0xf000)
 		buf = append(b, buf...)
 	}
 	return buf, nil
@@ -4818,7 +4883,7 @@ func (n *FlowSpecNLRI) Len(options ...*MarshallingOption) int {
 	for _, v := range n.Value {
 		l += v.Len(options...)
 	}
-	if l < 0xf0 {
+	if l < 0xf0 && !n.twoOctetLength {
 		return l + 1
 	} else {
 		return l + 2
@@ -6215,7 +6280,7 @@ const (
 	LS_TLV_IGP_FLAGS              = 1152
 	LS_TLV_IGP_ROUTE_TAG          = 1153 // TODO
 	LS_TLV_EXTENDED_ROUTE_TAG     = 1154 // TODO
-	LS_TLV_PREFIX_METRIC          = 1155 // TODO
+	LS_TLV_PREFIX_METRIC          = 1155
 	LS_TLV_OSPF_FORWARDING_ADDR   = 1156 // TODO
 	LS_TLV_OPAQUE_PREFIX_ATTR     = 1157
 	LS_TLV_PREFIX_SID             = 1158 // draft-ietf-idr-bgp-ls-segment-routing-ext
@@ -6224,6 +6289,7 @@ const (
 	LS_TLV_PREFIX_ATTRIBUTE_FLAGS = 1170 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
 	LS_TLV_SOURCE_ROUTER_ID       = 1171 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
 	LS_TLV_L2_BUNDLE_MEMBER_TLV   = 1172 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
+	LS_TLV_EXTENDED_ADMIN_GROUP   = 1173 // RFC9104
 
 	LS_TLV_SR_BINDING_SID               = 1201 // RFC9857
 	LS_TLV_SR_CP_STATE                  = 1202 // RFC9857
@@ -6306,6 +6372,9 @@ func NewLsAttributeTLVs(lsAttr *LsAttribute) []LsTLVInterface {
 	if lsAttr.Link.AdminGroup != nil {
 		tlvs = append(tlvs, NewLsTLVAdminGroup(lsAttr.Link.AdminGroup))
 	}
+	if len(lsAttr.Link.ExtendedAdminGroup) > 0 {
+		tlvs = append(tlvs, NewLsTLVExtendedAdminGroup(lsAttr.Link.ExtendedAdminGroup))
+	}
 	if lsAttr.Link.DefaultTEMetric != nil {
 		tlvs = append(tlvs, NewLsTLVTEDefaultMetric(lsAttr.Link.DefaultTEMetric))
 	}
@@ -6345,6 +6414,9 @@ func NewLsAttributeTLVs(lsAttr *LsAttribute) []LsTLVInterface {
 
 	if lsAttr.Prefix.IGPFlags != nil {
 		tlvs = append(tlvs, NewLsTLVIGPFlags(lsAttr.Prefix.IGPFlags))
+	}
+	if lsAttr.Prefix.PrefixMetric != nil {
+		tlvs = append(tlvs, NewLsTLVPrefixMetric(lsAttr.Prefix.PrefixMetric))
 	}
 	if lsAttr.Prefix.Opaque != nil {
 		tlvs = append(tlvs, NewLsTLVOpaquePrefixAttr(lsAttr.Prefix.Opaque))
@@ -7761,6 +7833,87 @@ func (l *LsTLVAdminGroup) GetLsTLV() LsTLV {
 	return l.LsTLV
 }
 
+// LsTLVExtendedAdminGroup is the Extended Administrative Group TLV
+// (RFC 9104 Section 2), the BGP-LS form of the IGP Extended
+// Administrative Group (RFC 7308). The value is one or more 32-bit
+// bitmasks, kept as received; which group a bit stands for is left to
+// the consumer (RFC 9104 Section 4).
+type LsTLVExtendedAdminGroup struct {
+	LsTLV
+	Groups []uint32
+}
+
+func NewLsTLVExtendedAdminGroup(l []uint32) *LsTLVExtendedAdminGroup {
+	return &LsTLVExtendedAdminGroup{
+		LsTLV: LsTLV{
+			Type:   LS_TLV_EXTENDED_ADMIN_GROUP,
+			Length: uint16(4 * len(l)),
+		},
+		Groups: append([]uint32(nil), l...),
+	}
+}
+
+func (l *LsTLVExtendedAdminGroup) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_EXTENDED_ADMIN_GROUP {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://www.rfc-editor.org/rfc/rfc9104#section-2: "The length
+	// value MUST be a multiple of 4. If the length is not a multiple of
+	// 4, the TLV MUST be considered malformed." The value holds one or
+	// more bitmasks, so it is not empty either.
+	if len(value) == 0 || len(value)%4 != 0 {
+		return malformedAttrListErr("Incorrect Extended Admin Group length")
+	}
+
+	l.Groups = make([]uint32, 0, len(value)/4)
+	for i := 0; i < len(value); i += 4 {
+		l.Groups = append(l.Groups, binary.BigEndian.Uint32(value[i:i+4]))
+	}
+
+	return nil
+}
+
+func (l *LsTLVExtendedAdminGroup) Serialize() ([]byte, error) {
+	buf := make([]byte, 4*len(l.Groups))
+	for i, g := range l.Groups {
+		binary.BigEndian.PutUint32(buf[4*i:], g)
+	}
+
+	return l.LsTLV.Serialize(buf)
+}
+
+func (l *LsTLVExtendedAdminGroup) groups() []string {
+	out := make([]string, len(l.Groups))
+	for i, g := range l.Groups {
+		out[i] = fmt.Sprintf("%08x", g)
+	}
+	return out
+}
+
+func (l *LsTLVExtendedAdminGroup) String() string {
+	return fmt.Sprintf("{Extended Admin Group: %s}", strings.Join(l.groups(), " "))
+}
+
+func (l *LsTLVExtendedAdminGroup) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type               LsTLVType `json:"type"`
+		ExtendedAdminGroup []string  `json:"extended_admin_group"`
+	}{
+		Type:               l.Type,
+		ExtendedAdminGroup: l.groups(),
+	})
+}
+
+func (l *LsTLVExtendedAdminGroup) GetLsTLV() LsTLV {
+	return l.LsTLV
+}
+
 type LsTLVMaxLinkBw struct {
 	LsTLV
 	Bandwidth float32
@@ -8018,6 +8171,69 @@ func (l *LsTLVTEDefaultMetric) MarshalJSON() ([]byte, error) {
 }
 
 func (l *LsTLVTEDefaultMetric) GetLsTLV() LsTLV {
+	return l.LsTLV
+}
+
+// LsTLVPrefixMetric is the Prefix Metric TLV (RFC 9552 Section
+// 5.3.3.4). It carries the metric of the prefix as known in the IGP
+// topology. The length is 4.
+type LsTLVPrefixMetric struct {
+	LsTLV
+	Metric uint32
+}
+
+func NewLsTLVPrefixMetric(l *uint32) *LsTLVPrefixMetric {
+	return &LsTLVPrefixMetric{
+		LsTLV: LsTLV{
+			Type:   LS_TLV_PREFIX_METRIC,
+			Length: 4,
+		},
+		Metric: *l,
+	}
+}
+
+func (l *LsTLVPrefixMetric) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_PREFIX_METRIC {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://datatracker.ietf.org/doc/html/rfc9552#section-5.3.3.4
+	if len(value) != 4 {
+		return malformedAttrListErr("Incorrect prefix metric length")
+	}
+
+	l.Metric = binary.BigEndian.Uint32(value)
+
+	return nil
+}
+
+func (l *LsTLVPrefixMetric) Serialize() ([]byte, error) {
+	var buf [4]byte
+	binary.BigEndian.PutUint32(buf[:4], l.Metric)
+
+	return l.LsTLV.Serialize(buf[:])
+}
+
+func (l *LsTLVPrefixMetric) String() string {
+	return fmt.Sprintf("{Prefix metric: %d}", l.Metric)
+}
+
+func (l *LsTLVPrefixMetric) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type         LsTLVType `json:"type"`
+		PrefixMetric uint32    `json:"prefix_metric"`
+	}{
+		Type:         l.Type,
+		PrefixMetric: l.Metric,
+	})
+}
+
+func (l *LsTLVPrefixMetric) GetLsTLV() LsTLV {
 	return l.LsTLV
 }
 
@@ -11073,6 +11289,7 @@ type LsAttributeLink struct {
 	RemoteRouterID                *netip.Addr                      `json:"remote_router_id_ipv4,omitempty"`
 	RemoteRouterIDv6              *netip.Addr                      `json:"remote_router_id_ipv6,omitempty"`
 	AdminGroup                    *uint32                          `json:"admin_group,omitempty"`
+	ExtendedAdminGroup            []uint32                         `json:"extended_admin_group,omitempty"`
 	DefaultTEMetric               *uint32                          `json:"default_te_metric,omitempty"`
 	UnidirectionalLinkDelay       *LsUnidirectionalLinkDelay       `json:"unidirectional_link_delay,omitempty"`
 	MinMaxUnidirectionalLinkDelay *LsMinMaxUnidirectionalLinkDelay `json:"min_max_unidirectional_link_delay,omitempty"`
@@ -11101,6 +11318,8 @@ type LsAttributeLinkAdjacencySID struct {
 type LsAttributePrefix struct {
 	IGPFlags *LsIGPFlags `json:"igp_flags,omitempty"`
 	Opaque   *[]byte     `json:"opaque,omitempty"`
+	// PrefixMetric is the Prefix Metric TLV (RFC 9552 Section 5.3.3.4).
+	PrefixMetric *uint32 `json:"prefix_metric,omitempty"`
 
 	// SrPrefixSID holds the SR-MPLS Prefix-SID of the prefix when the
 	// originator advertised it with Algorithm = 0 (default SPF). RFC
@@ -11218,6 +11437,9 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 		case *LsTLVAdminGroup:
 			l.Link.AdminGroup = &v.AdminGroup
 
+		case *LsTLVExtendedAdminGroup:
+			l.Link.ExtendedAdminGroup = append([]uint32(nil), v.Groups...)
+
 		case *LsTLVMaxLinkBw:
 			l.Link.Bandwidth = &v.Bandwidth
 
@@ -11264,6 +11486,9 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 
 		case *LsTLVIGPFlags:
 			l.Prefix.IGPFlags = v.Extract()
+
+		case *LsTLVPrefixMetric:
+			l.Prefix.PrefixMetric = &v.Metric
 
 		case *LsTLVOpaquePrefixAttr:
 			l.Prefix.Opaque = &v.Attr
@@ -11429,6 +11654,9 @@ func (p *PathAttributeLs) DecodeFromBytes(data []byte, options ...*MarshallingOp
 		case LS_TLV_ADMIN_GROUP:
 			tlv = &LsTLVAdminGroup{}
 
+		case LS_TLV_EXTENDED_ADMIN_GROUP:
+			tlv = &LsTLVExtendedAdminGroup{}
+
 		case LS_TLV_MAX_LINK_BANDWIDTH:
 			tlv = &LsTLVMaxLinkBw{}
 
@@ -11469,6 +11697,9 @@ func (p *PathAttributeLs) DecodeFromBytes(data []byte, options ...*MarshallingOp
 		// Prefix NLRI-related TLVs (https://tools.ietf.org/html/rfc7752#section-3.3.3)
 		case LS_TLV_IGP_FLAGS:
 			tlv = &LsTLVIGPFlags{}
+
+		case LS_TLV_PREFIX_METRIC:
+			tlv = &LsTLVPrefixMetric{}
 
 		case LS_TLV_OPAQUE_PREFIX_ATTR:
 			tlv = &LsTLVOpaquePrefixAttr{}
@@ -11693,6 +11924,19 @@ func GetFamily(name string) (Family, error) {
 		return v, nil
 	}
 	return Family(0), fmt.Errorf("%s isn't a valid route family name", name)
+}
+
+// unknownRouteTypeError is returned by the decoder of a typed NLRI (EVPN,
+// MUP) for a route type that gobgp does not know. len is the length of
+// the whole NLRI, so that the MP_REACH_NLRI and MP_UNREACH_NLRI decoders
+// can skip it and go on with the next NLRI.
+type unknownRouteTypeError struct {
+	msg string
+	len int
+}
+
+func (e *unknownRouteTypeError) Error() string {
+	return e.msg
 }
 
 func NLRIFromSlice(family Family, buf []byte, options ...*MarshallingOption) (nlri NLRI, err error) {
@@ -11942,6 +12186,7 @@ const (
 	BGP_ERROR_SUB_CONNECTION_COLLISION_RESOLUTION
 	BGP_ERROR_SUB_OUT_OF_RESOURCES
 	BGP_ERROR_SUB_HARD_RESET // RFC8538
+	BGP_ERROR_SUB_BFD_DOWN   // RFC9384
 )
 
 // Constants for BGP_ERROR_SUB_ADMINISTRATIVE_SHUTDOWN and BGP_ERROR_SUB_ADMINISTRATIVE_RESET
@@ -12026,6 +12271,8 @@ func (c NotificationErrorCode) String() string {
 			"other configuration change",
 			"connection collision resolution",
 			"out of resources",
+			"hard reset",
+			"bfd down",
 		}
 	case BGP_ERROR_ROUTE_REFRESH_MESSAGE_ERROR:
 		codeStr = "route refresh"
@@ -12575,13 +12822,15 @@ func (p *PathAttributeNextHop) DecodeFromBytes(data []byte, options ...*Marshall
 		eSubCode := uint8(BGP_ERROR_SUB_ATTRIBUTE_LENGTH_ERROR)
 		return NewMessageError(eCode, eSubCode, nil, "nexthop length isn't correct")
 	}
-	var ok bool
-	p.Value, ok = netip.AddrFromSlice(value)
+	nexthop, ok := netip.AddrFromSlice(value)
 	if !ok {
 		eCode := uint8(BGP_ERROR_UPDATE_MESSAGE_ERROR)
 		eSubCode := uint8(BGP_ERROR_SUB_INVALID_NEXT_HOP_ATTRIBUTE)
 		return NewMessageError(eCode, eSubCode, nil, "invalid nexthop address")
 	}
+	// Same as the 16-octet next hop field of MP_REACH_NLRI: a 16-octet
+	// value holding an IPv4-mapped address is the IPv4 address it embeds.
+	p.Value = nexthop.Unmap()
 	return nil
 }
 
@@ -13191,7 +13440,13 @@ func (p *PathAttributeMpReachNLRI) DecodeFromBytes(data []byte, options ...*Mars
 		p.LinkLocalNexthop, _ = netip.AddrFromSlice(nexthopbin[BGP_ATTR_NHLEN_IPV6_GLOBAL:BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL])
 		fallthrough
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL: // 16 bytes IPv6 Global
-		p.Nexthop, _ = netip.AddrFromSlice(nexthopbin[:BGP_ATTR_NHLEN_IPV6_GLOBAL])
+		nexthop, _ := netip.AddrFromSlice(nexthopbin[:BGP_ATTR_NHLEN_IPV6_GLOBAL])
+		// An IPv4-mapped address in this field is the IPv4 address it
+		// embeds (RFC 4291 Section 2.5.5.2), and Serialize writes an IPv4
+		// next hop into the 16-octet field in exactly that form. Unmap it
+		// so the two directions agree: the address a peer learns this way
+		// has to compare equal to the same IPv4 address anywhere else.
+		p.Nexthop = nexthop.Unmap()
 	case BGP_ATTR_NHLEN_IPV4: // 4 bytes IPv4
 		p.Nexthop, _ = netip.AddrFromSlice(nexthopbin[:BGP_ATTR_NHLEN_IPV4])
 	default:
@@ -13221,6 +13476,11 @@ func (p *PathAttributeMpReachNLRI) DecodeFromBytes(data []byte, options ...*Mars
 			value = value[addpathLen:]
 		}
 		prefix, err := NLRIFromSlice(family, value, options...)
+		var unknown *unknownRouteTypeError
+		if errors.As(err, &unknown) {
+			value = value[unknown.len:]
+			continue
+		}
 		if err != nil {
 			return NewMessageError(eCode, BGP_ERROR_SUB_INVALID_NETWORK_FIELD, eData, err.Error())
 		}
@@ -13435,6 +13695,11 @@ func (p *PathAttributeMpUnreachNLRI) DecodeFromBytes(data []byte, options ...*Ma
 		}
 
 		prefix, err := NLRIFromSlice(family, value, options...)
+		var unknown *unknownRouteTypeError
+		if errors.As(err, &unknown) {
+			value = value[unknown.len:]
+			continue
+		}
 		if err != nil {
 			return NewMessageError(eCode, BGP_ERROR_SUB_INVALID_NETWORK_FIELD, eData, err.Error())
 		}
@@ -14685,7 +14950,12 @@ func parseEvpnExtended(data []byte) (ExtendedCommunityInterface, error) {
 			}, nil
 		}
 	}
-	return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("unknown evpn subtype: %d", subType))
+	// RFC 7606 Section 7.14: an unrecognized Extended Community Type or
+	// Sub-Type MUST NOT be treated as an error.
+	return &UnknownExtended{
+		Type:  ExtendedCommunityAttrType(data[0]),
+		Value: data[1:8],
+	}, nil
 }
 
 type TrafficRateExtended struct {
@@ -15081,6 +15351,17 @@ func parseGenericTransitiveExperimentalExtended(data []byte) (ExtendedCommunityI
 		return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("ext comm type is not EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL: %d", data[0]))
 	}
 	subType := ExtendedCommunityAttrSubType(data[1])
+	// The traffic filtering actions and the Layer2 Info community are
+	// defined for type 0x80 only. RFC7674 adds the redirect sub-type, and
+	// nothing else, to types 0x81 and 0x82. Their serializers always write
+	// type 0x80, so decoding another type here would change the community
+	// when it is sent on.
+	if typ != EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL && subType != EC_SUBTYPE_FLOWSPEC_REDIRECT {
+		return &UnknownExtended{
+			Type:  typ,
+			Value: data[1:8],
+		}, nil
+	}
 	switch subType {
 	case EC_SUBTYPE_FLOWSPEC_TRAFFIC_RATE:
 		asn := binary.BigEndian.Uint16(data[2:4])
@@ -17008,6 +17289,7 @@ func (msg *BGPUpdate) DecodeFromBytes(data []byte, options ...*MarshallingOption
 	options = append(options, &o)
 
 	msg.PathAttributes = []PathAttributeInterface{}
+	seenMpReach, seenMpUnreach := false, false
 	for pathlen := msg.TotalPathAttributeLen; pathlen > 0; {
 		var e error
 		if pathlen < 3 {
@@ -17022,6 +17304,24 @@ func (msg *BGPUpdate) DecodeFromBytes(data []byte, options ...*MarshallingOption
 		p, err := GetPathAttribute(data)
 		if err != nil {
 			return err
+		}
+		// RFC 7606 Section 3 g: a repeated MP_REACH_NLRI or
+		// MP_UNREACH_NLRI resets the session. Check it here, before the
+		// attribute is decoded, so that it is found whatever the other
+		// attributes or this one look like. Decoding goes on so that
+		// the caller still gets the whole message.
+		if t := BGPAttrType(data[1]); t == BGP_ATTR_TYPE_MP_REACH_NLRI || t == BGP_ATTR_TYPE_MP_UNREACH_NLRI {
+			seen := &seenMpReach
+			if t == BGP_ATTR_TYPE_MP_UNREACH_NLRI {
+				seen = &seenMpUnreach
+			}
+			if *seen {
+				e := NewMessageError(eCode, eSubCode, nil, fmt.Sprintf("the path attribute appears twice. Type : %d", t))
+				if e.(*MessageError).Stronger(strongestError) {
+					strongestError = e
+				}
+			}
+			*seen = true
 		}
 		err = p.DecodeFromBytes(data, options...)
 		if err != nil {
@@ -17136,7 +17436,14 @@ func (msg *BGPUpdate) IsEndOfRib() (bool, Family) {
 			return true, RF_IPv4_UC
 		} else if len(msg.PathAttributes) == 1 && msg.PathAttributes[0].GetType() == BGP_ATTR_TYPE_MP_UNREACH_NLRI {
 			unreach := msg.PathAttributes[0].(*PathAttributeMpUnreachNLRI)
-			if len(unreach.Value) == 0 {
+			// RFC 4724 Section 2: "For any other address family, it
+			// is an UPDATE message that contains only the
+			// MP_UNREACH_NLRI attribute [BGP-MP] with no withdrawn
+			// routes for that <AFI, SAFI>." Check the attribute
+			// length too. The decoder drops an NLRI of an unknown
+			// route type, so Value can be empty when the attribute
+			// carried withdrawn routes.
+			if len(unreach.Value) == 0 && unreach.Length <= 3 {
 				return true, NewFamily(unreach.AFI, unreach.SAFI)
 			}
 		}
@@ -17205,6 +17512,13 @@ func NewBGPNotificationMessage(errcode uint8, errsubcode uint8, data []byte) *BG
 // returns true if the subcode is BGP_ERROR_SUB_ADMINISTRATIVE_RESET.
 // Otherwise, it returns false.
 //
+// BFD Down (RFC 9384) is newer than RFC 8538 and is not in its table. The
+// function returns true for it: BFD detected that the forwarding path is
+// down, so the routes of the peer cannot be used. RFC 9384 Section 4 says
+// how to send it as a Hard Reset: "the "BFD Down" subcode SHOULD be
+// encapsulated in the Hard Reset's data portion of the NOTIFICATION
+// message."
+//
 // As RFC8538 states, it is not mandatory to follow this suggestion. You can
 // use this function when you want to follow the suggestion.
 func ShouldHardReset(subcode uint8, hardResetOnAdminReset bool) bool {
@@ -17212,7 +17526,8 @@ func ShouldHardReset(subcode uint8, hardResetOnAdminReset bool) bool {
 	case BGP_ERROR_SUB_MAXIMUM_NUMBER_OF_PREFIXES_REACHED,
 		BGP_ERROR_SUB_ADMINISTRATIVE_SHUTDOWN,
 		BGP_ERROR_SUB_PEER_DECONFIGURED,
-		BGP_ERROR_SUB_HARD_RESET:
+		BGP_ERROR_SUB_HARD_RESET,
+		BGP_ERROR_SUB_BFD_DOWN:
 		return true
 	default:
 		if hardResetOnAdminReset && subcode == BGP_ERROR_SUB_ADMINISTRATIVE_RESET {

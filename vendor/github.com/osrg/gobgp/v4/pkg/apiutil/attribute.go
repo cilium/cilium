@@ -34,6 +34,10 @@ func UnmarshalAttribute(attr *api.Attribute) (bgp.PathAttributeInterface, error)
 	case *api.Attribute_AsPath:
 		params := make([]bgp.AsPathParamInterface, 0, len(a.AsPath.Segments))
 		for _, segment := range a.AsPath.Segments {
+			// The segment length is one octet.
+			if len(segment.Numbers) > 255 {
+				return nil, fmt.Errorf("too many AS numbers in an AS path segment: %d", len(segment.Numbers))
+			}
 			params = append(params, bgp.NewAs4PathParam(uint8(segment.Type), segment.Numbers))
 		}
 		return bgp.NewPathAttributeAsPath(params), nil
@@ -109,6 +113,9 @@ func UnmarshalAttribute(attr *api.Attribute) (bgp.PathAttributeInterface, error)
 		attr.LinkLocalNexthop = linkLocalNexthop
 		return attr, nil
 	case *api.Attribute_MpUnreach:
+		if a.MpUnreach.Family == nil {
+			return nil, fmt.Errorf("empty family")
+		}
 		rf := ToFamily(a.MpUnreach.Family)
 		nlris, err := UnmarshalNLRIs(rf, a.MpUnreach.Nlris)
 		if err != nil {
@@ -241,14 +248,22 @@ func UnmarshalAttribute(attr *api.Attribute) (bgp.PathAttributeInterface, error)
 				if err != nil {
 					return nil, fmt.Errorf("invalid ipv6 address: %s", v.Address)
 				}
-				community, _ = bgp.NewIPv6AddressSpecificExtended(bgp.ExtendedCommunityAttrSubType(v.SubType), addr, uint16(v.LocalAdmin), v.IsTransitive)
+				c, err := bgp.NewIPv6AddressSpecificExtended(bgp.ExtendedCommunityAttrSubType(v.SubType), addr, uint16(v.LocalAdmin), v.IsTransitive)
+				if err != nil {
+					return nil, err
+				}
+				community = c
 			case *api.IP6ExtendedCommunitiesAttribute_Community_RedirectIpv6AddressSpecific:
 				v := an.GetRedirectIpv6AddressSpecific()
 				addr, err := netip.ParseAddr(v.Address)
 				if err != nil {
 					return nil, fmt.Errorf("invalid ipv6 address: %s", v.Address)
 				}
-				community, _ = bgp.NewRedirectIPv6AddressSpecificExtended(addr, uint16(v.LocalAdmin))
+				c, err := bgp.NewRedirectIPv6AddressSpecificExtended(addr, uint16(v.LocalAdmin))
+				if err != nil {
+					return nil, err
+				}
+				community = c
 			case *api.IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6:
 				v := an.GetFlowSpecRedirectToIpv6()
 				addr, err := netip.ParseAddr(v.Address)
@@ -432,6 +447,11 @@ func MarshalSRv6TLVs(tlvs []bgp.PrefixSIDTLVInterface) ([]*api.PrefixSID_TLV, er
 				}
 				mtlv.Tlv = &api.PrefixSID_TLV_L2Service{L2Service: o}
 			}
+		case *bgp.PrefixSIDUnknownTLV:
+			// The API has no representation for a TLV of an unknown type;
+			// it is kept on the path only so the attribute is propagated
+			// unmodified (RFC 8669 Section 3).
+			continue
 		default:
 			return nil, fmt.Errorf("invalid prefix sid tlv type to marshal %v", t)
 		}
@@ -463,6 +483,8 @@ func MarshalSRv6SubTLVs(tlvs []bgp.PrefixSIDTLVInterface) (map[uint32]*api.SRv6S
 			// SRv6 Information Sub TLV is type 1 Sub TLV
 			key = 1
 			r.Tlv = &api.SRv6SubTLV_Information{Information: o}
+		case *bgp.PrefixSIDUnknownTLV:
+			continue
 		default:
 			return nil, fmt.Errorf("invalid prefix sid sub tlv type to marshal: %v", t)
 		}
@@ -497,6 +519,8 @@ func MarshalSRv6SubSubTLVs(tlvs []bgp.PrefixSIDTLVInterface) (map[uint32]*api.SR
 			// SRv6 SID Structure Sub Sub TLV is type 1 Sub Sub TLV
 			key = 1
 			r.Tlv = &api.SRv6SubSubTLV_Structure{Structure: o}
+		case *bgp.PrefixSIDUnknownTLV:
+			continue
 		default:
 			return nil, fmt.Errorf("invalid prefix sid sub sub tlv type to marshal: %v", t)
 		}
@@ -560,11 +584,24 @@ func NewEthernetSegmentIdentifierFromNative(a *bgp.EthernetSegmentIdentifier) (*
 	}, nil
 }
 
+// unmarshalESI takes a missing ESI or an empty value as the zero ESI, which
+// a single-homed site uses. Any other value must be 9 octets.
 func unmarshalESI(a *api.EthernetSegmentIdentifier) (*bgp.EthernetSegmentIdentifier, error) {
-	return &bgp.EthernetSegmentIdentifier{
-		Type:  bgp.ESIType(a.Type),
-		Value: a.Value,
-	}, nil
+	esi := &bgp.EthernetSegmentIdentifier{
+		Value: make([]byte, 9),
+	}
+	if a == nil {
+		return esi, nil
+	}
+	esi.Type = bgp.ESIType(a.Type)
+	switch len(a.Value) {
+	case 0:
+	case 9:
+		copy(esi.Value, a.Value)
+	default:
+		return nil, fmt.Errorf("invalid ESI value length %d, must be 9", len(a.Value))
+	}
+	return esi, nil
 }
 
 func MarshalFlowSpecRules(values []bgp.FlowSpecComponentInterface) ([]*api.FlowSpecRule, error) {
@@ -638,19 +675,23 @@ func UnmarshalFlowSpecRules(values []*api.FlowSpecRule) ([]bgp.FlowSpecComponent
 			if err != nil {
 				return nil, fmt.Errorf("invalid ip address for %s flow spec component: %s", typ.String(), v.Prefix)
 			}
+			p, err := netip.ParsePrefix(fmt.Sprintf("%s/%d", v.Prefix, v.PrefixLen))
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefix for %s flow spec component: %s/%d", typ.String(), v.Prefix, v.PrefixLen)
+			}
+			prefix, err := bgp.NewIPAddrPrefix(p)
+			if err != nil {
+				return nil, err
+			}
 			isIPv4 := ip.Is4()
 			switch {
 			case typ == bgp.FLOW_SPEC_TYPE_DST_PREFIX && isIPv4:
-				prefix, _ := bgp.NewIPAddrPrefix(netip.MustParsePrefix(fmt.Sprintf("%s/%d", v.Prefix, v.PrefixLen)))
 				rule = bgp.NewFlowSpecDestinationPrefix(prefix)
 			case typ == bgp.FLOW_SPEC_TYPE_SRC_PREFIX && isIPv4:
-				prefix, _ := bgp.NewIPAddrPrefix(netip.MustParsePrefix(fmt.Sprintf("%s/%d", v.Prefix, v.PrefixLen)))
 				rule = bgp.NewFlowSpecSourcePrefix(prefix)
 			case typ == bgp.FLOW_SPEC_TYPE_DST_PREFIX && !isIPv4:
-				prefix, _ := bgp.NewIPAddrPrefix(netip.MustParsePrefix(fmt.Sprintf("%s/%d", v.Prefix, v.PrefixLen)))
 				rule = bgp.NewFlowSpecDestinationPrefix6(prefix, uint8(v.Offset))
 			case typ == bgp.FLOW_SPEC_TYPE_SRC_PREFIX && !isIPv4:
-				prefix, _ := bgp.NewIPAddrPrefix(netip.MustParsePrefix(fmt.Sprintf("%s/%d", v.Prefix, v.PrefixLen)))
 				rule = bgp.NewFlowSpecSourcePrefix6(prefix, uint8(v.Offset))
 			}
 		case *api.FlowSpecRule_Mac:
@@ -1388,6 +1429,7 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 			SrAdjacencySID:                linkSrAdjacencySid,
 			SrAdjacencySIDs:               linkAdjacencySIDs,
 			Srv6EndXSID:                   srv6EndXSID,
+			ExtendedAdminGroup:            append([]uint32(nil), a.Link.ExtendedAdminGroup...),
 		}
 	}
 
@@ -1427,12 +1469,14 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 				SrPrefixSID:      &a.Prefix.SrPrefixSid,
 				SrPrefixSIDs:     prefixSIDs,
 				FadPrefixMetrics: fapms,
+				PrefixMetric:     a.Prefix.PrefixMetric,
 			}
-		} else if len(prefixSIDs) > 0 || len(fapms) > 0 {
-			// IgpFlags absent but SR / FAPM TLVs present.
+		} else if len(prefixSIDs) > 0 || len(fapms) > 0 || a.Prefix.PrefixMetric != nil {
+			// IgpFlags absent but SR / FAPM / Prefix Metric TLVs present.
 			lsAttr.Prefix = bgp.LsAttributePrefix{
 				SrPrefixSIDs:     prefixSIDs,
 				FadPrefixMetrics: fapms,
+				PrefixMetric:     a.Prefix.PrefixMetric,
 			}
 		}
 	}
@@ -1464,6 +1508,11 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 			}
 		}
 		if a.Srv6Sid.Srv6BgpPeerNodeSid != nil {
+			// bgp.NewLsTLVSrv6BgpPeerNodeSID takes only an IPv4 address.
+			id, err := netip.ParseAddr(a.Srv6Sid.Srv6BgpPeerNodeSid.PeerBgpId)
+			if err != nil || !id.Is4() {
+				return nil, fmt.Errorf("invalid SRv6 BGP peer node SID peer BGP ID: %s", a.Srv6Sid.Srv6BgpPeerNodeSid.PeerBgpId)
+			}
 			lsSrv6SID.Srv6BgpPeerNodeSID = &bgp.LsSrv6BgpPeerNodeSID{
 				Flags:     uint8(a.Srv6Sid.Srv6BgpPeerNodeSid.Flags),
 				Weight:    uint8(a.Srv6Sid.Srv6BgpPeerNodeSid.Weight),
@@ -1935,14 +1984,22 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		if err != nil {
 			return nil, err
 		}
-		nlri, _ = bgp.NewLabeledIPAddrPrefix(prefix, *bgp.NewMPLSLabelStack(v.Labels...))
+		r, err := bgp.NewLabeledIPAddrPrefix(prefix, *bgp.NewMPLSLabelStack(v.Labels...))
+		if err != nil {
+			return nil, err
+		}
+		nlri = r
 	case *api.NLRI_Encapsulation:
 		v := n.Encapsulation
 		addr, err := netip.ParseAddr(v.Address)
 		if err != nil {
 			return nil, err
 		}
-		nlri, _ = bgp.NewEncapNLRI(addr)
+		r, err := bgp.NewEncapNLRI(addr)
+		if err != nil {
+			return nil, err
+		}
+		nlri = r
 	case *api.NLRI_Vpls:
 		v := n.Vpls
 		if rf == bgp.RF_VPLS {
@@ -1988,7 +2045,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 					return nil, err
 				}
 			}
-			nlri, _ = bgp.NewEVPNMacIPAdvertisementRoute(rd, *esi, v.EthernetTag, v.MacAddress, addr, v.Labels)
+			r, err := bgp.NewEVPNMacIPAdvertisementRoute(rd, *esi, v.EthernetTag, v.MacAddress, addr, v.Labels)
+			if err != nil {
+				return nil, err
+			}
+			nlri = r
 		}
 	case *api.NLRI_EvpnMulticast:
 		v := n.EvpnMulticast
@@ -2001,7 +2062,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			if err != nil {
 				return nil, err
 			}
-			nlri, _ = bgp.NewEVPNMulticastEthernetTagRoute(rd, v.EthernetTag, addr)
+			r, err := bgp.NewEVPNMulticastEthernetTagRoute(rd, v.EthernetTag, addr)
+			if err != nil {
+				return nil, err
+			}
+			nlri = r
 		}
 	case *api.NLRI_EvpnEthernetSegment:
 		v := n.EvpnEthernetSegment
@@ -2018,7 +2083,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			if err != nil {
 				return nil, err
 			}
-			nlri, _ = bgp.NewEVPNEthernetSegmentRoute(rd, *esi, addr)
+			r, err := bgp.NewEVPNEthernetSegmentRoute(rd, *esi, addr)
+			if err != nil {
+				return nil, err
+			}
+			nlri = r
 		}
 	case *api.NLRI_EvpnIpPrefix:
 		v := n.EvpnIpPrefix
@@ -2039,11 +2108,19 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			if err != nil {
 				return nil, err
 			}
-			nlri, _ = bgp.NewEVPNIPPrefixRoute(rd, *esi, v.EthernetTag, uint8(v.IpPrefixLen), prefix, gw, v.Label)
+			r, err := bgp.NewEVPNIPPrefixRoute(rd, *esi, v.EthernetTag, uint8(v.IpPrefixLen), prefix, gw, v.Label)
+			if err != nil {
+				return nil, err
+			}
+			nlri = r
 		}
 	case *api.NLRI_SrPolicy:
 		v := n.SrPolicy
-		nlri, _ = bgp.NewSRPolicy(rf, v.Length, v.Distinguisher, v.Color, v.Endpoint)
+		r, err := bgp.NewSRPolicy(rf, v.Length, v.Distinguisher, v.Color, v.Endpoint)
+		if err != nil {
+			return nil, err
+		}
+		nlri = r
 	case *api.NLRI_LabeledVpnIpPrefix:
 		v := n.LabeledVpnIpPrefix
 		rd, err := UnmarshalRD(v.Rd)
@@ -2054,7 +2131,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		if err != nil {
 			return nil, err
 		}
-		nlri, _ = bgp.NewLabeledVPNIPAddrPrefix(prefix, *bgp.NewMPLSLabelStack(v.Labels...), rd)
+		r, err := bgp.NewLabeledVPNIPAddrPrefix(prefix, *bgp.NewMPLSLabelStack(v.Labels...), rd)
+		if err != nil {
+			return nil, err
+		}
+		nlri = r
 	case *api.NLRI_RouteTargetMembership:
 		v := n.RouteTargetMembership
 		rt, err := func() (bgp.ExtendedCommunityInterface, error) {
@@ -2073,7 +2154,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		if err != nil {
 			return nil, err
 		}
-		nlri, _ = bgp.NewFlowSpecUnicast(rf, rules)
+		r, err := bgp.NewFlowSpecUnicast(rf, rules)
+		if err != nil {
+			return nil, err
+		}
+		nlri = r
 	case *api.NLRI_VpnFlowSpec:
 		v := n.VpnFlowSpec
 		rd, err := UnmarshalRD(v.Rd)
@@ -2084,7 +2169,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		if err != nil {
 			return nil, err
 		}
-		nlri, _ = bgp.NewFlowSpecVPN(rf, rd, rules)
+		r, err := bgp.NewFlowSpecVPN(rf, rd, rules)
+		if err != nil {
+			return nil, err
+		}
+		nlri = r
 	case *api.NLRI_Opaque:
 		v := n.Opaque
 		nlri = bgp.NewOpaqueNLRI(v.Key, v.Value)
@@ -2152,6 +2241,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		ea, err := netip.ParseAddr(v.EndpointAddress)
 		if err != nil {
 			return nil, err
+		}
+		// The length covers the endpoint address and up to 32 bits of
+		// TEID. The decoder takes the same range.
+		if l := int(v.EndpointAddressLength); l < ea.BitLen() || l > ea.BitLen()+32 {
+			return nil, fmt.Errorf("invalid endpoint address length %d for %s", v.EndpointAddressLength, ea)
 		}
 		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, v.Teid)
@@ -2686,7 +2780,11 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 			if err != nil {
 				return nil, fmt.Errorf("invalid address: %s", v.Address)
 			}
-			community, _ = bgp.NewIPv4AddressSpecificExtended(bgp.ExtendedCommunityAttrSubType(v.SubType), addr, uint16(v.LocalAdmin), v.IsTransitive)
+			c, err := bgp.NewIPv4AddressSpecificExtended(bgp.ExtendedCommunityAttrSubType(v.SubType), addr, uint16(v.LocalAdmin), v.IsTransitive)
+			if err != nil {
+				return nil, err
+			}
+			community = c
 		case *api.ExtendedCommunity_FourOctetAsSpecific:
 			v := comm.FourOctetAsSpecific
 			community = bgp.NewFourOctetAsSpecificExtended(bgp.ExtendedCommunityAttrSubType(v.SubType), v.Asn, uint16(v.LocalAdmin), v.IsTransitive)
@@ -2712,13 +2810,23 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 			community = bgp.NewESILabelExtended(v.Label, v.IsSingleActive)
 		case *api.ExtendedCommunity_EsImport:
 			v := comm.EsImport
-			community = bgp.NewESImportRouteTarget(v.EsImport)
+			// It returns nil, not an error, for an invalid MAC.
+			c := bgp.NewESImportRouteTarget(v.EsImport)
+			if c == nil {
+				return nil, fmt.Errorf("invalid ES-Import MAC address: %s", v.EsImport)
+			}
+			community = c
 		case *api.ExtendedCommunity_MacMobility:
 			v := comm.MacMobility
 			community = bgp.NewMacMobilityExtended(v.SequenceNum, v.IsSticky)
 		case *api.ExtendedCommunity_RouterMac:
 			v := comm.RouterMac
-			community = bgp.NewRoutersMacExtended(v.Mac)
+			// It returns nil, not an error, for an invalid MAC.
+			c := bgp.NewRoutersMacExtended(v.Mac)
+			if c == nil {
+				return nil, fmt.Errorf("invalid router's MAC MAC address: %s", v.Mac)
+			}
+			community = c
 		case *api.ExtendedCommunity_TrafficRate:
 			v := comm.TrafficRate
 			community = bgp.NewTrafficRateExtended(uint16(v.Asn), v.Rate)
@@ -2734,7 +2842,11 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 			if err != nil {
 				return nil, fmt.Errorf("invalid address: %s", v.Address)
 			}
-			community, _ = bgp.NewRedirectIPv4AddressSpecificExtended(addr, uint16(v.LocalAdmin))
+			c, err := bgp.NewRedirectIPv4AddressSpecificExtended(addr, uint16(v.LocalAdmin))
+			if err != nil {
+				return nil, err
+			}
+			community = c
 		case *api.ExtendedCommunity_FlowSpecRedirectToIpv4:
 			v := comm.FlowSpecRedirectToIpv4
 			addr, err := netip.ParseAddr(v.Address)
@@ -2924,12 +3036,17 @@ func NewTunnelEncapAttributeFromNative(a *bgp.PathAttributeTunnelEncap) (*api.Tu
 				if err != nil {
 					return nil, err
 				}
+				// The Weight sub-TLV is optional, so Weight can be nil.
+				var weight *api.SRWeight
+				if sv.Weight != nil {
+					weight = &api.SRWeight{
+						Flags:  uint32(sv.Weight.Flags),
+						Weight: sv.Weight.Weight,
+					}
+				}
 				subTlv.Tlv = &api.TunnelEncapTLV_TLV_SrSegmentList{
 					SrSegmentList: &api.TunnelEncapSubTLVSRSegmentList{
-						Weight: &api.SRWeight{
-							Flags:  uint32(sv.Weight.Flags),
-							Weight: sv.Weight.Weight,
-						},
+						Weight:   weight,
 						Segments: s,
 					},
 				}
@@ -3166,11 +3283,13 @@ func NewLsAttributeFromNative(a *bgp.PathAttributeLs) (*api.LsAttribute, error) 
 			ReservableBandwidth: float32OrDefault(attr.Link.ReservableBandwidth),
 			SrAdjacencySid:      uint32OrDefault(attr.Link.SrAdjacencySID),
 			Srv6EndXSid:         srv6EndXSID,
+			ExtendedAdminGroup:  append([]uint32(nil), attr.Link.ExtendedAdminGroup...),
 		},
 		Prefix: &api.LsAttributePrefix{
 			Opaque: bytesOrDefault(attr.Prefix.Opaque),
 
-			SrPrefixSid: uint32OrDefault(attr.Prefix.SrPrefixSID),
+			SrPrefixSid:  uint32OrDefault(attr.Prefix.SrPrefixSID),
+			PrefixMetric: attr.Prefix.PrefixMetric,
 		},
 		BgpPeerSegment: bgpPeerSegment,
 		Srv6Sid:        srv6SID,
@@ -3499,6 +3618,13 @@ func UnmarshalSRBSID(bsid *api.TunnelEncapSubTLVSRBindingSID) (bgp.TunnelEncapSu
 			Flags: flags,
 		}, nil
 	case *api.TunnelEncapSubTLVSRBindingSID_Srv6BindingSid:
+		// RFC 9830 Section 2.4.3 gives no length without the SID:
+		//
+		//	The value MUST be 26 when the SRv6 Endpoint Behavior and SID
+		//	Structure is present; else, it MUST be 18.
+		if len(v.Srv6BindingSid.Sid) != 16 {
+			return nil, fmt.Errorf("invalid SRv6 binding SID length %d, must be 16", len(v.Srv6BindingSid.Sid))
+		}
 		b, err := bgp.NewBSID(v.Srv6BindingSid.Sid)
 		if err != nil {
 			return nil, err
@@ -3639,6 +3765,8 @@ func UnmarshalSRSegments(s []*api.TunnelEncapSubTLVSRSegmentList_Segment) ([]bgp
 				}
 			}
 			segments[i] = seg
+		default:
+			return nil, fmt.Errorf("unknown SR segment type %T", v)
 		}
 	}
 	return segments, nil
@@ -3698,6 +3826,9 @@ func UnmarshalSubTLVs(stlvs map[uint32]*api.SRv6SubTLVs) (uint16, []bgp.PrefixSI
 					SubSubTLVs: make([]bgp.PrefixSIDTLVInterface, 0),
 				}
 				infoProto := raw.GetInformation()
+				if infoProto == nil {
+					return 0, nil, fmt.Errorf("SRv6 service sub-TLV has no information")
+				}
 				info.SID = make([]byte, len(infoProto.Sid))
 				copy(info.SID, infoProto.Sid)
 				// TODO Once RFC is published add processing of flags
@@ -3746,6 +3877,9 @@ func UnmarshalSubSubTLVs(stlvs map[uint32]*api.SRv6SubSubTLVs) (uint16, []bgp.Pr
 					},
 				}
 				structureProto := raw.GetStructure()
+				if structureProto == nil {
+					return 0, nil, fmt.Errorf("SRv6 service sub-sub-TLV has no structure")
+				}
 				structure.LocatorBlockLength = uint8(structureProto.LocatorBlockLength)
 				structure.LocatorNodeLength = uint8(structureProto.LocatorNodeLength)
 				structure.FunctionLength = uint8(structureProto.FunctionLength)

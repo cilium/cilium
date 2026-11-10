@@ -622,9 +622,66 @@ func NewNextHopSet(c []string) (*NextHopSet, error) {
 	}, nil
 }
 
+// neighborEntry is one entry of a neighbor set. zone is the interface of a
+// link-local entry. An entry without a zone matches a neighbor on any
+// interface.
+type neighborEntry struct {
+	prefix net.IPNet
+	zone   string
+}
+
+func (e neighborEntry) String() string {
+	if e.zone == "" {
+		return e.prefix.String()
+	}
+	ones, _ := e.prefix.Mask.Size()
+	return fmt.Sprintf("%s%%%s/%d", e.prefix.IP, e.zone, ones)
+}
+
+// parseNeighborEntry parses an address or a prefix, with an optional zone
+// for a link-local entry: "fe80::1%eth0" or "fe80::1%eth0/128".
+func parseNeighborEntry(s string) (neighborEntry, error) {
+	str := s
+	zone := ""
+	if addr, rest, ok := strings.Cut(s, "%"); ok {
+		z, plen, hasLen := strings.Cut(rest, "/")
+		if z == "" || strings.Contains(addr, "/") {
+			return neighborEntry{}, fmt.Errorf("invalid address or prefix: %s", s)
+		}
+		zone = z
+		str = addr
+		if hasLen {
+			str = addr + "/" + plen
+		}
+	}
+	_, cidr, err := net.ParseCIDR(str)
+	if err != nil {
+		addr := net.ParseIP(str)
+		if addr == nil {
+			return neighborEntry{}, fmt.Errorf("invalid address or prefix: %s", s)
+		}
+		mask := net.CIDRMask(32, 32)
+		if addr.To4() == nil {
+			mask = net.CIDRMask(128, 128)
+		}
+		cidr = &net.IPNet{
+			IP:   addr,
+			Mask: mask,
+		}
+	}
+	if zone != "" {
+		// A neighbor address has a zone only when it is link-local.
+		ones, _ := cidr.Mask.Size()
+		if cidr.IP.To4() != nil || ones < 10 || !cidr.IP.IsLinkLocalUnicast() {
+			return neighborEntry{}, fmt.Errorf("zone on a non link-local prefix: %s", s)
+		}
+	}
+	return neighborEntry{prefix: *cidr, zone: zone}, nil
+}
+
 type NeighborSet struct {
 	name string
-	list []net.IPNet
+	list []neighborEntry
 }
 
 func (s *NeighborSet) Name() string {
@@ -649,7 +706,7 @@ func (lhs *NeighborSet) Remove(arg DefinedSet) error {
 	if !ok {
 		return fmt.Errorf("type cast failed")
 	}
-	ps := make([]net.IPNet, 0, len(lhs.list))
+	ps := make([]neighborEntry, 0, len(lhs.list))
 	for _, x := range lhs.list {
 		found := false
 		for _, y := range rhs.list {
@@ -698,10 +755,18 @@ func (s *NeighborSet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.ToConfig())
 }
 
-func NewNeighborSetFromApiStruct(name string, list []net.IPNet) (*NeighborSet, error) {
+func NewNeighborSetFromApiStruct(name string, list []string) (*NeighborSet, error) {
+	l := make([]neighborEntry, 0, len(list))
+	for _, x := range list {
+		e, err := parseNeighborEntry(x)
+		if err != nil {
+			return nil, err
+		}
+		l = append(l, e)
+	}
 	return &NeighborSet{
 		name: name,
-		list: list,
+		list: l,
 	}, nil
 }
 
@@ -713,24 +778,13 @@ func NewNeighborSet(c oc.NeighborSet) (*NeighborSet, error) {
 		}
 		return nil, fmt.Errorf("empty neighbor set name")
 	}
-	list := make([]net.IPNet, 0, len(c.NeighborInfoList))
+	list := make([]neighborEntry, 0, len(c.NeighborInfoList))
 	for _, x := range c.NeighborInfoList {
-		_, cidr, err := net.ParseCIDR(x)
+		e, err := parseNeighborEntry(x)
 		if err != nil {
-			addr := net.ParseIP(x)
-			if addr == nil {
-				return nil, fmt.Errorf("invalid address or prefix: %s", x)
-			}
-			mask := net.CIDRMask(32, 32)
-			if addr.To4() == nil {
-				mask = net.CIDRMask(128, 128)
-			}
-			cidr = &net.IPNet{
-				IP:   addr,
-				Mask: mask,
-			}
+			return nil, err
 		}
-		list = append(list, *cidr)
+		list = append(list, e)
 	}
 	return &NeighborSet{
 		name: name,
@@ -770,14 +824,21 @@ func (lhs *singleAsPathMatch) String() string {
 	return ""
 }
 
-func (m *singleAsPathMatch) Match(aspath []uint32) bool {
+// Match reports whether the AS path matches. aspath is the list from
+// GetAsSeqList and segments are the segments of the AS_PATH attribute.
+func (m *singleAsPathMatch) Match(aspath []uint32, segments []bgp.AsPathParamInterface) bool {
 	if len(aspath) == 0 {
 		return false
 	}
 	switch m.mode {
 	case INCLUDE:
-		if slices.Contains(aspath, m.asn) {
-			return true
+		// The "_" of a regular expression also matches the delimiters
+		// of AS_SET and AS_CONFED_SEQUENCE, so look at the AS numbers
+		// of every segment, not only those of AS_SEQUENCE.
+		for _, s := range segments {
+			if slices.Contains(s.GetAS(), m.asn) {
+				return true
+			}
 		}
 	case LEFT_MOST:
 		if m.asn == aspath[0] {
@@ -1103,14 +1164,26 @@ func anchoredBody(s string) (body string, ok bool) {
 	return s[1 : len(s)-1], true
 }
 
+// parseDecimal parses s only if it is the text that a community value is
+// formatted to. strconv.ParseUint also accepts a leading zero, but the
+// regexp side compares against "ASN:local" with no leading zero, so a
+// pattern such as ^065001:7$ must stay on the regexp.
+func parseDecimal(s string, bitSize int) (uint64, bool) {
+	if len(s) > 1 && s[0] == '0' {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(s, 10, bitSize)
+	return n, err == nil
+}
+
 func parseExactASColonLocal(body string, localBits int) (asn uint16, local uint32, ok bool) {
 	idx := strings.IndexByte(body, ':')
 	if idx <= 0 || idx != strings.LastIndexByte(body, ':') {
 		return 0, 0, false
 	}
-	asn64, err1 := strconv.ParseUint(body[:idx], 10, 16)
-	loc64, err2 := strconv.ParseUint(body[idx+1:], 10, localBits)
-	if err1 != nil || err2 != nil {
+	asn64, ok1 := parseDecimal(body[:idx], 16)
+	loc64, ok2 := parseDecimal(body[idx+1:], localBits)
+	if !ok1 || !ok2 {
 		return 0, 0, false
 	}
 	return uint16(asn64), uint32(loc64), true
@@ -1122,24 +1195,32 @@ func isWildcardASN(lhs string) bool {
 
 func isWildcardLocal(s string) bool {
 	s = strings.TrimSuffix(s, "$")
-	return strings.HasSuffix(s, `:\d+`) || strings.HasSuffix(s, `:[0-9]+`) || strings.HasSuffix(s, `:.*`)
+	// The wildcard tail must hold the only colon: the fixed-AS matcher it
+	// promotes to ignores the local-admin part, so a pattern with a second
+	// colon (for example ^65001:\d+:\d+) describes a community a one-colon
+	// asn:local value can never match and has to stay on the regexp.
+	for _, tail := range []string{`:\d+`, `:[0-9]+`, `:.*`} {
+		if prefix, found := strings.CutSuffix(s, tail); found {
+			return !strings.ContainsRune(prefix, ':')
+		}
+	}
+	return false
 }
 
 func parseLocalAdminSet(rhs string) (*localAdminBitmap, bool) {
-	rhs = strings.TrimSpace(rhs)
 	var locals []uint16
 	switch {
 	case strings.HasPrefix(rhs, "(") && strings.HasSuffix(rhs, ")"):
 		for _, tok := range strings.Split(rhs[1:len(rhs)-1], "|") {
-			n, err := strconv.ParseUint(strings.TrimSpace(tok), 10, 16)
-			if err != nil {
+			n, ok := parseDecimal(tok, 16)
+			if !ok {
 				return nil, false
 			}
 			locals = append(locals, uint16(n))
 		}
 	default:
-		n, err := strconv.ParseUint(rhs, 10, 16)
-		if err != nil {
+		n, ok := parseDecimal(rhs, 16)
+		if !ok {
 			return nil, false
 		}
 		locals = []uint16{uint16(n)}
@@ -1208,8 +1289,8 @@ func extractLiteralASN(s string) (uint16, bool) {
 	if idx <= 0 {
 		return 0, false
 	}
-	asn, err := strconv.ParseUint(s[start:start+idx], 10, 16)
-	return uint16(asn), err == nil
+	asn, ok := parseDecimal(s[start:start+idx], 16)
+	return uint16(asn), ok
 }
 
 func compileCommunityMatcher(re *regexp.Regexp, listIndex int) communityMatcher {
@@ -2014,12 +2095,6 @@ func (c *PrefixCondition) Option() MatchOption {
 // If PrefixList's length is zero, return true.
 func (c *PrefixCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 	pathRf := path.GetFamily()
-	pathAfi := pathRf.Afi()
-	cAfi := c.set.family.Afi()
-
-	if cAfi != pathAfi {
-		return false
-	}
 	// RTC shares AFI_IP with IPv4-UC; only match RTC sets against RTC paths.
 	if bool(c.set.family == bgp.RF_RTC_UC) != bool(pathRf == bgp.RF_RTC_UC) {
 		return false
@@ -2029,6 +2104,13 @@ func (c *PrefixCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 	if !r.IsValid() {
 		return false
 	}
+
+	// An RTC key is AS+RT encoded as a 16-byte address, not an IP prefix, so
+	// it has no AFI to compare.
+	if c.set.family != bgp.RF_RTC_UC && c.set.family.Afi() != prefixAfi(r) {
+		return false
+	}
+
 	addr := r.Masked().Addr()
 	masklen := uint8(r.Bits())
 	result := false
@@ -2053,6 +2135,13 @@ func (c *PrefixCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 }
 
 func (c *PrefixCondition) Name() string { return c.set.name }
+
+func prefixAfi(p netip.Prefix) uint16 {
+	if p.Addr().Is4() {
+		return bgp.AFI_IP
+	}
+	return bgp.AFI_IP6
+}
 
 func NewPrefixCondition(c oc.MatchPrefixSet) (*PrefixCondition, error) {
 	if c.PrefixSet == "" {
@@ -2105,7 +2194,10 @@ func (c *NeighborCondition) Evaluate(path *Path, options *PolicyOptions) bool {
 	}
 	result := false
 	for _, n := range c.set.list {
-		if n.Contains(neighbor.AsSlice()) {
+		if n.zone != "" && n.zone != neighbor.Zone() {
+			continue
+		}
+		if n.prefix.Contains(neighbor.AsSlice()) {
 			result = true
 			break
 		}
@@ -2156,8 +2248,12 @@ func (c *AsPathCondition) Option() MatchOption {
 func (c *AsPathCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 	if len(c.set.singleList) > 0 {
 		aspath := path.GetAsSeqList()
+		var segments []bgp.AsPathParamInterface
+		if a := path.GetAsPath(); a != nil {
+			segments = a.Value
+		}
 		for _, m := range c.set.singleList {
-			result := m.Match(aspath)
+			result := m.Match(aspath, segments)
 			if c.option == MATCH_OPTION_ALL && !result {
 				return false
 			}
@@ -3402,7 +3498,9 @@ func NewAsPathPrependAction(action oc.SetAsPathPrepend) (*AsPathPrependAction, e
 }
 
 type NexthopAction struct {
-	value       netip.Addr
+	// nexthops is the address to set when the action has one. It is made
+	// once, so that Apply does not allocate.
+	nexthops    *Nexthops
 	self        bool
 	peerAddress bool
 	unchanged   bool
@@ -3416,12 +3514,12 @@ func (a *NexthopAction) Apply(path *Path, options *PolicyOptions) (*Path, error)
 	switch {
 	case a.self:
 		if options != nil && options.Info != nil && options.Info.LocalAddress.IsValid() {
-			path.SetNexthop(options.Info.LocalAddress)
+			path.setNexthopsShared(options.Info.localAddressNexthops())
 		}
 		return path, nil
 	case a.peerAddress:
 		if options != nil && options.Info != nil && options.Info.Address.IsValid() {
-			path.SetNexthop(options.Info.Address)
+			path.setNexthopsShared(options.Info.addressNexthops())
 		}
 		return path, nil
 	case a.unchanged:
@@ -3430,7 +3528,7 @@ func (a *NexthopAction) Apply(path *Path, options *PolicyOptions) (*Path, error)
 		}
 		return path, nil
 	}
-	path.SetNexthop(a.value)
+	path.setNexthopsShared(a.nexthops)
 	return path, nil
 }
 
@@ -3443,7 +3541,7 @@ func (a *NexthopAction) ToConfig() oc.BgpNextHopType {
 	case a.unchanged:
 		return oc.BgpNextHopType("unchanged")
 	}
-	return oc.BgpNextHopType(a.value.String())
+	return oc.BgpNextHopType(a.nexthops.global.String())
 }
 
 func (a *NexthopAction) String() string {
@@ -3476,7 +3574,7 @@ func NewNexthopAction(c oc.BgpNextHopType) (*NexthopAction, error) {
 		return nil, fmt.Errorf("invalid ip address format: %w", err)
 	}
 	return &NexthopAction{
-		value: addr,
+		nexthops: &Nexthops{global: addr},
 	}, nil
 }
 
@@ -4010,7 +4108,8 @@ func (r *RoutingPolicy) ApplyPolicy(id string, dir PolicyDirection, before *Path
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	for _, p := range r.getPolicy(id, dir) {
+	policies := r.getPolicy(id, dir)
+	for _, p := range policies {
 		result, after = p.Apply(r.logger, after, options)
 		if result != ROUTE_TYPE_NONE {
 			break
@@ -4018,6 +4117,11 @@ func (r *RoutingPolicy) ApplyPolicy(id string, dir PolicyDirection, before *Path
 	}
 	if result == ROUTE_TYPE_NONE {
 		result = r.getDefaultPolicy(id, dir)
+		// A configured list without an explicit default implicitly accepts.
+		// Keep that default unset so removing the list removes the assignment.
+		if result == ROUTE_TYPE_NONE && len(policies) != 0 {
+			result = ROUTE_TYPE_ACCEPT
+		}
 	}
 	switch result {
 	case ROUTE_TYPE_ACCEPT:
@@ -4088,7 +4192,7 @@ func (r *RoutingPolicy) setDefaultPolicy(id string, dir PolicyDirection, typ Rou
 func (r *RoutingPolicy) getAssignmentFromConfig(dir PolicyDirection, a oc.ApplyPolicy) ([]*Policy, RouteType, error) {
 	var names []string
 	var cdef oc.DefaultPolicyType
-	def := ROUTE_TYPE_ACCEPT
+	def := ROUTE_TYPE_NONE
 	c := a.Config
 	switch dir {
 	case POLICY_DIRECTION_IMPORT:
@@ -4100,8 +4204,11 @@ func (r *RoutingPolicy) getAssignmentFromConfig(dir PolicyDirection, a oc.ApplyP
 	default:
 		return nil, def, fmt.Errorf("invalid policy direction")
 	}
-	if cdef == oc.DEFAULT_POLICY_TYPE_REJECT_ROUTE {
+	switch {
+	case cdef == oc.DEFAULT_POLICY_TYPE_REJECT_ROUTE:
 		def = ROUTE_TYPE_REJECT
+	case cdef != "":
+		def = ROUTE_TYPE_ACCEPT
 	}
 	ps := make([]*Policy, 0, len(names))
 	seen := make(map[string]bool)
@@ -4551,7 +4658,7 @@ func (r *RoutingPolicy) DeletePolicy(x *Policy, all, preserve bool) (err error) 
 		err = fmt.Errorf("not found policy: %s", name)
 		return err
 	}
-	// The assignment map holds the global RIB and the route server clients that
+	// The assignment map holds the global RIB and the peers that
 	// still exist. An entry is removed when the peer goes away.
 	inUse := func() bool {
 		for id := range r.assignmentMap {
@@ -4742,18 +4849,50 @@ func (r *RoutingPolicy) setPeerPolicy(id string, c oc.ApplyPolicy) {
 				slog.String("Topic", "Policy"),
 				slog.String("Dir", dir.String()),
 				slog.String("Error", err.Error()))
+			if id != GLOBAL_RIB_NAME {
+				// An invalid peer assignment must not fall back to global policy.
+				r.setPolicy(id, dir, nil)
+				r.setDefaultPolicy(id, dir, ROUTE_TYPE_REJECT)
+			}
 			continue
+		}
+		// The global assignment defaults to accept. Keep NONE for an absent
+		// regular-peer assignment so the server can select the global policy
+		// for that direction. Route-server defaults are resolved by the server.
+		if id == GLOBAL_RIB_NAME && def == ROUTE_TYPE_NONE {
+			def = ROUTE_TYPE_ACCEPT
 		}
 		r.setDefaultPolicy(id, dir, def)
 		r.setPolicy(id, dir, ps)
 	}
 }
 
-func (r *RoutingPolicy) SetPeerPolicy(peerId string, c oc.ApplyPolicy) error {
+func (r *RoutingPolicy) SetPeerPolicy(id string, c oc.ApplyPolicy) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.setPeerPolicy(peerId, c)
+	importPolicies, defaultImport, err := r.getAssignmentFromConfig(POLICY_DIRECTION_IMPORT, c)
+	if err != nil {
+		return fmt.Errorf("failed to get %s policy info for %s: %w", POLICY_DIRECTION_IMPORT, id, err)
+	}
+	exportPolicies, defaultExport, err := r.getAssignmentFromConfig(POLICY_DIRECTION_EXPORT, c)
+	if err != nil {
+		return fmt.Errorf("failed to get %s policy info for %s: %w", POLICY_DIRECTION_EXPORT, id, err)
+	}
+	// Global configuration keeps its accept default; absent regular-peer
+	// directions stay unset so the server can resolve the global fallback.
+	if id == GLOBAL_RIB_NAME {
+		if defaultImport == ROUTE_TYPE_NONE {
+			defaultImport = ROUTE_TYPE_ACCEPT
+		}
+		if defaultExport == ROUTE_TYPE_NONE {
+			defaultExport = ROUTE_TYPE_ACCEPT
+		}
+	}
+	r.setDefaultPolicy(id, POLICY_DIRECTION_IMPORT, defaultImport)
+	r.setPolicy(id, POLICY_DIRECTION_IMPORT, importPolicies)
+	r.setDefaultPolicy(id, POLICY_DIRECTION_EXPORT, defaultExport)
+	r.setPolicy(id, POLICY_DIRECTION_EXPORT, exportPolicies)
 	return nil
 }
 
