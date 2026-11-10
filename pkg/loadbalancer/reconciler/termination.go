@@ -150,7 +150,8 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 	defer limiter.Stop()
 
 	for {
-		changes, watch := changeIter.Next(p.DB.ReadTxn())
+		rtxn := p.DB.ReadTxn()
+		changes, watch := changeIter.Next(rtxn)
 		for change := range changes {
 			backend := change.Object
 
@@ -164,9 +165,14 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 				continue
 			}
 
-			// Terminate the sockets connected to backends that have been either
-			// deleted or which are no longer considered viable.
+			// Terminate sockets when a backend instance is deleted or no longer alive.
+			// Since termination targets the backend address, preserve connections while
+			// any instance at that address is alive, across all services and sources.
 			if change.Deleted || !backend.IsAlive() {
+				if hasAliveBackendReference(rtxn, p.Backends, backend.Address) {
+					continue
+				}
+
 				opSupported := terminateConnectionsToBackend(p, sd, backend.Address)
 				if !opSupported {
 					// The kernel doesn't support socket termination. We can stop processing.
@@ -187,6 +193,19 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 			return err
 		}
 	}
+}
+
+func hasAliveBackendReference(
+	txn statedb.ReadTxn,
+	backends statedb.Table[*lb.Backend],
+	address lb.L3n4Addr,
+) bool {
+	for instance := range backends.List(txn, lb.BackendByAddress(address)) {
+		if instance.IsAlive() {
+			return true
+		}
+	}
+	return false
 }
 
 // terminateConnectionsToBackend closes UDP & TCP connection sockets that match
