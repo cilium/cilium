@@ -7,12 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -38,34 +34,6 @@ type fragMap struct {
 	bpfMapV6 *bpf.Map
 }
 
-func newMap(registry *metrics.Registry, maxMapEntries int, getEventBufferConfig func(name string) option.BPFEventBufferConfig) *fragMap {
-	m := &fragMap{}
-
-	if option.Config.EnableIPv4FragmentsTracking {
-		m.bpfMapV4 = bpf.NewMap(mapNameIPv4,
-			ebpf.LRUHash,
-			&FragmentKey4{},
-			&FragmentValue4{},
-			maxMapEntries,
-			0,
-		).WithEvents(getEventBufferConfig(mapNameIPv4)).
-			WithPressureMetric(registry)
-	}
-
-	if option.Config.EnableIPv6FragmentsTracking {
-		m.bpfMapV6 = bpf.NewMap(mapNameIPv6,
-			ebpf.LRUHash,
-			&FragmentKey6{},
-			&FragmentValue6{},
-			maxMapEntries,
-			0,
-		).WithEvents(getEventBufferConfig(mapNameIPv6)).
-			WithPressureMetric(registry)
-	}
-
-	return m
-}
-
 // OpenMap4 opens the pre-initialized IPv4 fragments map for access.
 // This should only be used from components which aren't capable of using hive - mainly the cilium-dbg.
 // It needs to initialized beforehand via the Cilium Agent.
@@ -78,22 +46,6 @@ func OpenMap4(logger *slog.Logger) (*bpf.Map, error) {
 // It needs to initialized beforehand via the Cilium Agent.
 func OpenMap6(logger *slog.Logger) (*bpf.Map, error) {
 	return bpf.OpenMap(bpf.MapPath(logger, mapNameIPv6), &FragmentKey6{}, &FragmentValue6{})
-}
-
-func (m *fragMap) init() error {
-	if option.Config.EnableIPv4FragmentsTracking {
-		if err := m.bpfMapV4.Create(); err != nil {
-			return fmt.Errorf("failed to create fragments v4 bpf map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPv6FragmentsTracking {
-		if err := m.bpfMapV6.Create(); err != nil {
-			return fmt.Errorf("failed to create fragments v6 bpf map: %w", err)
-		}
-	}
-
-	return nil
 }
 
 // FragmentKey4 must match 'struct ipv4_frag_id' in "bpf/lib/ipv4.h".
