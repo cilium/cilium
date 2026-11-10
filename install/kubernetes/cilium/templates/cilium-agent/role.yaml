@@ -26,6 +26,19 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.l2announcements.enabled }}
+# agents use leases to coordinate l2 announcement
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
+  - list
+  - delete
+{{- end }}
 
 {{- end }}
 
