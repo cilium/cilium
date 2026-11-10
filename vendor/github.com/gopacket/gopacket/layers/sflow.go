@@ -302,8 +302,17 @@ func (s SFlowIPType) Length() int {
 func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	var agentAddressType SFlowIPType
 
+	if len(data) < 8 {
+		df.SetTruncated()
+		return errors.New("SFlow datagram too short")
+	}
 	data, s.DatagramVersion = data[4:], binary.BigEndian.Uint32(data[:4])
 	data, agentAddressType = data[4:], SFlowIPType(binary.BigEndian.Uint32(data[:4]))
+	// agent address + subAgentID + sequence + uptime + sampleCount = agentAddr + 16.
+	if len(data) < agentAddressType.Length()+16 {
+		df.SetTruncated()
+		return errors.New("SFlow datagram too short for agent address and header")
+	}
 	data, s.AgentAddress = data[agentAddressType.Length():], data[:agentAddressType.Length()]
 	data, s.SubAgentID = data[4:], binary.BigEndian.Uint32(data[:4])
 	data, s.SequenceNumber = data[4:], binary.BigEndian.Uint32(data[:4])
