@@ -268,10 +268,11 @@ success without completing that work. That kernel contract remains unresolved.
 
 ### SR-IOV device manager
 
-The SR-IOV manager (`pkg/networkdriver/sriov`) discovers VFs by walking
-`/host/sys/bus/pci/devices`, filtering for Ethernet-class PCI devices
-(`class=0x0200`) that are SR-IOV Virtual Functions (i.e. have a `physfn`
-symlink). For each matching VF it records:
+The SR-IOV manager (`pkg/networkdriver/sriov`) only manages the PFs listed in
+`ifaces`. For each, it lists the PF's VFs from its `virtfnN` links under
+`/host/sys/bus/pci/devices/<pf>`. VFs of PFs not listed in `ifaces` are not
+discovered or modified. A configuration with no `ifaces` publishes no VFs.
+For each VF it records:
 
 - PCI address (`Addr`) — used as the stable `IfName()` (colons and dots
   replaced with dashes, e.g. `0000-03-00-1`)

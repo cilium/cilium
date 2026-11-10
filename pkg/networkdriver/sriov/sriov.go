@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -35,7 +34,6 @@ var (
 	errNotAVF            = errors.New("device is not a vf")
 	errTooManyVFs        = errors.New("too many vfs")
 	errInterfaceNotFound = errors.New("interface not found")
-	errVFIDNotFound      = errors.New("could not find VF ID")
 )
 
 type PCIAddr string
@@ -271,8 +269,10 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.SRIOVDeviceManagerConfig, opt
 		logfields.Path, mgr.sysPath,
 	)
 
+	// A PF that is missing or cannot be configured must not take the other
+	// PFs down with it: listDevices skips PFs it cannot find.
 	if err := mgr.setupVFs(mgr.config.Ifaces); err != nil {
-		return nil, err
+		mgr.logger.Warn("failed to set up VFs on some PFs, skipping them", logfields.Error, err)
 	}
 
 	return mgr, nil
@@ -299,56 +299,74 @@ func (mgr *SRIOVManager) pciDevicesPath() string {
 	return filepath.Join(mgr.sysPath, pciDevicesPath)
 }
 
-// listDevices scans the system to find sr-iov virtual functions.
+// listDevices returns the VFs of the PFs listed in the configuration. VFs of
+// other PFs are not discovered: the driver only manages devices it was
+// explicitly given.
 func (mgr *SRIOVManager) listDevices() ([]types.Device, error) {
-	var (
-		result []types.Device
-	)
-
-	netlinkAttrs, err := mgr.linkAttrsByPCIAddr()
+	byName, err := mgr.linkAttrsByKernelIfname()
+	if err != nil {
+		return nil, err
+	}
+	byPCI, err := mgr.linkAttrsByPCIAddr()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := filepath.WalkDir(mgr.pciDevicesPath(), func(root string, d fs.DirEntry, _ error) error {
+	var result []types.Device
+	for _, iface := range mgr.config.Ifaces {
+		l := mgr.logger.With(logfields.Interface, iface.IfName)
+
+		pf, ok := byName[KernelIfName(iface.IfName)]
+		if !ok {
+			l.Warn("configured PF not found, skipping its VFs")
+			continue
+		}
+
+		vfs, err := mgr.listVFs(iface.IfName, pf.ParentDev, byPCI)
 		if err != nil {
-			mgr.logger.Error(
-				"failed to access directory",
-				logfields.Path, root,
-				logfields.Error, err.Error(),
-			)
-
-			return nil
+			l.Warn("failed to list VFs", logfields.Error, err)
+			continue
 		}
+		result = append(result, vfs...)
+	}
 
-		addr := d.Name()
+	return result, nil
+}
 
-		l := mgr.logger.With(
-			logfields.Device, addr,
-			logfields.FilePath, root,
-		)
-
-		if !isNetworkDevice(root) || !isVF(root) {
-			// we are only interested in network devices for now
-			// that are sr-iov virtual functions
-			return nil
-		}
-
-		// errors for device parsing are not cause for returning.
-		// if parsing fails, we want to still return all valid
-		// devices
-		device, err := mgr.parseDevice(addr, netlinkAttrs)
-		if err != nil {
-			l.Warn("failed to parse device", logfields.Error, err)
-			return nil
-		}
-
-		device.nl = mgr.nl
-		result = append(result, device)
-
-		return nil
-	}); err != nil {
+// listVFs returns the VFs under the PF at pfAddr, found from its virtfnN
+// links. A VF that fails to parse is logged and skipped.
+func (mgr *SRIOVManager) listVFs(pfName, pfAddr string, byPCI map[PCIAddr]netlink.LinkAttrs) ([]types.Device, error) {
+	links, err := filepath.Glob(filepath.Join(mgr.pciDevicesPath(), pfAddr, "virtfn*"))
+	if err != nil {
 		return nil, err
+	}
+
+	var result []types.Device
+	for _, link := range links {
+		vfID, err := strconv.Atoi(strings.TrimPrefix(filepath.Base(link), "virtfn"))
+		if err != nil {
+			continue
+		}
+
+		target, err := os.Readlink(link)
+		if err != nil {
+			mgr.logger.Warn("failed to read VF link",
+				logfields.Path, link,
+				logfields.Error, err,
+			)
+			continue
+		}
+
+		dev, err := mgr.parseDevice(filepath.Base(target), pfName, vfID, byPCI)
+		if err != nil {
+			mgr.logger.Warn("failed to parse device",
+				logfields.Device, filepath.Base(target),
+				logfields.Error, err)
+			continue
+		}
+
+		dev.nl = mgr.nl
+		result = append(result, dev)
 	}
 
 	return result, nil
@@ -361,32 +379,6 @@ func (mgr *SRIOVManager) RestoreDevice(data []byte) (types.Device, error) {
 	}
 	dev.nl = mgr.nl
 	return &dev, nil
-}
-
-const (
-	// https://elixir.bootlin.com/linux/v6.17.6/source/include/linux/pci_ids.h#L32
-	// #define PCI_CLASS_NETWORK_ETHERNET	0x0200
-	ethernetDeviceClass = 0x0200
-)
-
-// isNetworkDevice checks the PCI device class and returns whether it is a network device.
-// see `ethernetDeviceClass“ definition for more context.
-func isNetworkDevice(pciDevPath string) bool {
-	deviceClassFilePath := filepath.Join(pciDevPath, "class")
-	f, err := os.ReadFile(deviceClassFilePath)
-	if err != nil {
-		return false
-	}
-
-	v, err := strconv.ParseUint(strings.TrimSpace(string(f)), 0, 32)
-	if err != nil {
-		return false
-	}
-
-	// get just the first 2 bytes, ignore subclass part
-	v = v >> 8
-
-	return v == ethernetDeviceClass
 }
 
 // linkAttrsByPCIAddr returns the netlink attributes for PCI based devices. indexed by PCI address
@@ -433,22 +425,16 @@ func (mgr *SRIOVManager) linkAttrsByKernelIfname() (map[KernelIfName]netlink.Lin
 	return result, nil
 }
 
-// isVF returns whether the PCI device is an sr-iov vf or not.
-// we know if this is a VF if there is a `physfn` link in /sys/bus/pci/devices/<vf_pci_addr> path
-func isVF(pciDevPath string) bool {
-	_, err := os.Stat(filepath.Join(pciDevPath, "physfn"))
-	return err == nil
-}
-
-// parseDevice constructs a PciDevice from a PCI device's sysfs attributes.
-// returns an error if we are unable to resolve the vf attributes. the only exception
-// is the kernel ifname, which may or may not be present depending on the driver in use.
-func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[PCIAddr]netlink.LinkAttrs) (*PciDevice, error) {
+// parseDevice constructs a PciDevice from a VF's sysfs attributes. The kernel
+// ifname is taken from links, by PCI address, when the VF has a netdev.
+func (mgr *SRIOVManager) parseDevice(addr, pfName string, vfID int, links map[PCIAddr]netlink.LinkAttrs) (*PciDevice, error) {
 	dev := PciDevice{
-		Addr: addr,
+		Addr:   addr,
+		PFName: pfName,
+		VFID:   vfID,
 	}
 
-	thisLinkAttrs, ok := netlinkAttrs[PCIAddr(addr)]
+	thisLinkAttrs, ok := links[PCIAddr(addr)]
 	if ok {
 		dev.KernelIfaceName = thisLinkAttrs.Name
 	}
@@ -475,43 +461,7 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[PCIAddr]netli
 	}
 	dev.DeviceID = strings.TrimSpace(string(device))
 
-	pfPath, err := os.Readlink(filepath.Join(devicePath, "physfn"))
-	if err != nil {
-		// this is not a vf
-		return nil, errNotAVF
-	}
-
-	pfAddr := filepath.Base(pfPath)
-
-	pfAttrs, ok := netlinkAttrs[PCIAddr(pfAddr)]
-	if !ok {
-		return nil, fmt.Errorf("pf kernel ifname for device %s: %w", pfAddr, errInterfaceNotFound)
-	}
-
-	dev.PFName = pfAttrs.Name
-	pfDevPath := filepath.Join(mgr.pciDevicesPath(), pfAddr)
-
-	// to resolve the VF id, we iterate over all VFs under the PF attributes
-	// and map the ids to the `virtfn$x` path under the pf device.
-	// if the path linked matches the path of our vf address, then we found the id.
-	for _, vf := range pfAttrs.Vfs {
-		// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn0
-		// ../0000:02:00.2
-		// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn1
-		// ../0000:02:00.3
-		v, err := os.Readlink(filepath.Join(pfDevPath, fmt.Sprintf("virtfn%d", vf.ID)))
-		if err != nil {
-			continue
-		}
-
-		vfAddr := filepath.Base(v)
-		if vfAddr == addr {
-			dev.VFID = vf.ID
-			return &dev, nil
-		}
-	}
-
-	return nil, errVFIDNotFound
+	return &dev, nil
 }
 
 // setupVFs configures a PF that has an `ifname` with `vfCount` virtual functions by
