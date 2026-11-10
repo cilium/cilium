@@ -20,6 +20,9 @@ k8s/add service-gateway.yaml
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
 
+# Wait for the service to be reflected to the service table
+db/cmp services services.expected
+
 # Wait for peering to be established
 gobgp/wait-state 10.99.5.102 ESTABLISHED
 
@@ -144,6 +147,9 @@ status:
     ingress:
     - ip: 172.18.255.200
 
+-- services.expected --
+Name                                Source   PortNames   TrafficPolicy            Flags
+default/cilium-gateway-my-gateway   k8s      http=80     Ext=Local, Int=Cluster
 -- gobgp-routes-gateway.expected --
 Prefix              NextHop       Attrs
 172.18.255.200/32   10.99.5.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.102}]
