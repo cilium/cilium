@@ -264,9 +264,8 @@ func TestBuildDeviceStatus(t *testing.T) {
 }
 
 func TestDeviceConfigsFromAllocation(t *testing.T) {
-	const testDriverName = "testdriver"
-	result := func(driver, request string) resourceapi.DeviceRequestAllocationResult {
-		return resourceapi.DeviceRequestAllocationResult{Driver: driver, Request: request}
+	netDriverResult := func(request string) resourceapi.DeviceRequestAllocationResult {
+		return resourceapi.DeviceRequestAllocationResult{Driver: networkDriverName, Request: request}
 	}
 	opaqueConfig := func(raw string, requests ...string) resourceapi.DeviceAllocationConfiguration {
 		return resourceapi.DeviceAllocationConfiguration{
@@ -311,7 +310,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					},
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 			},
 			expectedDevConfs: nil,
@@ -323,7 +322,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig("not-json"),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 			},
 			expectedDevConfs: nil,
@@ -332,7 +331,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 			name: "results but not configs",
 			allocatedDevices: resourceapi.DeviceAllocationResult{
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 				// we have no configs
 			},
@@ -347,7 +346,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig(`{"ipPool":"example-pool"}`, "req"),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 			},
 			expectedDevConfs: map[string]types.DeviceConfig{
@@ -361,7 +360,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig(`{"ipPool":"example-pool"}`),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 			},
 			expectedDevConfs: map[string]types.DeviceConfig{
@@ -376,8 +375,8 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 				},
 				// we don't consider configs for other requests.
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
-					result("otherdriver", "other-req"),
+					netDriverResult("req"),
+					{Driver: "otherdriver", Request: "other-req"},
 				},
 			},
 			expectedDevConfs: map[string]types.DeviceConfig{
@@ -392,8 +391,8 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig(`{"ipPool":"pool-b"}`, "req-b"),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req-a"),
-					result(testDriverName, "req-b"),
+					netDriverResult("req-a"),
+					netDriverResult("req-b"),
 				},
 			},
 			expectedDevConfs: map[string]types.DeviceConfig{
@@ -408,8 +407,8 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig(`{"ipPool":"shared-pool"}`),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req-a"),
-					result(testDriverName, "req-b"),
+					netDriverResult("req-a"),
+					netDriverResult("req-b"),
 				},
 			},
 			expectedDevConfs: map[string]types.DeviceConfig{
@@ -425,7 +424,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig(`{"podIfName":"eth1"}`, "req"),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 			},
 			expectedDevConfs: nil,
@@ -438,14 +437,14 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 					opaqueConfig(`{"podIfName":"eth1"}`, "req"),
 				},
 				Results: []resourceapi.DeviceRequestAllocationResult{
-					result(testDriverName, "req"),
+					netDriverResult("req"),
 				},
 			},
 			expectedDevConfs: nil,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			devConf, err := deviceConfigsFromAllocation(&tc.allocatedDevices, testDriverName)
+			devConf, err := deviceConfigsFromAllocation(&tc.allocatedDevices)
 			if tc.expectedDevConfs == nil {
 				require.Error(t, err)
 				require.Nil(t, devConf)
@@ -458,11 +457,11 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 
 	t.Run("valid RX queue endpoint", func(t *testing.T) {
 		configs, err := deviceConfigsFromAllocation(&resourceapi.DeviceAllocationResult{
-			Results: []resourceapi.DeviceRequestAllocationResult{result(testDriverName, "req")},
+			Results: []resourceapi.DeviceRequestAllocationResult{netDriverResult("req")},
 			Config: []resourceapi.DeviceAllocationConfiguration{
 				opaqueConfig(`{"rxQueue":{"podEndpoint":{"port":"9000","protocol":"TCP"}}}`, "req"),
 			},
-		}, testDriverName)
+		})
 		require.NoError(t, err)
 		require.Equal(t, "9000", configs["req"].RXQueue.PodEndpoint.Port)
 		require.Equal(t, types.DefaultRXQueuePodIfName, configs["req"].PodIfName)
@@ -470,11 +469,11 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 
 	t.Run("invalid RX queue endpoint", func(t *testing.T) {
 		_, err := deviceConfigsFromAllocation(&resourceapi.DeviceAllocationResult{
-			Results: []resourceapi.DeviceRequestAllocationResult{result(testDriverName, "req")},
+			Results: []resourceapi.DeviceRequestAllocationResult{netDriverResult("req")},
 			Config: []resourceapi.DeviceAllocationConfiguration{
 				opaqueConfig(`{"rxQueue":{"podEndpoint":{"port":"65536","protocol":"TCP"}}}`, "req"),
 			},
-		}, testDriverName)
+		})
 		require.ErrorIs(t, err, errUnexpectedInput)
 		require.ErrorContains(t, err, "invalid podEndpoint port")
 	})

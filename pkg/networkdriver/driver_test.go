@@ -892,12 +892,12 @@ func TestBuildPoolsFromTable(t *testing.T) {
 	})
 }
 
-func buildClaimWithDeviceStatus(t *testing.T, driverName string, podUID, claimUID kubetypes.UID, devName string) *resourceapi.ResourceClaim {
+func buildClaimWithDeviceStatus(t *testing.T, podUID, claimUID kubetypes.UID, devName string) *resourceapi.ResourceClaim {
 	t.Helper()
-	return buildClaimWithDeviceStatusAndPool(t, driverName, podUID, claimUID, devName, "")
+	return buildClaimWithDeviceStatusAndPool(t, podUID, claimUID, devName, "")
 }
 
-func buildClaimWithDeviceStatusAndPool(t *testing.T, driverName string, podUID, claimUID kubetypes.UID, devName, logicalPool string) *resourceapi.ResourceClaim {
+func buildClaimWithDeviceStatusAndPool(t *testing.T, podUID, claimUID kubetypes.UID, devName, logicalPool string) *resourceapi.ResourceClaim {
 	t.Helper()
 
 	dev := &trackedDevice{name: devName}
@@ -922,7 +922,7 @@ func buildClaimWithDeviceStatusAndPool(t *testing.T, driverName string, podUID, 
 			},
 			Devices: []resourceapi.AllocatedDeviceStatus{
 				{
-					Driver: driverName,
+					Driver: networkDriverName,
 					Pool:   "test-pool",
 					Device: devName,
 					Data:   &runtime.RawExtension{Raw: serialized},
@@ -1016,7 +1016,7 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 	t.Run("success restores allocation", func(t *testing.T) {
 		driver := buildDriver(t)
-		claim := buildClaimWithDeviceStatus(t, networkDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim := buildClaimWithDeviceStatus(t, prepTestPodUID, prepTestClaimUID, prepTestDev0)
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		err := driver.restoreDevicesFromClaim(claim, wtxn)
@@ -1038,7 +1038,7 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 	t.Run("restored allocation resolves its logical pool from the device, not devStatus.Pool", func(t *testing.T) {
 		driver := buildDriver(t)
-		claim := buildClaimWithDeviceStatus(t, networkDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim := buildClaimWithDeviceStatus(t, prepTestPodUID, prepTestClaimUID, prepTestDev0)
 		// devStatus.Pool is a DRA ResourceSlice pool name (unrelated to the
 		// logical pool); it deliberately does not name either configured
 		// logical pool, to prove restore never copies it in as LogicalPool.
@@ -1063,7 +1063,7 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 	t.Run("restore logical pool in the claim", func(t *testing.T) {
 		driver := buildDriver(t)
 		const logicalPoolName = "pool-example"
-		claim := buildClaimWithDeviceStatusAndPool(t, networkDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0, logicalPoolName)
+		claim := buildClaimWithDeviceStatusAndPool(t, prepTestPodUID, prepTestClaimUID, prepTestDev0, logicalPoolName)
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
@@ -1080,7 +1080,7 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 	t.Run("shared allocation restores its identity and capacity", func(t *testing.T) {
 		driver := buildDriver(t)
-		claim := buildClaimWithDeviceStatus(t, networkDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim := buildClaimWithDeviceStatus(t, prepTestPodUID, prepTestClaimUID, prepTestDev0)
 		claim.Status.Devices[0].ShareID = ptr.To(string(prepTestShareID0))
 
 		var serialized types.SerializedDevice
@@ -1109,7 +1109,8 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 	t.Run("wrong driver is skipped without error", func(t *testing.T) {
 		driver := buildDriver(t)
-		claim := buildClaimWithDeviceStatus(t, "other.driver.io", prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim := buildClaimWithDeviceStatus(t, prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim.Status.Devices[0].Driver = "other.driver.io"
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		err := driver.restoreDevicesFromClaim(claim, wtxn)
@@ -1129,7 +1130,7 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 		driver := buildPrepDriver(t, cs)
 		driver.deviceManagers = map[types.DeviceManagerType]types.DeviceManager{} // empty
 
-		claim := buildClaimWithDeviceStatus(t, networkDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim := buildClaimWithDeviceStatus(t, prepTestPodUID, prepTestClaimUID, prepTestDev0)
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		err := driver.restoreDevicesFromClaim(claim, wtxn)
