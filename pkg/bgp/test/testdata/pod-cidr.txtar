@@ -188,7 +188,7 @@ Prefix            NextHop              Attrs
 fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64:0]}}]
 -- gobgp-routes-other-ipv4.expected --
 Prefix          NextHop              Attrs
-10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {LargeCommunity: [ 65001:100:100]} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24:0]}}]
+10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24:0]}} {LargeCommunity: [ 65001:100:100]}]
 -- gobgp-routes-other-ipv6.expected --
 Prefix            NextHop              Attrs
-fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {LargeCommunity: [ 65001:100:100]} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64:0]}}]
+fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64:0]}} {LargeCommunity: [ 65001:100:100]}]
