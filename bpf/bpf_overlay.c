@@ -134,7 +134,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		}
 	}
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		/* Pass incoming packets which will be returned using Geneve DSR
 		 * to host-stack for conntrack entry insertion.
 		 * Geneve DSR reply packets are processed by the host-stack,
@@ -372,7 +372,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		}
 	}
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		/* Pass incoming packets which will be returned using Geneve DSR
 		 * to host-stack for conntrack entry insertion.
 		 * Geneve DSR reply packets are processed by the host-stack,

@@ -13,5 +13,5 @@ ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, {
 	.enable = true,
 	.enable_icmp_errors = true,
-	.encap_mode = DSR_ENCAP_NONE,
+	.dispatch_mode = DSR_DISPATCH_OPT,
 })

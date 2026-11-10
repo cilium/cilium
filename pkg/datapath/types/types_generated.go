@@ -128,17 +128,17 @@ type DSRConfig struct {
 	EnableICMPErrors bool
 	EnableByUser     bool
 	_                [1]byte
-	EncapMode        uint32
+	DispatchMode     uint32
 }
 
-// DSREncapMode is generated from the BPF C type dsr_encap_mode.
-type DSREncapMode uint32
+// DSRDispatchMode is generated from the BPF C type dsr_dispatch_mode.
+type DSRDispatchMode uint32
 
 const (
-	DSREncapModeDSREncapInvalid DSREncapMode = 0
-	DSREncapModeDSREncapNone    DSREncapMode = 1
-	DSREncapModeDSREncapIPIP    DSREncapMode = 2
-	DSREncapModeDSREncapGeneve  DSREncapMode = 3
+	DSRDispatchModeDSRDispatchInvalid DSRDispatchMode = 0
+	DSRDispatchModeDSRDispatchOpt     DSRDispatchMode = 1
+	DSRDispatchModeDSRDispatchIPIP    DSRDispatchMode = 2
+	DSRDispatchModeDSRDispatchGeneve  DSRDispatchMode = 3
 )
 
 // EDTID is generated from the BPF C type edt_id.

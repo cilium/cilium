@@ -1546,8 +1546,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_err;
 	}
 
-	const bool may_need_dsr_info = (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
-		CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) &&
+	const bool may_need_dsr_info = (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT ||
+		CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) &&
 		(lb6_svc_uses_dsr(svc) && need_dsr_info);
 	if (may_need_dsr_info)
 		*need_dsr_info = lb_need_dsr_info(map, tuple, tuple->nexthdr,
@@ -2392,8 +2392,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_err;
 	}
 
-	const bool may_need_dsr_info = (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
-		CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) &&
+	const bool may_need_dsr_info = (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT ||
+		CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) &&
 		(lb4_svc_uses_dsr(svc) && need_dsr_info);
 	if (may_need_dsr_info)
 		*need_dsr_info = lb_need_dsr_info(map, tuple, tuple->nexthdr,

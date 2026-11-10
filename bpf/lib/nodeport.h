@@ -330,7 +330,7 @@ static __always_inline bool nodeport_skip_xlate6(const struct lb6_service *svc,
 	 * local though (LB node with local backend, or backend node after
 	 * cilium_ipip decap) we must DNAT to reach the Pod.
 	 */
-	bool skip_xlate = (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) && !backend_local;
+	bool skip_xlate = (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) && !backend_local;
 
 	if (skip_xlate)
 		skip_xlate = nodeport_uses_dsr6(svc);
@@ -344,7 +344,7 @@ dsr_set_ipip6_dev(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	struct bpf_tunnel_key key;
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -402,7 +402,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 					 int *oif __maybe_unused,
 					 int *ohead __maybe_unused)
 {
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -465,7 +465,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(opt);
 	__u32 wire_len;
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_NONE) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_OPT) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -522,7 +522,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	__be16 src_port;
 	int l4_off, ret;
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_GENEVE) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -591,7 +591,7 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = nexthdr;
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -633,7 +633,7 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			fraginfo_t fraginfo, union v6addr *addr, __be16 *port,
 			bool *dsr)
 {
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -704,7 +704,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   __be16 dport __maybe_unused,
 					   int code, int ohead __maybe_unused)
 {
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -714,8 +714,8 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 
 	__u8 reason = (__u8)-code;
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
-	    CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT ||
+	    CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		struct ipv6_ct_tuple tuple __align_stack_8 = {};
 		int l3_off = ETH_HLEN;
 		fraginfo_t fraginfo = 0;
@@ -779,15 +779,15 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 
 	ctx_load_meta_ipv6(ctx, &addr, CB_ADDR_V6_1);
 
-	switch (CONFIG(dsr_cfg).encap_mode) {
-	case DSR_ENCAP_IPIP:
+	switch (CONFIG(dsr_cfg).dispatch_mode) {
+	case DSR_DISPATCH_IPIP:
 		ret = dsr_set_ipip6(ctx, ip6, &addr,
 				    ctx_load_meta(ctx, CB_HINT), &oif, &ohead);
 		break;
-	case DSR_ENCAP_NONE:
+	case DSR_DISPATCH_OPT:
 		ret = dsr_set_ext6(ctx, ip6, &addr, port, need_dsr_info, &ohead);
 		break;
-	case DSR_ENCAP_GENEVE:
+	case DSR_DISPATCH_GENEVE:
 		ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, need_dsr_info,
 					    &oif, &ohead);
 		if (!IS_ERR(ret))
@@ -804,8 +804,8 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			return ctx_redirect(ctx, oif, 0);
 	} else {
 		if (dsr_fail_needs_reply(ret)) {
-			if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
-			    CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+			if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT ||
+			    CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 				if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 					ret = DROP_INVALID;
 					goto drop_err;
@@ -856,7 +856,7 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, f
 	__u32 monitor = 0;
 	int ret;
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -1531,12 +1531,12 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	/* TX request to remote backend: */
 	edt_set_aggregate(ctx, 0);
 	if (nodeport_uses_dsr6(svc)) {
-		if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+		if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 			ctx_store_meta(ctx, CB_HINT,
 				       ((__u32)tuple->sport << 16) | tuple->dport);
 			ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &backend->address);
-		} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE ||
-				CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE) {
+		} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE ||
+				CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT) {
 			__u32 port = key->dport;
 
 			if (need_dsr_info)
@@ -1620,11 +1620,11 @@ skip_service_lookup:
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 	bool dsr_geneve = (is_defined(IS_BPF_OVERLAY) &&
-			   CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE);
+			   CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE);
 	bool dsr_opt = (is_defined(IS_BPF_XDP) ||
 			is_defined(IS_BPF_HOST) ||
 			is_defined(IS_BPF_WIREGUARD)) &&
-		       CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE;
+		       CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT;
 	bool may_have_dsr_info = (dsr_geneve || dsr_opt) &&
 				 (CONFIG(dsr_cfg).enable && is_svc_proto);
 	if (may_have_dsr_info) {
@@ -1738,7 +1738,7 @@ static __always_inline bool nodeport_skip_xlate4(const struct lb4_service *svc,
 	 * local though (LB node with local backend, or backend node after
 	 * cilium_ipip decap) we must DNAT to reach the Pod.
 	 */
-	bool skip_xlate = (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) && !backend_local;
+	bool skip_xlate = (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) && !backend_local;
 
 	if (skip_xlate)
 		skip_xlate = nodeport_uses_dsr4(svc);
@@ -1748,7 +1748,7 @@ static __always_inline bool nodeport_skip_xlate4(const struct lb4_service *svc,
 static __always_inline int
 dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
 {
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -1775,7 +1775,7 @@ dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
 #ifdef IS_BPF_XDP
 static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 {
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -1802,7 +1802,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 					 int *oif __maybe_unused,
 					 __be16 *ohead __maybe_unused)
 {
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -1882,7 +1882,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	__u32 wire_len;
 	__be32 sum;
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_NONE) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_OPT) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -1949,7 +1949,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 	__u32 src_sec_identity = world_ipv4_id();
 	__be16 src_port = 0;
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_GENEVE) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -2021,7 +2021,7 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 	 * addressed service. We need this for RevDNATing the backend's replies.
 	 */
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -2110,7 +2110,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   __be16 dport __maybe_unused,
 					   int code, __be16 ohead __maybe_unused)
 {
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -2120,8 +2120,8 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 
 	__u8 reason = (__u8)-code;
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
-	    CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT ||
+	    CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		struct ipv4_ct_tuple tuple = {};
 		int l3_off = ETH_HLEN;
 		fraginfo_t fraginfo;
@@ -2175,16 +2175,16 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	}
 	addr = ctx_load_meta(ctx, CB_ADDR_V4);
 
-	switch (CONFIG(dsr_cfg).encap_mode) {
-	case DSR_ENCAP_IPIP:
+	switch (CONFIG(dsr_cfg).dispatch_mode) {
+	case DSR_DISPATCH_IPIP:
 		ret = dsr_set_ipip4(ctx, ip4,
 				    addr,
 				    ctx_load_meta(ctx, CB_HINT), &oif, &ohead);
 		break;
-	case DSR_ENCAP_NONE:
+	case DSR_DISPATCH_OPT:
 		ret = dsr_set_opt4(ctx, ip4, addr, port, need_dsr_info, &ohead);
 		break;
-	case DSR_ENCAP_GENEVE:
+	case DSR_DISPATCH_GENEVE:
 		ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, need_dsr_info,
 					    &oif, &ohead);
 		break;
@@ -2199,8 +2199,8 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 			return ctx_redirect(ctx, oif, 0);
 	} else {
 		if (dsr_fail_needs_reply(ret)) {
-			if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
-			    CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+			if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT ||
+			    CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 				if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 					ret = DROP_INVALID;
 					goto drop_err;
@@ -2232,7 +2232,7 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, f
 	__u32 monitor = 0;
 	int ret;
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_INVALID) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_INVALID) {
 		load_time_unreachable();
 		return 0;
 	}
@@ -2966,12 +2966,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	/* TX request to remote backend: */
 	edt_set_aggregate(ctx, 0);
 	if (nodeport_uses_dsr4(svc)) {
-		if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+		if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 			ctx_store_meta(ctx, CB_HINT,
 				       ((__u32)tuple->sport << 16) | tuple->dport);
 			ctx_store_meta(ctx, CB_ADDR_V4, backend->address);
-		} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE ||
-			   CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE) {
+		} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE ||
+			   CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT) {
 			__u32 port = key->dport;
 
 			if (need_dsr_info)
@@ -3044,11 +3044,11 @@ skip_service_lookup:
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 	bool dsr_geneve = (is_defined(IS_BPF_OVERLAY) &&
-			   CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE);
+			   CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE);
 	bool dsr_opt = (is_defined(IS_BPF_XDP) ||
 			is_defined(IS_BPF_HOST) ||
 			is_defined(IS_BPF_WIREGUARD)) &&
-		       CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE;
+		       CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_OPT;
 	bool may_have_dsr_info = (dsr_geneve || dsr_opt) &&
 				 (CONFIG(dsr_cfg).enable && is_svc_proto);
 	if (may_have_dsr_info) {

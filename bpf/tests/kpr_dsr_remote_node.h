@@ -32,7 +32,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 # include "lib/bpf_host.h"
 #endif
 
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_NONE})
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_OPT})
 ASSIGN_CONFIG(__u32, interface_ifindex, NATIVE_IFINDEX);
 
 #include "lib/endpoint.h"

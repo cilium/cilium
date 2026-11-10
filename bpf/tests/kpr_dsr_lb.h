@@ -344,7 +344,7 @@ int kpr_xdp_ipip_missing_coverage(void)
 {
 	test_init();
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP)
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP)
 		test_fatal("kpr_dsr_lb.h does not cover DSR IPIP under XDP");
 
 	test_finish();
@@ -405,7 +405,7 @@ int kpr_v4_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_syn_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -447,7 +447,7 @@ int kpr_v4_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (dsr_opt->port != tcp_svc_one)
 			test_fatal("DSR port is not correct");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_syn",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb1_syn,
@@ -536,7 +536,7 @@ int kpr_v4_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_synack_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -564,7 +564,7 @@ int kpr_v4_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (tunnel_opt_set)
 			test_fatal("DSR opt set");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_synack",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb1_synack,
@@ -648,7 +648,7 @@ int kpr_v4_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb2_data_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -690,7 +690,7 @@ int kpr_v4_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (dsr_opt->port != tcp_svc_two)
 			test_fatal("DSR port is not correct");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb2_data",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb2_data,
@@ -804,7 +804,7 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_TX);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_geneve",
 				   "Ether", ctx, sizeof(__u32),
@@ -816,7 +816,7 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 				   kpr_v4_dsr_lb3_mtu_post_geneve,
 				   sizeof(kpr_v4_dsr_lb3_mtu_post_geneve));
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_ipip",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb3_mtu_post_ipip,
@@ -849,7 +849,7 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 		if (!ct_entry->need_dsr_info)
 			test_fatal("CT entry doesn't have need_dsr_info flag");
 
@@ -899,7 +899,7 @@ int kpr_v4_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu2_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -941,7 +941,7 @@ int kpr_v4_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (dsr_opt->port != tcp_svc_three)
 			test_fatal("DSR port is not correct");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu2",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb3_mtu2,
@@ -985,7 +985,7 @@ int kpr_v4_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 		if (!ct_entry->need_dsr_info)
 			test_fatal("CT entry lost the need_dsr_info flag");
 
@@ -1039,7 +1039,7 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu3_gso_post_geneve",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb3_mtu3_gso_post_geneve,
@@ -1057,7 +1057,7 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 			test_fatal("DSR addr is not correct");
 		if (dsr_opt->port != tcp_svc_three)
 			test_fatal("DSR port is not correct");
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu3_gso",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v4_dsr_lb3_mtu3_gso,
@@ -1094,7 +1094,7 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
 
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 		if (!ct_entry->need_dsr_info)
 			test_fatal("CT entry lost the need_dsr_info flag");
 
@@ -1156,7 +1156,7 @@ int kpr_v6_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_syn_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -1198,7 +1198,7 @@ int kpr_v6_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (dsr_opt->port != tcp_svc_one)
 			test_fatal("DSR port is not correct");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_syn",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb1_syn,
@@ -1292,7 +1292,7 @@ int kpr_v6_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_synack_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -1320,7 +1320,7 @@ int kpr_v6_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (tunnel_opt_set)
 			test_fatal("DSR opt set");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_synack",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb1_synack,
@@ -1408,7 +1408,7 @@ int kpr_v6_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb2_data_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -1450,7 +1450,7 @@ int kpr_v6_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (dsr_opt->port != tcp_svc_two)
 			test_fatal("DSR port is not correct");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb2_data",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb2_data,
@@ -1571,12 +1571,12 @@ int kpr_v6_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_TX);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu_post_geneve",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb3_mtu_post_geneve,
 				   sizeof(kpr_v6_dsr_lb3_mtu_post_geneve));
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu_post_ipip",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb3_mtu_post_ipip,
@@ -1650,7 +1650,7 @@ int kpr_v6_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 #ifdef ATTACHMENT_XDP
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu2_post_geneve_xdp",
 				   "Ether", ctx, sizeof(__u32),
@@ -1692,7 +1692,7 @@ int kpr_v6_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 		if (dsr_opt->port != tcp_svc_three)
 			test_fatal("DSR port is not correct");
 #endif
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu2",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb3_mtu2,
@@ -1740,7 +1740,7 @@ int kpr_v6_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 		if (!ct_entry->need_dsr_info)
 			test_fatal("CT entry lost the need_dsr_info flag");
 
@@ -1791,7 +1791,7 @@ int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) {
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu3_gso_post_geneve",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb3_mtu3_gso_post_geneve,
@@ -1809,7 +1809,7 @@ int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 			test_fatal("DSR addr is not correct");
 		if (dsr_opt->port != tcp_svc_three)
 			test_fatal("DSR port is not correct");
-	} else if (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP) {
+	} else if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP) {
 		ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu3_gso",
 				   "Ether", ctx, sizeof(__u32),
 				   kpr_v6_dsr_lb3_mtu3_gso,
@@ -1850,7 +1850,7 @@ int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
-	if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+	if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 		if (!ct_entry->need_dsr_info)
 			test_fatal("CT entry lost the need_dsr_info flag");
 

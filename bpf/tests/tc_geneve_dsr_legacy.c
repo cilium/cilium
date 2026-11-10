@@ -60,7 +60,7 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_GENEVE })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_GENEVE })
 
 int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 			    __maybe_unused  struct bpf_tunnel_key *to,

@@ -47,7 +47,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_GENEVE })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_GENEVE })
 
 /* Test that a SVC request that is LBed to a DSR remote backend
  * - gets DNATed,

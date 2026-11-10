@@ -43,7 +43,7 @@ ASSIGN_CONFIG(union v6addr, ipv6_rss_prefix, LB_IPV6)
 
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_IPIP })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_IPIP })
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)

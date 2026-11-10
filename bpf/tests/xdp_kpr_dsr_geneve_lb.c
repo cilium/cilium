@@ -17,5 +17,5 @@ ASSIGN_CONFIG(__u16, tunnel_port, 6081)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, {
 	.enable = true,
 	.enable_icmp_errors = true,
-	.encap_mode = DSR_ENCAP_GENEVE,
+	.dispatch_mode = DSR_DISPATCH_GENEVE,
 })
