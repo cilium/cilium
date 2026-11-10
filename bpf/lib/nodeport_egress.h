@@ -636,7 +636,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		struct lb4_health *val;
 		int flags = 0;
 
-		if (!is_defined(ENABLE_IPV4) || CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+		if (!is_defined(ENABLE_IPV4) || CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 			return CTX_ACT_OK;
 
 		key = get_socket_cookie(ctx);
@@ -666,7 +666,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		if (!is_defined(ENABLE_IPV6))
 			return CTX_ACT_OK;
 
-		if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+		if (CONFIG(dsr_cfg).dispatch_mode != DSR_DISPATCH_IPIP)
 			return CTX_ACT_OK;
 
 		key = get_socket_cookie(ctx);
