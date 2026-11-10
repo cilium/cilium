@@ -5,13 +5,12 @@ package l2respondermap
 
 import (
 	"fmt"
-	"log/slog"
 	"net/netip"
-	"unsafe"
 
 	"github.com/cilium/hive/cell"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -30,41 +29,26 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle cell.Lifecycle, logger *slog.Logger) Map {
-	return newMap(lifecycle, DefaultMaxEntries, logger)
+func NewMap(lifecycle cell.Lifecycle) Map {
+	return newMap(lifecycle, DefaultMaxEntries)
 }
 
 type l2ResponderMap struct {
-	*ebpf.Map
+	*bpf.Map
 }
 
-func newMap(lifecycle cell.Lifecycle, maxEntries int, logger *slog.Logger) *l2ResponderMap {
+func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
 	outerMap := &l2ResponderMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			var (
-				m   *ebpf.Map
-				err error
-			)
-
-			if m, err = ebpf.LoadRegisterMap(logger, MapName); err != nil {
-				m = ebpf.NewMap(logger, &ebpf.MapSpec{
-					Name:       MapName,
-					Type:       ebpf.Hash,
-					KeySize:    uint32(unsafe.Sizeof(L2ResponderKey{})),
-					ValueSize:  uint32(unsafe.Sizeof(L2ResponderStats{})),
-					MaxEntries: uint32(maxEntries),
-					Flags:      unix.BPF_F_NO_PREALLOC,
-					Pinning:    ebpf.PinByName,
-				})
-				if err := m.OpenOrCreate(); err != nil {
-					return err
-				}
+			m := bpf.NewMap(MapName, ebpf.Hash, &L2ResponderKey{}, &L2ResponderStats{}, maxEntries,
+				unix.BPF_F_NO_PREALLOC)
+			if err := m.OpenOrCreate(); err != nil {
+				return err
 			}
 
 			outerMap.Map = m
-
 			return nil
 		},
 	})
@@ -75,23 +59,24 @@ func newMap(lifecycle cell.Lifecycle, maxEntries int, logger *slog.Logger) *l2Re
 // Create creates a new entry for the given IP and IfIndex tuple.
 func (m *l2ResponderMap) Create(ip netip.Addr, ifIndex uint32) error {
 	key := newL2ResponderKey(ip, ifIndex)
-	return m.Map.Put(key, L2ResponderStats{})
+	return m.Map.Update(&key, &L2ResponderStats{})
 }
 
 // Delete deletes the entry associated with the provided IP and IfIndex tuple.
 func (m *l2ResponderMap) Delete(ip netip.Addr, ifIndex uint32) error {
 	key := newL2ResponderKey(ip, ifIndex)
-	return m.Map.Delete(key)
+	return m.Map.Delete(&key)
 }
 
 // Lookup returns the stats object associated with the provided IP and IfIndex tuple.
 func (m *l2ResponderMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, error) {
 	key := newL2ResponderKey(ip, ifIndex)
-	val := L2ResponderStats{}
+	val, err := m.Map.Lookup(&key)
+	if err != nil {
+		return nil, err
+	}
 
-	err := m.Map.Lookup(&key, &val)
-
-	return &val, err
+	return val.(*L2ResponderStats), nil
 }
 
 // IterateCallback represents the signature of the callback function
@@ -102,13 +87,11 @@ type IterateCallback func(*L2ResponderKey, *L2ResponderStats)
 // IterateWithCallback iterates through all the keys/values of a L2 responder map,
 // passing each key/value pair to the cb callback.
 func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
-	return m.Map.IterateWithCallback(&L2ResponderKey{}, &L2ResponderStats{},
-		func(k, v any) {
-			key := k.(*L2ResponderKey)
-			value := v.(*L2ResponderStats)
-			cb(key, value)
-		},
-	)
+	return m.Map.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*L2ResponderKey)
+		value := v.(*L2ResponderStats)
+		cb(key, value)
+	})
 }
 
 // L2ResponderKey implements the bpf.MapKey interface.
@@ -119,13 +102,15 @@ type L2ResponderKey struct {
 	IfIndex uint32     `align:"ifindex"`
 }
 
+func (k *L2ResponderKey) New() bpf.MapKey { return &L2ResponderKey{} }
+
 func (k *L2ResponderKey) String() string {
 	return fmt.Sprintf("ip=%s, ifIndex=%d", k.IP, k.IfIndex)
 }
 
 func newL2ResponderKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
 	return L2ResponderKey{
-		IP:      types.IPv4(ip.As4()),
+		IP:      ip.As4(),
 		IfIndex: ifIndex,
 	}
 }
@@ -136,6 +121,8 @@ func newL2ResponderKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
 type L2ResponderStats struct {
 	ResponsesSent uint64 `align:"responses_sent"`
 }
+
+func (s *L2ResponderStats) New() bpf.MapValue { return &L2ResponderStats{} }
 
 func (s *L2ResponderStats) String() string {
 	return fmt.Sprintf("responses_sent=%d", s.ResponsesSent)
