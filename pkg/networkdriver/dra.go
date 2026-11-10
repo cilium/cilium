@@ -43,8 +43,9 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 	)
 
 	// create path for our driver plugin socket.
-	if err := os.MkdirAll(driverPluginPath(networkDriverName), 0750); err != nil {
-		return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(networkDriverName), err)
+	path := driverPluginPath()
+	if err := os.MkdirAll(path, 0750); err != nil {
+		return fmt.Errorf("failed to create plugin path %s: %w", path, err)
 	}
 
 	pluginOpts := []kubeletplugin.Option{
@@ -256,8 +257,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	deviceCfgs, err := deviceConfigsFromAllocation(&claim.Status.Allocation.Devices,
-		networkDriverName)
+	deviceCfgs, err := deviceConfigsFromAllocation(&claim.Status.Allocation.Devices)
 	if err != nil {
 		driver.logger.ErrorContext(
 			ctx, "failed to retrieve device configs",
@@ -373,7 +373,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}
 }
 
-func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationResult, driverName string) (map[string]types.DeviceConfig, error) {
+func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationResult) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
 
 	// We go through each device allocation result and extract the configuration
@@ -386,7 +386,7 @@ func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationR
 	//   that driver if mixed DeviceClass are used in the claim's spec.
 	//   Every plugin must be careful to filter for the correct requests.
 	for _, res := range deviceAllocation.Results {
-		if res.Driver != driverName {
+		if res.Driver != networkDriverName {
 			// Skip results that do not belong to this driver.
 			continue
 		}

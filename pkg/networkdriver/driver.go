@@ -45,14 +45,14 @@ import (
 )
 
 var (
-	defaultDriverPluginPath         = "/var/lib/kubelet/plugins/"
 	minConsumableCapacityK8sVersion = semver.Version{Major: 1, Minor: 34}
 )
 
 const networkDriverName = "networkdriver.cilium.io"
 
-func driverPluginPath(driverName string) string {
-	return path.Join(defaultDriverPluginPath, driverName)
+func driverPluginPath() string {
+	const defaultDriverPluginPath = "/var/lib/kubelet/plugins/"
+	return path.Join(defaultDriverPluginPath, networkDriverName)
 }
 
 // claimConfigModifier augments the opaque device configuration before validation.
