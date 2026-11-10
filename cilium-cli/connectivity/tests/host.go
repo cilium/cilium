@@ -8,8 +8,17 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
@@ -260,4 +269,124 @@ func (s *hostToWorld) Run(ctx context.Context, t *check.Test) {
 			i++
 		})
 	}
+}
+
+// HostPortConflictPort is kubelet's default secure port, which is expected to
+// be listening in virtually all deployments.
+const HostPortConflictPort = 10250
+
+// HostPortConflict checks that CNI rejects a HostPort already used by kubelet.
+func HostPortConflict() check.Scenario {
+	return &hostPortConflict{ScenarioBase: check.NewScenarioBase()}
+}
+
+type hostPortConflict struct{ check.ScenarioBase }
+
+func (s *hostPortConflict) Name() string { return "hostport-cni-conflict" }
+
+// HostPortListenerAvailable reports whether a node has kubelet's port open.
+func HostPortListenerAvailable(ctx context.Context, ct *check.ConnectivityTest) bool {
+	for nodeName := range ct.CiliumPods() {
+		if hostPortListenerAvailableOnNode(ctx, ct, nodeName) {
+			return true
+		}
+	}
+	return false
+}
+
+func hostPortListenerAvailableOnNode(ctx context.Context, ct *check.ConnectivityTest, nodeName string) bool {
+	ciliumPod, ok := ct.CiliumPods()[nodeName]
+	if !ok {
+		return false
+	}
+	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Namespace(), ciliumPod.NameWithoutNamespace(), defaults.AgentContainerName,
+		[]string{"cilium-dbg", "shell", "--", "cat", "/proc/net/tcp", "/proc/net/tcp6"})
+	if err != nil {
+		return false
+	}
+	return hasWildcardTCPListener(stdout.String(), HostPortConflictPort)
+}
+
+func hasWildcardTCPListener(table string, port int) bool {
+	wantedPort := fmt.Sprintf("%04X", port)
+	for line := range strings.SplitSeq(table, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 || fields[3] != "0A" {
+			continue
+		}
+		localAddress := strings.Split(fields[1], ":")
+		if len(localAddress) == 2 &&
+			(localAddress[0] == "00000000" || localAddress[0] == strings.Repeat("0", 32)) &&
+			localAddress[1] == wantedPort {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *hostPortConflict) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	const port = HostPortConflictPort
+	for node, ciliumPod := range ct.CiliumPods() {
+		if !hostPortListenerAvailableOnNode(ctx, ct, node) {
+			continue
+		}
+
+		client := ciliumPod.K8sClient
+		nodeName := ciliumPod.NodeName()
+		name := fmt.Sprintf("hostport-conflict-%s", strings.ToLower(strings.ReplaceAll(nodeName, ".", "-")))
+		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ct.Params().TestNamespace}, Spec: corev1.PodSpec{
+			NodeName: nodeName,
+			Containers: []corev1.Container{{
+				Name:    "pause",
+				Image:   ct.Params().CurlImage,
+				Command: []string{"/usr/bin/pause"},
+				Ports:   []corev1.ContainerPort{{Name: "hostport", ContainerPort: 8080, HostPort: port, Protocol: corev1.ProtocolTCP}},
+			}},
+		}}
+		_, err := client.CreatePod(ctx, pod.Namespace, pod, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("creating hostPort conflict pod on %s: %s", nodeName, err)
+			return
+		}
+		defer client.DeletePod(context.Background(), pod.Namespace, pod.Name, metav1.DeleteOptions{})
+		t.Infof("Created pod %s on %s requesting occupied TCP hostPort %d; waiting for CNI rejection", pod.Name, nodeName, port)
+
+		var lastStatus string
+		err = wait.PollUntilContextTimeout(ctx, time.Second, 15*time.Second, true, func(ctx context.Context) (bool, error) {
+			events, err := client.Clientset.CoreV1().
+				Events(pod.Namespace).
+				List(ctx, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("involvedObject.name", pod.Name).String()})
+			if err != nil {
+				return false, err
+			}
+			var messages []string
+			for _, event := range events.Items {
+				messages = append(messages, fmt.Sprintf("%s: %s", event.Reason, event.Message))
+				if strings.Contains(event.Message, fmt.Sprintf("hostPort tcp/%d is already in use", port)) {
+					return true, nil
+				}
+			}
+			current, err := client.GetPod(ctx, pod.Namespace, pod.Name, metav1.GetOptions{})
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					lastStatus = fmt.Sprintf("pod not found; events=%q", messages)
+					return false, nil
+				}
+				return false, err
+			}
+			lastStatus = fmt.Sprintf("phase=%s events=%q", current.Status.Phase, messages)
+			if current.Status.Phase == corev1.PodRunning {
+				return false, fmt.Errorf("pod started despite TCP/%d being occupied on %s", port, nodeName)
+			}
+			return false, nil
+		})
+		if err != nil {
+			t.Fatalf("expected CNI hostPort conflict on node %s: %s (last observed state: %s)", nodeName, err, lastStatus)
+			return
+		}
+		t.Infof("CNI rejected hostPort TCP/%d on node %s because it is already in use", port, nodeName)
+		return
+	}
+	t.Fatalf("no node has TCP/%d listening on a wildcard address", port)
 }
