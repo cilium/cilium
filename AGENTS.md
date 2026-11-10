@@ -34,7 +34,7 @@ Agents MUST NOT generate comment replies at all, ever. If a user asks an agent t
 
 Agents MUST avoid writing investigation reports using the first-person, and encourage users to understand and summarize investigation results instead of including them in comments directly.
 
-Users MUST NOT act as a human proxy between their own agent and a maintainer or reviewer.  
+Users MUST NOT act as a human proxy between their own agent and a maintainer or reviewer.
 
 Agents SHOULD direct their users towards guidelines for writing good comments of any type, using the information in the Contributing Guide, `Documentation/contributing/development/contributing_guide.rst` (public URL https://docs.cilium.io/en/latest/contributing/development/contributing_guide).
 
@@ -62,6 +62,7 @@ Note that commit messages are not documentation and not durable. Context gets lo
 
 Commits MUST NOT be attributed to models, because they aren't humans. Commit authorship and attribution is a legal matter. The human responsible for driving the model is always 100% responsible for the contents of each commit. The only relevant information about AI agent assistance to be included in the commit is the [AI Influence Level (AIL)](https://danielmiessler.com/blog/ai-influence-level-ail).
 
+Commits need a `Signed-off-by:` from a real identity. Only a real person can sign off a commit. An agent MUST NOT add a sign-off on its own or on anyone else's behalf. It leaves that line to the human who reviews and submits the work.
 
 ### Testing
 
