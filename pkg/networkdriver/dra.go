@@ -39,16 +39,16 @@ import (
 func (driver *Driver) startDRA(ctx context.Context) error {
 	driver.logger.InfoContext(
 		ctx, "starting DRA plugin",
-		logfields.DriverName, driver.config.DriverName,
+		logfields.DriverName, networkDriverName,
 	)
 
 	// create path for our driver plugin socket.
-	if err := os.MkdirAll(driverPluginPath(driver.config.DriverName), 0750); err != nil {
-		return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.DriverName), err)
+	if err := os.MkdirAll(driverPluginPath(networkDriverName), 0750); err != nil {
+		return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(networkDriverName), err)
 	}
 
 	pluginOpts := []kubeletplugin.Option{
-		kubeletplugin.DriverName(driver.config.DriverName),
+		kubeletplugin.DriverName(networkDriverName),
 		kubeletplugin.NodeName(node_types.GetName()),
 		kubeletplugin.KubeClient(driver.kubeClient),
 		kubeletplugin.EnableDeviceMetadata(true, []schema.GroupVersion{
@@ -105,7 +105,6 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 
 		driver.logger.WarnContext(ctx,
 			"DRA plugin registration attempt timed out, recreating sockets and retrying",
-			logfields.DriverName, driver.config.DriverName,
 			logfields.Attempt, attempt,
 		)
 		return false, nil
@@ -258,7 +257,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}
 
 	deviceCfgs, err := deviceConfigsFromAllocation(&claim.Status.Allocation.Devices,
-		driver.config.DriverName)
+		networkDriverName)
 	if err != nil {
 		driver.logger.ErrorContext(
 			ctx, "failed to retrieve device configs",
@@ -544,7 +543,7 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 
 	existingStatusDevice := make(map[allocationID]struct{})
 	for _, ds := range claim.Status.Devices {
-		if ds.Driver == driver.config.DriverName {
+		if ds.Driver == networkDriverName {
 			existingStatusDevice[allocationIDFromStatus(ds)] = struct{}{}
 		}
 	}
@@ -763,7 +762,7 @@ func (driver *Driver) buildDeviceStatus(
 	}
 
 	return resourceapi.AllocatedDeviceStatus{
-		Driver:     driver.config.DriverName,
+		Driver:     networkDriverName,
 		Pool:       result.Pool,
 		Device:     result.Device,
 		ShareID:    shareID,
@@ -855,7 +854,7 @@ func (driver *Driver) conflictingRXQueueInterfaceForPod(
 	}
 
 	for _, result := range results {
-		if result.Driver != driver.config.DriverName {
+		if result.Driver != networkDriverName {
 			continue
 		}
 		config := configs[result.Request]

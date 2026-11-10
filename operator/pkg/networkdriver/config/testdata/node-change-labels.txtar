@@ -53,7 +53,6 @@ spec:
   spec:
     draRegistrationRetryInterval: 1
     draRegistrationTimeout: 600
-    driverName: "dummy.cilium.k8s.io"
     pools:
       - name: "dummy-pool"
         filter:
@@ -82,7 +81,6 @@ spec:
       enabled: true
   draRegistrationRetryInterval: 1
   draRegistrationTimeout: 600
-  driverName: dummy.cilium.k8s.io
   pools:
   - filter:
       deviceManagers:
