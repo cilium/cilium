@@ -372,6 +372,7 @@ cilium-agent [flags]
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --only-masquerade-default-pool                              When using multi-pool IPAM, only masquerade flows from the default IP pool. This will preserve source IPs for pods from non-default IP pools. Useful when combining multi-pool IPAM with BGP control plane. This option must be combined with enable-bpf-masquerade.
       --packetization-layer-pmtud-mode string                     Enables kernel packetization layer path mtu discovery on Pod netns (if empty will use host setting) (default "blackhole")
+      --packetization-layer-pmtud-probe-floor int                 Configures packetization layer path mtu discovery probe floor on Pod netns (default 48)
       --policy-accounting                                         Maintain packet and byte counters for every policy entry (default true)
       --policy-audit-mode                                         Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes', 'pods'
