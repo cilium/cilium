@@ -72,12 +72,22 @@ func (l AGUEVar0) CanDecode() gopacket.LayerClass {
 }
 
 // DecodeFromBytes extracts our header data from a serialized packet.
-func (l *AGUEVar0) DecodeFromBytes(data []byte, _ gopacket.DecodeFeedback) error {
+func (l *AGUEVar0) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 4 {
+		df.SetTruncated()
+		return errors.New("AGUE var0 packet too small")
+	}
 	l.Version = data[0] >> 6
 	l.C = data[0]&0x20 != 0
 	l.Protocol = IPProtocol(data[1])
 	l.Flags = (uint16(data[2]) << 8) | uint16(data[3])
-	hlen := data[0] & 0x1f
+	// hlen counts 32-bit extension words; compute the bound in int so it cannot
+	// wrap past len(data).
+	hlen := int(data[0] & 0x1f)
+	if 4+hlen > len(data) {
+		df.SetTruncated()
+		return errors.New("AGUE var0 extensions exceed packet length")
+	}
 	l.Extensions = data[4 : 4+hlen]
 	l.Data = data[4+hlen:]
 	return nil

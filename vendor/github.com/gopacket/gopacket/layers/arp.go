@@ -49,15 +49,17 @@ func (arp *ARP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	arp.HwAddressSize = data[4]
 	arp.ProtAddressSize = data[5]
 	arp.Operation = binary.BigEndian.Uint16(data[6:8])
-	arpLength := 8 + 2*arp.HwAddressSize + 2*arp.ProtAddressSize
-	if len(data) < int(arpLength) {
+	hwAddressSize := int(arp.HwAddressSize)
+	protAddressSize := int(arp.ProtAddressSize)
+	arpLength := 8 + 2*hwAddressSize + 2*protAddressSize
+	if len(data) < arpLength {
 		df.SetTruncated()
 		return fmt.Errorf("ARP length %d too short, %d expected", len(data), arpLength)
 	}
-	arp.SourceHwAddress = data[8 : 8+arp.HwAddressSize]
-	arp.SourceProtAddress = data[8+arp.HwAddressSize : 8+arp.HwAddressSize+arp.ProtAddressSize]
-	arp.DstHwAddress = data[8+arp.HwAddressSize+arp.ProtAddressSize : 8+2*arp.HwAddressSize+arp.ProtAddressSize]
-	arp.DstProtAddress = data[8+2*arp.HwAddressSize+arp.ProtAddressSize : 8+2*arp.HwAddressSize+2*arp.ProtAddressSize]
+	arp.SourceHwAddress = data[8 : 8+hwAddressSize]
+	arp.SourceProtAddress = data[8+hwAddressSize : 8+hwAddressSize+protAddressSize]
+	arp.DstHwAddress = data[8+hwAddressSize+protAddressSize : 8+2*hwAddressSize+protAddressSize]
+	arp.DstProtAddress = data[8+2*hwAddressSize+protAddressSize : arpLength]
 
 	arp.Contents = data[:arpLength]
 	arp.Payload = data[arpLength:]
