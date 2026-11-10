@@ -209,6 +209,11 @@ jobs:
           # * We explicitly configure the sync timeout to a higher value to
           #   give enough time to the clustermesh-apiserver to restart after
           #   the upgrade/downgrade before that agents regenerate the endpoints.
+          # * We explicitly configure the timeouts of the operations that wait for the
+          #   clustermesh synchronization (policy restoration of the endpoints for Envoy,
+          #   load-balancing initialization) to match the sync timeout, so that they
+          #   don't expire first, logging a warning, while the clustermesh-apiserver is
+          #   still unavailable or restoring (e.g., in the stress test below).
           # * We configure the maximum number of unavailable agents to 1 to slow
           #   down the rollout process and highlight possible connection disruption
           #   occurring in the meanwhile.
@@ -230,7 +235,8 @@ jobs:
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-sync-timeout=10m \
-            --set=extraConfig.lb-init-wait-timeout=4m \
+            --set=extraConfig.lb-init-wait-timeout=10m \
+            --set=extraConfig.envoy-policy-restore-timeout=10m \
             --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
