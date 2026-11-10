@@ -8,17 +8,13 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/ebpf"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const (
-	MapName           = "cilium_l2_responder_v4"
-	DefaultMaxEntries = 4096
-)
+const MapName = "cilium_l2_responder_v4"
 
 var Cell = cell.Provide(NewMap)
 
@@ -29,31 +25,35 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle cell.Lifecycle) Map {
-	return newMap(lifecycle, DefaultMaxEntries)
+func NewMap(lifecycle cell.Lifecycle, mapRegistry *mapregistry.MapRegistry) bpf.MapOut[Map] {
+	return newMap(lifecycle, mapRegistry)
 }
 
 type l2ResponderMap struct {
 	*bpf.Map
 }
 
-func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
+func newMap(lifecycle cell.Lifecycle, mapRegistry *mapregistry.MapRegistry) bpf.MapOut[Map] {
 	outerMap := &l2ResponderMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			m := bpf.NewMap(MapName, ebpf.Hash, &L2ResponderKey{}, &L2ResponderStats{}, maxEntries,
-				unix.BPF_F_NO_PREALLOC)
-			if err := m.OpenOrCreate(); err != nil {
-				return err
+			m, err := bpf.NewMapFromRegistry(mapRegistry, MapName, &L2ResponderKey{},
+				&L2ResponderStats{})
+			if err != nil {
+				return fmt.Errorf("failed to %s map from registry: %w", MapName, err)
+			}
+			outerMap.Map = m
+
+			if err := outerMap.OpenOrCreate(); err != nil {
+				return fmt.Errorf("failed to open/create %s map: %w", MapName, err)
 			}
 
-			outerMap.Map = m
 			return nil
 		},
 	})
 
-	return outerMap
+	return bpf.NewMapOut[Map](outerMap)
 }
 
 // Create creates a new entry for the given IP and IfIndex tuple.
