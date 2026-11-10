@@ -41,6 +41,13 @@ notes carefully below to understand what to do during upgrade.
   
   Please backup your ``TLSRoute`` resources and ensure that Gateway API is upgraded to v1.6.1 before
   upgrading Cilium to v1.20. See :ref:`gs_gateway_api` for installation instructions.
+* In Cilium v1.20.0 - v1.20.4, ``--use-cilium-internal-ip-for-ipsec`` was silently
+  ignored with IPsec encryption, so nodes used the Kubernetes ``InternalIP``
+  instead of the ``CiliumInternalIP``. The flag is honored again from
+  v1.20.5. If you set it, make sure ESP traffic is allowed between the
+  ``CiliumInternalIP`` addresses of your nodes, or connectivity may break
+  when upgrading from an affected version. Consider an IPsec key rotation
+  afterwards to clean up stale XFRM states.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
