@@ -13,7 +13,7 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, {
 	.enable = true,
 	.enable_by_user = true,
-	.encap_mode = DSR_ENCAP_IPIP,
+	.dispatch_mode = DSR_DISPATCH_IPIP,
 })
 
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)

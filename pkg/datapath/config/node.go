@@ -204,13 +204,13 @@ func NodeConfig(lnc *Config) Node {
 	if lnc.KPRConfig.KubeProxyReplacement && lnc.LBConfig.LoadBalancerUsesDSR() {
 		switch lnc.LBConfig.DSRDispatch {
 		case loadbalancer.DSRDispatchOption:
-			node.DSRCfg.EncapMode = types.DSREncapModeDSREncapNone
+			node.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchOpt
 		case loadbalancer.DSRDispatchIPIP:
-			node.DSRCfg.EncapMode = types.DSREncapModeDSREncapIPIP
+			node.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchIPIP
 		case loadbalancer.DSRDispatchGeneve:
-			node.DSRCfg.EncapMode = types.DSREncapModeDSREncapGeneve
+			node.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchGeneve
 		default:
-			node.DSRCfg.EncapMode = types.DSREncapModeDSREncapInvalid
+			node.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchInvalid
 		}
 	}
 
