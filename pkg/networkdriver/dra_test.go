@@ -148,7 +148,7 @@ func TestAllocationInterfaceName(t *testing.T) {
 				Config:  types.DeviceConfig{PodIfName: tt.podIfName},
 			}
 			result := resourceapi.DeviceRequestAllocationResult{Device: dev.IfName()}
-			driver := &Driver{config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: prepTestDriverName}}
+			driver := &Driver{}
 			status, err := driver.buildDeviceStatus(&resourceapi.ResourceClaim{}, result, a)
 			require.NoError(t, err)
 			devices := prepareResultDevices([]resourceapi.DeviceRequestAllocationResult{result}, []allocation{a})
@@ -245,9 +245,6 @@ func TestBuildDeviceStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			driver := &Driver{
-				config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-					DriverName: "testdriver",
-				},
 				ipv4Enabled: tt.ipv4Enabled,
 				ipv6Enabled: tt.ipv6Enabled,
 			}
@@ -564,9 +561,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 			logger:     tlog,
 			kubeClient: cs,
 			pods:       pods,
-			config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-				DriverName: "testdriver",
-			},
+			config:     &v2alpha1.CiliumNetworkDriverNodeConfigSpec{},
 			deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
 				types.DeviceManagerTypeMock: &mockDeviceManager{devices: []types.Device{dev}},
 			},
@@ -588,7 +583,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 						Results: []resourceapi.DeviceRequestAllocationResult{
 							{
 								Request: prepTestRequest,
-								Driver:  "testdriver",
+								Driver:  networkDriverName,
 								Pool:    prepTestPool,
 								Device:  "mydevice",
 							},
@@ -634,7 +629,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 				// will end up calling a k8s update.
 				Devices: []resourceapi.AllocatedDeviceStatus{
 					{
-						Driver: driver.config.DriverName,
+						Driver: networkDriverName,
 						Pool:   prepTestPool,
 						Device: deviceName,
 					},
@@ -646,7 +641,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 						Results: []resourceapi.DeviceRequestAllocationResult{
 							{
 								Request: prepTestRequest,
-								Driver:  driver.config.DriverName,
+								Driver:  networkDriverName,
 								Pool:    prepTestPool,
 								Device:  deviceName,
 							},
@@ -662,7 +657,6 @@ func TestPrepareResourceClaim(t *testing.T) {
 
 func TestClaimConfigModifier(t *testing.T) {
 	const (
-		driverName  = "test.cilium.k8s.io"
 		deviceName  = "test-device"
 		requestName = "test-request"
 	)
@@ -674,7 +668,7 @@ func TestClaimConfigModifier(t *testing.T) {
 				Devices: resourceapi.DeviceAllocationResult{
 					Results: []resourceapi.DeviceRequestAllocationResult{
 						{
-							Driver:  driverName,
+							Driver:  networkDriverName,
 							Request: requestName,
 							Device:  deviceName,
 							Pool:    "test-pool",
@@ -728,7 +722,7 @@ func TestClaimConfigModifier(t *testing.T) {
 		}),
 	)
 	require.NoError(t, h.Populate(hivetest.Logger(t)))
-	driver.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: driverName}
+	driver.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{}
 
 	wtxn := driver.db.WriteTxn(driver.deviceTable)
 	_, _, err := driver.deviceTable.Insert(wtxn, &DRADevice{
@@ -757,7 +751,6 @@ func TestNetworkDriverIPAM(t *testing.T) {
 	tlog := hivetest.Logger(t)
 
 	const (
-		driverName = prepTestDriverName
 		devicePool = prepTestPool
 		request    = prepTestRequest
 		device     = prepTestDev0
@@ -793,7 +786,7 @@ func TestNetworkDriverIPAM(t *testing.T) {
 							Requests: []string{request},
 							DeviceConfiguration: resourceapi.DeviceConfiguration{
 								Opaque: &resourceapi.OpaqueDeviceConfiguration{
-									Driver: driverName,
+									Driver: networkDriverName,
 									Parameters: runtime.RawExtension{
 										Raw: rawParam,
 									},
@@ -804,7 +797,7 @@ func TestNetworkDriverIPAM(t *testing.T) {
 					Results: []resourceapi.DeviceRequestAllocationResult{
 						{
 							Device:  device,
-							Driver:  driverName,
+							Driver:  networkDriverName,
 							Pool:    devicePool,
 							Request: request,
 						},
@@ -844,7 +837,7 @@ func TestNetworkDriverIPAM(t *testing.T) {
 	// Check the updated claim's status.
 	require.Len(t, updatedClaim.Status.Devices, 1)
 	status := updatedClaim.Status.Devices[0]
-	require.Equal(t, driverName, status.Driver)
+	require.Equal(t, networkDriverName, status.Driver)
 	require.Equal(t, devicePool, status.Pool)
 	require.Equal(t, device, status.Device)
 	require.Len(t, status.Conditions, 1)
@@ -906,7 +899,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 							Requests: []string{prepTestRequest},
 							DeviceConfiguration: resourceapi.DeviceConfiguration{
 								Opaque: &resourceapi.OpaqueDeviceConfiguration{
-									Driver:     prepTestDriverName,
+									Driver:     networkDriverName,
 									Parameters: runtime.RawExtension{Raw: rawParam},
 								},
 							},
@@ -915,7 +908,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 					Results: []resourceapi.DeviceRequestAllocationResult{
 						{
 							Device:  prepTestDev0,
-							Driver:  prepTestDriverName,
+							Driver:  networkDriverName,
 							Pool:    prepTestPool,
 							Request: prepTestRequest,
 						},
@@ -1003,7 +996,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	require.Len(t, updatedClaim.Status.Devices, 1)
 
 	status := updatedClaim.Status.Devices[0]
-	require.Equal(t, prepTestDriverName, status.Driver)
+	require.Equal(t, networkDriverName, status.Driver)
 	require.Equal(t, prepTestPool, status.Pool)
 	require.Equal(t, prepTestDev0, status.Device)
 	require.Len(t, status.Conditions, 1)

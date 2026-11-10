@@ -186,7 +186,6 @@ func (d *trackedDevice) UnmarshalBinary(data []byte) error {
 // ---------------------------------------------------------------------------
 
 const (
-	prepTestDriverName = "test.cilium.k8s.io"
 	prepTestRequest    = "req-0"
 	prepTestClaimNS    = "default"
 	prepTestClaimName  = "test-claim"
@@ -220,7 +219,7 @@ func buildPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 	for _, d := range devices {
 		results = append(results, resourceapi.DeviceRequestAllocationResult{
 			Device:  d,
-			Driver:  prepTestDriverName,
+			Driver:  networkDriverName,
 			Pool:    prepTestPool,
 			Request: prepTestRequest,
 		})
@@ -242,7 +241,7 @@ func buildPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 							Requests: []string{prepTestRequest},
 							DeviceConfiguration: resourceapi.DeviceConfiguration{
 								Opaque: &resourceapi.OpaqueDeviceConfiguration{
-									Driver:     prepTestDriverName,
+									Driver:     networkDriverName,
 									Parameters: runtime.RawExtension{Raw: rawParam},
 								},
 							},
@@ -339,9 +338,7 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 		logger:     hivetest.Logger(t),
 		kubeClient: cs,
 		pods:       pods,
-		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-			DriverName: prepTestDriverName,
-		},
+		config:     &v2alpha1.CiliumNetworkDriverNodeConfigSpec{},
 		deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
 			types.DeviceManagerTypeMock: &mockDeviceManager{devices: deviceList},
 		},
@@ -394,7 +391,7 @@ func TestConflictingRXQueueInterfaceForPod(t *testing.T) {
 	})
 	wtxn.Commit()
 
-	results := []resourceapi.DeviceRequestAllocationResult{{Driver: prepTestDriverName, Request: "rx"}}
+	results := []resourceapi.DeviceRequestAllocationResult{{Driver: networkDriverName, Request: "rx"}}
 	configs := map[string]types.DeviceConfig{
 		"rx": {RXQueue: &types.RXQueueConfig{}},
 	}
@@ -412,7 +409,7 @@ func TestConflictingRXQueueInterfaceForPod(t *testing.T) {
 		[]resourceapi.DeviceRequestAllocationResult{{Driver: "other-driver", Request: "rx"}}, configs,
 	), "another driver's allocation must not conflict with this Pod interface")
 
-	results = append(results, resourceapi.DeviceRequestAllocationResult{Driver: prepTestDriverName, Request: "rx-again"})
+	results = append(results, resourceapi.DeviceRequestAllocationResult{Driver: networkDriverName, Request: "rx-again"})
 	configs["rx"] = types.DeviceConfig{
 		PodIfName: "net1",
 		RXQueue:   &types.RXQueueConfig{},

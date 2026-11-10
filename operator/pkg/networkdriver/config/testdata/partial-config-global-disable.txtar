@@ -64,7 +64,6 @@ spec:
   spec:
     draRegistrationRetryInterval: 1
     draRegistrationTimeout: 600
-    driverName: "dummy.cilium.k8s.io"
     pools:
       - name: "dummy-pool-a"
         filter:
@@ -87,7 +86,6 @@ spec:
   spec:
     draRegistrationRetryInterval: 2
     draRegistrationTimeout: 500
-    driverName: "dummy.cilium.k8s.io"
     pools:
       - name: "dummy-pool-b"
         filter:
@@ -108,7 +106,6 @@ spec:
       enabled: true
   draRegistrationRetryInterval: 1
   draRegistrationTimeout: 600
-  driverName: dummy.cilium.k8s.io
   pools:
   - filter:
       deviceManagers:
@@ -130,7 +127,6 @@ spec:
         enabled: true
     draRegistrationRetryInterval: 2
     draRegistrationTimeout: 500
-    driverName: dummy.cilium.k8s.io
     pools:
     - filter:
         deviceManagers:
@@ -160,7 +156,6 @@ items:
         enabled: true
     draRegistrationRetryInterval: 1
     draRegistrationTimeout: 600
-    driverName: dummy.cilium.k8s.io
     pools:
     - filter:
         deviceManagers:
