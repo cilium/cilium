@@ -107,13 +107,15 @@ func (f *factory) StatsMaxEntries() int {
 	return int(f.stats.MaxEntries())
 }
 
-func createFactory(in struct {
+type createFactoryParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
 	Log       *slog.Logger
 	PolicyConfig
-}) (out struct {
+}
+
+func createFactory(in createFactoryParams) (out struct {
 	cell.Out
 
 	Factory
@@ -163,7 +165,7 @@ func createFactory(in struct {
 		OnStart: func(cell.HookContext) error {
 			err := initCallMaps()
 			if err != nil {
-				return fmt.Errorf("Policy call map creation failed: %w", err)
+				return fmt.Errorf("failed to create policy call map: %w", err)
 			}
 			return m.OpenOrCreate()
 		},
