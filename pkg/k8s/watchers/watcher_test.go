@@ -14,6 +14,7 @@ import (
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	networkDriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -77,6 +78,6 @@ func TestGetGroupsForCiliumResources(t *testing.T) {
 	option.Config.EnableK8sClusterNetworkPolicy = true
 
 	logger := hivetest.Logger(t)
-	_, waitOnlyList := GetGroupsForCiliumResources(logger, synced.AgentCRDResourceNames(bgpConfig.DefaultConfig))
+	_, waitOnlyList := GetGroupsForCiliumResources(logger, synced.AgentCRDResourceNames(bgpConfig.DefaultConfig, networkDriverConfig.DefaultConfig))
 	require.Contains(t, waitOnlyList, k8sAPIGroupPolicyNetworkingV1Alpha2)
 }
