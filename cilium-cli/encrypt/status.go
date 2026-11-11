@@ -196,7 +196,6 @@ func nodeStatusFromText(str string) (models.EncryptionStatus, error) {
 func ipsecExpectedKeyCount(ciliumVersion semver.Version, cm *corev1.ConfigMap, nodeCount int) (int, error) {
 	fs := features.Set{}
 	fs.ExtractFromConfigMap(cm)
-	fs.ExtractFromCiliumVersion(ciliumVersion)
 	if !fs[features.IPsecEnabled].Enabled {
 		return 0, nil
 	}

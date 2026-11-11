@@ -358,7 +358,6 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 
 	// Extract cluster-wide features once outside the loop
 	clusterFeatures := features.Set{}
-	clusterFeatures.ExtractFromCiliumVersion(ct.CiliumVersion)
 	clusterFeatures.ExtractFromConfigMap(cm)
 	clusterFeatures.ExtractFromNodes(ct.nodesWithoutCilium)
 	ct.extractFeaturesFromK8sCluster(ctx, clusterFeatures)

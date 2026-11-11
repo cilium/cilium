@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/blang/semver/v4"
 	v1 "k8s.io/api/core/v1"
 
 	ciliumdef "github.com/cilium/cilium/pkg/defaults"
@@ -268,10 +267,6 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 		requireModeIsNot: true,
 		mode:             mode,
 	}
-}
-
-// ExtractFromCiliumVersion extracts features based on Cilium version.
-func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
 }
 
 func ExtractTunnelFeatureFromConfigMap(cm *v1.ConfigMap) (Status, Status) {
