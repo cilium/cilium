@@ -1,0 +1,72 @@
+{{- if and .Values.preflight.enabled .Values.rbac.create .Values.rbac.admissionPolicies.preflight.create }}
+{{- /*
+For any permissions granted by the agent's ClusterRole, keep this file in sync with
+cilium-preflight/admissionpolicy.yaml
+*/ -}}
+
+# Enforce that preflight can only write to
+# the Node and CiliumNode on which it is running
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cilium-preflight-node-name
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.commonLabels }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["nodes", "nodes/status"]
+      - apiGroups: ["cilium.io"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["ciliumnodes", "ciliumnodes/status"]
+  matchConditions:
+    # only enforce requests from the relevant service account
+    - name: "service-account-name"
+      expression: {{ printf "request.userInfo.username == 'system:serviceaccount:%s:%s'" ( include "cilium.namespace" . )  .Values.serviceAccounts.preflight.name | quote }}
+  variables:
+    # determine token's node name
+    - name: userNodeName
+      expression: >-
+        request.userInfo.extra[?'authentication.kubernetes.io/node-name'][0].orValue('')
+  validations:
+    # require that the token contains the node name
+    - expression: variables.userNodeName != ""
+      message: >-
+        no node association found for user, this user must run in a pod on a node.
+    # require that the object's name match the user's node name
+    - expression: variables.userNodeName == request.name
+      messageExpression: >-
+        "this user running on node '"+variables.userNodeName+"' may not modify Node or CiliumNode '" + request.name +
+        "' because the name does not match the node name"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cilium-preflight-node-name
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.commonLabels }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  policyName: cilium-preflight-node-name
+  validationActions: [Deny]
+{{- end }}
