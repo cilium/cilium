@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -1330,4 +1331,145 @@ func TestBackendReleaseTracksSingletonReferences(t *testing.T) {
 	state, found := e.ops.backendStates[backend]
 	require.True(t, found, "backend of the other frontend was released")
 	require.Equal(t, 1, state.refCount)
+}
+
+// TestRestoredServiceIDCollisionSockRevNat: the socket-LB entries of a renumbered frontend
+// get the reverse NAT index of its new ID, as it is in the service entry, which is in
+// network byte order like in the datapath. The ones of the frontend that keeps the ID and
+// with another index are not changed. The entries of a frontend with the zero address, like
+// a NodePort or HostPort, have the address the socket connected to. Socket-LB uses the
+// internal scope of a service with two scopes.
+func TestRestoredServiceIDCollisionSockRevNat(t *testing.T) {
+	// frontendRole is the frontend whose service entry has the new index of an entry.
+	type frontendRole string
+	const (
+		fromLoser frontendRole = "loser"
+		fromInt   frontendRole = "int"  // The internal scope of the loser.
+		fromNode  frontendRole = "node" // The address the loser is expanded to.
+	)
+	type moved struct {
+		frontend string
+		newFrom  frontendRole
+	}
+	for _, tc := range []struct {
+		name                        string
+		feType                      loadbalancer.SVCType
+		twoScopes, failDump         bool
+		ownerFirst, deleteFirst     bool
+		loser, owner, node, backend string
+		moved                       []moved
+		kept                        []string
+	}{
+		{name: "ipv4", feType: ClusterIP, loser: "172.18.0.10:80", owner: "172.18.22.213:8000", backend: "10.1.0.1:8080",
+			moved: []moved{{frontend: "172.18.0.10:80", newFrom: fromLoser}}, kept: []string{"172.18.22.213:8000"}},
+		{name: "ipv6", feType: ClusterIP, loser: "[fd00::10]:80", owner: "[fd00::213]:8000", backend: "[fd01::1]:8080",
+			moved: []moved{{frontend: "[fd00::10]:80", newFrom: fromLoser}}, kept: []string{"[fd00::213]:8000"}},
+		{name: "nodeport", feType: NodePort, loser: "0.0.0.0:30000", owner: "10.0.0.9:30000", node: "10.0.0.3:30000", backend: "10.1.0.1:8080",
+			moved: []moved{{frontend: "127.0.0.1:30000", newFrom: fromLoser}, {frontend: "10.0.0.7:30000", newFrom: fromLoser}, {frontend: "10.0.0.3:30000", newFrom: fromNode}},
+			kept:  []string{"10.0.0.9:30000", "10.0.0.7:30001"}},
+		{name: "nodeport_owner_first", feType: NodePort, ownerFirst: true, loser: "0.0.0.0:30000", owner: "10.0.0.9:30000", node: "10.0.0.3:30000", backend: "10.1.0.1:8080",
+			moved: []moved{{frontend: "127.0.0.1:30000", newFrom: fromLoser}, {frontend: "10.0.0.3:30000", newFrom: fromNode}}, kept: []string{"10.0.0.9:30000"}},
+		{name: "nodeport_ipv6", feType: NodePort, loser: "[::]:30000", owner: "[fd00::9]:30000", node: "[fd00::3]:30000", backend: "[fd01::1]:8080",
+			moved: []moved{{frontend: "[::1]:30000", newFrom: fromLoser}, {frontend: "[fd00::7]:30000", newFrom: fromLoser}, {frontend: "[fd00::3]:30000", newFrom: fromNode}},
+			kept:  []string{"[fd00::9]:30000", "[fd00::7]:30001"}},
+		// The port is not in the NodePort range, so the frontends table decides the
+		// addresses the frontend is expanded to (isPrimaryFrontend).
+		{name: "hostport", feType: HostPort, loser: "0.0.0.0:8080", owner: "10.0.0.9:8080", node: "10.0.0.3:8080", backend: "10.1.0.1:9090",
+			moved: []moved{{frontend: "127.0.0.1:8080", newFrom: fromLoser}, {frontend: "10.0.0.3:8080", newFrom: fromNode}}, kept: []string{"10.0.0.9:8080"}},
+		{name: "two_scopes", feType: LoadBalancer, twoScopes: true, loser: "172.18.0.10:80", owner: "172.18.22.213:8000", backend: "10.1.0.1:8080",
+			moved: []moved{{frontend: "172.18.0.10:80", newFrom: fromInt}}, kept: []string{"172.18.22.213:8000"}},
+		{name: "deleted_before_update", feType: ClusterIP, deleteFirst: true, loser: "172.18.0.10:80", owner: "172.18.22.213:8000", backend: "10.1.0.1:8080",
+			kept: []string{"172.18.0.10:80", "172.18.22.213:8000"}},
+		{name: "dump_fails", feType: ClusterIP, failDump: true, loser: "172.18.0.10:80", owner: "172.18.22.213:8000", backend: "10.1.0.1:8080",
+			kept: []string{"172.18.0.10:80", "172.18.22.213:8000"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newRestoreEnv(t)
+			addr := func(ap string, scope uint8) loadbalancer.L3n4Addr {
+				p := netip.MustParseAddrPort(ap)
+				return loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.AddrClusterFrom(p.Addr(), 0), p.Port(), scope)
+			}
+			loser, owner := addr(tc.loser, loadbalancer.ScopeExternal), addr(tc.owner, loadbalancer.ScopeExternal)
+			frontends := map[frontendRole]loadbalancer.L3n4Addr{fromLoser: loser, fromInt: addr(tc.loser, loadbalancer.ScopeInternal)}
+			e.seed(loser, aliasID)
+			if tc.twoScopes {
+				e.seed(frontends[fromInt], aliasID)
+			}
+			if tc.node != "" {
+				// The address the frontend is expanded to has an ID of its own.
+				frontends[fromNode] = addr(tc.node, loadbalancer.ScopeExternal)
+				e.seed(frontends[fromNode], aliasID)
+				wtxn := e.ops.db.WriteTxn(e.nodeAddrs)
+				_, _, err := e.nodeAddrs.Insert(wtxn, tables.NodeAddress{Addr: frontends[fromNode].Addr(), NodePort: true, Primary: true, DeviceName: "lol0"})
+				require.NoError(t, err)
+				wtxn.Commit()
+			}
+			e.seed(owner, aliasID) // The reverse NAT entry is the one of the owner.
+
+			// The index of the entries is the one of the service entries, as it is in the map.
+			rawOf := func(a loadbalancer.L3n4Addr) (raw uint16) {
+				require.NoError(t, e.lbmaps.DumpService(func(k maps.ServiceKey, v maps.ServiceValue) {
+					if k = k.ToHost(); k.GetBackendSlot() == 0 && svcKeyToAddr(k) == a {
+						raw = uint16(v.GetRevNat())
+					}
+				}))
+				return raw
+			}
+			oldRaw := rawOf(loser)
+			var cookie uint64
+			seedEntry := func(frontend string, index uint16) maps.SockRevNatEntry {
+				cookie++
+				ent := maps.SockRevNatEntry{Cookie: cookie, Backend: netip.MustParseAddrPort(tc.backend), Frontend: netip.MustParseAddrPort(frontend), RevNatIndex: index}
+				require.NoError(t, e.lbmaps.UpdateSockRevNat(ent))
+				return ent
+			}
+			var movedEntries, keptEntries []maps.SockRevNatEntry
+			for _, m := range tc.moved {
+				movedEntries = append(movedEntries, seedEntry(m.frontend, byteorder.NetworkToHost16(oldRaw)))
+			}
+			for _, frontend := range tc.kept {
+				keptEntries = append(keptEntries, seedEntry(frontend, byteorder.NetworkToHost16(oldRaw)))
+			}
+			// The frontend of the loser with another index.
+			keptEntries = append(keptEntries, seedEntry(tc.loser, 77))
+			e.lbmaps.failDumpSockRevNat = tc.failDump
+			e.restore()
+			if tc.deleteFirst {
+				e.delete(loser)
+			}
+
+			update := func(a loadbalancer.L3n4Addr) {
+				fe := frontendWithBackend(a)
+				fe.Type = tc.feType
+				if tc.twoScopes {
+					fe.Service.IntTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+				}
+				e.updateFrontend(fe)
+			}
+			updateLoser := func() {
+				update(loser) // The external scope first.
+				if tc.twoScopes {
+					update(frontends[fromInt])
+				}
+			}
+			if tc.ownerFirst {
+				require.Equal(t, aliasID, e.update(owner))
+				updateLoser()
+			} else {
+				updateLoser()
+				require.Equal(t, aliasID, e.update(owner))
+			}
+
+			for i, m := range tc.moved {
+				newRaw := rawOf(frontends[m.newFrom])
+				require.NotEqual(t, oldRaw, newRaw)
+				movedEntries[i].RevNatIndex = byteorder.NetworkToHost16(newRaw)
+			}
+			var got []maps.SockRevNatEntry
+			for _, ipv6 := range []bool{false, true} {
+				require.NoError(t, e.lbmaps.LBMaps.DumpSockRevNat(ipv6, func(ent maps.SockRevNatEntry) { got = append(got, ent) }))
+			}
+			require.ElementsMatch(t, slices.Concat(movedEntries, keptEntries), got)
+		})
+	}
 }
