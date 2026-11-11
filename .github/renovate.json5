@@ -879,6 +879,16 @@
       ]
     },
     {
+      // The pinned Sphinx, myst-parser and sphinx_rtd_theme_cilium require docutils<0.23.
+      "enabled": false,
+      "matchFileNames": [
+        "images/docs-builder/requirements.txt"
+      ],
+      "matchPackageNames": [
+        "docutils"
+      ]
+    },
+    {
       // k8s major/minor updates are disabled on all branches.
       // On main, they will be updated manually along with tests.
       // On stable branches, patch updates are allowed via the "k8s.io patch updates stable" rule.
