@@ -43,7 +43,9 @@
 #define LOCAL_CLIENT_PORT	tcp_src_two
 
 /* Mockup redirect, so that we track the ifindex and the flags used in
- * ctx_redirect calls.
+ * ctx_redirect calls. The flags are what tells redirect_self() (flags 0) apart
+ * from the redirect into cilium_host's ingress hook (BPF_F_INGRESS): both land
+ * on ifindex 1 under BPF_PROG_TEST_RUN.
  */
 static volatile __u32 redirect_ifindex;
 static volatile __u32 redirect_flags;
@@ -106,6 +108,13 @@ ASSIGN_CONFIG(__u32, cilium_host_ifindex, 1)
 ASSIGN_CONFIG(__u32, cilium_net_ifindex, 10)
 ASSIGN_CONFIG(__u32, interface_ifindex, 12)
 
+/* The packets are generated with mac_host as dst MAC. Give cilium_host a
+ * different one, so that the tests can tell whether the dst MAC was rewritten
+ * before hairpinning into cilium_host.
+ */
+#define CILIUM_HOST_MAC		mac_three
+ASSIGN_CONFIG(union macaddr, cilium_host_mac, { .addr = mac_three_addr })
+
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_l7_lb, true)
@@ -120,6 +129,9 @@ ASSIGN_CONFIG(bool, enable_bpf_routing, !PER_ENDPOINT_ROUTES)
 /* Test that a packet received from a L7LB for a local backend gets correctly handled:
  * - in case of per-endpoint routes disabled, packet tail calls from
      cil_from_host, and it will return to stack
+ * - in case of per-endpoint routes, packet tail calls from
+     cil_from_host, and is redirected into cilium_host's ingress hook so that
+     the stack routes it.
  * - in case of per-endpoint routes, packet tail calls from
      cil_to_container, and it will be hairpinned back to handle ingress policies.
  * Given we cannot import both bpf_host and bpf_lxc, in our SETUP functions
@@ -177,7 +189,7 @@ int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 
 	if (CONFIG(enable_bpf_routing)) {
 		assert(*status_code == CTX_ACT_OK);
-	} else {
+	} else if (FROM_CIL_TO_CONTAINER) {
 		assert(*status_code == CTX_ACT_REDIRECT);
 
 		/* Looped back out of the lxc device the ctx sits on, so that
@@ -187,9 +199,23 @@ int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 		assert(redirect_ifindex == ctx_get_ifindex(ctx));
 		assert(redirect_flags == 0);
 
-		/* With the dst MAC left alone. */
+		/* With the dst MAC left alone: it is not headed for cilium_host. */
 		if (memcmp(l2->h_dest, (__u8 *)mac_host, ETH_ALEN) != 0)
 			test_fatal("dst MAC has changed");
+	} else {
+		assert(*status_code == CTX_ACT_REDIRECT);
+
+		/* Redirected into cilium_host's ingress hook, not looped back
+		 * out of the device the ctx sits on.
+		 */
+		assert(redirect_ifindex == CONFIG(cilium_host_ifindex));
+		assert(redirect_flags == BPF_F_INGRESS);
+
+		/* With cilium_host's MAC as dst, so that it is received as
+		 * PACKET_HOST rather than dropped as PACKET_OTHERHOST.
+		 */
+		if (memcmp(l2->h_dest, (__u8 *)CILIUM_HOST_MAC, ETH_ALEN) != 0)
+			test_fatal("dst MAC not rewritten to cilium_host's");
 	}
 
 	test_finish();
@@ -248,7 +274,7 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 
 	if (CONFIG(enable_bpf_routing)) {
 		assert(*status_code == CTX_ACT_OK);
-	} else {
+	} else if (FROM_CIL_TO_CONTAINER) {
 		assert(*status_code == CTX_ACT_REDIRECT);
 
 		assert(redirect_ifindex == ctx_get_ifindex(ctx));
@@ -256,6 +282,14 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 
 		if (memcmp(l2->h_dest, (__u8 *)mac_host, ETH_ALEN) != 0)
 			test_fatal("dst MAC has changed");
+	} else {
+		assert(*status_code == CTX_ACT_REDIRECT);
+
+		assert(redirect_ifindex == CONFIG(cilium_host_ifindex));
+		assert(redirect_flags == BPF_F_INGRESS);
+
+		if (memcmp(l2->h_dest, (__u8 *)CILIUM_HOST_MAC, ETH_ALEN) != 0)
+			test_fatal("dst MAC not rewritten to cilium_host's");
 	}
 
 	test_finish();
