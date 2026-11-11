@@ -547,7 +547,10 @@ cesLoop:
 			stale := false
 			for _, cep := range ces.Endpoints {
 				cepKey := NewCEPName(cep.Name, ces.Namespace).key()
-				if _, exists := livecep[cepKey]; exists {
+				// A recreated pod (e.g. StatefulSet) keeps its name but gets
+				// a new UID, so compare the UID too.
+				liveCEP, exists := livecep[cepKey]
+				if exists && cep.PodUID == k8s.ConvertCEPToCoreCEP(liveCEP).PodUID {
 					c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
 					delete(livecep, cepKey)
 				} else {
