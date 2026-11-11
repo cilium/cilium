@@ -42,7 +42,7 @@ rules:
   - services
   - pods
   - nodes
-{{- if $readSecretsOnlyFromSecretsNamespace }}
+{{- if not $readSecretsOnlyFromSecretsNamespace }}
   - secrets
 {{- end }}
   verbs:
