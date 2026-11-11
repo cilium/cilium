@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -28,7 +28,7 @@ import (
 
 const (
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
-	k8sAPIGroupPolicyNetworkingV1Alpha2         = "policy.networking.k8s.io/v1alpha2::ClusterNetworkPolicy"
+	k8sAPIGroupPolicyNetworkingV1Beta1          = "policy.networking.k8s.io/v1beta1::ClusterNetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumCIDRGroupV2                = "cilium/v2::CiliumCIDRGroup"
@@ -72,7 +72,7 @@ type PolicyWatcherParams struct {
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	CiliumCIDRGroups                 resource.Resource[*cilium_v2.CiliumCIDRGroup]
 	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
-	ClusterNetworkPolicies           resource.Resource[*policyv1alpha2.ClusterNetworkPolicy]
+	ClusterNetworkPolicies           resource.Resource[*policyv1beta1.ClusterNetworkPolicy]
 
 	MetricsManager CNPMetrics
 }
@@ -139,7 +139,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	}
 	if params.Config.EnableK8sClusterNetworkPolicy {
 		p.kcnpSyncPending.Store(1)
-		p.registerResourceWithSyncFn(ctx, k8sAPIGroupPolicyNetworkingV1Alpha2, func() bool {
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupPolicyNetworkingV1Beta1, func() bool {
 			return p.kcnpSyncPending.Load() == 0
 		})
 	}

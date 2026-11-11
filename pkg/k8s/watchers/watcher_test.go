@@ -78,5 +78,5 @@ func TestGetGroupsForCiliumResources(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 	_, waitOnlyList := GetGroupsForCiliumResources(logger, synced.AgentCRDResourceNames(bgpConfig.DefaultConfig))
-	require.Contains(t, waitOnlyList, k8sAPIGroupPolicyNetworkingV1Alpha2)
+	require.Contains(t, waitOnlyList, k8sAPIGroupPolicyNetworkingV1Beta1)
 }
