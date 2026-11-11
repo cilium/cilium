@@ -618,6 +618,28 @@ int NAME(struct __ctx_buff *ctx)						\
 
 DEFINE_AUX(struct ct_buffer6, cilium_tail_call_buffer6);
 
+/* Hairpin L7 LB traffic that was tail called from cil_from_host into
+ * cilium_host's ingress hook, so that the stack routes it.
+ *
+ * Unlike ipv{4,6}_host_delivery(), only the dst MAC is touched: the packet is
+ * forwarded rather than delivered to the host, and the stack decrements the
+ * TTL when it does so.
+ */
+static __always_inline __maybe_unused int
+l7lb_redirect_to_stack(struct __ctx_buff *ctx)
+{
+	union macaddr host_mac = CONFIG(cilium_host_mac);
+
+	/* The destination MAC is what the kernel resolved for the nexthop of the
+	 * from-proxy route, which need not be cilium_host's. Without the
+	 * rewrite, cilium_host would drop the packet as PACKET_OTHERHOST.
+	 */
+	if (eth_store_daddr(ctx, (__u8 *)&host_mac.addr, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
@@ -770,9 +792,12 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 pass_to_stack:
 	/* See IPv4 path for comments. */
-	if (!CONFIG(enable_bpf_routing) && from_l7lb &&
-	    ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+	if (!CONFIG(enable_bpf_routing) && from_l7lb) {
+		if (ctx_get_ifindex(ctx) == CONFIG(cilium_host_ifindex))
+			return l7lb_redirect_to_stack(ctx);
+
 		return redirect_self(ctx);
+	}
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
@@ -1306,18 +1331,29 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	}
 
 pass_to_stack:
-	/* With per-endpoint routes, the `cil_lxc_policy_egress` will be
-	 * tail called from cil_to_container for packets sent by a L7 LB.
-	 * In case of a local backend, we execute this code already from the
-	 * backend pod ingress path, and returning CTX_ACT_OK would completely
-	 * bypass ingress policies. Therefore, we need to hairpin the packet
-	 * back to cil_to_container to ensure ingress policies are applied.
-	 * Without per-endpoint routes, endpoint policies are correctly
-	 * checked via tail call from bpf_host.
+	/* L7 LB traffic reaches this label whenever the endpoint lookup above
+	 * did not deliver it: for a remote backend, or for one delivered to the
+	 * host. How it continues depends on which hook `cil_lxc_policy_egress`
+	 * was tail called from.
+	 *
+	 * From cil_from_host, returning CTX_ACT_OK on cilium_host's egress hook
+	 * would transmit the packet into the cilium_host/cilium_net veth pair
+	 * rather than route it, so hairpin it into cilium_host's ingress hook
+	 * instead and let the stack route it. Going through the stack also keeps
+	 * the ip rules that select an egress device by source address - the
+	 * per-ENI rules on AWS, for one - which a FIB lookup here would not
+	 * consult.
+	 *
+	 * From cil_to_container or cil_to_netdev, the ctx already sits on the
+	 * device the packet is leaving by, so loop it back out of that device,
+	 * where the hook sees it again with the mark cleared.
 	 */
-	if (!CONFIG(enable_bpf_routing) && from_l7lb &&
-	    ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+	if (!CONFIG(enable_bpf_routing) && from_l7lb) {
+		if (ctx_get_ifindex(ctx) == CONFIG(cilium_host_ifindex))
+			return l7lb_redirect_to_stack(ctx);
+
 		return redirect_self(ctx);
+	}
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
