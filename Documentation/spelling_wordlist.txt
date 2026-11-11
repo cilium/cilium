@@ -294,6 +294,7 @@ cronJob
 crt
 crypto
 cryptographic
+cryptographically
 ctf
 customConf
 daemonset

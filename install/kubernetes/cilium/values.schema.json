@@ -3037,6 +3037,9 @@
           },
           "type": "object"
         },
+        "sessionTicketKeyRotationInterval": {
+          "type": "string"
+        },
         "useRemoteAddress": {
           "type": [
             "null",
