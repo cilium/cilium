@@ -152,6 +152,7 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 	for {
 		rtxn := p.DB.ReadTxn()
 		changes, watch := changeIter.Next(rtxn)
+		handled := make(map[lb.L3n4Addr]struct{})
 		for change := range changes {
 			backend := change.Object
 
@@ -168,7 +169,13 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 			// Terminate sockets when a backend instance is deleted or no longer alive.
 			// Since termination targets the backend address, preserve connections while
 			// any instance at that address is alive, across all services and sources.
+			// Process each address only once per batch.
 			if change.Deleted || !backend.IsAlive() {
+				if _, ok := handled[backend.Address]; ok {
+					continue
+				}
+				handled[backend.Address] = struct{}{}
+
 				if hasAliveBackendReference(rtxn, p.Backends, backend.Address) {
 					continue
 				}
