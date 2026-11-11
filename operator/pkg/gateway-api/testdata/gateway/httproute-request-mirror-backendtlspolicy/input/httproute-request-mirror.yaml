@@ -1,0 +1,50 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: request-mirror-tls
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /mirror
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      filters:
+        - type: RequestMirror
+          requestMirror:
+            backendRef:
+              name: tls-backend
+              port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: mirror-tls
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: tls-backend
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: tls-checks-ca-certificate
+    hostname: mirror.example.com
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tls-checks-ca-certificate
+  namespace: gateway-conformance-infra
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    Q0Ey
+    -----END CERTIFICATE-----
