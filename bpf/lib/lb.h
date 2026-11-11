@@ -765,6 +765,24 @@ static __always_inline __u32 lb_default_algorithm(void)
 	return CONFIG(lb_default_alg);
 }
 
+/* Resolve a per-service algorithm value to the one that selects backends:
+ * custom algorithms pass through; an unknown value (no annotation, or one
+ * from a newer release after a downgrade) falls back to the node default. */
+static __always_inline __u32 lb_resolve_algorithm(__u32 alg)
+{
+	if (alg & LB_SELECTION_CUSTOM)
+		return alg;
+
+	switch (alg) {
+	case LB_SELECTION_MAGLEV:
+	case LB_SELECTION_RANDOM:
+	case LB_SELECTION_FIRST:
+		return alg;
+	default:
+		return lb_default_algorithm();
+	}
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
@@ -1224,23 +1242,9 @@ lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 {
 	__u32 alg;
 
-	alg = lb6_algorithm(svc);
+	alg = lb_resolve_algorithm(lb6_algorithm(svc));
 	if (alg & LB_SELECTION_CUSTOM)
 		return lb6_select_backend_id_custom(alg, ctx, key, tuple, svc);
-
-	switch (alg) {
-	case LB_SELECTION_MAGLEV:
-	case LB_SELECTION_RANDOM:
-	case LB_SELECTION_FIRST:
-		break;
-	default:
-		/*
-		 * No annotation was selected or an annotation that we do not
-		 * support (in case of downgrade). Fallback to the default case.
-		 */
-		alg = lb_default_algorithm();
-		break;
-	}
 
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
@@ -1304,7 +1308,7 @@ static __always_inline __u32 lb6_affinity_timeout(const struct lb6_service *svc)
 
 static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
-			  union lb6_affinity_client_id *id)
+			  union lb6_affinity_client_id *id, bool touch)
 {
 	struct lb6_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
@@ -1336,7 +1340,8 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			return 0;
 		}
 
-		WRITE_ONCE(val->last_used, now);
+		if (touch)
+			WRITE_ONCE(val->last_used, now);
 		return val->backend_id;
 	}
 
@@ -1347,7 +1352,16 @@ static __always_inline __u32
 lb6_affinity_backend_id_by_addr(const struct lb6_service *svc,
 				union lb6_affinity_client_id *id)
 {
-	return __lb6_affinity_backend_id(svc, false, id);
+	return __lb6_affinity_backend_id(svc, false, id, true);
+}
+
+/* Like lb6_affinity_backend_id_by_addr(), for lookups that are not client
+ * traffic: the pin is read without extending its lifetime. */
+static __always_inline __u32
+lb6_affinity_backend_id_peek(const struct lb6_service *svc,
+			      union lb6_affinity_client_id *id)
+{
+	return __lb6_affinity_backend_id(svc, false, id, false);
 }
 
 static __always_inline void
@@ -1383,7 +1397,7 @@ static __always_inline __u32
 lb6_affinity_backend_id_by_netns(const struct lb6_service *svc __maybe_unused,
 				 union lb6_affinity_client_id *id __maybe_unused)
 {
-	return __lb6_affinity_backend_id(svc, true, id);
+	return __lb6_affinity_backend_id(svc, true, id, true);
 }
 
 static __always_inline void
@@ -2064,23 +2078,9 @@ lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 {
 	__u32 alg;
 
-	alg = lb4_algorithm(svc);
+	alg = lb_resolve_algorithm(lb4_algorithm(svc));
 	if (alg & LB_SELECTION_CUSTOM)
 		return lb4_select_backend_id_custom(alg, ctx, key, tuple, svc);
-
-	switch (alg) {
-	case LB_SELECTION_MAGLEV:
-	case LB_SELECTION_RANDOM:
-	case LB_SELECTION_FIRST:
-		break;
-	default:
-		/*
-		 * No annotation was selected or an annotation that we do not
-		 * support (in case of downgrade). Fallback to the default case.
-		 */
-		alg = lb_default_algorithm();
-		break;
-	}
 
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
@@ -2147,7 +2147,7 @@ static __always_inline __u32 lb4_affinity_timeout(const struct lb4_service *svc)
 
 static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
-			  const union lb4_affinity_client_id *id)
+			  const union lb4_affinity_client_id *id, bool touch)
 {
 	struct lb4_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
@@ -2180,7 +2180,8 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			return 0;
 		}
 
-		WRITE_ONCE(val->last_used, now);
+		if (touch)
+			WRITE_ONCE(val->last_used, now);
 		return val->backend_id;
 	}
 
@@ -2191,7 +2192,16 @@ static __always_inline __u32
 lb4_affinity_backend_id_by_addr(const struct lb4_service *svc,
 				union lb4_affinity_client_id *id)
 {
-	return __lb4_affinity_backend_id(svc, false, id);
+	return __lb4_affinity_backend_id(svc, false, id, true);
+}
+
+/* Like lb4_affinity_backend_id_by_addr(), for lookups that are not client
+ * traffic: the pin is read without extending its lifetime. */
+static __always_inline __u32
+lb4_affinity_backend_id_peek(const struct lb4_service *svc,
+			      union lb4_affinity_client_id *id)
+{
+	return __lb4_affinity_backend_id(svc, false, id, false);
 }
 
 static __always_inline void
@@ -2224,7 +2234,7 @@ static __always_inline __u32
 lb4_affinity_backend_id_by_netns(const struct lb4_service *svc __maybe_unused,
 				 union lb4_affinity_client_id *id __maybe_unused)
 {
-	return __lb4_affinity_backend_id(svc, true, id);
+	return __lb4_affinity_backend_id(svc, true, id, true);
 }
 
 static __always_inline void

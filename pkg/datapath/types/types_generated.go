@@ -126,6 +126,7 @@ type DSRConfig struct {
 	_                structs.HostLayout
 	Enable           bool
 	EnableICMPErrors bool
+	EnablePMTURelay  bool
 	EnableByUser     bool
 }
 
