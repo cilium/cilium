@@ -47,6 +47,13 @@ notes carefully below to understand what to do during upgrade.
   traffic until the Service exists and, if selector-less, has backends. If you
   have rules like this, ensure the referenced Services exist and have backends
   before upgrading.
+* In Cilium v1.20.0 - v1.20.4, ``--use-cilium-internal-ip-for-ipsec`` was silently
+  ignored with IPsec encryption, so nodes used the Kubernetes ``InternalIP``
+  instead of the ``CiliumInternalIP``. The flag is honored again from
+  1.20.5. If you set it, make sure ESP traffic is allowed between the
+  ``CiliumInternalIP`` addresses of your nodes, or connectivity may break
+  when upgrading from an affected version. Consider an IPsec key rotation
+  afterwards to clean up stale XFRM states.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
