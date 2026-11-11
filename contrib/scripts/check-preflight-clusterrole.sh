@@ -5,7 +5,7 @@ echo "Checking for differences between preflight and agent clusterrole"
 diff=$(diff \
  -I '^[ ]\{2\}name: cilium.*' \
  -I '^Keep file in sync with.*' \
- -I '{{- if.*' \
+ -I '{{.*\.Values\.preflight' \
  -I '^[ ]\{2\}{{- with.*' \
  cilium-agent/clusterrole.yaml \
  cilium-preflight/clusterrole.yaml)
