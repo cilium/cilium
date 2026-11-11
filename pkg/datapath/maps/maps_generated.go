@@ -269,7 +269,7 @@ func newCiliumDevicesSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  16,
 		Value:      anyTypeByName(btf, "device_state"),
 		MaxEntries: 512,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -463,7 +463,7 @@ func newCiliumLB4BackendsV3Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  12,
 		Value:      anyTypeByName(btf, "lb4_backend"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -518,7 +518,7 @@ func newCiliumLB4ReverseNATSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  6,
 		Value:      anyTypeByName(btf, "lb4_reverse_nat"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -588,7 +588,7 @@ func newCiliumLB6BackendsV3Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  24,
 		Value:      anyTypeByName(btf, "lb6_backend"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -643,7 +643,7 @@ func newCiliumLB6ReverseNATSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  18,
 		Value:      anyTypeByName(btf, "lb6_reverse_nat"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
