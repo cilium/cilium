@@ -104,14 +104,16 @@ type policyMap6 struct {
 	m *bpf.Map
 }
 
-func createPolicyMapFromDaemonConfig(in struct {
+type createPolicyMapsParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
 	*option.DaemonConfig
 	PolicyConfig
 	MetricsRegistry *metrics.Registry
-}) (out struct {
+}
+
+func createPolicyMaps(in createPolicyMapsParams) (out struct {
 	cell.Out
 
 	IPv4MapV2 bpf.MapOut[PolicyMap4V2]
@@ -127,11 +129,13 @@ func createPolicyMapFromDaemonConfig(in struct {
 	}
 
 	if in.EnableIPv4 {
-		out.IPv4MapV2 = bpf.NewMapOut(PolicyMap4V2(createPolicyMap4V2(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)))
+		m := createPolicyMap4V2(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)
+		out.IPv4MapV2 = bpf.NewMapOut(PolicyMap4V2(m))
 	}
 
 	if in.EnableIPv6 {
-		out.IPv6Map = bpf.NewMapOut(PolicyMap6(createPolicyMap6(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)))
+		m := createPolicyMap6(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)
+		out.IPv6Map = bpf.NewMapOut(PolicyMap6(m))
 	}
 
 	return
