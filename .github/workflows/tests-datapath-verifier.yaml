@@ -63,7 +63,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -71,7 +71,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -303,7 +303,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: [merge-and-diff, setup-and-test]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Set final commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
