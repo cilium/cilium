@@ -1,0 +1,44 @@
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: backend
+    namespace: default
+  spec:
+    ports:
+      - port: 8080
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: mirror-valid-all
+    namespace: default
+  spec:
+    ports:
+      - name: https
+        port: 8443
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: mirror-valid-port
+    namespace: default
+  spec:
+    ports:
+      - name: https
+        port: 8443
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: mirror-invalid-all
+    namespace: default
+  spec:
+    ports:
+      - name: https
+        port: 8443
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: mirror-invalid-port
+    namespace: default
+  spec:
+    ports:
+      - name: https
+        port: 8443

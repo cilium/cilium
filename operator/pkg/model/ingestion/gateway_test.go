@@ -125,6 +125,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"http route ordering":                                             {},
 		"http skips backends missing port":                                {},
 		"multiple parentRefs":                                             {},
+		"request mirror backend tls":                                      {},
 	}
 
 	for name := range tests {
@@ -1676,108 +1677,6 @@ func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
 	require.Len(t, routes[0].RequestMirrors, 1)
 	assert.Equal(t, "mirror-service", routes[0].RequestMirrors[0].Backend.Name)
 	assert.Equal(t, "default", routes[0].RequestMirrors[0].Backend.Namespace)
-}
-
-func TestRequestMirrorBackendTLSPolicy(t *testing.T) {
-	logger := hivetest.Logger(t)
-	backend := gatewayv1.BackendRef{BackendObjectReference: gatewayv1.BackendObjectReference{
-		Name: "backend",
-		Port: ptr.To(gatewayv1.PortNumber(8080)),
-	}}
-	mirror := &gatewayv1.HTTPRequestMirrorFilter{BackendRef: gatewayv1.BackendObjectReference{
-		Name: "mirror-backend",
-		Port: ptr.To(gatewayv1.PortNumber(8443)),
-	}}
-	httpRoute := gatewayv1.HTTPRoute{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
-		Spec: gatewayv1.HTTPRouteSpec{Rules: []gatewayv1.HTTPRouteRule{{
-			BackendRefs: []gatewayv1.HTTPBackendRef{{BackendRef: backend}},
-			Filters: []gatewayv1.HTTPRouteFilter{{
-				Type:          gatewayv1.HTTPRouteFilterRequestMirror,
-				RequestMirror: mirror,
-			}},
-		}}},
-	}
-	grpcRoute := gatewayv1.GRPCRoute{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
-		Spec: gatewayv1.GRPCRouteSpec{Rules: []gatewayv1.GRPCRouteRule{{
-			BackendRefs: []gatewayv1.GRPCBackendRef{{BackendRef: backend}},
-			Filters: []gatewayv1.GRPCRouteFilter{{
-				Type:          gatewayv1.GRPCRouteFilterRequestMirror,
-				RequestMirror: mirror,
-			}},
-		}}},
-	}
-	mirrorService := testService("default", "mirror-backend", 8443)
-	mirrorService.Spec.Ports[0].Name = "https"
-	services := []corev1.Service{testService("default", "backend", 8080), mirrorService}
-	policy := &gatewayv1.BackendTLSPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "mirror-tls", Namespace: "default"},
-		Spec: gatewayv1.BackendTLSPolicySpec{
-			Validation: gatewayv1.BackendTLSPolicyValidation{
-				Hostname: "mirror.example.com",
-				CACertificateRefs: []gatewayv1.LocalObjectReference{{
-					Group: "",
-					Kind:  "ConfigMap",
-					Name:  "mirror-ca",
-				}},
-			},
-		},
-	}
-
-	for _, kind := range []string{"HTTPRoute", "GRPCRoute"} {
-		t.Run(kind, func(t *testing.T) {
-			for _, tt := range []struct {
-				name    string
-				section gatewayv1.SectionName
-				invalid bool
-			}{
-				{name: "valid policy for all ports"},
-				{name: "valid policy for mirror port", section: "https"},
-				{name: "invalid policy for all ports", invalid: true},
-				{name: "invalid policy for mirror port", section: "https", invalid: true},
-			} {
-				t.Run(tt.name, func(t *testing.T) {
-					collection := &helpers.BackendTLSPolicyTargetServiceCollection{}
-					if tt.invalid {
-						collection.Invalid = map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy{tt.section: policy}
-					} else {
-						collection.Valid = map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy{tt.section: policy}
-					}
-					policies := helpers.BackendTLSPolicyServiceMap{
-						{Namespace: "default", Name: "mirror-backend"}: collection,
-					}
-
-					var routes []model.HTTPRoute
-					if kind == "HTTPRoute" {
-						routes = extractRoutes(logger, 80, nil, httpRoute, services, nil, nil, policies, nil)
-					} else {
-						routes = extractGRPCRoutes(logger, nil, grpcRoute, services, nil, nil, policies)
-					}
-
-					require.Len(t, routes, 1)
-					require.Len(t, routes[0].Backends, 1)
-					assert.Nil(t, routes[0].Backends[0].TLS)
-					assert.Nil(t, routes[0].DirectResponse)
-					if tt.invalid {
-						assert.Empty(t, routes[0].RequestMirrors)
-						return
-					}
-					require.Len(t, routes[0].RequestMirrors, 1)
-					assert.Equal(t, &model.BackendTLSOrigination{
-						SNI: "mirror.example.com",
-						CACertRef: &model.FullyQualifiedResource{
-							Group:     "",
-							Kind:      "ConfigMap",
-							Version:   "v1",
-							Name:      "mirror-ca",
-							Namespace: "default",
-						},
-					}, routes[0].RequestMirrors[0].Backend.TLS)
-				})
-			}
-		})
-	}
 }
 
 func TestGatewayAPIGRPCBackendTLSPolicy(t *testing.T) {

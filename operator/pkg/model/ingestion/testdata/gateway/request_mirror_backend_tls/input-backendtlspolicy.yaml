@@ -1,0 +1,79 @@
+policies:
+  - svcName: default/mirror-valid-all
+    valid:
+      "":
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: mirror-tls-valid-all
+          namespace: default
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: mirror-valid-all
+          validation:
+            hostname: mirror.example.com
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                name: mirror-ca
+  - svcName: default/mirror-valid-port
+    valid:
+      https:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: mirror-tls-valid-port
+          namespace: default
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: mirror-valid-port
+              sectionName: https
+          validation:
+            hostname: mirror.example.com
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                name: mirror-ca
+  - svcName: default/mirror-invalid-all
+    invalid:
+      "":
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: mirror-tls-invalid-all
+          namespace: default
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: mirror-invalid-all
+          validation:
+            hostname: mirror.example.com
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                name: nonexistent-ca
+  - svcName: default/mirror-invalid-port
+    invalid:
+      https:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: mirror-tls-invalid-port
+          namespace: default
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: mirror-invalid-port
+              sectionName: https
+          validation:
+            hostname: mirror.example.com
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                name: nonexistent-ca

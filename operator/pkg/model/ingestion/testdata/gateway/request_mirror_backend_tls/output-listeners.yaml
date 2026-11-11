@@ -1,0 +1,138 @@
+- hostname: "*"
+  name: http
+  port: 80
+  routes:
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      path_match:
+        exact: /valid-all
+      request_mirrors:
+        - backend:
+            TLS:
+              CACertRef:
+                kind: ConfigMap
+                name: mirror-ca
+                namespace: default
+                version: v1
+              SNI: mirror.example.com
+            name: mirror-valid-all
+            namespace: default
+            port:
+              port: 8443
+          denominator: 100
+          numerator: 100
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      path_match:
+        exact: /valid-port
+      request_mirrors:
+        - backend:
+            TLS:
+              CACertRef:
+                kind: ConfigMap
+                name: mirror-ca
+                namespace: default
+                version: v1
+              SNI: mirror.example.com
+            name: mirror-valid-port
+            namespace: default
+            port:
+              port: 8443
+          denominator: 100
+          numerator: 100
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      path_match:
+        exact: /invalid-all
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      path_match:
+        exact: /invalid-port
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      is_grpc: true
+      path_match:
+        exact: /mirror.Test/ValidAll
+      request_mirrors:
+        - backend:
+            TLS:
+              CACertRef:
+                kind: ConfigMap
+                name: mirror-ca
+                namespace: default
+                version: v1
+              SNI: mirror.example.com
+            name: mirror-valid-all
+            namespace: default
+            port:
+              port: 8443
+          denominator: 100
+          numerator: 100
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      is_grpc: true
+      path_match:
+        exact: /mirror.Test/ValidPort
+      request_mirrors:
+        - backend:
+            TLS:
+              CACertRef:
+                kind: ConfigMap
+                name: mirror-ca
+                namespace: default
+                version: v1
+              SNI: mirror.example.com
+            name: mirror-valid-port
+            namespace: default
+            port:
+              port: 8443
+          denominator: 100
+          numerator: 100
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      is_grpc: true
+      path_match:
+        exact: /mirror.Test/InvalidAll
+      timeout: {}
+    - backends:
+        - name: backend
+          namespace: default
+          port:
+            port: 8080
+      is_grpc: true
+      path_match:
+        exact: /mirror.Test/InvalidPort
+      timeout: {}
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: my-gateway
+      namespace: default
+      version: v1
