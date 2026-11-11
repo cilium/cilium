@@ -145,7 +145,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	listenerStatusResult, err := r.listenerStatusManager.SetListenerStatuses(ctx, gw, ListenerStatusInputs{
 		MergedListeners:        inputs.MergedListeners,
-		Namespaces:             inputs.Namespaces,
+		NamespaceLabels:        inputs.NamespaceLabels,
 		AttachedListenerSets:   inputs.AttachedListenerSets,
 		DisallowedListenerSets: inputs.DisallowedListenerSets,
 		HTTPRoutes:             inputs.HTTPRoutes,
