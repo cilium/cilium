@@ -132,6 +132,9 @@ jobs:
           hubble: false
           test-concurrency: 5
 
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
       - name: Set up job variables
         id: vars
         run: |
