@@ -24,6 +24,15 @@ var klogErrorOverrides = []logLevelOverride{
 		matcher:     regexp.MustCompile("Failed to update.*falling back to slow path"),
 		targetLevel: slog.LevelInfo,
 	},
+	{
+		// A lease conflict during leader election is benign and self-recovers on
+		// the next renew. It happens when a renew times out but still commits,
+		// and the retry then conflicts with that write. Downgrade only the
+		// conflict so genuine lease update failures still surface at error.
+		// See GH-45426.
+		matcher:     regexp.MustCompile(`"Failed to update lease" err="Operation cannot be fulfilled on leases\.coordination\.k8s\.io `),
+		targetLevel: slog.LevelInfo,
+	},
 }
 
 func initializeKLog(logger *slog.Logger) error {
