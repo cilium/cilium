@@ -10,7 +10,12 @@
  * - PER_ENDPOINT_ROUTES: 1 for the per-endpoint routes configuration, which
  *   turns enable_bpf_routing off, or 0 for BPF routing.
  * - FROM_CIL_TO_CONTAINER: 1 to simulate the egress policy program being tail
- *   called from cil_to_container, or 0 for the tail call from cil_from_host.
+ *   called from cil_to_container, the fallback for when the
+ *   MARK_MAGIC_PROXY_EGRESS_EPID ip rule is not in place yet, or 0 for the
+ *   tail call from cil_from_host.
+ *
+ *   TODO: Remove in v1.22, together with the cil_to_container fallback. Then
+ *   drop FROM_CIL_TO_CONTAINER and the variants that set it to 1.
  */
 #if !defined(PER_ENDPOINT_ROUTES) || !defined(FROM_CIL_TO_CONTAINER)
 # error "Define PER_ENDPOINT_ROUTES and FROM_CIL_TO_CONTAINER before including this file"
@@ -93,11 +98,11 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 /* BPF_PROG_TEST_RUN are executed with `ctx->ifindex = 1` (loopback device) as in
  * the kernel `bpf_prog_test_run_skb()` function.
  * (see https://github.com/torvalds/linux/blob/0257f64bdac7fdca30fa3cae0df8b9ecbec7733a/net/bpf/test_run.c#L991)
- * When tail called from cil_from_host, the ctx sits on cilium_host: set
- * cilium_host_ifindex to the ifindex the test run gives us, given we cannot
- * change ctx->ifindex. To simulate the tail call from cil_to_container
- * instead, where the ctx sits on the backend's lxc device, give cilium_host
- * any other ifindex.
+ * L7 LB traffic is normally tail called from cil_from_host, so the ctx sits
+ * on cilium_host: set cilium_host_ifindex to the ifindex the test run gives
+ * us, given we cannot change ctx->ifindex. To simulate the tail call from
+ * cil_to_container instead, where the ctx sits on the backend's lxc device,
+ * give cilium_host any other ifindex.
  */
 #if FROM_CIL_TO_CONTAINER
 ASSIGN_CONFIG(__u32, cilium_host_ifindex, 2)
@@ -132,8 +137,9 @@ ASSIGN_CONFIG(bool, enable_bpf_routing, !PER_ENDPOINT_ROUTES)
  * - in case of per-endpoint routes, packet tail calls from
      cil_from_host, and is redirected into cilium_host's ingress hook so that
      the stack routes it.
- * - in case of per-endpoint routes, packet tail calls from
-     cil_to_container, and it will be hairpinned back to handle ingress policies.
+ * - in case of per-endpoint routes without the ip rule in place, packet tail
+     calls from cil_to_container, and is hairpinned back out of the lxc device
+     so that cil_to_container enforces ingress policy.
  * Given we cannot import both bpf_host and bpf_lxc, in our SETUP functions
  * we will simulate hitting the `tail_call_egress_policy(ctx, lxc_id)` codepath.
  */

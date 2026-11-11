@@ -1448,6 +1448,18 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		}
 	}
 
+	/* L7 LB traffic is normally pulled into cilium_host by the
+	 * MARK_MAGIC_PROXY_EGRESS_EPID ip rule, so that cil_from_host is the
+	 * single place that re-enters the source endpoint's egress policy. This
+	 * is the fallback for when that rule is not in place: on upgrade from a
+	 * version that did not install it, cilium-envoy keeps proxying while the
+	 * agent reloads the datapath, and the rule is only installed at the end
+	 * of Reinitialize(). Without this block a remote backend would be
+	 * reached by a direct route with the egress policy never enforced.
+	 *
+	 * TODO: Remove in v1.22. The rule is installed since v1.21, and upgrades
+	 * are only supported from the previous minor release.
+	 */
 	if (CONFIG(enable_l7_lb) && magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u32 lxc_id = get_epid(ctx);
 
