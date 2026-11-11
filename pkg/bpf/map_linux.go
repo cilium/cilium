@@ -642,6 +642,7 @@ func (m *Map) openOrCreate(pin bool) error {
 		m.spec.InnerMap.Flags |= GetMapMemoryFlags(m.spec.InnerMap.Type)
 	}
 
+	m.spec.Pinning = ebpf.PinNone
 	if pin {
 		m.spec.Pinning = ebpf.PinByName
 	}
