@@ -5,6 +5,7 @@ package logging
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"log/slog"
 	"regexp"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -106,6 +109,54 @@ func TestSetupLogging2(t *testing.T) {
 		}
 	}
 
+}
+
+func TestKlogLeaseConflictOverride(t *testing.T) {
+	var out bytes.Buffer
+	logger := slog.New(
+		slog.NewTextHandler(&out,
+			&slog.HandlerOptions{
+				ReplaceAttr: ReplaceAttrFnWithoutTimestamp,
+			},
+		),
+	)
+	log := logger.With(logfields.LogSubsys, "klog")
+	errWriter, err := severityOverrideWriter(slog.LevelError, log, klogErrorOverrides)
+	require.NoError(t, err)
+
+	klogFlags := flag.NewFlagSet("cilium", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	klogFlags.Set("logtostderr", "false")
+	klogFlags.Set("skip_headers", "true")
+	klogFlags.Set("one_output", "true")
+
+	klog.SetOutputBySeverity("ERROR", errWriter)
+	klog.SetOutputBySeverity("INFO", &out)
+
+	lease := schema.GroupResource{Group: "coordination.k8s.io", Resource: "leases"}
+	lock := "kube-system/cilium-operator-resource-lock"
+	conflict := apierrors.NewConflict(lease, "cilium-operator-resource-lock",
+		errors.New("the object has been modified; please apply your changes to the latest version and try again"))
+	timeout := apierrors.NewServerTimeout(lease, "update", 1)
+
+	// Same calls client-go v0.35 leaderelection makes via its klog logger.
+	klog.ErrorS(conflict, "Failed to update lease", "lock", lock)
+	klog.ErrorS(timeout, "Failed to update lease", "lock", lock)
+	klog.ErrorS(timeout, "Failed to update lease optimistically, falling back to slow path", "lock", lock)
+	klog.Flush()
+
+	var lines []string
+	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+		lines = strings.Split(strings.Trim(out.String(), "\n"), "\n")
+		assert.Len(collect, lines, 3)
+	}, time.Second, time.Millisecond*50)
+
+	require.Contains(t, lines[0], "the object has been modified")
+	require.Contains(t, lines[0], "level=info")
+	require.Contains(t, lines[1], "could not be completed at this time")
+	require.Contains(t, lines[1], "level=error")
+	require.Contains(t, lines[2], "falling back to slow path")
+	require.Contains(t, lines[2], "level=info")
 }
 
 func TestSetupLogging(t *testing.T) {
