@@ -5,7 +5,6 @@ package redirectpolicy
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/go-openapi/runtime/middleware"
@@ -20,23 +19,22 @@ type getLrpHandler struct {
 	db        *statedb.DB
 	lrps      statedb.Table[*LocalRedirectPolicy]
 	frontends statedb.Table[*lb.Frontend]
-	backends  statedb.Table[*lb.Backend]
 	pods      statedb.Table[k8sTables.LocalPod]
 }
 
 func (h *getLrpHandler) Handle(params service.GetLrpParams) middleware.Responder {
-	return service.NewGetLrpOK().WithPayload(getLRPs(h.db.ReadTxn(), h.lrps, h.frontends, h.backends, h.pods))
+	return service.NewGetLrpOK().WithPayload(getLRPs(h.db.ReadTxn(), h.lrps, h.frontends, h.pods))
 }
 
-func getLRPs(txn statedb.ReadTxn, lrps statedb.Table[*LocalRedirectPolicy], frontends statedb.Table[*lb.Frontend], backends statedb.Table[*lb.Backend], pods statedb.Table[k8sTables.LocalPod]) []*models.LRPSpec {
+func getLRPs(txn statedb.ReadTxn, lrps statedb.Table[*LocalRedirectPolicy], frontends statedb.Table[*lb.Frontend], pods statedb.Table[k8sTables.LocalPod]) []*models.LRPSpec {
 	list := make([]*models.LRPSpec, 0, lrps.NumObjects(txn))
 	for lrp := range lrps.All(txn) {
-		list = append(list, lrp.getModel(txn, frontends, backends, pods))
+		list = append(list, lrp.getModel(txn, frontends, pods))
 	}
 	return list
 }
 
-func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, frontends statedb.Table[*lb.Frontend], backends statedb.Table[*lb.Backend], pods statedb.Table[k8sTables.LocalPod]) *models.LRPSpec {
+func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, frontends statedb.Table[*lb.Frontend], pods statedb.Table[k8sTables.LocalPod]) *models.LRPSpec {
 	if lrp == nil {
 		return nil
 	}
@@ -73,7 +71,7 @@ func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, frontends statedb.
 		FrontendType:     feType,
 		LrpType:          lrpType,
 		ServiceID:        lrp.ServiceID.String(),
-		FrontendMappings: lrp.getFrontendMappingModels(txn, frontends, backends, pods),
+		FrontendMappings: lrp.getFrontendMappingModels(txn, frontends, pods),
 	}
 }
 
@@ -128,65 +126,33 @@ func getBackendModels(
 	return beModels
 }
 
-// filterBackendsByFrontendMapping narrows the backend list of a pseudo-service
-// generated from an addressMatcher LRP to a subset of pods that would actually
-// be mapped by the controller.
-func filterBackendsByFrontendMapping(
-	bes lb.BackendsSeq2,
-	feM feMapping,
-	matchPortNames bool,
-) lb.BackendsSeq2 {
-	backendMatchesFrontendMapping := func(be *lb.Backend) bool {
-		if !be.Address.Compatible(feM.feAddr) {
-			return false
-		}
-		if matchPortNames && feM.fePort != "" && len(be.PortNames) > 0 {
-			return slices.ContainsFunc(be.PortNames, func(portName string) bool {
-				return strings.EqualFold(portName, string(feM.fePort))
-			})
-		}
-		return true
-	}
-
-	return func(yield func(*lb.Backend, statedb.Revision) bool) {
-		for be, rev := range bes {
-			if !backendMatchesFrontendMapping(be) {
-				continue
-			}
-			if !yield(be, rev) {
-				return
-			}
-		}
-	}
-}
-
-// Returns an array of FrontendMapping models for a LocalRedirectPolicy based on the
-// StateDB frontend and backend tables.
+// Returns frontend mappings for a LocalRedirectPolicy using StateDB frontends and their
+// associated backends.
 func (lrp *LocalRedirectPolicy) getFrontendMappingModels(
 	txn statedb.ReadTxn,
 	frontends statedb.Table[*lb.Frontend],
-	backends statedb.Table[*lb.Backend],
 	pods statedb.Table[k8sTables.LocalPod],
 ) []*models.FrontendMapping {
 	podIDByIP := getPodIDByIP(txn, pods)
+	lrpServiceName := lrp.RedirectServiceName()
 
 	switch lrp.LRPType {
 	case lrpConfigTypeAddr:
-		// For addressMatcher LRPs, the configured frontend mappings are the source of
-		// truth for frontend information. Since these mappings do not carry writer-
-		// selected backends, filter the pseudo-service backends per mapping to match
-		// the frontend/backend association the writer would produce.
-		bes, _ := lb.ListBackendsByServiceName(txn, backends, lrp.RedirectServiceName())
-		preferredBackends := lb.BackendsSeq2(lb.PreferredBackendsByAddress(bes))
+		// Only report mappings for frontends that this LRP currently owns. The
+		// configured mapping alone does not mean the redirect was installed: another
+		// service may own the same address.
 
-		numFrontendMapping := len(lrp.FrontendMappings)
-		matchNamedPorts := numFrontendMapping > 1
-
-		feMappingModelArray := make([]*models.FrontendMapping, 0, numFrontendMapping)
+		feMappingModelArray := make([]*models.FrontendMapping, 0, len(lrp.FrontendMappings))
 		for _, feM := range lrp.FrontendMappings {
+			fe, _, found := frontends.Get(txn, lb.FrontendByAddress(feM.feAddr))
+			if !found ||
+				fe.Type != lb.SVCTypeLocalRedirect ||
+				!fe.ServiceName.Equal(lrpServiceName) {
+				continue
+			}
+
 			feMappingModel := feM.getModel()
-			filteredBackends := filterBackendsByFrontendMapping(preferredBackends, feM, matchNamedPorts)
-			feMappingModel.Backends = getBackendModels(podIDByIP, filteredBackends)
+			feMappingModel.Backends = getBackendModels(podIDByIP, fe.Backends)
 			feMappingModelArray = append(feMappingModelArray, feMappingModel)
 		}
 		return feMappingModelArray
@@ -208,7 +174,6 @@ func (lrp *LocalRedirectPolicy) getFrontendMappingModels(
 			})
 		}
 
-		lrpServiceName := lrp.RedirectServiceName()
 		numFrontendMapping := len(lrp.FrontendMappings)
 
 		// Search for any redirected frontends

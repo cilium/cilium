@@ -8,50 +8,68 @@ hive start
 k8s/add lrp-pod.yaml lrp-addr.yaml
 db/cmp frontends frontends-lrp.table
 db/cmp services services-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
 
 # Now add a Service with the same ClusterIP and port. The Service frontend
 # should replace the LRP frontend.
 k8s/add service.yaml endpointslice-clusterip.yaml
 db/cmp services services-clusterip.table
 db/cmp frontends frontends-clusterip.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
 
 # Removing the Service should restore the LRP frontend.
 k8s/delete service.yaml endpointslice-clusterip.yaml
 db/cmp frontends frontends-lrp.table
 db/cmp services services-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
 
 # Now add a HostPort using the same address, which should also replace the
 # LRP frontend.
 k8s/add hostport-pod.yaml
 db/cmp frontends frontends-hostport.table
 db/cmp services services-hostport.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
 
 # Removing the HostPort should restore the LRP frontend.
 k8s/delete hostport-pod.yaml
 db/cmp frontends frontends-lrp.table
 db/cmp services services-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
 
 # Now add a LoadBalancer service should also take precedence over the LRP
 # frontend like the ClusterIP did.
 k8s/add loadbalancer-service.yaml loadbalancer-endpointslice.yaml
 db/cmp services services-loadbalancer.table
 db/cmp frontends frontends-loadbalancer.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
 
 # Removing the LoadBalancer service should restore the LRP frontend once more.
 k8s/delete loadbalancer-service.yaml loadbalancer-endpointslice.yaml
 db/cmp services services-lrp.table
 db/cmp frontends frontends-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
 
 # Now add a Service with an externalIP, which should also take precedence over
 # the LRP frontend.
 k8s/add externalip-service.yaml externalip-endpointslice.yaml
 db/cmp services services-externalip.table
 db/cmp frontends frontends-externalip.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
 
 # Removing the externalIP Service should restore the LRP frontend once more.
 k8s/delete externalip-service.yaml externalip-endpointslice.yaml
 db/cmp services services-lrp.table
 db/cmp frontends frontends-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
 
 # The LRP should be removed.
 k8s/delete lrp-pod.yaml lrp-addr.yaml
@@ -342,3 +360,9 @@ test/lrp-addr:local-redirect  k8s
 Address              Type          ServiceName      Backends               Status
 1.1.1.1:8080/TCP     ExternalIPs   test/externalip  10.244.3.1:8080/TCP    Done
 10.96.0.11:8080/TCP  ClusterIP     test/externalip  10.244.3.1:8080/TCP    Done
+
+-- lrp-active.expected --
+test/lrp-addr type=addr frontend-type="IP + port"
+  1.1.1.1:8080/TCP => 10.244.2.1:80/TCP (test/lrp-pod, active)
+-- lrp-inactive.expected --
+test/lrp-addr type=addr frontend-type="IP + port"
