@@ -27,12 +27,14 @@ import (
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	policyv1alpha1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	PolicyV1alpha1() policyv1alpha1.PolicyV1alpha1Interface
 	PolicyV1alpha2() policyv1alpha2.PolicyV1alpha2Interface
+	PolicyV1beta1() policyv1beta1.PolicyV1beta1Interface
 }
 
 // Clientset contains the clients for groups.
@@ -40,6 +42,7 @@ type Clientset struct {
 	*discovery.DiscoveryClient
 	policyV1alpha1 *policyv1alpha1.PolicyV1alpha1Client
 	policyV1alpha2 *policyv1alpha2.PolicyV1alpha2Client
+	policyV1beta1  *policyv1beta1.PolicyV1beta1Client
 }
 
 // PolicyV1alpha1 retrieves the PolicyV1alpha1Client
@@ -50,6 +53,11 @@ func (c *Clientset) PolicyV1alpha1() policyv1alpha1.PolicyV1alpha1Interface {
 // PolicyV1alpha2 retrieves the PolicyV1alpha2Client
 func (c *Clientset) PolicyV1alpha2() policyv1alpha2.PolicyV1alpha2Interface {
 	return c.policyV1alpha2
+}
+
+// PolicyV1beta1 retrieves the PolicyV1beta1Client
+func (c *Clientset) PolicyV1beta1() policyv1beta1.PolicyV1beta1Interface {
+	return c.policyV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -104,6 +112,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.policyV1beta1, err = policyv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -127,6 +139,7 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.policyV1alpha1 = policyv1alpha1.New(c)
 	cs.policyV1alpha2 = policyv1alpha2.New(c)
+	cs.policyV1beta1 = policyv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

@@ -29,6 +29,7 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	dynamic_fake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
+	k8s_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	"k8s.io/client-go/rest"
 	k8sTesting "k8s.io/client-go/testing"
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
@@ -101,6 +102,13 @@ func (c *FakeClientset) Slim() slim_clientset.Interface {
 
 func (c *FakeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesFakeClientset.Discovery()
+}
+
+// PolicyV1beta1 resolves the ambiguity between the Kubernetes policy/v1beta1
+// fake client and the network-policy-api v1beta1 fake client. See
+// compositeClientset.PolicyV1beta1.
+func (c *FakeClientset) PolicyV1beta1() k8s_policy_v1beta1.PolicyV1beta1Interface {
+	return c.KubernetesFakeClientset.PolicyV1beta1()
 }
 
 func (c *FakeClientset) IsEnabled() bool {

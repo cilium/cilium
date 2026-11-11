@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	k8s_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
@@ -258,6 +259,14 @@ func (c *compositeClientset) Slim() slim_clientset.Interface {
 
 func (c *compositeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesClientset.Discovery()
+}
+
+// PolicyV1beta1 resolves the ambiguity between the Kubernetes policy/v1beta1
+// client and the network-policy-api policy.networking.k8s.io/v1beta1 client,
+// both of which are embedded. It returns the Kubernetes one to satisfy
+// kubernetes.Interface.
+func (c *compositeClientset) PolicyV1beta1() k8s_policy_v1beta1.PolicyV1beta1Interface {
+	return c.KubernetesClientset.PolicyV1beta1()
 }
 
 func (c *compositeClientset) IsEnabled() bool {
