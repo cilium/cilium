@@ -6,7 +6,7 @@ package k8s
 import (
 	"errors"
 
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.ClusterNetworkPolicy, apiGroup string, dc chan uint64, clusterName string) error {
+func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1beta1.ClusterNetworkPolicy, apiGroup string, dc chan uint64, clusterName string) error {
 	initialRecvTime := time.Now()
 
 	defer func() {
@@ -60,7 +60,7 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 	return nil
 }
 
-func (p *policyWatcher) deleteK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.ClusterNetworkPolicy, apiGroup string, dc chan uint64) error {
+func (p *policyWatcher) deleteK8sClusterNetworkPolicy(k8sCNP *policyv1beta1.ClusterNetworkPolicy, apiGroup string, dc chan uint64) error {
 	initialRecvTime := time.Now()
 
 	defer func() {

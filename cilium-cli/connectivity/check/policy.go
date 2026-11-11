@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
@@ -324,7 +324,7 @@ func isPolicy(obj k8s.Object) bool {
 	gk := obj.GetObjectKind().GroupVersionKind().GroupKind()
 	return (gk == schema.GroupKind{Group: ciliumv2.CustomResourceDefinitionGroup, Kind: ciliumv2.CNPKindDefinition} ||
 		gk == schema.GroupKind{Group: ciliumv2.CustomResourceDefinitionGroup, Kind: ciliumv2.CCNPKindDefinition} ||
-		gk == schema.GroupKind{Group: policyv1alpha2.GroupName, Kind: "ClusterNetworkPolicy"} ||
+		gk == schema.GroupKind{Group: policyv1beta1.GroupName, Kind: "ClusterNetworkPolicy"} ||
 		gk == schema.GroupKind{Group: networkingv1.GroupName, Kind: "NetworkPolicy"})
 }
 
@@ -531,9 +531,9 @@ func (t *Test) tweakPolicy(in *unstructured.Unstructured) *unstructured.Unstruct
 		tweaked = &knp
 	}
 
-	if group == policyv1alpha2.GroupName && kind == "ClusterNetworkPolicy" {
+	if group == policyv1beta1.GroupName && kind == "ClusterNetworkPolicy" {
 		t.WithFeatureRequirements(features.RequireEnabled(features.KCNP))
-		kcnp := policyv1alpha2.ClusterNetworkPolicy{}
+		kcnp := policyv1beta1.ClusterNetworkPolicy{}
 		if err := convertInto(in, &kcnp); err != nil {
 			t.Fatalf("could not parse ClusterNetworkPolicy: %v", err)
 			return nil
@@ -639,7 +639,7 @@ func configureNamespaceInKNP(pol *networkingv1.NetworkPolicy, namespace string) 
 	}
 }
 
-func configureNamespaceInKCNP(pol *policyv1alpha2.ClusterNetworkPolicy, namespace string) {
+func configureNamespaceInKCNP(pol *policyv1beta1.ClusterNetworkPolicy, namespace string) {
 	for _, k := range []string{
 		k8sConst.LabelMetadataName,
 		k8sConst.PodNamespaceLabel,

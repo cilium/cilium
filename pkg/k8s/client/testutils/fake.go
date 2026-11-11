@@ -29,10 +29,10 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	dynamic_fake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
-	k8s_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	"k8s.io/client-go/rest"
 	k8sTesting "k8s.io/client-go/testing"
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	policy_clientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
 	policy_fake "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/fake"
 	k8sYaml "sigs.k8s.io/yaml"
 
@@ -80,13 +80,13 @@ type FakeClientset struct {
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
-	*PolicyFakeClientset
 	*dynamic_fake.FakeDynamicClient
 	k8sclient.ClientsetGetters
 
 	ot *statedbObjectTracker
 
-	SlimFakeClientset *SlimFakeClientset
+	SlimFakeClientset   *SlimFakeClientset
+	PolicyFakeClientset *PolicyFakeClientset
 
 	trackers []struct {
 		domain  string
@@ -104,11 +104,8 @@ func (c *FakeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesFakeClientset.Discovery()
 }
 
-// PolicyV1beta1 resolves the ambiguity between the Kubernetes policy/v1beta1
-// fake client and the network-policy-api v1beta1 fake client. See
-// compositeClientset.PolicyV1beta1.
-func (c *FakeClientset) PolicyV1beta1() k8s_policy_v1beta1.PolicyV1beta1Interface {
-	return c.KubernetesFakeClientset.PolicyV1beta1()
+func (c *FakeClientset) NetworkPolicyAPI() policy_clientset.Interface {
+	return c.PolicyFakeClientset
 }
 
 func (c *FakeClientset) IsEnabled() bool {

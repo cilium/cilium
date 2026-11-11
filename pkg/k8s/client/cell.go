@@ -22,15 +22,12 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	k8s_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapi_v1alpha1 "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	mcsapi_v1beta1 "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
 	policy_clientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
-	policy_v1alpha1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
-	policy_v1alpha2 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -81,24 +78,18 @@ type (
 	PolicyClientset     = policy_clientset.Clientset
 )
 
-// mcsAPIInterface and policyInterface mirror the upstream clientset interfaces
-// without their Discovery() method. The mcs-api and network-policy-api clientsets
-// are generated in their own repositories and vendored pre-generated, and their
-// code-generator predates the change that widened Discovery() to return a
-// discovery.DiscoveryInterfaces: they still return a discovery.DiscoveryInterface,
-// while the clientsets generated from this repository do not. Embedding the
-// upstream interfaces as-is would therefore declare Discovery() twice with
-// conflicting signatures. Drop these mirrors once both projects regenerate their
-// clientsets.
+// mcsAPIInterface mirrors the upstream clientset interface without its
+// Discovery() method. The mcs-api clientset is generated in its own repository
+// and vendored pre-generated, and its code-generator predates the change that
+// widened Discovery() to return a discovery.DiscoveryInterfaces: it still
+// returns a discovery.DiscoveryInterface, while the clientsets generated from
+// this repository do not. Embedding the upstream interface as-is would
+// therefore declare Discovery() twice with conflicting signatures. Drop this
+// mirror once the project regenerates its clientset.
 type (
 	mcsAPIInterface interface {
 		MulticlusterV1alpha1() mcsapi_v1alpha1.MulticlusterV1alpha1Interface
 		MulticlusterV1beta1() mcsapi_v1beta1.MulticlusterV1beta1Interface
-	}
-
-	policyInterface interface {
-		PolicyV1alpha1() policy_v1alpha1.PolicyV1alpha1Interface
-		PolicyV1alpha2() policy_v1alpha2.PolicyV1alpha2Interface
 	}
 )
 
@@ -108,7 +99,6 @@ type Clientset interface {
 	kubernetes.Interface
 	apiext_clientset.Interface
 	cilium_clientset.Interface
-	policyInterface
 	dynamic.Interface
 	Getters
 
@@ -116,6 +106,13 @@ type Clientset interface {
 	// normal kubernetes client, but with slimmed down messages to reduce memory
 	// usage. Prefer the slim version when caching messages.
 	Slim() slim_clientset.Interface
+
+	// NetworkPolicyAPI returns the client for the sigs.k8s.io/network-policy-api
+	// resources (policy.networking.k8s.io). It is exposed through a dedicated
+	// accessor rather than embedded, because its group accessors (PolicyV1beta1,
+	// and PolicyV1 once the API reaches GA) collide with the Kubernetes policy
+	// API group accessors in kubernetes.Interface.
+	NetworkPolicyAPI() policy_clientset.Interface
 
 	// IsEnabled returns true if Kubernetes support is enabled and the
 	// clientset can be used.
@@ -134,9 +131,10 @@ type compositeClientset struct {
 	*KubernetesClientset
 	*APIExtClientset
 	*CiliumClientset
-	*PolicyClientset
 	*dynamic.DynamicClient
 	ClientsetGetters
+
+	policy *PolicyClientset
 
 	controller        *controller.Manager
 	slim              *SlimClientset
@@ -233,7 +231,7 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 		return nil, nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
-	client.PolicyClientset, err = policy_clientset.NewForConfigAndClient(rc, httpClient)
+	client.policy, err = policy_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create policy k8s client: %w", err)
 	}
@@ -261,12 +259,8 @@ func (c *compositeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesClientset.Discovery()
 }
 
-// PolicyV1beta1 resolves the ambiguity between the Kubernetes policy/v1beta1
-// client and the network-policy-api policy.networking.k8s.io/v1beta1 client,
-// both of which are embedded. It returns the Kubernetes one to satisfy
-// kubernetes.Interface.
-func (c *compositeClientset) PolicyV1beta1() k8s_policy_v1beta1.PolicyV1beta1Interface {
-	return c.KubernetesClientset.PolicyV1beta1()
+func (c *compositeClientset) NetworkPolicyAPI() policy_clientset.Interface {
+	return c.policy
 }
 
 func (c *compositeClientset) IsEnabled() bool {
