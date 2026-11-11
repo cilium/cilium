@@ -1,0 +1,89 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: pod-selector-rules
+spec:
+  tier: Baseline
+  priority: 10
+  subject:
+    # namespaceSelector is omitted on purpose: the subject is selected by pod label alone, across all
+    # namespaces.
+    pods:
+      podSelector:
+        matchLabels:
+          conformance-house: gryffindor
+  egress:
+  - name: "allow-to-luna-lovegood-0-tcp-80"
+    action: "Accept"
+    to:
+    - pods:
+        namespaceSelector:
+          matchLabels:
+            conformance-house: ravenclaw
+        podSelector:
+          matchLabels:
+            statefulset.kubernetes.io/pod-name: luna-lovegood-0
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 80
+  - name: "deny-to-ravenclaw-pods"
+    action: "Deny"
+    to:
+    - pods:
+        podSelector:
+          matchLabels:
+            conformance-house: ravenclaw
+  ingress:
+  - name: "allow-from-draco-malfoy-0"
+    action: "Accept"
+    from:
+    - pods:
+        namespaceSelector:
+          matchLabels:
+            conformance-house: slytherin
+        podSelector:
+          matchLabels:
+            statefulset.kubernetes.io/pod-name: draco-malfoy-0
+  - name: "deny-from-slytherin-pods"
+    action: "Deny"
+    from:
+    - pods:
+        podSelector:
+          matchLabels:
+            conformance-house: slytherin
+  # conformance-role is set and cleared by the test to exercise pod label changes.
+  - name: "deny-from-blocked-hufflepuff-pods"
+    action: "Deny"
+    from:
+    - pods:
+        namespaceSelector:
+          matchLabels:
+            conformance-house: hufflepuff
+        podSelector:
+          matchLabels:
+            conformance-role: blocked
+---
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: label-selected-subject-rules
+spec:
+  tier: Baseline
+  priority: 10
+  subject:
+    # conformance-role is set and cleared by the test to exercise pod label changes.
+    pods:
+      namespaceSelector:
+        matchLabels:
+          conformance-house: ravenclaw
+      podSelector:
+        matchLabels:
+          conformance-role: restricted
+  egress:
+  - name: "deny-to-slytherin"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin

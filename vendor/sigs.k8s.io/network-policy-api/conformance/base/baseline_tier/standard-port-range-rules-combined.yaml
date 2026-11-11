@@ -1,0 +1,99 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: port-range-rules
+spec:
+  tier: Baseline
+  priority: 10
+  subject:
+    namespaces:
+      matchLabels:
+        kubernetes.io/metadata.name: network-policy-conformance-gryffindor
+  egress:
+  - name: "allow-to-ravenclaw-tcp-port-range"
+    action: "Accept"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-ravenclaw
+    protocols:
+      - tcp:
+          destinationPort:
+            range:
+              start: 80
+              end: 8080
+  - name: "allow-to-hufflepuff-udp-port-range"
+    action: "Accept"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-hufflepuff
+    protocols:
+      - udp:
+          destinationPort:
+            range:
+              start: 53
+              end: 5353
+  - name: "allow-to-slytherin-sctp-port-range"
+    action: "Accept"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - sctp:
+          destinationPort:
+            range:
+              start: 9003
+              end: 9005
+  - name: "deny-all-egress"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchExpressions:
+        - key: conformance-house
+          operator: Exists
+  ingress:
+  - name: "allow-from-ravenclaw-tcp-port-range"
+    action: "Accept"
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-ravenclaw
+    protocols:
+      - tcp:
+          destinationPort:
+            range:
+              start: 80
+              end: 8080
+  - name: "allow-from-hufflepuff-udp-port-range"
+    action: "Accept"
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-hufflepuff
+    protocols:
+      - udp:
+          destinationPort:
+            range:
+              start: 53
+              end: 5353
+  - name: "allow-from-slytherin-sctp-port-range"
+    action: "Accept"
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - sctp:
+          destinationPort:
+            range:
+              start: 9003
+              end: 9005
+  - name: "deny-all-ingress"
+    action: "Deny"
+    from:
+    - namespaces:
+        matchExpressions:
+        - key: conformance-house
+          operator: Exists

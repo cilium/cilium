@@ -148,7 +148,7 @@ require (
 	sigs.k8s.io/mcs-api v0.5.2
 	sigs.k8s.io/mcs-api/conformance v0.5.2
 	sigs.k8s.io/mcs-api/controllers v0.5.2
-	sigs.k8s.io/network-policy-api v0.2.0
+	sigs.k8s.io/network-policy-api v0.2.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -325,7 +325,7 @@ require (
 	k8s.io/kubelet v0.37.2 // indirect
 	k8s.io/streaming v0.37.2 // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
-	sigs.k8s.io/controller-tools v0.20.1 // indirect
+	sigs.k8s.io/controller-tools v0.21.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.2 // indirect

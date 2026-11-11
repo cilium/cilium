@@ -188,11 +188,11 @@ type ClusterNetworkPolicyIngressRule struct {
 	Name string `json:"name,omitempty"`
 
 	// Action specifies the effect this rule will have on matching
-	// traffic. Currently the following actions are supported:
+	// traffic. Currently, the following actions are supported:
 	//
-	// - Accept: Accepts the selected traffic, allowing it into
-	//   the destination. No further ClusterNetworkPolicy or
-	//   NetworkPolicy rules will be processed.
+	// - Accept: Accepts the selected traffic, including replies to that
+	//   traffic and related ICMP traffic. No further ingress
+	//   ClusterNetworkPolicy or NetworkPolicy rules will be processed.
 	//
 	//   Note: while Accept ensures traffic is accepted by
 	//   Kubernetes network policy, it is still possible that the
@@ -245,15 +245,15 @@ type ClusterNetworkPolicyEgressRule struct {
 	Name string `json:"name,omitempty"`
 
 	// Action specifies the effect this rule will have on matching
-	// traffic.  Currently the following actions are supported:
+	// traffic. Currently, the following actions are supported:
 	//
-	// - Accept: Accepts the selected traffic, allowing it to
-	//   egress. No further ClusterNetworkPolicy or NetworkPolicy
-	//   rules will be processed.
+	// - Accept: Accepts the selected traffic, including replies to that
+	//   traffic and related ICMP traffic. No further egress
+	//   ClusterNetworkPolicy or NetworkPolicy rules will be processed
+	//   but any ingress rules at the destination do apply.
 	//
-	// - Deny: Drops the selected traffic. No further
-	//   ClusterNetworkPolicy or NetworkPolicy rules will be
-	//   processed.
+	// - Deny: Drops the selected traffic. No further ClusterNetworkPolicy or
+	//   NetworkPolicy rules will be processed.
 	//
 	// - Pass: Skips all further ClusterNetworkPolicy rules in the
 	//   current tier for the selected traffic, and passes
@@ -288,20 +288,16 @@ type ClusterNetworkPolicyEgressRule struct {
 type ClusterNetworkPolicyRuleAction string
 
 const (
-	// ClusterNetworkPolicyRuleActionAccept indicates that
-	// matching traffic will be accepted and no further policy
-	// evaluation will be done. This is a final decision.
+	// ClusterNetworkPolicyRuleActionAccept stops further rule processing of
+	// this policy direction (Ingress/Egress) and accepts the traffic.
 	ClusterNetworkPolicyRuleActionAccept ClusterNetworkPolicyRuleAction = "Accept"
-	// ClusterNetworkPolicyRuleActionDeny indicates that matching traffic
-	// will be denied and no further policy evaluation will be done.
-	// This is a final decision.
+	// ClusterNetworkPolicyRuleActionDeny stops further rule processing and
+	// drops the traffic.
 	ClusterNetworkPolicyRuleActionDeny ClusterNetworkPolicyRuleAction = "Deny"
-	// ClusterNetworkPolicyRuleActionPass indicates that matching traffic
-	// will jump to the next tier evaluation. That means that all the rules
-	// with lower precedence at the same tier will be ignored,
-	// but evaluation will continue at the next tier.
-	// For example, if an Admin tier CNP uses Pass action,
-	// NetworkPolicy evaluation will happen next.
+	// ClusterNetworkPolicyRuleActionPass skips rules with lower precedence in
+	// the current tier and continues processing in the next tier. For example,
+	// if an Admin tier CNP uses Pass action, NetworkPolicy evaluation will
+	// happen next.
 	ClusterNetworkPolicyRuleActionPass ClusterNetworkPolicyRuleAction = "Pass"
 )
 
@@ -380,6 +376,11 @@ type ClusterNetworkPolicyEgressPeer struct {
 	// or deny all IPv4 pod-to-pod traffic as well. If you don't want that,
 	// add a rule that Passes all pod traffic before the Networks rule.
 	//
+	// Networks matches both regular IP traffic and ICMP traffic to/from
+	// the specified CIDRs. For example, a Networks entry of "0.0.0.0/0"
+	// will match both IPv4 and ICMP traffic, while "::/0" will match
+	// both IPv6 and ICMPv6 traffic.
+	//
 	// Each item in Networks should be provided in the CIDR format and should be
 	// IPv4 or IPv6, for example "10.0.0.0/8" or "fd00::/8".
 	//
@@ -450,6 +451,7 @@ type ClusterNetworkPolicyProtocol struct {
 	// ContainerPort name. You can't use this in a rule that targets resources
 	// without named ports (e.g. Nodes or Networks).
 	//
+	// <network-policy-api:experimental>
 	// +optional
 	DestinationNamedPort string `json:"destinationNamedPort,omitempty"`
 }
@@ -527,7 +529,7 @@ type PortRange struct {
 // CIDR is an IP address range in CIDR notation
 // (for example, "10.0.0.0/8" or "fd00::/8").
 //
-// +kubebuilder:validation:XValidation:rule="isCIDR(self)",message="Invalid CIDR format provided"
+// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self) == cidr(self).masked()",message="Invalid CIDR format provided"
 // +kubebuilder:validation:MaxLength=43
 type CIDR string
 
@@ -550,5 +552,5 @@ type CIDR string
 //     "latest.blog.kubernetes.io" match, however "kubernetes.io", and
 //     "wikipedia.org" do not.
 //
-// +kubebuilder:validation:Pattern=`^(\*\.)?([a-zA-z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.)+[a-zA-z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.?$`
+// +kubebuilder:validation:Pattern=`^(\*\.)?([a-zA-Z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.?$`
 type DomainName string

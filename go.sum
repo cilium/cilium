@@ -1089,8 +1089,8 @@ sigs.k8s.io/mcs-api/conformance v0.5.2 h1:zH9zRRfhfMyyJF8OXwRQIPkn+6pWCaixCVDQsL
 sigs.k8s.io/mcs-api/conformance v0.5.2/go.mod h1:zstABG/KUoPqUhwE/YyhuBERDw+4mAoNXqkN9ESHFQ4=
 sigs.k8s.io/mcs-api/controllers v0.5.2 h1:IM40lf/HaV80rj6Cm/y1q0xEWVo6AYT4YrfMQf9XO3E=
 sigs.k8s.io/mcs-api/controllers v0.5.2/go.mod h1:y62aZGPMc1wNeU5bsjZv7/7m3cRwa5hc2F0M+tY2GMg=
-sigs.k8s.io/network-policy-api v0.2.0 h1:W/f0Y9VoeQdOWjX/h2gZyLH6gZ5LLEXmh/9wy9mQWKw=
-sigs.k8s.io/network-policy-api v0.2.0/go.mod h1:hECyJyGmQo8QJBcOO2YzlLMcHACJ9hbRs1qS+Tmo1Yc=
+sigs.k8s.io/network-policy-api v0.2.1 h1:IC6U4cHWlHCi03NGAHdidRiXSCEQTstyNKwpNGZW2I0=
+sigs.k8s.io/network-policy-api v0.2.1/go.mod h1:5cBqSVqasM7lklDShf55sopRtItZLz4tsYpgm3KpRjg=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/structured-merge-diff/v6 v6.4.2 h1:qdOxHwrl2Kaag1aQEarlYcOA9vSyGCp3CIki3aW8c4Q=

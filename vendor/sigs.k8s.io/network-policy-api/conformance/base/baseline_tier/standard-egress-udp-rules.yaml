@@ -1,0 +1,50 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: default
+spec:
+  tier: Baseline
+  priority: 10
+  subject:
+    namespaces:
+      matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-hufflepuff
+  egress:
+  - name: "allow-to-ravenclaw-everything"
+    action: "Accept"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-ravenclaw
+  - name: "deny-to-ravenclaw-everything"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-ravenclaw
+  - name: "deny-to-slytherin-at-port-5353"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - udp:
+          destinationPort:
+            number: 5353
+  - name: "allow-to-gryffindor-at-port-53"
+    action: "Accept"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-gryffindor
+    protocols:
+      - udp:
+          destinationPort:
+            number: 53
+  - name: "deny-to-gryffindor-everything-else"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-gryffindor
