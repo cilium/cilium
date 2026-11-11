@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
@@ -107,6 +108,9 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 
 	mapping := m.mapping
 
+	// ces2 holds the stale cep7 and must be enqueued to prune it.
+	assertEnqueued(t, cesController.Controller, NewCESKey("ces2", "ns"))
+
 	for _, ces := range []*cilium_v2a1.CiliumEndpointSlice{ces1, ces2} {
 		for _, cep := range ces.Endpoints {
 			cesN, _ := mapping.getCESName(NewCEPName(cep.Name, "ns"))
@@ -123,6 +127,24 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 	cesController.fastQueue.ShutDown()
 	cesController.standardQueue.ShutDown()
 	hive.Stop(log, t.Context())
+}
+
+// assertEnqueued waits until all the given keys are queued.
+// Note: keys are drained from the queue, as nothing else consumes it in tests.
+func assertEnqueued(t *testing.T, c *Controller, want ...CESKey) {
+	t.Helper()
+
+	var got []CESKey
+	assert.EventuallyWithT(t, func(ct *assert.CollectT) {
+		for _, q := range []workqueue.TypedRateLimitingInterface[CESKey]{c.fastQueue, c.standardQueue} {
+			for q.Len() > 0 {
+				key, _ := q.Get()
+				q.Done(key)
+				got = append(got, key)
+			}
+		}
+		assert.Subset(ct, got, want)
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestDifferentSpeedQueuesDefault(t *testing.T) {
