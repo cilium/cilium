@@ -97,14 +97,18 @@ this buffer when sizing vSwitches and node pools.
 IP release
 ----------
 
-Releasing excess IP addresses is disabled by default. Enable it with the
-operator option ``--alibaba-cloud-release-excess-ips``. The agent relinquishes
-unused host prefixes by removing them from ``spec.ipam.pools.allocated`` while
-retaining the addresses needed for its allocation buffer. The operator uses
-this information and the allocation watermarks to select excess addresses,
-groups them by secondary ENI, and releases them through the ECS API.
-Primary addresses of ENIs are never released, even when they are not in use
-by pods.
+Releasing excess IP addresses is disabled by default. Enable it with the agent
+option ``--ipam-cloud-release`` (Helm value ``ipam.cloudRelease``) and the
+operator option ``--ipam-release-excess-ips`` (Helm value
+``ipam.operator.releaseExcessIPs``). After an address has been unused and in
+excess for the delay configured by ``--ipam-cloud-release-delay`` (Helm value
+``ipam.cloudReleaseDelay``, default ``3m``), the agent releases it by removing
+it from ``spec.ipam.pools.allocated``, and never allocates it again. The
+operator groups the released host prefixes by secondary ENI and releases them
+through the ECS API. Primary addresses of ENIs are never released, even when
+they are not in use by pods. Run the operator with
+``--excess-ip-release-delay=0`` so that it detaches released addresses right
+away, as the delay already elapsed on the agent.
 
 Upgrades and rollbacks
 ======================
@@ -133,9 +137,10 @@ Inspect ``kubectl get ciliumnodes -o yaml`` and the operator logs:
   is not a list of only the IPs currently assigned to pods.
 
 For nodes still running a CRD-based agent, inspect ``spec.ipam.pool`` and
-``status.ipam.used`` instead. When checking IP release, verify that the operator
-option is enabled and that the agent has relinquished the prefixes. Primary
-addresses and addresses needed to satisfy allocation watermarks are retained.
+``status.ipam.used`` instead. When checking IP release, verify that the agent
+and operator release options are enabled and that the agent has released the
+prefixes. Primary addresses and addresses needed to satisfy allocation
+watermarks are retained.
 
 If allocation fails, check RAM permissions, instance ENI limits, vSwitch
 capacity, and metadata and API connectivity. If pods have addresses but cannot

@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides access to the IP address management
@@ -54,10 +55,16 @@ var Cell = cell.Module(
 
 type ipamConfig struct {
 	OnlyMasqueradeDefaultPool bool
+
+	IPAMCloudRelease      bool
+	IPAMCloudReleaseDelay time.Duration
 }
 
 var defaultIPAMConfig = ipamConfig{
 	OnlyMasqueradeDefaultPool: false,
+
+	IPAMCloudRelease:      false,
+	IPAMCloudReleaseDelay: 3 * time.Minute,
 }
 
 func (def ipamConfig) Flags(flags *pflag.FlagSet) {
@@ -67,6 +74,16 @@ func (def ipamConfig) Flags(flags *pflag.FlagSet) {
 			"This will preserve source IPs for pods from non-default IP pools. "+
 			"Useful when combining multi-pool IPAM with BGP control plane. "+
 			"This option must be combined with enable-bpf-masquerade.")
+
+	flags.Bool("ipam-cloud-release",
+		defaultIPAMConfig.IPAMCloudRelease,
+		"When using a cloud multi-pool IPAM mode (eni, azure, alibabacloud), release unused CIDRs which are not needed "+
+			"to satisfy the pre-allocation. If disabled, CIDRs assigned to the node are never released.")
+
+	flags.Duration("ipam-cloud-release-delay",
+		defaultIPAMConfig.IPAMCloudReleaseDelay,
+		"When using a cloud multi-pool IPAM mode (eni, azure, alibabacloud) with ipam-cloud-release, "+
+			"how long a CIDR has to stay unused before it is released.")
 }
 
 type ipamParams struct {
@@ -103,6 +120,9 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 	if c.OnlyMasqueradeDefaultPool && !params.AgentConfig.EnableBPFMasquerade {
 		return nil, fmt.Errorf("--only-masquerade-default-pool requires --enable-bpf-masquerade to be enabled")
 	}
+	if c.IPAMCloudReleaseDelay < 0 {
+		return nil, fmt.Errorf("--ipam-cloud-release-delay must not be negative")
+	}
 
 	cloudProviders := make(map[string]ipam.CloudProvider, len(params.CloudProviders))
 	for _, provider := range params.CloudProviders {
@@ -134,6 +154,10 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 		OnlyMasqueradeDefaultPool: c.OnlyMasqueradeDefaultPool,
 		CloudProviders:            cloudProviders,
 		MultiPoolMetrics:          params.MultiPoolMetrics,
+		CloudCIDRRelease: ipam.CIDRReleaseConfig{
+			Enabled: c.IPAMCloudRelease,
+			Delay:   c.IPAMCloudReleaseDelay,
+		},
 	})
 
 	debug.RegisterStatusObject("ipam", ipam)

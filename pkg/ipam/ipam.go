@@ -89,6 +89,10 @@ type NewIPAMParams struct {
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
 
+	// CloudCIDRRelease controls if and when cloud IPAM modes release unused
+	// CIDRs. The multi-pool IPAM mode always releases them right away.
+	CloudCIDRRelease CIDRReleaseConfig
+
 	// CloudProviders holds the registered cloud providers, keyed by the IPAM
 	// mode each one handles.
 	CloudProviders map[string]CloudProvider
@@ -117,6 +121,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		db:                        params.DB,
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
+		cloudCIDRRelease:          params.CloudCIDRRelease,
 		cloudProviders:            params.CloudProviders,
 		multiPoolMetrics:          params.MultiPoolMetrics,
 	}
@@ -144,6 +149,7 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 			LocalNodeStore:       ipam.localNodeStore,
 			CNClient:             ipam.clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             ipam.jg,
+			CIDRRelease:          ipam.cloudCIDRRelease,
 			Provider:             provider,
 		})
 		if err != nil {

@@ -9,6 +9,8 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestCIDRPoolAllowFirstAndLastIPs(t *testing.T) {
@@ -72,52 +74,74 @@ func TestCIDRPoolAllowFirstAndLastIPs(t *testing.T) {
 	})
 }
 
-// TestCIDRPoolReclaimsStillAdvertisedReleasedCIDR is a regression test for
-// the ENI multi-pool exhaustion reported in cilium/cilium#46598. When a
-// released CIDR is still advertised in the CiliumNode (e.g. the operator does
-// not physically detach it because release-excess-ips is disabled), the agent
-// must be able to reclaim it once demand grows back, instead of stranding it
-// in p.released forever and exhausting the pool until a restart.
-func TestCIDRPoolReclaimsStillAdvertisedReleasedCIDR(t *testing.T) {
+// TestCIDRPoolReleaseExcessDelay ensures an unused CIDR is only released once
+// it has stayed unused for the whole release delay.
+func TestCIDRPoolReleaseExcessDelay(t *testing.T) {
 	logger := hivetest.Logger(t)
-
-	// Delegated prefixes: first and last IPs of each /28 are allocatable.
-	pool := newCIDRPool(logger, true, true)
 
 	p1 := netip.MustParsePrefix("10.0.0.0/28")
 	p2 := netip.MustParsePrefix("10.0.0.16/28")
+	delay := time.Minute
+	start := time.Now()
 
-	// Both prefixes are attached and advertised: 32 usable IPs.
-	pool.updatePool([]netip.Prefix{p1, p2})
-	require.Equal(t, 32, pool.capacity())
+	t.Run("released once the delay has elapsed", func(t *testing.T) {
+		pool := newCIDRPool(logger, false, false)
+		pool.updatePool([]netip.Prefix{p1, p2})
+		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.1")))
 
-	// Keep p1 in use so it is retained, then drop demand so p2 is released.
-	require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.0")))
-	require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.1")))
+		// p2 is unused and in excess, but has to wait for the delay.
+		pool.releaseExcessCIDRsMultiPool(0, start, delay)
+		require.NotContains(t, pool.released, p2)
+		require.Contains(t, pool.releaseCandidates, p2)
+		require.Len(t, pool.inUseCIDRs(), 2)
 
-	// neededIPs is the number of free IPs that must remain. With near-zero
-	// demand, the unused p2 is released.
-	pool.releaseExcessCIDRsMultiPool(0)
-	require.Contains(t, pool.released, p2, "p2 should be released")
-	require.Equal(t, 14, pool.capacity(), "only p1 remains usable")
+		pool.releaseExcessCIDRsMultiPool(0, start.Add(delay-time.Second), delay)
+		require.NotContains(t, pool.released, p2)
+		require.Len(t, pool.inUseCIDRs(), 2)
 
-	// The operator does NOT detach p2 (release-excess-ips disabled), so it
-	// stays advertised. updatePool alone must not reclaim it: the release
-	// signal to the operator depends on p2 staying out of the in-use set.
-	pool.updatePool([]netip.Prefix{p1, p2})
-	require.Contains(t, pool.released, p2, "p2 stays released while merely re-advertised")
-	require.Equal(t, 14, pool.capacity())
+		pool.releaseExcessCIDRsMultiPool(0, start.Add(delay), delay)
+		require.Contains(t, pool.released, p2)
+		require.NotContains(t, pool.releaseCandidates, p2)
+		require.Len(t, pool.inUseCIDRs(), 1)
+	})
 
-	// Demand grows back beyond what p1 can satisfy. The agent must reclaim
-	// the still-advertised p2 rather than report exhaustion.
-	pool.releaseExcessCIDRsMultiPool(20)
-	require.NotContains(t, pool.released, p2, "p2 should be reclaimed")
-	require.Equal(t, 30, pool.capacity(), "p2's 16 IPs are usable again")
+	t.Run("delay restarts when the CIDR is used again", func(t *testing.T) {
+		pool := newCIDRPool(logger, false, false)
+		pool.updatePool([]netip.Prefix{p1, p2})
+		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.1")))
 
-	// p2 is back in the in-use CIDR set, so it is re-advertised to the
-	// operator as allocated, and its IPs are allocatable.
-	require.Len(t, pool.inUseCIDRs(), 2)
-	require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.16")))
+		pool.releaseExcessCIDRsMultiPool(0, start, delay)
+		require.Contains(t, pool.releaseCandidates, p2)
+
+		// A pending candidate can still be allocated from.
+		ip := netip.MustParseAddr("10.0.0.17")
+		require.NoError(t, pool.allocate(ip))
+		pool.releaseExcessCIDRsMultiPool(0, start.Add(delay/2), delay)
+		require.NotContains(t, pool.releaseCandidates, p2)
+
+		// Once unused again, the full delay applies from that point on.
+		pool.release(ip)
+		pool.releaseExcessCIDRsMultiPool(0, start.Add(delay), delay)
+		require.NotContains(t, pool.released, p2)
+		pool.releaseExcessCIDRsMultiPool(0, start.Add(delay+delay/2), delay)
+		require.NotContains(t, pool.released, p2)
+		pool.releaseExcessCIDRsMultiPool(0, start.Add(2*delay), delay)
+		require.Contains(t, pool.released, p2)
+	})
+
+	t.Run("delay restarts when the CIDR is needed again", func(t *testing.T) {
+		pool := newCIDRPool(logger, false, false)
+		pool.updatePool([]netip.Prefix{p1, p2})
+		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.1")))
+
+		pool.releaseExcessCIDRsMultiPool(0, start, delay)
+		require.Contains(t, pool.releaseCandidates, p2)
+
+		// p1 has 13 free IPs, so needing 20 keeps p2 around.
+		pool.releaseExcessCIDRsMultiPool(20, start.Add(delay), delay)
+		require.NotContains(t, pool.releaseCandidates, p2)
+		require.NotContains(t, pool.released, p2)
+	})
 }
 
 // TestCIDRPoolReleaseExcessPreservesOrder ensures releaseExcessCIDRsMultiPool
@@ -147,14 +171,14 @@ func TestCIDRPoolReleaseExcessPreservesOrder(t *testing.T) {
 	require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.33")))
 
 	// Call it twice: a single reversal would be undone by a second one.
-	pool.releaseExcessCIDRsMultiPool(0)
+	pool.releaseExcessCIDRsMultiPool(0, time.Now(), 0)
 	require.Equal(t, []netip.Prefix{p1, p2, p3}, allocatorCIDRs(pool))
-	pool.releaseExcessCIDRsMultiPool(0)
+	pool.releaseExcessCIDRsMultiPool(0, time.Now(), 0)
 	require.Equal(t, []netip.Prefix{p1, p2, p3}, allocatorCIDRs(pool))
 
 	// Releasing a CIDR from the middle keeps the others in order.
 	pool.release(netip.MustParseAddr("10.0.0.17"))
-	pool.releaseExcessCIDRsMultiPool(0)
+	pool.releaseExcessCIDRsMultiPool(0, time.Now(), 0)
 	require.Contains(t, pool.released, p2)
 	require.Equal(t, []netip.Prefix{p1, p3}, allocatorCIDRs(pool))
 }
