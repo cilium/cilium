@@ -100,8 +100,21 @@ type maglevMaps interface {
 	DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInnerKey, *MaglevInnerVal, bool)) error
 }
 
+// SockRevNatEntry is a socket-LB reverse NAT entry: the socket with the cookie is
+// connected to the backend through the frontend of the reverse NAT index, which is in
+// host byte order. The datapath keeps it in network byte order in the map.
+type SockRevNatEntry struct {
+	Cookie      uint64
+	Backend     netip.AddrPort
+	Frontend    netip.AddrPort
+	RevNatIndex uint16
+}
+
 type sockRevNatMaps interface {
-	UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error
+	UpdateSockRevNat(e SockRevNatEntry) error
+	// DumpSockRevNat calls cb for each entry of an IP family. The IPv4 destinations of
+	// IPv6 sockets are in the IPv4 entries.
+	DumpSockRevNat(ipv6 bool, cb func(SockRevNatEntry)) error
 	DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint16) error
 	ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool
 	SockRevNat() (*bpf.Map, *bpf.Map)
@@ -706,25 +719,57 @@ func (r *BPFLBMaps) DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint16
 }
 
 // UpdateSockRevNat implements LBMaps.
-func (r *BPFLBMaps) UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error {
-	if addr.Unmap().Is4() && r.sockRevNat4Map != nil {
-		key := NewSockRevNat4Key(cookie, addr, port)
-		value := SockRevNat4Value{
-			Address:     key.Address,
-			Port:        key.Port,
-			RevNatIndex: revNatIndex,
+func (r *BPFLBMaps) UpdateSockRevNat(e SockRevNatEntry) error {
+	if e.Backend.Addr().Unmap().Is4() {
+		if r.sockRevNat4Map == nil {
+			return nil
 		}
-		return r.sockRevNat4Map.Update(key, &value)
-	} else if r.sockRevNat6Map != nil {
-		key := NewSockRevNat6Key(cookie, addr, port)
-		value := SockRevNat6Value{
-			Address:     key.Address,
-			Port:        key.Port,
-			RevNatIndex: revNatIndex,
-		}
-		return r.sockRevNat6Map.Update(key, &value)
+		return r.sockRevNat4Map.Update(NewSockRevNat4Key(e.Cookie, e.Backend.Addr(), e.Backend.Port()), e.value4())
 	}
-	return nil
+	if r.sockRevNat6Map == nil {
+		return nil
+	}
+	return r.sockRevNat6Map.Update(NewSockRevNat6Key(e.Cookie, e.Backend.Addr(), e.Backend.Port()), e.value6())
+}
+
+// The datapath copies the reverse NAT index of the service, which is in network byte
+// order, into the entry and compares it as it is.
+func (e SockRevNatEntry) value4() *SockRevNat4Value {
+	v := &SockRevNat4Value{Port: byteorder.HostToNetwork16(e.Frontend.Port()), RevNatIndex: byteorder.HostToNetwork16(e.RevNatIndex)}
+	v.Address.FromAddr(e.Frontend.Addr().Unmap())
+	return v
+}
+
+func (e SockRevNatEntry) value6() *SockRevNat6Value {
+	v := &SockRevNat6Value{Port: byteorder.HostToNetwork16(e.Frontend.Port()), RevNatIndex: byteorder.HostToNetwork16(e.RevNatIndex)}
+	v.Address.FromAddr(e.Frontend.Addr())
+	return v
+}
+
+// DumpSockRevNat implements LBMaps.
+func (r *BPFLBMaps) DumpSockRevNat(ipv6 bool, cb func(SockRevNatEntry)) error {
+	if ipv6 {
+		return dumpMap(r.sockRevNat6Map, func(k *SockRevNat6Key, v *SockRevNat6Value) { cb(sockRevNatEntry6(k, v)) })
+	}
+	return dumpMap(r.sockRevNat4Map, func(k *SockRevNat4Key, v *SockRevNat4Value) { cb(sockRevNatEntry4(k, v)) })
+}
+
+func sockRevNatEntry4(k *SockRevNat4Key, v *SockRevNat4Value) SockRevNatEntry {
+	return SockRevNatEntry{
+		Cookie:      k.Cookie,
+		Backend:     netip.AddrPortFrom(k.Address.Addr(), byteorder.NetworkToHost16(k.Port)),
+		Frontend:    netip.AddrPortFrom(v.Address.Addr(), byteorder.NetworkToHost16(v.Port)),
+		RevNatIndex: byteorder.NetworkToHost16(v.RevNatIndex),
+	}
+}
+
+func sockRevNatEntry6(k *SockRevNat6Key, v *SockRevNat6Value) SockRevNatEntry {
+	return SockRevNatEntry{
+		Cookie:      k.Cookie,
+		Backend:     netip.AddrPortFrom(k.Address.Addr(), byteorder.NetworkToHost16(k.Port)),
+		Frontend:    netip.AddrPortFrom(v.Address.Addr(), byteorder.NetworkToHost16(v.Port)),
+		RevNatIndex: byteorder.NetworkToHost16(v.RevNatIndex),
+	}
 }
 
 func (r *BPFLBMaps) ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool {
@@ -824,11 +869,19 @@ func (f *FaultyLBMaps) DeleteSockRevNat(cookie uint64, addr netip.Addr, port uin
 }
 
 // UpdateSockRevNat implements LBMaps.
-func (f *FaultyLBMaps) UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error {
+func (f *FaultyLBMaps) UpdateSockRevNat(e SockRevNatEntry) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
-	return f.impl.UpdateSockRevNat(cookie, addr, port, revNatIndex)
+	return f.impl.UpdateSockRevNat(e)
+}
+
+// DumpSockRevNat implements LBMaps.
+func (f *FaultyLBMaps) DumpSockRevNat(ipv6 bool, cb func(SockRevNatEntry)) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.DumpSockRevNat(ipv6, cb)
 }
 
 // DeleteSourceRange implements lbmaps.
@@ -1210,28 +1263,11 @@ func (f *FakeLBMaps) DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint1
 }
 
 // UpdateSockRevNat implements LBMaps.
-func (f *FakeLBMaps) UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error {
-	var key bpf.MapKey
-	var value bpf.MapValue
-	if addr.Unmap().Is4() {
-		key4 := NewSockRevNat4Key(cookie, addr, port)
-		key = key4
-		value = &SockRevNat4Value{
-			Address:     key4.Address,
-			Port:        key4.Port,
-			RevNatIndex: revNatIndex,
-		}
-	} else {
-		key6 := NewSockRevNat6Key(cookie, addr, port)
-		key = key6
-		value = &SockRevNat6Value{
-			Address:     key6.Address,
-			Port:        key6.Port,
-			RevNatIndex: revNatIndex,
-		}
+func (f *FakeLBMaps) UpdateSockRevNat(e SockRevNatEntry) error {
+	if e.Backend.Addr().Unmap().Is4() {
+		return f.sockRevNat.update(NewSockRevNat4Key(e.Cookie, e.Backend.Addr(), e.Backend.Port()), e.value4())
 	}
-	f.sockRevNat.update(key, value)
-	return nil
+	return f.sockRevNat.update(NewSockRevNat6Key(e.Cookie, e.Backend.Addr(), e.Backend.Port()), e.value6())
 }
 
 func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool {
@@ -1248,6 +1284,24 @@ func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint1
 
 func (f *FakeLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
 	return nil, nil
+}
+
+// DumpSockRevNat implements LBMaps.
+func (f *FakeLBMaps) DumpSockRevNat(ipv6 bool, cb func(SockRevNatEntry)) error {
+	f.sockRevNat.Range(func(_ string, pair kvpair) bool {
+		switch k := pair.a.(type) {
+		case *SockRevNat4Key:
+			if !ipv6 {
+				cb(sockRevNatEntry4(k, pair.b.(*SockRevNat4Value)))
+			}
+		case *SockRevNat6Key:
+			if ipv6 {
+				cb(sockRevNatEntry6(k, pair.b.(*SockRevNat6Value)))
+			}
+		}
+		return true
+	})
+	return nil
 }
 
 // LookupBackend implements LBMaps.
