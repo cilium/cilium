@@ -388,7 +388,7 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	return fmt.Errorf("ENI ID %s not found", eniID)
 }
 
-func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error) {
+func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string, opts api.AttachNetworkInterfaceOptions) (string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AttachNetworkInterface)
 
@@ -411,6 +411,10 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceI
 	}
 
 	eni.Number = int(index)
+	// Like the EC2 client, only configure ENA Express when it is enabled
+	if opts.ENAExpress.Enabled {
+		eni.ENAExpress = opts.ENAExpress
+	}
 
 	e.enis[instanceID][eniID] = eni
 
