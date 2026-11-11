@@ -14,9 +14,7 @@ type clientEgressL7TlsHeaders struct{}
 func (t clientEgressL7TlsHeaders) build(ct *check.ConnectivityTest, templates map[string]string) {
 	clientEgressL7TlsHeadersTest(ct, templates, false)
 	clientEgressL7ExtraTlsHeadersTest(ct, templates)
-	if ct.Features[features.L7PortRanges].Enabled {
-		clientEgressL7TlsHeadersTest(ct, templates, true)
-	}
+	clientEgressL7TlsHeadersTest(ct, templates, true)
 }
 
 func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[string]string, portRanges bool) {
