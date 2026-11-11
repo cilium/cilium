@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/loading"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/predicates"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -56,6 +58,7 @@ type gatewayReconciler struct {
 	hostNetworkEnabled                  bool
 	hostNetworkLabel                    metav1.LabelSelector
 	gatewayAPIInferenceExtensionEnabled bool
+	resourceRegistry                    resource.Registry
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
@@ -104,6 +107,13 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		hostNetworkEnabled:                  hostNetworkEnabled,
 		hostNetworkLabel:                    hostNetworkLabel,
 		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
+		resourceRegistry: resource.NewGatewayRegistry(resource.RegistryConfig{
+			IncludeTCPRoutes:      includeTCPRoutes,
+			IncludeUDPRoutes:      includeUDPRoutes,
+			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
+			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
+			IncludeInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
+		}),
 	}
 }
 
@@ -123,6 +133,16 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	for _, resource := range r.resourceRegistry.GetResources() {
+		if resource.ShouldIndex() {
+			for indexName, indexer := range resource.GetIndexers(r.client, r.logger) {
+				if err := mgr.GetFieldIndexer().IndexField(context.Background(), resource.GetResource(), indexName, indexer); err != nil {
+					return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+				}
+			}
+		}
+	}
+
 	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.client, r.controllerName, r.logger)
 	gatewayBuilder := ctrl.NewControllerManagedBy(mgr).
 		// Watch its own resource
@@ -139,9 +159,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.client, r.logger, r.controllerName)).
 		// Watch GRPCRoute linked to Gateway
 		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForOwningGRPCRoute(r.client, r.logger, r.controllerName)).
-		// Watch TLSRoute linked to Gateway
-		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.client, r.logger, r.controllerName)).
-		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
 			watchhandlers.EnqueueRequestForTLSSecret(r.client, r.controllerName, r.logger)).
 		// Watch related namespace in allowed namespaces
@@ -160,6 +177,12 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
+
+	for _, resource := range r.resourceRegistry.GetResources() {
+		if resource.ShouldWatch() {
+			gatewayBuilder.Watches(resource.GetResource(), resource.GetWatchHandler(r.client, r.logger, r.scheme, r.controllerName))
+		}
+	}
 
 	if tcpRouteEnabled {
 		// Watch TCPRoute linked to Gateway
@@ -187,7 +210,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName)).
 			// watch shadow service owned by an InferencePool
 			Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForOwningShadowService(r.client, r.logger, r.controllerName))
-
 	}
 	return gatewayBuilder.Complete(r)
 }
