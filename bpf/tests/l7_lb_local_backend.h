@@ -6,6 +6,19 @@
 #include "common.h"
 #include "pktgen.h"
 
+/* Each variant defines, before including this file:
+ * - PER_ENDPOINT_ROUTES: 1 for the per-endpoint routes configuration, which
+ *   turns enable_bpf_routing off, or 0 for BPF routing.
+ * - FROM_CIL_TO_CONTAINER: 1 to simulate the egress policy program being tail
+ *   called from cil_to_container, or 0 for the tail call from cil_from_host.
+ */
+#if !defined(PER_ENDPOINT_ROUTES) || !defined(FROM_CIL_TO_CONTAINER)
+# error "Define PER_ENDPOINT_ROUTES and FROM_CIL_TO_CONTAINER before including this file"
+#endif
+#if FROM_CIL_TO_CONTAINER && !PER_ENDPOINT_ROUTES
+# error "cil_to_container only handles L7 LB traffic with per-endpoint routes"
+#endif
+
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
@@ -21,16 +34,20 @@
 
 #define CLIENT_EP_ID		127
 
-/* Mockup redirect, so that we track the ifindex used in ctx_redirect calls if needed. */
+/* Mockup redirect, so that we track the ifindex and the flags used in
+ * ctx_redirect calls.
+ */
 static volatile __u32 redirect_ifindex;
+static volatile __u32 redirect_flags;
 
 #define ctx_redirect mock_ctx_redirect
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex, __u32 flags __maybe_unused)
+		  int ifindex, __u32 flags)
 {
 	redirect_ifindex = (__u32)ifindex;
+	redirect_flags = flags;
 	return CTX_ACT_REDIRECT;
 }
 
@@ -62,12 +79,33 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 # include "lib/bpf_lxc.h"
 #include "lib/policy.h"
 
+/* BPF_PROG_TEST_RUN are executed with `ctx->ifindex = 1` (loopback device) as in
+ * the kernel `bpf_prog_test_run_skb()` function.
+ * (see https://github.com/torvalds/linux/blob/0257f64bdac7fdca30fa3cae0df8b9ecbec7733a/net/bpf/test_run.c#L991)
+ * When tail called from cil_from_host, the ctx sits on cilium_host: set
+ * cilium_host_ifindex to the ifindex the test run gives us, given we cannot
+ * change ctx->ifindex. To simulate the tail call from cil_to_container
+ * instead, where the ctx sits on the backend's lxc device, give cilium_host
+ * any other ifindex.
+ */
+#if FROM_CIL_TO_CONTAINER
+ASSIGN_CONFIG(__u32, cilium_host_ifindex, 2)
+#else
+ASSIGN_CONFIG(__u32, cilium_host_ifindex, 1)
+#endif
+
 ASSIGN_CONFIG(__u32, cilium_net_ifindex, 10)
 ASSIGN_CONFIG(__u32, interface_ifindex, 12)
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_l7_lb, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+
+/* Per-endpoint routes delegate routing to the stack, which turns BPF routing
+ * off for the endpoint.
+ */
+ASSIGN_CONFIG(bool, enable_endpoint_routes, PER_ENDPOINT_ROUTES)
+ASSIGN_CONFIG(bool, enable_bpf_routing, !PER_ENDPOINT_ROUTES)
 
 /* Test that a packet received from a L7LB for a local backend gets correctly handled:
  * - in case of per-endpoint routes disabled, packet tail calls from
@@ -111,6 +149,7 @@ int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
+	struct ethhdr *l2;
 
 	test_init();
 
@@ -122,11 +161,25 @@ int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
 	if (CONFIG(enable_bpf_routing)) {
 		assert(*status_code == CTX_ACT_OK);
 	} else {
 		assert(*status_code == CTX_ACT_REDIRECT);
+
+		/* Looped back out of the lxc device the ctx sits on, so that
+		 * cil_to_container sees it again with the mark cleared and
+		 * enforces ingress policy.
+		 */
 		assert(redirect_ifindex == ctx_get_ifindex(ctx));
+		assert(redirect_flags == 0);
+
+		/* With the dst MAC left alone. */
+		if (memcmp(l2->h_dest, (__u8 *)mac_host, ETH_ALEN) != 0)
+			test_fatal("dst MAC has changed");
 	}
 
 	test_finish();
@@ -167,6 +220,7 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
+	struct ethhdr *l2;
 
 	test_init();
 
@@ -178,11 +232,20 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
 	if (CONFIG(enable_bpf_routing)) {
 		assert(*status_code == CTX_ACT_OK);
 	} else {
 		assert(*status_code == CTX_ACT_REDIRECT);
+
 		assert(redirect_ifindex == ctx_get_ifindex(ctx));
+		assert(redirect_flags == 0);
+
+		if (memcmp(l2->h_dest, (__u8 *)mac_host, ETH_ALEN) != 0)
+			test_fatal("dst MAC has changed");
 	}
 
 	test_finish();
