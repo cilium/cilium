@@ -250,6 +250,10 @@ func runTool() {
 			}
 		}
 
+		if err := dumpNICStats(cmdDir); err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to read NIC statistics: %s\n", err)
+		}
+
 		defer printDisclaimer()
 		runAll(commands, cmdDir)
 

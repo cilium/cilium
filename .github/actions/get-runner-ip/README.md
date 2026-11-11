@@ -2,6 +2,8 @@
 
 This composite action fetches the runner public IP address from a provided `source` URL, parses the response (as text or JSON), validates it looks like an IP address, and returns it as an output.
 
+The fetch makes up to three attempts of 10 seconds each, 2 and 4 seconds apart, and retries network errors, timeouts, HTTP 429 and HTTP 5xx responses.
+
 ## Inputs
 
 - **`source`** (required)
