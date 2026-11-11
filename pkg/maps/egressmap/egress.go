@@ -9,5 +9,5 @@ var Cell = cell.Module(
 	"egressmaps",
 	"Egressmaps provide access to the egress gateway datapath maps",
 	cell.Config(DefaultPolicyConfig),
-	cell.Provide(createPolicyMapFromDaemonConfig),
+	cell.Provide(createPolicyMaps),
 )
