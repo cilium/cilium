@@ -144,9 +144,6 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.BackendServiceImportGRPCRouteIndex, indexers.IndexGRPCRouteByBackendServiceImport); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportGRPCRouteIndex, err)
 		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexers.BackendServiceImportTLSRouteIndex, indexers.IndexTLSRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportTLSRouteIndex, err)
-		}
 		if l.config.IncludeTCPRoutes {
 			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TCPRoute{}, indexers.BackendServiceImportTCPRouteIndex, indexers.IndexTCPRouteByBackendServiceImport); err != nil {
 				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportTCPRouteIndex, err)
@@ -165,15 +162,6 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret); err != nil {
 		return fmt.Errorf("failed to setup field indexer %q: %w", helpers.GatewaySecretIndex, err)
-	}
-
-	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(l.client, l.logger),
-		indexers.GatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
-	} {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexName, indexerFunc); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-		}
 	}
 
 	if l.config.IncludeTCPRoutes {
@@ -223,9 +211,6 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 		}
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.GRPCRouteListenerSetIndex, indexers.IndexGRPCRouteByListenerSet); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.GRPCRouteListenerSetIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexers.TLSRouteListenerSetIndex, indexers.IndexTLSRouteByListenerSet); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.TLSRouteListenerSetIndex, err)
 		}
 		if l.config.IncludeTCPRoutes {
 			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet); err != nil {
@@ -424,7 +409,6 @@ func appendBackendRef(refs backendReferenceSet, routeNamespace string, backendRe
 			Name:      helpers.ShadowServiceName(string(backendRef.Name)),
 		}] = struct{}{}
 	}
-
 }
 
 func (l *TranslationInputLoader) collectBackendReferencesFromHTTPRoutes(refs backendReferenceSet, routes []gatewayv1.HTTPRoute) {
