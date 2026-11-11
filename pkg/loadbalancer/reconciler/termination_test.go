@@ -309,6 +309,115 @@ func TestPrivilegedSocketTermination_ControlPlane_SharedBackend(t *testing.T) {
 	}
 }
 
+// Services have separate Backend rows for the same address. Deleting or marking
+// unhealthy all shared rows in one batch must produce only one termination request.
+// Reinsert the same rows, then delete or mark them unhealthy again in a later batch.
+// That batch must issue a new request, since deduplication only applies within a batch.
+func TestPrivilegedSocketTermination_ControlPlane_SharedBackendBatch(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	for _, tt := range []struct {
+		name      string
+		unhealthy bool
+	}{
+		{name: "deleted"},
+		{name: "unhealthy", unhealthy: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockDestroyer{requests: make(chan sockets.SocketFilter, 3)}
+			syncChan := make(testSyncChan)
+			db, backends := startSocketTerminationTestHive(t, true, mock, syncChan, netnsOps{
+				current: func() (*netns.NetNS, error) { return &netns.NetNS{}, nil },
+				do:      func(_ *netns.NetNS, fn func() error) error { return fn() },
+			})
+
+			var sharedAddr, markerAddr loadbalancer.L3n4Addr
+			require.NoError(t, sharedAddr.ParseFromString("1.0.0.1:80/UDP"))
+			require.NoError(t, markerAddr.ParseFromString("1.0.0.1:81/UDP"))
+			shared := make([]*loadbalancer.Backend, 2)
+			for i := range shared {
+				shared[i] = &loadbalancer.Backend{
+					ServiceName: loadbalancer.NewServiceName("test", fmt.Sprintf("service-%d", i)),
+					Address:     sharedAddr,
+					State:       loadbalancer.BackendStateActive,
+					Source:      source.Kubernetes,
+				}
+			}
+			marker := &loadbalancer.Backend{
+				ServiceName: loadbalancer.NewServiceName("test", "marker"),
+				Address:     markerAddr,
+				State:       loadbalancer.BackendStateActive,
+				Source:      source.Kubernetes,
+			}
+			insertBackends := func() {
+				wtxn := db.WriteTxn(backends)
+				defer wtxn.Abort()
+				for _, backend := range shared {
+					_, _, err := backends.Insert(wtxn, backend)
+					require.NoError(t, err)
+				}
+				_, _, err := backends.Insert(wtxn, marker)
+				require.NoError(t, err)
+				wtxn.Commit()
+			}
+			insertBackends()
+
+			select {
+			case <-syncChan:
+			case <-time.After(5 * time.Second):
+				t.Fatal("timed out waiting for initial backend changes")
+			}
+
+			// Restore live references before the second batch so it must request
+			// termination again for the same address.
+			for batch := range 2 {
+				if batch > 0 {
+					insertBackends()
+				}
+				wtxn := db.WriteTxn(backends)
+				defer wtxn.Abort()
+				for _, backend := range shared {
+					if tt.unhealthy {
+						backend = backend.Clone()
+						backend.Unhealthy = true
+						_, _, err := backends.Insert(wtxn, backend)
+						require.NoError(t, err)
+					} else {
+						_, hadOld, err := backends.Delete(wtxn, backend)
+						require.NoError(t, err)
+						require.True(t, hadOld)
+					}
+				}
+				// The marker shares the IP but uses another port, which must be processed
+				// independently. Deleting it last lets its request confirm that all
+				// preceding shared-backend changes have been processed.
+				_, hadOld, err := backends.Delete(wtxn, marker)
+				require.NoError(t, err)
+				require.True(t, hadOld)
+				wtxn.Commit()
+
+				requests := 0
+				timeout := time.After(5 * time.Second)
+			collect:
+				for {
+					select {
+					case filter := <-mock.requests:
+						require.Equal(t, sharedAddr.Addr(), filter.DestIp)
+						if filter.DestPort == markerAddr.Port() {
+							break collect
+						}
+						require.Equal(t, sharedAddr.Port(), filter.DestPort)
+						requests++
+					case <-timeout:
+						t.Fatal("timed out waiting for the marker's socket termination request")
+					}
+				}
+				require.Equal(t, 1, requests, "shared backend must be terminated once in batch %d", batch+1)
+			}
+		})
+	}
+}
+
 type mockDestroyer struct {
 	requests chan sockets.SocketFilter
 }
