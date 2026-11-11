@@ -462,6 +462,7 @@ init
 initContainer
 initContainers
 initialDelaySeconds
+injective
 inlined
 inlines
 inlining

@@ -34,11 +34,11 @@ notes carefully below to understand what to do during upgrade.
   As a result, if you were previously using ``TLSRoute``, you *must* install the Experimental
   version of the ``TLSRoute`` resource from Gateway API v1.6.1, which still includes the ``v1alpha2``
   version of the CRD.
-  
+
   If you install the v1.6 Standard version of the ``TLSRoute`` resource,
   any existing ``TLSRoute`` objects *will not be able to be read by the apiserver from etcd*,
   and will effectively *disappear* from your cluster.
-  
+
   Please backup your ``TLSRoute`` resources and ensure that Gateway API is upgraded to v1.6.1 before
   upgrading Cilium to v1.20. See :ref:`gs_gateway_api` for installation instructions.
 * In Cilium v1.20.0 - v1.20.4, ``--use-cilium-internal-ip-for-ipsec`` was silently
@@ -123,9 +123,17 @@ The following options have been introduced in this version of Cilium:
   in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
   but may change in future releases.
 
+
 * ``gatewayAPI.inferenceExtention`` config option has been introduced. If enabled, Cilium
   Gateway API will be installed with Gateway API Inference Extension enabled. This is currently
   in beta.
+
+* Gateway API installation now creates the ``CiliumEnvoyExtProcFilter`` CRD. The
+  ``gatewayAPI.enableExtensionRefFilters`` Helm value (default: ``false``) permits HTTPRoute
+  and GRPCRoute resources to reference it and inject ``ext_proc`` filters into the Envoy HTTP
+  filter chain. Cilium does not expose Envoy's fail-open option. No action is required for
+  existing clusters because Route references are disabled by default.
+
 
 Changed Options
 ###############
