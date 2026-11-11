@@ -87,6 +87,19 @@ each Cilium agent instance.
    WireGuard might get fragmented, which can lead to a network performance
    degradation.
 
+.. note::
+
+   When WireGuard and DNS proxy transparent mode are enabled, Cilium reserves the
+   WireGuard port to prevent pods from using it as an ephemeral source port.
+   This behavior is controlled by the ``container-ip-local-reserved-ports`` flag,
+   which defaults to ``auto``. The reservation takes effect during pod network
+   setup. Workload pods that were already running when WireGuard was enabled
+   must be restarted for the reservation to take effect.
+
+   This flag does not reserve ports in the host network namespace. If another
+   application binds the WireGuard port before Cilium starts, Cilium may
+   fail to start because the port is already in use.
+
 
 Validate the Setup
 ==================
