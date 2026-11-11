@@ -102,6 +102,16 @@ func TestIsTransientError(t *testing.T) {
 	}
 }
 
+func TestSessionTicketSecretInvalidInterval(t *testing.T) {
+	err := initGatewayAPIController(gatewayAPIParams{
+		Preconditions: &gatewayAPIPreconditions{Enabled: true},
+		GatewayApiConfig: gatewayApiConfig{
+			GatewayAPISessionTicketRotationInterval: -time.Second,
+		},
+	})
+	require.ErrorContains(t, err, "gateway-api-session-ticket-rotation-interval must not be negative")
+}
+
 // makeGatewayCRD creates an apiextensions CRD object matching what checkCRD expects.
 func makeGatewayCRD(gvk schema.GroupVersionKind) *apiextensionsv1.CustomResourceDefinition {
 	return &apiextensionsv1.CustomResourceDefinition{

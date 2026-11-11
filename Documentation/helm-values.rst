@@ -2048,6 +2048,10 @@
      - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
+   * - :spelling:ignore:`gatewayAPI.sessionTicketKeyRotationInterval`
+     - Rotation interval for operator-managed shared TLS session ticket keys. Set a positive duration (for example, 1h) to enable cross-Envoy session resumption. Zero disables shared keys.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`gatewayAPI.useRemoteAddress`
      - Configure whether to use the remote address of the client when determining the source IP. When enabled, the source IP is determined from the remote address instead of the proxy protocol header.
      - bool
