@@ -11,11 +11,12 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/identity"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
@@ -445,21 +446,17 @@ func parseEndpointID(mapPath string) (uint16, error) {
 	return 0, fmt.Errorf("malformed policy map name %q (missing '_')", mapPath)
 }
 
-func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMap) (*policyMap, error) {
-	path := bpf.LocalMapPath(logger, MapName, id)
-	mapType := ebpf.LPMTrie
-	flags := bpf.GetMapMemoryFlags(mapType)
-	flags |= unix.BPF_F_RDONLY_PROG
+func newPolicyMap(id uint16, mapRegistry *mapregistry.MapRegistry,
+	stats *StatsMap) (*policyMap, error) {
+	m, err := bpf.NewMapFromRegistry(mapRegistry, maps.CiliumPolicy, &PolicyKey{}, &PolicyEntry{})
+	if err != nil {
+		return nil, fmt.Errorf("pull map from registry: %w", err)
+	}
+
+	m.WithName(bpf.LocalMapName(MapName, id)).WithGroupName("endpoint_policy")
 
 	return &policyMap{
-		Map: bpf.NewMap(
-			path,
-			mapType,
-			&PolicyKey{},
-			&PolicyEntry{},
-			maxEntries,
-			flags,
-		).WithGroupName("endpoint_policy"),
+		Map:   m,
 		stats: stats,
 		epID:  id,
 	}, nil

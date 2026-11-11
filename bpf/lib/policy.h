@@ -168,7 +168,7 @@ struct {
 	__type(key, struct policy_key);
 	__type(value, struct policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_policy __section_maps_btf;
 

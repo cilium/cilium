@@ -401,6 +401,13 @@ func (m *Map) WithEvents(c option.BPFEventBufferConfig) *Map {
 	return m
 }
 
+// WithName sets the map name and returns the map itself.
+func (m *Map) WithName(name string) *Map {
+	m.name = name
+	m.spec.Name = name
+	return m
+}
+
 func (m *Map) WithGroupName(group string) *Map {
 	m.group = group
 	return m

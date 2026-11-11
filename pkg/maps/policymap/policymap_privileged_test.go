@@ -4,16 +4,20 @@
 package policymap
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -27,6 +31,25 @@ const (
 func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
 	m, _ := newStatsMap(maxStatsEntries, slog.Default())
 	return m, m.OpenOrCreate()
+}
+
+// newTestRegistry returns a started MapRegistry with the cilium_policy map
+// configured the way the agent does it.
+func newTestRegistry(tb testing.TB, maxEntries int) *registry.MapRegistry {
+	var reg *registry.MapRegistry
+	h := hive.New(
+		registry.Cell,
+		cell.Invoke(func(r *registry.MapRegistry) error {
+			reg = r
+			return configurePolicyMap(r, newFactory(nil, r, nil, maxEntries))
+		}),
+	)
+
+	logger := hivetest.Logger(tb)
+	require.NoError(tb, h.Start(logger, context.TODO()))
+	tb.Cleanup(func() { require.NoError(tb, h.Stop(logger, context.TODO())) })
+
+	return reg
 }
 
 func setupPolicyMapPrivilegedTestSuite(tb testing.TB) PolicyMap {
@@ -43,7 +66,7 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) PolicyMap {
 	require.NoError(tb, err)
 	require.NotNil(tb, stats)
 
-	testMap, err := newPolicyMap(logger, 0, testMapSize, stats)
+	testMap, err := newPolicyMap(0, newTestRegistry(tb, testMapSize), stats)
 	require.NoError(tb, err)
 	require.NotNil(tb, testMap)
 
