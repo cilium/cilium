@@ -15,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -42,32 +41,11 @@ func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
 
 	namespaceLabels := helpers.NewNamespaceLabelIndex(namespaces)
 
-	candidateNamespaces := sets.New[string](source.Namespace)
-	for _, namespace := range namespaces {
-		candidateNamespaces.Insert(namespace.GetName())
-	}
-
 	for _, listener := range input.Gateway.Spec.Listeners {
-		var allowedNamespaces map[string]struct{}
-		allowedRoutes := listener.AllowedRoutes
-
-		if allowedRoutes == nil || allowedRoutes.Namespaces == nil ||
-			allowedRoutes.Namespaces.From == nil ||
-			*allowedRoutes.Namespaces.From != gatewayv1.NamespacesFromAll {
-
-			allowedNamespaces = make(map[string]struct{})
-			for namespace := range candidateNamespaces {
-				if helpers.IsListenerNamespaceAllowed(listener, namespace, source.Namespace, namespaceLabels) {
-					allowedNamespaces[namespace] = struct{}{}
-				}
-			}
-
-		}
-
 		input.MergedListeners = append(input.MergedListeners, ListenerWithContext{
-			Listener:          listener,
-			Source:            source,
-			AllowedNamespaces: allowedNamespaces,
+			Listener:        listener,
+			Source:          source,
+			NamespaceLabels: namespaceLabels,
 		})
 	}
 }
