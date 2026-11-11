@@ -21,6 +21,7 @@ import (
 	api "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 	confv1a1 "sigs.k8s.io/network-policy-api/conformance/apis/v1alpha1"
 	"sigs.k8s.io/network-policy-api/conformance/tests"
+	confutils "sigs.k8s.io/network-policy-api/conformance/utils/config"
 	"sigs.k8s.io/network-policy-api/conformance/utils/flags"
 	"sigs.k8s.io/network-policy-api/conformance/utils/suite"
 
@@ -30,6 +31,7 @@ import (
 var (
 	skipTestsFlag            = flag.String("skip-tests", "", "Comma-separated list of tests to skip")
 	experimentalFeaturesFlag = flag.Bool("experimental-features", false, "Whether to enable experimental features for conformance tests")
+	pokeTimeoutFlag          = flag.Duration("poke-timeout", 0, "Maximum time to wait for a connectivity check to report the expected result (0 uses the upstream default)")
 )
 
 func preflightCheck(t *testing.T, clientSet kubernetes.Interface, supportedFeatures sets.Set[suite.SupportedFeature]) {
@@ -140,6 +142,7 @@ func TestConformance(t *testing.T) {
 		ExemptFeatures:             exemptFeatures,
 		EnableAllSupportedFeatures: *flags.EnableAllSupportedFeatures,
 		SkipTests:                  skipTests,
+		TimeoutConfig:              confutils.TimeoutConfig{PokeTimeout: *pokeTimeoutFlag},
 	}
 
 	if conformanceProfiles.Len() > 0 {

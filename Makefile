@@ -699,7 +699,14 @@ mcs-api-conformance: ## Run MCS-API conformance tests.
 
 KCNP_CONFORMANCE_TEST_NAME ?= TestConformance
 KCNP_EXPERIMENTAL ?= false
-KCNP_TEST_FLAGS ?= $(if $(filter true,$(KCNP_EXPERIMENTAL)),--experimental-features)
+# The PodSelector tests select pods by the statefulset.kubernetes.io/pod-name
+# label, which Cilium excludes from security identities by default.
+KCNP_SKIP_TESTS ?= CNPAdminTierPodSelector,CNPBaselineTierPodSelector
+# Allow for identity allocation and policy regeneration after label changes.
+KCNP_POKE_TIMEOUT ?= 20s
+KCNP_TEST_FLAGS ?= $(if $(filter true,$(KCNP_EXPERIMENTAL)),--experimental-features) \
+	$(if $(KCNP_SKIP_TESTS),--skip-tests=$(KCNP_SKIP_TESTS)) \
+	$(if $(KCNP_POKE_TIMEOUT),--poke-timeout=$(KCNP_POKE_TIMEOUT))
 kcnp-conformance: ## Run kCNP conformance tests.
 	@$(ECHO_CHECK) running kCNP conformance tests...
 	KCNP_CONFORMANCE_TESTS=1 \

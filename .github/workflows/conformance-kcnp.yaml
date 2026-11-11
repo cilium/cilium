@@ -148,13 +148,16 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
           # Enable SCTP, node selector labels, policyCIDRMatchMode=pods,
-          # and set identity-max-jitter=2s to ensure quick identity allocation during rapid churn
+          # and set identity-max-jitter=2s to ensure quick identity allocation during rapid churn.
+          # Disable the identity change grace period so that pod label changes take effect
+          # within the conformance suite's connectivity check timeout.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=sctp.enabled=true \
             --helm-set=nodeSelectorLabels=true \
             --helm-set=policyCIDRMatchMode=pods \
-            --helm-set=extraConfig.identity-max-jitter=2s"
+            --helm-set=extraConfig.identity-max-jitter=2s \
+            --helm-set=identityChangeGracePeriod=0s"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
