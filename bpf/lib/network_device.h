@@ -18,18 +18,13 @@ struct device_state {
 	__u32 pad3;
 };
 
-/* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike
- * bpf_skb_store_bytes) does not accept MEM_RDONLY pointers, so map values
- * passed to eth_store_saddr_aligned in XDP programs would be rejected by the
- * verifier.
- */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u32);
 	__type(value, struct device_state);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 512);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_devices __section_maps_btf;
 
 static __always_inline const struct device_state *

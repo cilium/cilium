@@ -179,7 +179,7 @@ func NewBackend4Map(maxEntries int) *bpf.Map {
 		&Backend4KeyV3{},
 		&Backend4ValueV3{},
 		maxEntries,
-		0,
+		unix.BPF_F_RDONLY_PROG,
 	)
 }
 
@@ -190,7 +190,7 @@ func NewBackend6Map(maxEntries int) *bpf.Map {
 		&Backend6KeyV3{},
 		&Backend6ValueV3{},
 		maxEntries,
-		0,
+		unix.BPF_F_RDONLY_PROG,
 	)
 }
 
@@ -201,7 +201,7 @@ func NewRevNat4Map(maxEntries int) *bpf.Map {
 		&RevNat4Key{},
 		&RevNat4Value{},
 		maxEntries,
-		0,
+		unix.BPF_F_RDONLY_PROG,
 	)
 }
 
@@ -212,7 +212,7 @@ func NewRevNat6Map(maxEntries int) *bpf.Map {
 		&RevNat6Key{},
 		&RevNat6Value{},
 		maxEntries,
-		0,
+		unix.BPF_F_RDONLY_PROG,
 	)
 }
 

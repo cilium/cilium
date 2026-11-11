@@ -179,17 +179,13 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
-/* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike
- * bpf_skb_store_bytes) does not accept MEM_RDONLY pointers, so map values
- * passed to ctx_store_bytes in XDP programs would be rejected by the verifier.
- */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
 	__type(value, struct lb6_reverse_nat);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb6_reverse_nat __section_maps_btf;
 
 struct {
@@ -201,17 +197,13 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb6_services_v2 __section_maps_btf;
 
-/* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike
- * bpf_skb_store_bytes) does not accept MEM_RDONLY pointers, so map values
- * passed to ctx_store_bytes in XDP programs would be rejected by the verifier.
- */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u32);
 	__type(value, struct lb6_backend);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb6_backends_v3 __section_maps_btf;
 
 struct {
@@ -259,17 +251,13 @@ struct {
 } cilium_lb6_maglev __section_maps_btf;
 #endif /* OVERWRITE_MAGLEV_MAP_FROM_TEST */
 
-/* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike
- * bpf_skb_store_bytes) does not accept MEM_RDONLY pointers, so map values
- * passed to ctx_store_bytes in XDP programs would be rejected by the verifier.
- */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
 	__type(value, struct lb4_reverse_nat);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb4_reverse_nat __section_maps_btf;
 
 struct {
@@ -281,17 +269,13 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb4_services_v2 __section_maps_btf;
 
-/* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike
- * bpf_skb_store_bytes) does not accept MEM_RDONLY pointers, so map values
- * passed to ctx_store_bytes in XDP programs would be rejected by the verifier.
- */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u32);
 	__type(value, struct lb4_backend);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb4_backends_v3 __section_maps_btf;
 
 struct {

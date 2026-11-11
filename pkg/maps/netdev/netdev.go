@@ -38,7 +38,7 @@ func newNetDevMap() *netDevMap {
 			&index,
 			&DeviceState{},
 			512,
-			unix.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
 		),
 	}
 }
