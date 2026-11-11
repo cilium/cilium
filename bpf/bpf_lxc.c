@@ -680,7 +680,8 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (CONFIG(enable_identity_mark))
 		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 
-	if (CONFIG(enable_bpf_routing) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
+	if (CONFIG(enable_bpf_routing) || hairpin_flow || from_l7lb ||
+	    CONFIG(enable_bpf_host_routing)) {
 		const struct endpoint_info *ep;
 		union v6addr daddr;
 
@@ -704,7 +705,8 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		ep = __lookup_ip6_endpoint(&daddr);
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
-			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing))) {
+			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing) ||
+			     from_l7lb)) {
 				if (CONFIG(enable_bpf_routing) &&
 				    CONFIG(enable_host_firewall) &&
 				    dst_sec_identity == HOST_ID)
@@ -1143,8 +1145,17 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * packet up the stack for the host itself. We also want to run through
 	 * the ipv4_local_delivery() function to enforce ingress policies for
 	 * that endpoint.
+	 *
+	 * L7 LB traffic is looked up as well. With per-endpoint routes, its
+	 * egress policy program is tail called from cil_to_container for a
+	 * local backend, and from cil_to_netdev for a remote one. The lookup
+	 * delivers the former to the lxc device the ctx already sits on, so
+	 * that it re-enters cil_to_container with the mark cleared, as with the
+	 * redirect_self() at pass_to_stack. It misses for the latter, which
+	 * continues at pass_to_stack.
 	 */
-	if (CONFIG(enable_bpf_routing) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
+	if (CONFIG(enable_bpf_routing) || hairpin_flow || from_l7lb ||
+	    CONFIG(enable_bpf_host_routing)) {
 		__be32 daddr = ip4->daddr;
 		const struct endpoint_info *ep;
 
@@ -1168,7 +1179,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		ep = __lookup_ip4_endpoint(daddr);
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
-			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing))) {
+			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing) ||
+			     from_l7lb)) {
 				if (CONFIG(enable_bpf_routing) &&
 				    CONFIG(enable_host_firewall) &&
 				    dst_sec_identity == HOST_ID)
