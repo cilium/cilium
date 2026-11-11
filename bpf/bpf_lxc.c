@@ -1171,13 +1171,17 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * the ipv4_local_delivery() function to enforce ingress policies for
 	 * that endpoint.
 	 *
-	 * L7 LB traffic is looked up as well. With per-endpoint routes, its
-	 * egress policy program is tail called from cil_to_container for a
-	 * local backend, and from cil_to_netdev for a remote one. The lookup
-	 * delivers the former to the lxc device the ctx already sits on, so
-	 * that it re-enters cil_to_container with the mark cleared, as with the
-	 * redirect_self() at pass_to_stack. It misses for the latter, which
-	 * continues at pass_to_stack.
+	 * L7 LB traffic is normally tail called here from cil_from_host, ie.
+	 * the ctx sits on cilium_host's egress hook rather than on the device
+	 * the packet is leaving by. Look the endpoint up for it as well, so
+	 * that a local backend is delivered here instead of falling through to
+	 * pass_to_stack, which cannot forward it from cilium_host. While the
+	 * MARK_MAGIC_PROXY_EGRESS_EPID ip rule is not in place yet, it is tail
+	 * called from the fallbacks in cil_to_container and cil_to_netdev
+	 * instead: the lookup delivers a local backend the same way, and
+	 * misses for a remote one, which continues at pass_to_stack.
+	 *
+	 * TODO: Remove in v1.22, together with those fallbacks.
 	 */
 	if (CONFIG(enable_bpf_routing) || hairpin_flow || from_l7lb ||
 	    CONFIG(enable_bpf_host_routing)) {
@@ -1336,17 +1340,21 @@ pass_to_stack:
 	 * host. How it continues depends on which hook `cil_lxc_policy_egress`
 	 * was tail called from.
 	 *
-	 * From cil_from_host, returning CTX_ACT_OK on cilium_host's egress hook
-	 * would transmit the packet into the cilium_host/cilium_net veth pair
-	 * rather than route it, so hairpin it into cilium_host's ingress hook
-	 * instead and let the stack route it. Going through the stack also keeps
-	 * the ip rules that select an egress device by source address - the
-	 * per-ENI rules on AWS, for one - which a FIB lookup here would not
-	 * consult.
+	 * Normally that is cil_from_host. Returning CTX_ACT_OK on cilium_host's
+	 * egress hook would transmit the packet into the cilium_host/cilium_net
+	 * veth pair rather than route it, so hairpin it into cilium_host's
+	 * ingress hook instead and let the stack route it. Going through the
+	 * stack also keeps the ip rules that select an egress device by source
+	 * address - the per-ENI rules on AWS, for one - which a FIB lookup here
+	 * would not consult.
 	 *
-	 * From cil_to_container or cil_to_netdev, the ctx already sits on the
-	 * device the packet is leaving by, so loop it back out of that device,
-	 * where the hook sees it again with the mark cleared.
+	 * While the MARK_MAGIC_PROXY_EGRESS_EPID ip rule is not in place yet, it
+	 * is the fallback in cil_to_container or cil_to_netdev instead. The ctx
+	 * then already sits on the device the packet is leaving by, so loop it
+	 * back out of that device, where the hook sees it again with the mark
+	 * cleared.
+	 *
+	 * TODO: Remove in v1.22, together with the redirect_self() call below.
 	 */
 	if (!CONFIG(enable_bpf_routing) && from_l7lb) {
 		if (ctx_get_ifindex(ctx) == CONFIG(cilium_host_ifindex))
@@ -2536,6 +2544,25 @@ int cil_to_container(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
+	/* Fallback for when the MARK_MAGIC_PROXY_EGRESS_EPID ip rule is missing
+	 * and a per-endpoint route steers L7 LB traffic straight at the backend's
+	 * lxc device instead of into cilium_host. See the equivalent block in
+	 * cil_to_netdev(), and note that inherit_identity_from_host() below has
+	 * no case for this mark: without this block the source endpoint's egress
+	 * policy would be skipped and ingress policy evaluated against WORLD_ID
+	 * rather than the client's identity.
+	 *
+	 * Entering the egress policy program from here is equivalent to entering
+	 * it from cil_from_host: the endpoint lookup opened for from_l7lb finds
+	 * the backend and calls ipv{4,6}_local_delivery(), which ends in
+	 * redirect_ep(ctx, ep->ifindex). As cil_to_container sits on that same
+	 * lxc device's egress hook, the packet re-enters here with the mark
+	 * cleared, as with the redirect_self() taken at pass_to_stack, and
+	 * ingress policy is enforced.
+	 *
+	 * TODO: Remove in v1.22. The rule is installed since v1.21, and upgrades
+	 * are only supported from the previous minor release.
+	 */
 	if (CONFIG(enable_l7_lb) &&
 	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u16 lxc_id = get_epid(ctx);
