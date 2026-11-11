@@ -34,6 +34,14 @@
 
 #define CLIENT_EP_ID		127
 
+/* The local backend, only populated in the endpoint map by the local delivery
+ * tests. A separate client port keeps them from sharing a CT entry with the
+ * tests above.
+ */
+#define BACKEND_EP_ID		128
+#define BACKEND_IFINDEX		25
+#define LOCAL_CLIENT_PORT	tcp_src_two
+
 /* Mockup redirect, so that we track the ifindex and the flags used in
  * ctx_redirect calls.
  */
@@ -77,6 +85,7 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 }
 
 # include "lib/bpf_lxc.h"
+#include "lib/endpoint.h"
 #include "lib/policy.h"
 
 /* BPF_PROG_TEST_RUN are executed with `ctx->ifindex = 1` (loopback device) as in
@@ -251,3 +260,133 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+#if PER_ENDPOINT_ROUTES
+/* With per-endpoint routes and without BPF host routing, the endpoint lookup
+ * in ipv{4,6}_forward_to_destination() is only done for L7 LB traffic
+ * (from_l7lb): other pod traffic is left to the stack's per-endpoint route.
+ * Check that L7 LB traffic to a backend in the endpoint map is redirected to
+ * the backend's lxc device. tc_redirect_lxc covers the same delivery, but only
+ * with BPF host routing enabled.
+ */
+PKTGEN(PROG_TYPE, "l7_lb_local_backend_delivery_v4")
+int l7_lb_local_backend_delivery_v4_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_host,
+					  CLIENT_IP, BACKEND_IP,
+					  LOCAL_CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "l7_lb_local_backend_delivery_v4")
+int l7_lb_local_backend_delivery_v4_setup(struct __ctx_buff *ctx)
+{
+	/* We need this to allow the packet proceeding. */
+	policy_add_egress_allow_all_entry();
+
+	/* The backend is a local endpoint on this node. */
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, BACKEND_EP_ID, 0, 0, 0,
+			      (const __u8 *)mac_two, (const __u8 *)mac_three);
+
+	/* Simulate hitting the codepath. */
+	return tail_call_egress_policy(ctx, CLIENT_EP_ID);
+}
+
+CHECK(PROG_TYPE, "l7_lb_local_backend_delivery_v4")
+int l7_lb_local_backend_delivery_v4_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	/* Delivered to the backend's lxc device, not to cilium_host. */
+	assert(redirect_ifindex == BACKEND_IFINDEX);
+	assert(redirect_flags == 0);
+
+	test_finish();
+}
+
+/* See IPv4 test for comments. */
+PKTGEN(PROG_TYPE, "l7_lb_local_backend_delivery_v6")
+int l7_lb_local_backend_delivery_v6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_host,
+					  (__u8 *)CLIENT_IP6, (__u8 *)BACKEND_IP6,
+					  LOCAL_CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "l7_lb_local_backend_delivery_v6")
+int l7_lb_local_backend_delivery_v6_setup(struct __ctx_buff *ctx)
+{
+	/* We need this to allow the packet proceeding. */
+	policy_add_egress_allow_all_entry();
+
+	/* The backend is a local endpoint on this node. */
+	endpoint_v6_add_entry((const union v6addr *)BACKEND_IP6, BACKEND_IFINDEX,
+			      BACKEND_EP_ID, 0, 0,
+			      (const __u8 *)mac_two, (const __u8 *)mac_three);
+
+	/* Simulate hitting the codepath. */
+	return tail_call_egress_policy(ctx, CLIENT_EP_ID);
+}
+
+CHECK(PROG_TYPE, "l7_lb_local_backend_delivery_v6")
+int l7_lb_local_backend_delivery_v6_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	endpoint_v6_del_entry((const union v6addr *)BACKEND_IP6);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	assert(redirect_ifindex == BACKEND_IFINDEX);
+	assert(redirect_flags == 0);
+
+	test_finish();
+}
+#endif /* PER_ENDPOINT_ROUTES */
