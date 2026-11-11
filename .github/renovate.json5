@@ -598,6 +598,17 @@
       ],
       "allowedVersions": "24.04"
     },
+    {
+      // iptables debs built on Ubuntu 26.04 do not install on the 24.04 runtime image.
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/cilium/iptables"
+      ],
+      "matchBaseBranches": [
+        "v1.19",
+        "v1.18"
+      ]
+    },
     // Toolchain ceilings for v1.20, which targets Go 1.26. golangci-lint is
     // compiled with the Go toolchain the branch installs, so raising the branch's
     // Go version means raising both entries of its bucket.
