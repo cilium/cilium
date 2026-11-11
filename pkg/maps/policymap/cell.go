@@ -8,12 +8,16 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -22,6 +26,7 @@ var Cell = cell.Module(
 	"Policymap provides access to the datapath policy maps",
 	cell.Config(DefaultPolicyConfig),
 	cell.Provide(createFactory),
+	cell.Invoke(configurePolicyMap),
 )
 
 type PolicyConfig struct {
@@ -58,7 +63,9 @@ type Factory interface {
 }
 
 type factory struct {
-	logger *slog.Logger
+	logger      *slog.Logger
+	mapRegistry *mapregistry.MapRegistry
+
 	// policyMapEntries is the upper limit of entries in the per endpoint policy
 	// table ie the maximum number of peer identities that the endpoint could
 	// send/receive traffic to/from.
@@ -67,9 +74,11 @@ type factory struct {
 	stats *StatsMap
 }
 
-func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *factory {
+func newFactory(logger *slog.Logger, mapRegistry *mapregistry.MapRegistry, stats *StatsMap,
+	policyMapEntries int) Factory {
 	return &factory{
 		logger:           logger,
+		mapRegistry:      mapRegistry,
 		policyMapEntries: policyMapEntries,
 		stats:            stats,
 	}
@@ -79,7 +88,7 @@ func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *fac
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
 func (f *factory) OpenEndpoint(id uint16) (PolicyMap, error) {
-	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
+	m, err := newPolicyMap(id, f.mapRegistry, f.stats)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +119,9 @@ func (f *factory) StatsMaxEntries() int {
 type createFactoryParams struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Log       *slog.Logger
+	Lifecycle   cell.Lifecycle
+	Log         *slog.Logger
+	MapRegistry *mapregistry.MapRegistry
 	PolicyConfig
 }
 
@@ -154,10 +164,9 @@ func createFactory(in createFactoryParams) (out struct {
 			logfields.Entries, maxStatsEntries)
 	}
 
-	out.Factory = Factory(newFactory(in.Log, m, in.BpfPolicyMapMax))
+	out.Factory = newFactory(in.Log, in.MapRegistry, m, in.BpfPolicyMapMax)
 
 	out.NodeDefines = map[string]string{
-		"POLICY_MAP_SIZE":       fmt.Sprint(in.BpfPolicyMapMax),
 		"POLICY_STATS_MAP_SIZE": fmt.Sprint(maxStatsEntries),
 	}
 
@@ -176,4 +185,17 @@ func createFactory(in createFactoryParams) (out struct {
 
 	out.MapOut = bpf.NewMapOut(m)
 	return
+}
+
+func configurePolicyMap(reg *mapregistry.MapRegistry, factory Factory) error {
+	flags := bpf.GetMapMemoryFlags(ebpf.LPMTrie) | unix.BPF_F_RDONLY_PROG
+	maxEntries := uint32(factory.PolicyMaxEntries())
+	if err := reg.Modify(maps.CiliumPolicy, func(patch *mapregistry.MapSpecPatch) {
+		patch.Flags = flags
+		patch.MaxEntries = maxEntries
+	}); err != nil {
+		return fmt.Errorf("error setting %s map flags and max entries: %w",
+			maps.CiliumPolicy, err)
+	}
+	return nil
 }
