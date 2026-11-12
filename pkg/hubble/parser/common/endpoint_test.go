@@ -12,7 +12,7 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -24,7 +24,7 @@ func TestResolveEndpointPodMetadata(t *testing.T) {
 
 	t.Run("local endpoint", func(t *testing.T) {
 		endpointGetter := &testutils.FakeEndpointGetter{
-			OnGetEndpointInfo: func(netip.Addr) (getters.EndpointInfo, bool) {
+			OnGetEndpointInfo: func(netip.Addr) (resolverTypes.EndpointInfo, bool) {
 				return &testutils.FakeEndpointInfo{PodUID: "local-pod-uid"}, true
 			},
 		}
@@ -37,7 +37,7 @@ func TestResolveEndpointPodMetadata(t *testing.T) {
 
 	t.Run("local endpoint Pod fallback", func(t *testing.T) {
 		endpointGetter := &testutils.FakeEndpointGetter{
-			OnGetEndpointInfo: func(netip.Addr) (getters.EndpointInfo, bool) {
+			OnGetEndpointInfo: func(netip.Addr) (resolverTypes.EndpointInfo, bool) {
 				return &testutils.FakeEndpointInfo{Pod: &slim_corev1.Pod{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						UID: k8sTypes.UID("cached-pod-uid"),

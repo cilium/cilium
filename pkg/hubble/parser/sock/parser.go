@@ -11,8 +11,8 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -22,12 +22,12 @@ import (
 // Parser is a parser for SockTraceNotify payloads
 type Parser struct {
 	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	cgroupGetter   getters.PodMetadataGetter
+	endpointGetter resolverTypes.EndpointGetter
+	identityGetter resolverTypes.IdentityGetter
+	dnsGetter      resolverTypes.DNSGetter
+	ipGetter       resolverTypes.IPGetter
+	serviceGetter  resolverTypes.ServiceGetter
+	cgroupGetter   resolverTypes.PodMetadataGetter
 	epResolver     *common.EndpointResolver
 
 	traceSockNotifyDecoder options.TraceSockNotifyDecoderFunc
@@ -37,12 +37,12 @@ type Parser struct {
 
 // New creates a new parser
 func New(log *slog.Logger,
-	endpointGetter getters.EndpointGetter,
-	identityGetter getters.IdentityGetter,
-	dnsGetter getters.DNSGetter,
-	ipGetter getters.IPGetter,
-	serviceGetter getters.ServiceGetter,
-	cgroupGetter getters.PodMetadataGetter,
+	endpointGetter resolverTypes.EndpointGetter,
+	identityGetter resolverTypes.IdentityGetter,
+	dnsGetter resolverTypes.DNSGetter,
+	ipGetter resolverTypes.IPGetter,
+	serviceGetter resolverTypes.ServiceGetter,
+	cgroupGetter resolverTypes.PodMetadataGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 	args := &options.Options{

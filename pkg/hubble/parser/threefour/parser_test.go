@@ -28,8 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -69,7 +69,7 @@ var (
 	fooBarLabel           = labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
 	remotePolicyKey       = policy.EgressKey().WithIdentity(remoteID)
 	defaultEndpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == localIP {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
@@ -297,7 +297,7 @@ func TestL34Decode(t *testing.T) {
 		98, 0, 90, 176, 97, 0, 0}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr("10.16.236.178") {
 				return &testutils.FakeEndpointInfo{
 					ID:           1234,
@@ -426,7 +426,7 @@ func TestL34Decode(t *testing.T) {
 		0, 0, 0, 0, 0}
 
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr("ff02::1:ff00:b3e5") {
 				return &testutils.FakeEndpointInfo{
 					ID: 1234,
@@ -840,13 +840,13 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr(localIP) {
 				return ep, true
 			}
 			return nil, false
 		},
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -969,13 +969,13 @@ func TestNetworkPolicyCorrelationDisabled(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr(localIP) {
 				return ep, true
 			}
 			return nil, false
 		},
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -1191,7 +1191,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
 	policyKey := policy.EgressKey().WithIdentity(remoteID)
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == localIP {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
@@ -1715,7 +1715,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			return ep, true
 		},
 	}
@@ -2870,10 +2870,10 @@ func TestDecode_PolicyVerdictNotifyHostEndpoint(t *testing.T) {
 			}
 
 			endpointGetter := &testutils.FakeEndpointGetter{
-				OnGetEndpointInfo: func(netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+				OnGetEndpointInfo: func(netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 					return nil, false
 				},
-				OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+				OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 					if id == hostEP {
 						return hostEPInfo, true
 					}
