@@ -252,7 +252,6 @@ jobs:
     # Same runner as the legs, so the key describes the packages they install.
     runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 20
-    continue-on-error: true
     outputs:
       dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
     steps:
