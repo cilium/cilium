@@ -47,7 +47,7 @@ struct {
 	__type(key, struct egress_gw_policy_key);
 	__type(value, struct egress_gw_policy_entry_v2);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_egress_gw_policy_v4_v2 __section_maps_btf;
 
@@ -56,7 +56,7 @@ struct {
 	__type(key, struct egress_gw_policy_key6);
 	__type(value, struct egress_gw_policy_entry6);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_egress_gw_policy_v6 __section_maps_btf;
 
