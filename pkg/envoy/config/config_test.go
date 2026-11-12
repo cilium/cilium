@@ -6,6 +6,7 @@ package config
 import (
 	"testing"
 
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,14 +23,29 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 			wantMode: EnvoyXDSModeSplit,
 		},
 		{
+			name:     "delta split mode",
+			mode:     EnvoyXDSModeDeltaSplit,
+			wantMode: EnvoyXDSModeDeltaSplit,
+		},
+		{
 			name:     "ADS mode",
 			mode:     EnvoyXDSModeADS,
 			wantMode: EnvoyXDSModeADS,
 		},
 		{
+			name:     "delta ADS mode",
+			mode:     EnvoyXDSModeDeltaADS,
+			wantMode: EnvoyXDSModeDeltaADS,
+		},
+		{
 			name:     "strict ADS alias",
 			mode:     EnvoyXDSModeStrictADS,
 			wantMode: EnvoyXDSModeADS,
+		},
+		{
+			name:    "strict delta ADS mode",
+			mode:    EnvoyXDSModeStrictDeltaADS,
+			wantErr: true,
 		},
 		{
 			name:    "unknown mode",
@@ -57,10 +73,28 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 }
 
 func TestEnvoyXDSModeHelpers(t *testing.T) {
-	require.False(t, XDSMode("").IsADS())
-	require.False(t, EnvoyXDSModeSplit.IsADS())
+	tests := []struct {
+		mode       XDSMode
+		isADS      bool
+		isDelta    bool
+		isDeltaADS bool
+		apiType    envoy_config_core.ApiConfigSource_ApiType
+	}{
+		{mode: "", apiType: envoy_config_core.ApiConfigSource_GRPC},
+		{mode: EnvoyXDSModeSplit, apiType: envoy_config_core.ApiConfigSource_GRPC},
+		{mode: EnvoyXDSModeDeltaSplit, isDelta: true, apiType: envoy_config_core.ApiConfigSource_DELTA_GRPC},
+		{mode: EnvoyXDSModeADS, isADS: true, apiType: envoy_config_core.ApiConfigSource_AGGREGATED_GRPC},
+		{mode: EnvoyXDSModeDeltaADS, isADS: true, isDelta: true, isDeltaADS: true, apiType: envoy_config_core.ApiConfigSource_AGGREGATED_DELTA_GRPC},
+		{mode: EnvoyXDSModeStrictADS, isADS: true, apiType: envoy_config_core.ApiConfigSource_AGGREGATED_GRPC},
+		{mode: EnvoyXDSModeStrictDeltaADS, isADS: true, isDelta: true, isDeltaADS: true, apiType: envoy_config_core.ApiConfigSource_AGGREGATED_DELTA_GRPC},
+	}
 
-	require.True(t, EnvoyXDSModeADS.IsADS())
-
-	require.True(t, EnvoyXDSModeStrictADS.IsADS())
+	for _, tt := range tests {
+		t.Run(tt.mode.String(), func(t *testing.T) {
+			require.Equal(t, tt.isADS, tt.mode.IsADS())
+			require.Equal(t, tt.isDelta, tt.mode.IsDelta())
+			require.Equal(t, tt.isDeltaADS, tt.mode.IsDeltaADS())
+			require.Equal(t, tt.apiType, tt.mode.EnvoyApiType())
+		})
+	}
 }
