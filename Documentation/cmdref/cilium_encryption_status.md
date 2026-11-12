@@ -15,12 +15,12 @@ cilium encryption status [flags]
 ### Options
 
 ```
-      --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
-  -h, --help                        help for status
-      --node string                 Node from which encryption status will be fetched, omit to select all nodes
-  -o, --output string               Output format. One of: json, summary (default "summary")
-      --per-node-details            Encryption status will be displayed for each cluster node separately
-      --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)
+      --agent-pod-selector string       Label on cilium-agent pods to select with (default "k8s-app=cilium")
+  -h, --help[=true|false]               help for status
+      --node string                     Node from which encryption status will be fetched, omit to select all nodes
+  -o, --output string                   Output format. One of: json, summary (default "summary")
+      --per-node-details[=true|false]   Encryption status will be displayed for each cluster node separately
+      --wait-duration duration          Maximum time to wait for result, default 1 minute (default 1m0s)
 ```
 
 ### Options inherited from parent commands

@@ -13,7 +13,7 @@ cilium clustermesh disconnect [flags]
 ```
       --connection-mode string        Connection mode: unicast, bidirectional or mesh (default "bidirectional")
       --destination-context strings   Comma separated list of Kubernetes configuration contexts of destination cluster
-  -h, --help                          help for disconnect
+  -h, --help[=true|false]             help for disconnect
 ```
 
 ### Options inherited from parent commands

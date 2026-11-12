@@ -11,10 +11,10 @@ cilium-operator-generic troubleshoot kvstore [flags]
 ### Options
 
 ```
-      --etcd-config string           Path to the etcd configuration (default "/var/lib/etcd-config/etcd.config")
-  -h, --help                         help for kvstore
-      --timeout duration             Timeout when checking connectivity to the kvstore (default 5s)
-      --without-service-resolution   Disable k8s service to IP resolution through the k8s client
+      --etcd-config string                        Path to the etcd configuration (default "/var/lib/etcd-config/etcd.config")
+  -h, --help[=true|false]                         help for kvstore
+      --timeout duration                          Timeout when checking connectivity to the kvstore (default 5s)
+      --without-service-resolution[=true|false]   Disable k8s service to IP resolution through the k8s client
 ```
 
 ### SEE ALSO

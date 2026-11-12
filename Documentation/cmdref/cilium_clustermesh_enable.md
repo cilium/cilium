@@ -11,9 +11,9 @@ cilium clustermesh enable [flags]
 ### Options
 
 ```
-      --enable-kvstoremesh    Enable kvstoremesh, an extension which caches remote cluster information in the local kvstore. KVStoreMesh is unconditionally enabled starting from Cilium v1.21 (default true)
-  -h, --help                  help for enable
-      --service-type string   Type of Kubernetes service to expose control plane { LoadBalancer | NodePort }
+      --enable-kvstoremesh[=true|false]   Enable kvstoremesh, an extension which caches remote cluster information in the local kvstore. KVStoreMesh is unconditionally enabled starting from Cilium v1.21 (default true)
+  -h, --help[=true|false]                 help for enable
+      --service-type string               Type of Kubernetes service to expose control plane { LoadBalancer | NodePort }
 ```
 
 ### Options inherited from parent commands

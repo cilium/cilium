@@ -11,11 +11,11 @@ clustermesh-apiserver kvstoremesh-dbg troubleshoot [clusters...] [flags]
 ### Options
 
 ```
-      --clustermesh-config string   Path to the ClusterMesh configuration directory (default "/var/lib/cilium/clustermesh/")
-      --etcd-config string          Path to the etcd configuration (default "/var/lib/cilium/etcd-config.yaml")
-  -h, --help                        help for troubleshoot
-      --include-local               Additionally troubleshoot connectivity to the local etcd instance
-      --timeout duration            Timeout when checking connectivity to a given etcd kvstore (default 5s)
+      --clustermesh-config string    Path to the ClusterMesh configuration directory (default "/var/lib/cilium/clustermesh/")
+      --etcd-config string           Path to the etcd configuration (default "/var/lib/cilium/etcd-config.yaml")
+  -h, --help[=true|false]            help for troubleshoot
+      --include-local[=true|false]   Additionally troubleshoot connectivity to the local etcd instance
+      --timeout duration             Timeout when checking connectivity to a given etcd kvstore (default 5s)
 ```
 
 ### Options inherited from parent commands

@@ -38,8 +38,8 @@ cilium-dbg bpf stats report [flags]
 
 ```
       --device strings           Filter by device name(s) (e.g. host, eth0, cilium_wg0)
-  -h, --help                     help for report
-      --json                     Output report in JSON
+  -h, --help[=true|false]        help for report
+      --json[=true|false]        Output report in JSON
   -o, --output string            json| yaml| jsonpath='{}'
       --pod strings              Filter by pod name(s)
       --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
@@ -50,7 +50,7 @@ cilium-dbg bpf stats report [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

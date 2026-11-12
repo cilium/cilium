@@ -87,6 +87,11 @@ import (
 //	From https://tools.ietf.org/rfc/rfc5880.txt
 const bfdMinimumRecordSizeInBytes int = 24
 
+// bfdKeyedAuthSeqEnd is the offset behind the sequence number of a keyed
+// MD5/SHA1 authentication section, counted from the reserved byte that
+// follows the key id: 1 reserved + 4 sequence number.
+const bfdKeyedAuthSeqEnd = 5
+
 // BFDVersion represents the version as decoded from the BFD control message
 type BFDVersion uint8
 
@@ -330,6 +335,8 @@ func decodeBFD(data []byte, p gopacket.PacketBuilder) error {
 // and returns nil.
 // Upon failure, it returns an error (non nil).
 func (d *BFD) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*d = BFD{}
 
 	// If the data block is too short to be a BFD record, then return an error.
 	if len(data) < bfdMinimumRecordSizeInBytes {
@@ -337,10 +344,18 @@ func (d *BFD) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		return errors.New("BFD packet too short")
 	}
 
-	pLen := uint8(data[3])
-	if len(data) != int(pLen) {
+	// RFC 5880 section 6.8.6 discards a packet only if the Length field is
+	// below the minimum or greater than the payload of the encapsulating
+	// protocol. Bytes after Length are not part of the BFD packet.
+	pLen := int(data[3])
+	if pLen < bfdMinimumRecordSizeInBytes {
+		return errors.New("BFD packet length too small")
+	}
+	if pLen > len(data) {
+		df.SetTruncated()
 		return errors.New("BFD packet length does not match")
 	}
+	data = data[:pLen]
 
 	// BFD type embeds type BaseLayer which contains two fields:
 	//    Contents is supposed to contain the bytes of the data at this level.
@@ -385,13 +400,15 @@ func (d *BFD) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		switch d.AuthHeader.AuthType {
 		case BFDAuthTypePassword:
 			d.AuthHeader.Data = BFDAuthData(data)
-		case BFDAuthTypeKeyedMD5, BFDAuthTypeMeticulousKeyedMD5:
+		case BFDAuthTypeKeyedMD5, BFDAuthTypeMeticulousKeyedMD5,
+			BFDAuthTypeKeyedSHA1, BFDAuthTypeMeticulousKeyedSHA1:
+			// the length guard above only covers the type, length and key id
+			if len(data) < bfdKeyedAuthSeqEnd {
+				df.SetTruncated()
+				return errors.New("BFD authentication section too short")
+			}
 			// Skipped reserved byte
-			data, d.AuthHeader.SequenceNumber = data[5:], BFDAuthSequenceNumber(binary.BigEndian.Uint32(data[1:5]))
-			d.AuthHeader.Data = BFDAuthData(data)
-		case BFDAuthTypeKeyedSHA1, BFDAuthTypeMeticulousKeyedSHA1:
-			// Skipped reserved byte
-			data, d.AuthHeader.SequenceNumber = data[5:], BFDAuthSequenceNumber(binary.BigEndian.Uint32(data[1:5]))
+			data, d.AuthHeader.SequenceNumber = data[bfdKeyedAuthSeqEnd:], BFDAuthSequenceNumber(binary.BigEndian.Uint32(data[1:bfdKeyedAuthSeqEnd]))
 			d.AuthHeader.Data = BFDAuthData(data)
 		}
 	}
@@ -403,6 +420,13 @@ func (d *BFD) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 // SerializationBuffer, implementing gopacket.SerializableLayer.
 // See the docs for gopacket.SerializableLayer for more info.
 func (d *BFD) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	// BFDAuthHeader.Length() is 0 for an authentication type this layer does
+	// not know how to encode. DecodeFromBytes accepts such packets, so refuse
+	// them here before anything is written to the buffer.
+	if d.AuthPresent && (d.AuthHeader != nil) && d.AuthHeader.Length() == 0 {
+		return errors.New("BFD authentication type not supported")
+	}
+
 	data, err := b.PrependBytes(bfdMinimumRecordSizeInBytes)
 	if err != nil {
 		return err

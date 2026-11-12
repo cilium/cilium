@@ -7,7 +7,7 @@ Manage multicast groups
 ### Options
 
 ```
-  -h, --help   help for multicast
+  -h, --help[=true|false]   help for multicast
 ```
 
 ### Options inherited from parent commands

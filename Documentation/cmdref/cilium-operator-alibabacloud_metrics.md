@@ -7,7 +7,7 @@ Access metric status of the operator
 ### Options
 
 ```
-  -h, --help   help for metrics
+  -h, --help[=true|false]   help for metrics
 ```
 
 ### SEE ALSO

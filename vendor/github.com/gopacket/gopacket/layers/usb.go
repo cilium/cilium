@@ -144,6 +144,9 @@ func decodeUSB(data []byte, p gopacket.PacketBuilder) error {
 }
 
 func (m *USB) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*m = USB{}
+
 	if len(data) < 40 {
 		df.SetTruncated()
 		return errors.New("USB < 40 bytes")
@@ -182,7 +185,13 @@ func (m *USB) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if m.Setup {
 		m.Payload = data[40:]
 	} else if m.Data {
-		m.Payload = data[uint32(len(data))-m.UrbDataLength:]
+		// A data length past the record is not backed by bytes, so keep the
+		// default payload. The offset used to wrap when it exceeded the record.
+		if uint64(m.UrbDataLength) > uint64(len(data)) {
+			df.SetTruncated()
+		} else {
+			m.Payload = data[len(data)-int(m.UrbDataLength):]
+		}
 	}
 
 	// if 64 bit, dissect_linux_usb_pseudo_header_ext

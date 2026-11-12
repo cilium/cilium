@@ -17,19 +17,19 @@ cilium bpf ipcache update 10.244.3.110/32 --tunnelendpoint 172.21.0.2 --identity
 ### Options
 
 ```
-      --clusterid uint16        Cluster ID
-      --encryptkey uint8        Encrypt key
-  -h, --help                    help for update
-      --identity uint32         Identity
-      --skiptunnel              Skip tunnel
-      --tunnelendpoint string   Tunnel endpoint
+      --clusterid uint16          Cluster ID
+      --encryptkey uint8          Encrypt key
+  -h, --help[=true|false]         help for update
+      --identity uint32           Identity
+      --skiptunnel[=true|false]   Skip tunnel
+      --tunnelendpoint string     Tunnel endpoint
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

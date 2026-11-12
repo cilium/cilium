@@ -54,6 +54,12 @@ func decodeWithSCTPChunkTypePrefix(data []byte, p gopacket.PacketBuilder) error 
 		return errors.New("invalid SCTP chunk length")
 	}
 	chunkType := SCTPChunkType(data[0])
+	if SCTPChunkTypeMetadata[chunkType].DecodeWith == nil {
+		// A chunk type we have no decoder for still carries its length, so
+		// skip over it and keep decoding the chunks bundled behind it
+		// (RFC 9260 3.2) instead of failing the rest of the packet.
+		return decodeSCTPChunkTypeUnknown(data, p)
+	}
 	return chunkType.Decode(data, p)
 }
 
@@ -364,7 +370,9 @@ func decodeSCTPData(data []byte, p gopacket.PacketBuilder) error {
 	if err != nil {
 		return err
 	}
-	l := chunk.ActualLength
+	// The user data ends at Length; the bytes up to ActualLength are chunk
+	// padding, which the receiver discards (RFC 9260 3.3.1).
+	l := int(chunk.Length)
 	sc := &SCTPData{
 		SCTPChunk:       chunk,
 		Unordered:       data[1]&0x4 != 0,
@@ -414,6 +422,8 @@ func (sc SCTPData) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Seriali
 	binary.BigEndian.PutUint16(bytes[10:12], sc.StreamSequence)
 	binary.BigEndian.PutUint32(bytes[12:16], uint32(sc.PayloadProtocol))
 	copy(bytes[16:], payload)
+	// Zero the padding rather than leave what the buffer held before.
+	clear(bytes[16+len(payload):])
 	return nil
 }
 
@@ -611,7 +621,11 @@ func decodeSCTPHeartbeat(data []byte, p gopacket.PacketBuilder) error {
 	for len(paramData) > 0 {
 		param, err := decodeSCTPParameter(paramData)
 		if err != nil {
-			return err
+			// The chunk length is valid, so the chunks bundled behind this
+			// one can still be found. Receivers echo the heartbeat body
+			// without parsing it, so a malformed parameter must not hide
+			// them.
+			break
 		}
 		paramData = nextSCTPParameter(paramData, param)
 		sc.Parameters = append(sc.Parameters, SCTPHeartbeatParameter(param))

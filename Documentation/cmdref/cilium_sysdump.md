@@ -27,12 +27,12 @@ cilium sysdump [flags]
       --clustermesh-generate-certs-label-selector string   The labels used to target the Cluster Mesh generate certs pods (default "k8s-app=clustermesh-apiserver-generate-certs")
       --cni-config-directory string                        Directory where CNI configs are located (default "/etc/cni/net.d/")
       --cni-configmap-name string                          The name of the CNI config map (default "cni-configuration")
-      --collect-logs-from-not-ready-agents                 Whether to collect logs from not ready Cilium agent pods (default true)
+      --collect-logs-from-not-ready-agents[=true|false]    Whether to collect logs from not ready Cilium agent pods (default true)
       --copy-retry-limit int                               Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection. (default 100)
-      --debug                                              Whether to enable debug logging
-      --detect-gops-pid                                    Whether to automatically detect the gops agent PID.
+      --debug[=true|false]                                 Whether to enable debug logging
+      --detect-gops-pid[=true|false]                       Whether to automatically detect the gops agent PID.
       --extra-label-selectors stringArray                  Optional set of labels selectors used to target additional pods for log collection.
-  -h, --help                                               help for sysdump
+  -h, --help[=true|false]                                  help for sysdump
       --hubble-flows-count int                             Number of Hubble flows to collect. Setting to zero disables collecting Hubble flows. (default 10000)
       --hubble-flows-timeout duration                      Timeout for collecting Hubble flows (default 5s)
       --hubble-generate-certs-labels string                The labels used to target Hubble UI pods (default "k8s-app=hubble-generate-certs")
@@ -44,13 +44,13 @@ cilium sysdump [flags]
       --node-list string                                   Comma-separated list of node IPs or names to filter pods for which to collect gops and logs
       --output-filename string                             The name of the resulting file (without extension)
                                                            '<ts>' can be used as the placeholder for the timestamp (default "cilium-sysdump-<ts>")
-      --profiling                                          Whether to enable scraping profiling data (default true)
-      --quick                                              Whether to enable quick mode (i.e. skip collection of 'cilium-bugtool' output and logs)
+      --profiling[=true|false]                             Whether to enable scraping profiling data (default true)
+      --quick[=true|false]                                 Whether to enable quick mode (i.e. skip collection of 'cilium-bugtool' output and logs)
       --tetragon-helm-release-name string                  The Tetragon Helm release name for which to get values.
       --tetragon-label-selector string                     The labels used to target Tetragon pods (default "app.kubernetes.io/name=tetragon")
       --tetragon-namespace string                          The namespace Tetragon is running in (default "kube-system")
       --tetragon-operator-label-selector string            The labels used to target Tetragon operator pods (default "app.kubernetes.io/name=tetragon-operator")
-      --tracing                                            Whether to enable scraping tracing data
+      --tracing[=true|false]                               Whether to enable scraping tracing data
       --worker-count int                                   The number of workers to use
                                                            NOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards. Defaults to the number of available CPUs. (default 20)
 ```

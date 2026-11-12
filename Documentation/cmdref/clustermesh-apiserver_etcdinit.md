@@ -11,14 +11,14 @@ clustermesh-apiserver etcdinit [flags]
 ### Options
 
 ```
-      --cluster-name string                 Name of the Cilium cluster, used to set the username of the admin user in etcd. This is distinct from the etcd cluster's name. (default "default")
-      --debug                               Debug log output.
-      --etcd-cluster-name string            Name of the etcd cluster. Must match what etcd is later started with. (default "clustermesh-apiserver")
-      --etcd-create-shared-remote-user      Create the shared remote etcd user. (default true)
-      --etcd-data-dir string                Etcd data directory. Should have read/write permissions here. (default "/var/run/etcd")
-      --etcd-initial-cluster-token string   Etcd initial cluster token. Used to prevent accidentally joining other etcd clusters that are reachable on the same L2 network domain. (default "clustermesh-apiserver")
-  -h, --help                                help for etcdinit
-      --timeout duration                    How long to wait for operations before exiting. (default 2m0s)
+      --cluster-name string                           Name of the Cilium cluster, used to set the username of the admin user in etcd. This is distinct from the etcd cluster's name. (default "default")
+      --debug[=true|false]                            Debug log output.
+      --etcd-cluster-name string                      Name of the etcd cluster. Must match what etcd is later started with. (default "clustermesh-apiserver")
+      --etcd-create-shared-remote-user[=true|false]   Create the shared remote etcd user. (default true)
+      --etcd-data-dir string                          Etcd data directory. Should have read/write permissions here. (default "/var/run/etcd")
+      --etcd-initial-cluster-token string             Etcd initial cluster token. Used to prevent accidentally joining other etcd clusters that are reachable on the same L2 network domain. (default "clustermesh-apiserver")
+  -h, --help[=true|false]                             help for etcdinit
+      --timeout duration                              How long to wait for operations before exiting. (default 2m0s)
 ```
 
 ### SEE ALSO

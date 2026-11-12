@@ -11,17 +11,17 @@ cilium-dbg ip list [flags]
 ### Options
 
 ```
-  -h, --help            help for list
-  -n, --numeric         Print numeric identities
-  -o, --output string   json| yaml| jsonpath='{}'
-  -v, --verbose         Print all fields of ipcache
+  -h, --help[=true|false]      help for list
+  -n, --numeric[=true|false]   Print numeric identities
+  -o, --output string          json| yaml| jsonpath='{}'
+  -v, --verbose[=true|false]   Print all fields of ipcache
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

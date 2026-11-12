@@ -133,6 +133,11 @@ func (sdf SFlowSourceFormat) String() string {
 }
 
 func decodeSFlow(data []byte, p gopacket.PacketBuilder) error {
+	// A sampled sFlow datagram nested too deep is left as payload, see
+	// sflowHeaderDecoder.
+	if h, sampled := p.(*sflowHeaderDecoder); sampled && h.depth > maxSampledSFlowDepth {
+		return gopacket.LayerTypePayload.Decode(data, p)
+	}
 	s := &SFlowDatagram{}
 	err := s.DecodeFromBytes(data, p)
 	if err != nil {
@@ -300,7 +305,16 @@ func (s SFlowIPType) Length() int {
 }
 
 func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*s = SFlowDatagram{}
+
 	var agentAddressType SFlowIPType
+
+	// a sampled datagram's own sampled packets are one level deeper
+	depth := 0
+	if h, sampled := df.(*sflowHeaderDecoder); sampled {
+		depth = h.depth
+	}
 
 	if len(data) < 8 {
 		df.SetTruncated()
@@ -329,9 +343,10 @@ func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 		}
 		sdf := SFlowDataFormat(binary.BigEndian.Uint32(data[:4]))
 		_, sampleType := sdf.decode()
+		sampleStart := data
 		switch sampleType {
 		case SFlowTypeFlowSample:
-			if flowSample, err := decodeFlowSample(&data, false); err == nil {
+			if flowSample, err := decodeFlowSample(&data, false, depth); err == nil {
 				s.FlowSamples = append(s.FlowSamples, flowSample)
 			} else {
 				return err
@@ -343,7 +358,7 @@ func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 				return err
 			}
 		case SFlowTypeExpandedFlowSample:
-			if flowSample, err := decodeFlowSample(&data, true); err == nil {
+			if flowSample, err := decodeFlowSample(&data, true, depth); err == nil {
 				s.FlowSamples = append(s.FlowSamples, flowSample)
 			} else {
 				return err
@@ -358,6 +373,10 @@ func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 		default:
 			return fmt.Errorf("Unsupported SFlow sample type %d", sampleType)
 		}
+
+		// the next sample starts where this one's length says, not where
+		// its last record ended
+		sflowSkipDeclared(&data, sampleStart)
 	}
 	return nil
 }
@@ -489,6 +508,32 @@ func sflowPadded(data *[]byte, n uint32, what string) (int, error) {
 	return padded, nil
 }
 
+// sflowOpaqueHeaderLen is the size of the format and length words in front
+// of every sample and record.
+const sflowOpaqueHeaderLen = 8
+
+// sflowSkipDeclared moves data from where the decoder of the sample or
+// record at start stopped to the end that its length word declares, when
+// that end lies further on and inside the datagram. Decoding goes by
+// content because real agents declare lengths that disagree with it, so a
+// length that is shorter than what was consumed, or runs past the
+// datagram, leaves the cursor where the decoder left it.
+//
+//	start: | format | length |  content decoded  | padding | next ...
+//	                                             ^ data    ^ 8 + length
+func sflowSkipDeclared(data *[]byte, start []byte) {
+	if len(start) < sflowOpaqueHeaderLen {
+		return
+	}
+	end := uint64(sflowOpaqueHeaderLen) + uint64(binary.BigEndian.Uint32(start[4:8]))
+	consumed := uint64(len(start) - len(*data))
+	if end <= consumed || end > uint64(len(start)) {
+		return
+	}
+
+	*data = start[end:]
+}
+
 func skipRecord(data *[]byte) {
 	if len(*data) < 8 {
 		*data = (*data)[:0]
@@ -503,7 +548,7 @@ func skipRecord(data *[]byte) {
 	*data = (*data)[skip:]
 }
 
-func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
+func decodeFlowSample(data *[]byte, expanded bool, depth int) (SFlowFlowSample, error) {
 	s := SFlowFlowSample{}
 	var sdf SFlowDataFormat
 	if err := sflowNeed(data, 4, "FlowSample"); err != nil {
@@ -588,6 +633,7 @@ func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 		}
 		rdf := SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 		enterpriseID, flowRecordType := rdf.decode()
+		recordStart := *data
 
 		// Try to decode when EnterpriseID is 0 signaling
 		// default sflow structs are used according specification
@@ -595,7 +641,7 @@ func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 		if enterpriseID == 0 {
 			switch flowRecordType {
 			case SFlowTypeRawPacketFlow:
-				if record, err := decodeRawPacketFlowRecord(data); err == nil {
+				if record, err := decodeRawPacketFlowRecord(data, depth); err == nil {
 					s.Records = append(s.Records, record)
 				} else {
 					return s, err
@@ -730,6 +776,9 @@ func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 		} else {
 			skipRecord(data)
 		}
+
+		// the next record starts where this one's length says
+		sflowSkipDeclared(data, recordStart)
 	}
 	return s, nil
 }
@@ -866,6 +915,7 @@ func decodeCounterSample(data *[]byte, expanded bool) (SFlowCounterSample, error
 		}
 		cdf := SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 		_, counterRecordType := cdf.decode()
+		recordStart := *data
 		switch counterRecordType {
 		case SFlowTypeGenericInterfaceCounters:
 			if record, err := decodeGenericInterfaceCounters(data); err == nil {
@@ -930,6 +980,9 @@ func decodeCounterSample(data *[]byte, expanded bool) (SFlowCounterSample, error
 		default:
 			return s, fmt.Errorf("Invalid counter record type: %d", counterRecordType)
 		}
+
+		// the next record starts where this one's length says
+		sflowSkipDeclared(data, recordStart)
 	}
 	return s, nil
 }
@@ -1041,7 +1094,9 @@ func (rt SFlowFlowRecordType) String() string {
 //
 // The raw packet header is sent back into gopacket for
 // decoding, and the resulting gopackt.Packet is stored
-// in the Header member
+// in the Header member. Sampled sFlow datagrams are decoded
+// up to maxSampledSFlowDepth levels deep; past that, the
+// datagram is the gopacket.Payload of Header.
 type SFlowRawPacketFlowRecord struct {
 	SFlowBaseFlowRecord
 	HeaderProtocol SFlowRawHeaderProtocol
@@ -1125,7 +1180,41 @@ func (sfhp SFlowRawHeaderProtocol) String() string {
 	return "UNKNOWN"
 }
 
-func decodeRawPacketFlowRecord(data *[]byte) (SFlowRawPacketFlowRecord, error) {
+// sflowHeaderDecoder decodes the sampled packet of a raw packet record. It
+// wraps the PacketBuilder of that decode so that every decoder in the chain
+// sees it, which is how decodeSFlow can tell that it is being handed a
+// sampled sFlow datagram, and how deep. Past maxSampledSFlowDepth such a
+// datagram is not decoded: each raw packet record starts a fresh decode on a
+// copy of its sampled packet, so a datagram that samples sFlow traffic would
+// otherwise nest as deep, and hold as many copies, as the packet bytes dictate.
+type sflowHeaderDecoder struct {
+	gopacket.PacketBuilder
+	next gopacket.Decoder
+	// depth is 1 for the packet sampled by a datagram, 2 for one sampled by
+	// a datagram in that packet, and so on.
+	depth int
+}
+
+// maxSampledSFlowDepth is how many levels of sampled sFlow datagrams are
+// decoded. Real agents sample sFlow traffic at most a level or two deep.
+const maxSampledSFlowDepth = 4
+
+func (d *sflowHeaderDecoder) Decode(data []byte, p gopacket.PacketBuilder) error {
+	d.PacketBuilder = p
+	return d.next.Decode(data, d)
+}
+
+// NextDecoder re-wraps the next decoder so that it, too, is called with the
+// sflowHeaderDecoder as its PacketBuilder.
+func (d *sflowHeaderDecoder) NextDecoder(next gopacket.Decoder) error {
+	if next == nil {
+		return d.PacketBuilder.NextDecoder(nil)
+	}
+	d.next = next
+	return d.PacketBuilder.NextDecoder(d)
+}
+
+func decodeRawPacketFlowRecord(data *[]byte, depth int) (SFlowRawPacketFlowRecord, error) {
 	rec := SFlowRawPacketFlowRecord{}
 	header := []byte{}
 	var fdf SFlowFlowDataFormat
@@ -1145,7 +1234,7 @@ func decodeRawPacketFlowRecord(data *[]byte) (SFlowRawPacketFlowRecord, error) {
 		return SFlowRawPacketFlowRecord{}, err
 	}
 	*data, header = (*data)[headerLenWithPadding:], (*data)[:headerLenWithPadding]
-	rec.Header = gopacket.NewPacket(header, LayerTypeEthernet, gopacket.Default)
+	rec.Header = gopacket.NewPacket(header, &sflowHeaderDecoder{next: LayerTypeEthernet, depth: depth + 1}, gopacket.Default)
 	return rec, nil
 }
 

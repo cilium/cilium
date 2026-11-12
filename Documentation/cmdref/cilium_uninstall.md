@@ -11,10 +11,10 @@ cilium uninstall [flags]
 ### Options
 
 ```
-  -h, --help                    help for uninstall
+  -h, --help[=true|false]       help for uninstall
       --test-namespace string   Namespace to uninstall Cilium tests from (default "cilium-test")
       --timeout duration        Maximum time to wait for resources to be deleted (default 5m0s)
-      --wait                    Wait for uninstallation to have completed
+      --wait[=true|false]       Wait for uninstallation to have completed
 ```
 
 ### Options inherited from parent commands

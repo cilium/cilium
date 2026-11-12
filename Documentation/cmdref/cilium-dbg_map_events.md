@@ -17,16 +17,16 @@ cilium map events cilium_ipcache
 ### Options
 
 ```
-  -f, --follow          If set then events will be streamed
-  -h, --help            help for events
-  -o, --output string   json| yaml| jsonpath='{}'
+  -f, --follow[=true|false]   If set then events will be streamed
+  -h, --help[=true|false]     help for events
+  -o, --output string         json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

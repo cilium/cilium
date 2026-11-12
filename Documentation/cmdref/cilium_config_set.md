@@ -11,8 +11,8 @@ cilium config set [flags]
 ### Options
 
 ```
-  -h, --help      help for set
-  -r, --restart   Restart Cilium pods (default true)
+  -h, --help[=true|false]      help for set
+  -r, --restart[=true|false]   Restart Cilium pods (default true)
 ```
 
 ### Options inherited from parent commands

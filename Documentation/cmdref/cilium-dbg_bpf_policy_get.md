@@ -11,17 +11,17 @@ cilium-dbg bpf policy get [flags]
 ### Options
 
 ```
-      --all             Dump all policy maps
-  -h, --help            help for get
-  -n, --numeric         Do not resolve IDs
-  -o, --output string   json| yaml| jsonpath='{}'
+      --all[=true|false]       Dump all policy maps
+  -h, --help[=true|false]      help for get
+  -n, --numeric[=true|false]   Do not resolve IDs
+  -o, --output string          json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

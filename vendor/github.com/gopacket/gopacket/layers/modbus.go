@@ -209,8 +209,30 @@ func decodeModbus(data []byte, p gopacket.PacketBuilder) error {
 		p.SetTruncated()
 		return ErrModbusDataTooSmall
 	}
+
+	// A segment may carry several ADUs back to back, each ending where its
+	// MBAP length says. Give each its own layer, in a loop rather than through
+	// NextDecoder so a large reassembled buffer does not cost a stack frame
+	// per ADU. NextLayerType stays LayerTypeZero: a DecodingLayerParser holds
+	// one Modbus value and keeps reporting the first ADU, as it always did.
 	modbus := &Modbus{}
-	return decodingLayerDecoder(modbus, data, p)
+	if err := modbus.DecodeFromBytes(data, p); err != nil {
+		return err
+	}
+	p.AddLayer(modbus)
+
+	// An ADU cut short by segmentation stays the previous layer's payload,
+	// as it always was: it is not an error and does not mark the packet
+	// truncated, so its decode feedback goes nowhere.
+	for len(modbus.Payload) > 0 {
+		next := &Modbus{}
+		if err := next.DecodeFromBytes(modbus.Payload, gopacket.NilDecodeFeedback); err != nil {
+			break
+		}
+		p.AddLayer(next)
+		modbus = next
+	}
+	return nil
 }
 
 // Validate checks if the Modbus packet is valid according to the protocol specification

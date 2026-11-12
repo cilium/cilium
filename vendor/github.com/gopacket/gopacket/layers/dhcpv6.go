@@ -93,6 +93,7 @@ func (d *DHCPv6) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 	}
 	d.BaseLayer = BaseLayer{Contents: data}
 	d.Options = d.Options[:0]
+	d.HopCount, d.LinkAddr, d.PeerAddr, d.TransactionID = 0, nil, nil, nil
 	d.MsgType = DHCPv6MsgType(data[0])
 
 	offset := 0
@@ -152,12 +153,16 @@ func (d *DHCPv6) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 
 	offset := 0
 	data[0] = byte(d.MsgType)
+	// PrependBytes does not zero, and the copies below may be shorter than
+	// their fixed-width fields.
 	if d.MsgType == DHCPv6MsgTypeRelayForward || d.MsgType == DHCPv6MsgTypeRelayReply {
 		data[1] = byte(d.HopCount)
+		copy(data[2:34], lotsOfZeros[:])
 		copy(data[2:18], d.LinkAddr.To16())
 		copy(data[18:34], d.PeerAddr.To16())
 		offset = 34
 	} else {
+		copy(data[1:4], lotsOfZeros[:])
 		copy(data[1:4], d.TransactionID)
 		offset = 4
 	}
@@ -267,12 +272,16 @@ type DHCPv6DUID struct {
 
 // DecodeFromBytes decodes the given bytes into a DHCPv6DUID
 func (d *DHCPv6DUID) DecodeFromBytes(data []byte) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*d = DHCPv6DUID{}
+
 	if len(data) < 2 {
 		return fmt.Errorf("Not enough bytes to decode: %d", len(data))
 	}
 
 	d.Type = DHCPv6DUIDType(binary.BigEndian.Uint16(data[:2]))
-	if d.Type == DHCPv6DUIDTypeLLT || d.Type == DHCPv6DUIDTypeLL {
+	// LLT, LL and unknown types keep bytes 2-3 here, as Len and String assume
+	if d.Type != DHCPv6DUIDTypeEN {
 		if len(data) < 4 {
 			return fmt.Errorf("Not enough bytes to decode: %d", len(data))
 		}
@@ -307,7 +316,7 @@ func (d *DHCPv6DUID) Encode() []byte {
 	data := make([]byte, length)
 	binary.BigEndian.PutUint16(data[0:2], uint16(d.Type))
 
-	if d.Type == DHCPv6DUIDTypeLLT || d.Type == DHCPv6DUIDTypeLL {
+	if d.Type != DHCPv6DUIDTypeEN {
 		copy(data[2:4], d.HardwareType)
 	}
 

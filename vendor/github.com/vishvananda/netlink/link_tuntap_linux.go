@@ -9,20 +9,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ideally golang.org/x/sys/unix would define IfReq but it only has
-// IFNAMSIZ, hence this minimalistic implementation
+// IFNAMSIZ is the kernel limit on interface name length, including the
+// trailing NUL. User-visible names are at most IFNAMSIZ-1 bytes.
 const (
 	SizeOfIfReq = 40
 	IFNAMSIZ    = 16
 )
 
 const TUN = "/dev/net/tun"
-
-type ifReq struct {
-	Name  [IFNAMSIZ]byte
-	Flags uint16
-	pad   [SizeOfIfReq - IFNAMSIZ - 2]byte
-}
 
 // AddQueues opens and attaches multiple queue file descriptors to an existing
 // TUN/TAP interface in multi-queue mode.

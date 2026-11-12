@@ -11,7 +11,7 @@ cilium-operator-aws shell [command] [args]... [flags]
 ### Options
 
 ```
-  -h, --help                     help for shell
+  -h, --help[=true|false]        help for shell
       --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 

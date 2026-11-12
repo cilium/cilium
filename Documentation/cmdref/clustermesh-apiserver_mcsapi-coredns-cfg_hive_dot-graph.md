@@ -11,7 +11,7 @@ clustermesh-apiserver mcsapi-coredns-cfg hive dot-graph [flags]
 ### Options
 
 ```
-  -h, --help   help for dot-graph
+  -h, --help[=true|false]   help for dot-graph
 ```
 
 ### Options inherited from parent commands
@@ -22,8 +22,8 @@ clustermesh-apiserver mcsapi-coredns-cfg hive dot-graph [flags]
       --coredns-configmap-name string               ConfigMap name of CoreDNS (default "coredns")
       --coredns-deployment-name string              Deployment name of CoreDNS (default "coredns")
       --coredns-namespace string                    Namespace of CoreDNS (default "kube-system")
-      --enable-k8s                                  Enable the k8s clientset (default true)
-      --enable-k8s-api-discovery                    Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-k8s[=true|false]                     Enable the k8s clientset (default true)
+      --enable-k8s-api-discovery[=true|false]       Enable discovery of Kubernetes API groups and resources with the discovery API
       --k8s-api-server-urls strings                 Kubernetes API server URLs
       --k8s-client-burst int                        Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration   Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)

@@ -1053,6 +1053,9 @@ var dataDecodeMap = map[Dot11Type]func() gopacket.DecodingLayer{
 }
 
 func (m *Dot11) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*m = Dot11{}
+
 	if len(data) < 10 {
 		df.SetTruncated()
 		return fmt.Errorf("Dot11 length %v too short, %v required", len(data), 10)
@@ -1226,12 +1229,16 @@ func (m *Dot11) ChecksumValid() bool {
 	return m.Checksum == h.Sum32()
 }
 
-func (m Dot11) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
-	buf, err := b.PrependBytes(24)
+// dot11MinSerializedLen is the header length SerializeTo has always written
+// for frames whose header is shorter, such as a 10 byte CTS.
+const dot11MinSerializedLen = 24
 
-	if err != nil {
-		return err
-	}
+func (m Dot11) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	// A data frame with ToDS and FromDS set has a 30 byte header: build the
+	// header first, then reserve what it takes. Shorter headers keep the 24
+	// bytes, zero padded, that were always written.
+	var header [30]byte
+	buf := header[:]
 
 	buf[0] = (uint8(m.Type) << 2) | m.Proto
 	buf[1] = uint8(m.Flags)
@@ -1263,6 +1270,12 @@ func (m Dot11) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOp
 		copy(buf[offset:offset+6], m.Address4)
 		offset += 6
 	}
+
+	out, err := b.PrependBytes(max(offset, dot11MinSerializedLen))
+	if err != nil {
+		return err
+	}
+	copy(out, header[:])
 
 	return nil
 }
@@ -1595,16 +1608,10 @@ func (m *Dot11InformationElement) NextLayerType() gopacket.LayerType {
 	return LayerTypeDot11InformationElement
 }
 
-func checkOffsetLength(start int, end int, df *gopacket.DecodeFeedback) error {
-	if start > end {
-		(*df).SetTruncated()
-		return fmt.Errorf("information element length %v too short, %v required", end, start)
-	}
-
-	return nil
-}
-
 func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*m = Dot11InformationElement{}
+
 	if len(data) < 2 {
 		df.SetTruncated()
 		return fmt.Errorf("Dot11InformationElement length %v too short, %v required", len(data), 2)
@@ -1618,27 +1625,16 @@ func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.Decod
 		return fmt.Errorf("Dot11InformationElement length %v too short, %v required", len(data), offset+int(m.Length))
 	}
 
+	// The whole element is present from here on. A vendor or extension
+	// element too short for the OUI and type, or for the extension ID, is
+	// still a complete element and must not stop the elements behind it.
 	if m.ID == 221 {
-		if len(data) < offset+4 {
-			df.SetTruncated()
-			return fmt.Errorf("vendor extension size < %d", offset+int(m.Length))
-		}
-
 		// Vendor extension
-		m.OUI = data[offset : offset+4]
-		if err := checkOffsetLength(offset+4, offset+int(m.Length), &df); err != nil {
-			return err
-		}
-		m.Info = data[offset+4 : offset+int(m.Length)]
-	} else if m.ID == 255 {
-		if len(data) < offset+1 {
-			df.SetTruncated()
-			return fmt.Errorf("extension element size < %d", offset+1)
-		}
+		ouiLength := min(4, int(m.Length))
+		m.OUI = data[offset : offset+ouiLength]
+		m.Info = data[offset+ouiLength : offset+int(m.Length)]
+	} else if m.ID == 255 && m.Length > 0 {
 		m.ExtensionID = Dot11InformationElementExtId(data[offset])
-		if err := checkOffsetLength(offset+1, offset+int(m.Length), &df); err != nil {
-			return err
-		}
 		m.Info = data[offset+1 : offset+int(m.Length)]
 	} else {
 		m.Info = data[offset : offset+int(m.Length)]

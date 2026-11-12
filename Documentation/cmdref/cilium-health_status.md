@@ -11,17 +11,17 @@ cilium-health status [flags]
 ### Options
 
 ```
-  -h, --help            help for status
-  -o, --output string   json| yaml| jsonpath='{}'
-      --succinct        Print the result succinctly (one node per line)
-      --verbose         Print more information in results
+  -h, --help[=true|false]       help for status
+  -o, --output string           json| yaml| jsonpath='{}'
+      --succinct[=true|false]   Print the result succinctly (one node per line)
+      --verbose[=true|false]    Print more information in results
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -D, --debug         Enable debug messages
-  -H, --host string   URI to cilium-health server API
+  -D, --debug[=true|false]   Enable debug messages
+  -H, --host string          URI to cilium-health server API
 ```
 
 ### SEE ALSO

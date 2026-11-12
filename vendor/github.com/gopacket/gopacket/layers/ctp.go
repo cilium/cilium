@@ -83,6 +83,12 @@ func decodeEthernetCTP(data []byte, p gopacket.PacketBuilder) error {
 	if c.SkipCount%2 != 0 {
 		return fmt.Errorf("EthernetCTP skip count is odd: %d", c.SkipCount)
 	}
+
+	// SkipCount is the offset of the message the receiver acts on; past the
+	// payload there is no message to act on.
+	if int(c.SkipCount) >= len(c.Payload) {
+		return fmt.Errorf("EthernetCTP skip count %d exceeds %d payload bytes", c.SkipCount, len(c.Payload))
+	}
 	p.AddLayer(c)
 	return p.NextDecoder(gopacket.DecodeFunc(decodeEthernetCTPFromFunctionType))
 }

@@ -7,16 +7,16 @@ Direct access to the kvstore
 ### Options
 
 ```
-  -h, --help              help for kvstore
-      --kvstore string    Key-Value Store type
-      --kvstore-opt map   Key-Value Store options
+  -h, --help[=true|false]   help for kvstore
+      --kvstore string      Key-Value Store type
+      --kvstore-opt map     Key-Value Store options
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

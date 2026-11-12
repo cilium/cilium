@@ -11,18 +11,18 @@ cilium-dbg debuginfo [flags]
 ### Options
 
 ```
-  -f, --file                      Redirect output to file(s)
-      --file-per-command          Generate a single file per command
-  -h, --help                      help for debuginfo
-      --output strings            markdown| html| json| jsonpath='{}'
-      --output-directory string   directory for files (if specified will use directory in which this command was ran)
+  -f, --file[=true|false]               Redirect output to file(s)
+      --file-per-command[=true|false]   Generate a single file per command
+  -h, --help[=true|false]               help for debuginfo
+      --output strings                  markdown| html| json| jsonpath='{}'
+      --output-directory string         directory for files (if specified will use directory in which this command was ran)
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

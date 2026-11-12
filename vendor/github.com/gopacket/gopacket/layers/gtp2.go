@@ -9,6 +9,9 @@ import (
 
 const gtp2MinimumSizeInBytes int = 4
 
+// gtp2Version is the only value of the 3-bit version field this decoder reads.
+const gtp2Version uint8 = 2
+
 // IE represents an Information Element in GTPv2, a key component for message structure
 type IE struct {
 	Type    uint8
@@ -34,20 +37,31 @@ type GTPv2 struct {
 
 // DecodeFromBytes analyses a byte slice and attempts to decode it as a GTPv2 packet
 func (g *GTPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*g = GTPv2{}
+
 	hLen := gtp2MinimumSizeInBytes
 	dLen := len(data)
 	if dLen < hLen {
 		return fmt.Errorf("GTP packet too small: %d bytes", dLen)
 	}
 	g.Version = (data[0] >> 5) & 0x07
+	// GTPv1-C shares UDP port 2123 with GTPv2 but has a different header
+	// and IE layout, so only version 2 can be read with this decoder.
+	if g.Version != gtp2Version {
+		return fmt.Errorf("GTPv2 packet has version %d", g.Version)
+	}
 	g.PiggybackingFlag = ((data[0] >> 4) & 0x01) == 1
 	g.TEIDflag = ((data[0] >> 3) & 0x01) == 1
 	g.MessagePriority = (data[0] >> 2) & 0x01
 	g.MessageType = data[1]
 	g.MessageLength = binary.BigEndian.Uint16(data[2:4])
 
-	pLen := 4 + g.MessageLength
-	if uint16(dLen) < pLen {
+	// Message Length counts everything after the first 4 bytes. A packet may
+	// carry more (a piggybacked message, padding); that is not part of this
+	// message.
+	mEnd := gtp2MinimumSizeInBytes + int(g.MessageLength)
+	if dLen < mEnd {
 		return fmt.Errorf("GTP packet too small: %d bytes", dLen)
 	}
 
@@ -70,17 +84,21 @@ func (g *GTPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	hLen += 4
 	cIndex += 4
 
-	for int(cIndex) < dLen {
+	if mEnd < int(cIndex) {
+		return fmt.Errorf("GTP message length %d does not cover the header", g.MessageLength)
+	}
+
+	for int(cIndex) < mEnd {
 		// Need the full 4-byte IE header; int arithmetic so a 16-bit length
 		// cannot wrap past the bound.
-		if int(cIndex)+4 > dLen {
+		if int(cIndex)+4 > mEnd {
 			return fmt.Errorf("GTPv2 IE header truncated at offset %d", cIndex)
 		}
 		ieType := data[cIndex]
 		ieLength := int(binary.BigEndian.Uint16(data[cIndex+1 : cIndex+3]))
 		ieEnd := int(cIndex) + 4 + ieLength
-		if ieEnd > dLen {
-			return fmt.Errorf("IE %d exceeds packet length", ieType)
+		if ieEnd > mEnd {
+			return fmt.Errorf("IE %d exceeds message length", ieType)
 		}
 		ieContent := data[int(cIndex)+4 : ieEnd]
 		g.IEs = append(g.IEs, IE{Type: ieType, Content: ieContent})

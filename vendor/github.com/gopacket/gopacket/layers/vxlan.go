@@ -65,7 +65,7 @@ func (vx *VXLAN) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 	// Group Based Policy https://tools.ietf.org/html/draft-smith-vxlan-group-policy-00
 	vx.GBPExtension = data[0]&0x80 > 0                       // 'G' bit per the group policy draft
 	vx.GBPDontLearn = data[1]&0x40 > 0                       // 'D' bit - the egress VTEP MUST NOT learn the source address of the encapsulated frame.
-	vx.GBPApplied = data[1]&0x80 > 0                         // 'A' bit - indicates that the group policy has already been applied to this packet.
+	vx.GBPApplied = data[1]&0x08 > 0                         // 'A' bit - indicates that the group policy has already been applied to this packet.
 	vx.GBPGroupPolicyID = binary.BigEndian.Uint16(data[2:4]) // Policy ID as per the group policy draft
 
 	// Layer information
@@ -111,7 +111,7 @@ func (vx *VXLAN) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 		bytes[1] |= 0x40
 	}
 	if vx.GBPApplied {
-		bytes[1] |= 0x80
+		bytes[1] |= 0x08
 	}
 
 	binary.BigEndian.PutUint16(bytes[2:4], vx.GBPGroupPolicyID)

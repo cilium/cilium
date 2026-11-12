@@ -11,7 +11,7 @@ cilium-operator metrics list [flags]
 ### Options
 
 ```
-  -h, --help                    help for list
+  -h, --help[=true|false]       help for list
   -p, --match-pattern string    Show only metrics whose names match matchpattern
   -o, --output string           json| yaml| jsonpath='{}'
   -s, --server-address string   Address of the operator API server (default 127.0.0.1:9234 or [::1]:9234)

@@ -11,10 +11,10 @@ cilium-operator status clustermesh [flags]
 ### Options
 
 ```
-  -h, --help                    help for clustermesh
+  -h, --help[=true|false]       help for clustermesh
   -o, --output string           json| yaml| jsonpath='{}'
   -s, --server-address string   Address of the operator API server (default "localhost:9234")
-      --verbose                 Output verbose status information for ready clusters as well
+      --verbose[=true|false]    Output verbose status information for ready clusters as well
 ```
 
 ### SEE ALSO

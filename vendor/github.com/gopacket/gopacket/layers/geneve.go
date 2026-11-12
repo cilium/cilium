@@ -84,7 +84,7 @@ func (gn *Geneve) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error
 		return errors.New("geneve packet too short")
 	}
 
-	gn.Version = data[0] >> 7
+	gn.Version = data[0] >> 6
 	gn.OptionsLength = (data[0] & 0x3f) * 4
 	gn.Options = gn.Options[:0]
 

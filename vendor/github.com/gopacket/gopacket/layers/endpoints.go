@@ -28,25 +28,31 @@ var (
 	EndpointMAC = gopacket.RegisterEndpointType(3, gopacket.EndpointTypeMetadata{Name: "MAC", Formatter: func(b []byte) string {
 		return net.HardwareAddr(b).String()
 	}})
-	EndpointTCPPort = gopacket.RegisterEndpointType(4, gopacket.EndpointTypeMetadata{Name: "TCP", Formatter: func(b []byte) string {
-		return strconv.Itoa(int(binary.BigEndian.Uint16(b)))
-	}})
-	EndpointUDPPort = gopacket.RegisterEndpointType(5, gopacket.EndpointTypeMetadata{Name: "UDP", Formatter: func(b []byte) string {
-		return strconv.Itoa(int(binary.BigEndian.Uint16(b)))
-	}})
-	EndpointSCTPPort = gopacket.RegisterEndpointType(6, gopacket.EndpointTypeMetadata{Name: "SCTP", Formatter: func(b []byte) string {
-		return strconv.Itoa(int(binary.BigEndian.Uint16(b)))
-	}})
+	EndpointTCPPort  = gopacket.RegisterEndpointType(4, gopacket.EndpointTypeMetadata{Name: "TCP", Formatter: portString})
+	EndpointUDPPort  = gopacket.RegisterEndpointType(5, gopacket.EndpointTypeMetadata{Name: "UDP", Formatter: portString})
+	EndpointSCTPPort = gopacket.RegisterEndpointType(6, gopacket.EndpointTypeMetadata{Name: "SCTP", Formatter: portString})
 	EndpointRUDPPort = gopacket.RegisterEndpointType(7, gopacket.EndpointTypeMetadata{Name: "RUDP", Formatter: func(b []byte) string {
+		if len(b) < 1 {
+			return ""
+		}
 		return strconv.Itoa(int(b[0]))
 	}})
-	EndpointUDPLitePort = gopacket.RegisterEndpointType(8, gopacket.EndpointTypeMetadata{Name: "UDPLite", Formatter: func(b []byte) string {
-		return strconv.Itoa(int(binary.BigEndian.Uint16(b)))
-	}})
-	EndpointPPP = gopacket.RegisterEndpointType(9, gopacket.EndpointTypeMetadata{Name: "PPP", Formatter: func([]byte) string {
+	EndpointUDPLitePort = gopacket.RegisterEndpointType(8, gopacket.EndpointTypeMetadata{Name: "UDPLite", Formatter: portString})
+	EndpointPPP         = gopacket.RegisterEndpointType(9, gopacket.EndpointTypeMetadata{Name: "PPP", Formatter: func([]byte) string {
 		return "point"
 	}})
 )
+
+// portString formats a 16-bit port endpoint.  A transport layer whose header
+// was too short to decode (TCP, UDP and SCTP still register the layer on that
+// error) yields endpoints with no bytes at all; format those as empty rather
+// than panicking.
+func portString(b []byte) string {
+	if len(b) < 2 {
+		return ""
+	}
+	return strconv.Itoa(int(binary.BigEndian.Uint16(b)))
+}
 
 // NewIPEndpoint creates a new IP (v4 or v6) endpoint from a net.IP address.
 // It returns gopacket.InvalidEndpoint if the IP address is invalid.

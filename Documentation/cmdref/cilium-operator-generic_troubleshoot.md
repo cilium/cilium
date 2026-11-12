@@ -7,7 +7,7 @@ Run troubleshooting utilities to check control-plane connectivity
 ### Options
 
 ```
-  -h, --help   help for troubleshoot
+  -h, --help[=true|false]   help for troubleshoot
 ```
 
 ### SEE ALSO

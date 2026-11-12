@@ -7,7 +7,7 @@ Connectivity troubleshooting
 ### Options
 
 ```
-  -h, --help   help for connectivity
+  -h, --help[=true|false]   help for connectivity
 ```
 
 ### Options inherited from parent commands

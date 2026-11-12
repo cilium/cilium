@@ -1737,6 +1737,25 @@ func (CapacityTenancy) Values() []CapacityTenancy {
 	}
 }
 
+type CapacityUnit string
+
+// Enum values for CapacityUnit
+const (
+	CapacityUnitVcpus     CapacityUnit = "vcpus"
+	CapacityUnitInstances CapacityUnit = "instances"
+)
+
+// Values returns all known values for CapacityUnit. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityUnit) Values() []CapacityUnit {
+	return []CapacityUnit{
+		"vcpus",
+		"instances",
+	}
+}
+
 type CarrierGatewayState string
 
 // Enum values for CarrierGatewayState
@@ -9368,6 +9387,16 @@ const (
 	MetricSpotTotalCountVcpu                    Metric = "spot-total-count-vcpu"
 	MetricSpotInterruptionRateInst              Metric = "spot-interruption-rate-inst"
 	MetricSpotInterruptionRateVcpu              Metric = "spot-interruption-rate-vcpu"
+	MetricCapacityTotalRequestedVcpu            Metric = "capacity-total-requested-vcpu"
+	MetricCapacityTotalFulfilledVcpu            Metric = "capacity-total-fulfilled-vcpu"
+	MetricSpotCapacityTotalRequestedVcpu        Metric = "spot-capacity-total-requested-vcpu"
+	MetricSpotCapacityTotalFulfilledVcpu        Metric = "spot-capacity-total-fulfilled-vcpu"
+	MetricCapacityRequestFulfillmentRate        Metric = "capacity-request-fulfillment-rate"
+	MetricAvgInstAzCountPerRequestedVcpu        Metric = "avg-inst-az-count-per-requested-vcpu"
+	MetricInstAzFulfillmentRate                 Metric = "inst-az-fulfillment-rate"
+	MetricSpotCapacityRequestFulfillmentRate    Metric = "spot-capacity-request-fulfillment-rate"
+	MetricSpotAvgInstAzCountPerRequestedVcpu    Metric = "spot-avg-inst-az-count-per-requested-vcpu"
+	MetricSpotInstAzFulfillmentRate             Metric = "spot-inst-az-fulfillment-rate"
 )
 
 // Values returns all known values for Metric. Note that this can be expanded in
@@ -9425,6 +9454,16 @@ func (Metric) Values() []Metric {
 		"spot-total-count-vcpu",
 		"spot-interruption-rate-inst",
 		"spot-interruption-rate-vcpu",
+		"capacity-total-requested-vcpu",
+		"capacity-total-fulfilled-vcpu",
+		"spot-capacity-total-requested-vcpu",
+		"spot-capacity-total-fulfilled-vcpu",
+		"capacity-request-fulfillment-rate",
+		"avg-inst-az-count-per-requested-vcpu",
+		"inst-az-fulfillment-rate",
+		"spot-capacity-request-fulfillment-rate",
+		"spot-avg-inst-az-count-per-requested-vcpu",
+		"spot-inst-az-fulfillment-rate",
 	}
 }
 
@@ -11757,6 +11796,31 @@ func (ServiceType) Values() []ServiceType {
 	}
 }
 
+type SeverityLabel string
+
+// Enum values for SeverityLabel
+const (
+	SeverityLabelInformational SeverityLabel = "informational"
+	SeverityLabelLow           SeverityLabel = "low"
+	SeverityLabelMedium        SeverityLabel = "medium"
+	SeverityLabelHigh          SeverityLabel = "high"
+	SeverityLabelCritical      SeverityLabel = "critical"
+)
+
+// Values returns all known values for SeverityLabel. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SeverityLabel) Values() []SeverityLabel {
+	return []SeverityLabel{
+		"informational",
+		"low",
+		"medium",
+		"high",
+		"critical",
+	}
+}
+
 type ShutdownBehavior string
 
 // Enum values for ShutdownBehavior
@@ -12280,6 +12344,48 @@ func (SummaryStatus) Values() []SummaryStatus {
 		"insufficient-data",
 		"not-applicable",
 		"initializing",
+	}
+}
+
+type SupportabilityMarketType string
+
+// Enum values for SupportabilityMarketType
+const (
+	SupportabilityMarketTypeOnDemand SupportabilityMarketType = "on-demand"
+	SupportabilityMarketTypeSpot     SupportabilityMarketType = "spot"
+)
+
+// Values returns all known values for SupportabilityMarketType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SupportabilityMarketType) Values() []SupportabilityMarketType {
+	return []SupportabilityMarketType{
+		"on-demand",
+		"spot",
+	}
+}
+
+type SupportabilityScore string
+
+// Enum values for SupportabilityScore
+const (
+	SupportabilityScoreHigh        SupportabilityScore = "high"
+	SupportabilityScoreMedium      SupportabilityScore = "medium"
+	SupportabilityScoreLow         SupportabilityScore = "low"
+	SupportabilityScoreUnsupported SupportabilityScore = "unsupported"
+)
+
+// Values returns all known values for SupportabilityScore. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SupportabilityScore) Values() []SupportabilityScore {
+	return []SupportabilityScore{
+		"high",
+		"medium",
+		"low",
+		"unsupported",
 	}
 }
 

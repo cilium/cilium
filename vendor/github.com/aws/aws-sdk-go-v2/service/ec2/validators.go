@@ -6910,6 +6910,26 @@ func (m *validateOpGetCapacityManagerMetricDimensions) HandleInitialize(ctx cont
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetCapacityManagerSupportabilityScores struct {
+}
+
+func (*validateOpGetCapacityManagerSupportabilityScores) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetCapacityManagerSupportabilityScores) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetCapacityManagerSupportabilityScoresInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetCapacityManagerSupportabilityScoresInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetCapacityReservationUsage struct {
 }
 
@@ -7125,6 +7145,26 @@ func (m *validateOpGetImageAncestry) HandleInitialize(ctx context.Context, in mi
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetImageAncestryInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetImageFindings struct {
+}
+
+func (*validateOpGetImageFindings) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetImageFindings) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetImageFindingsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetImageFindingsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -12750,6 +12790,10 @@ func addOpGetCapacityManagerMetricDimensionsValidationMiddleware(stack *middlewa
 	return stack.Initialize.Add(&validateOpGetCapacityManagerMetricDimensions{}, middleware.After)
 }
 
+func addOpGetCapacityManagerSupportabilityScoresValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetCapacityManagerSupportabilityScores{}, middleware.After)
+}
+
 func addOpGetCapacityReservationUsageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetCapacityReservationUsage{}, middleware.After)
 }
@@ -12792,6 +12836,10 @@ func addOpGetHostReservationPurchasePreviewValidationMiddleware(stack *middlewar
 
 func addOpGetImageAncestryValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetImageAncestry{}, middleware.After)
+}
+
+func addOpGetImageFindingsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetImageFindings{}, middleware.After)
 }
 
 func addOpGetInstanceTpmEkPubValidationMiddleware(stack *middleware.Stack) error {
@@ -15792,6 +15840,11 @@ func validateOpCreateCapacityReservationFleetInput(v *CreateCapacityReservationF
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityReservationFleetInput"}
+	if v.InstanceRequirements != nil {
+		if err := validateInstanceRequirementsRequest(v.InstanceRequirements); err != nil {
+			invalidParams.AddNested("InstanceRequirements", err.(smithy.InvalidParamsError))
+		}
+	}
 	if v.TotalTargetCapacity == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TotalTargetCapacity"))
 	}
@@ -20487,6 +20540,35 @@ func validateOpGetCapacityManagerMetricDimensionsInput(v *GetCapacityManagerMetr
 	}
 }
 
+func validateOpGetCapacityManagerSupportabilityScoresInput(v *GetCapacityManagerSupportabilityScoresInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetCapacityManagerSupportabilityScoresInput"}
+	if len(v.MarketType) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("MarketType"))
+	}
+	if v.CapacityAmount == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityAmount"))
+	}
+	if len(v.CapacityUnit) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityUnit"))
+	}
+	if v.CapacityAvailabilityZoneIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityAvailabilityZoneIds"))
+	}
+	if v.InstanceRequirementsWithMetadata != nil {
+		if err := validateInstanceRequirementsWithMetadataRequest(v.InstanceRequirementsWithMetadata); err != nil {
+			invalidParams.AddNested("InstanceRequirementsWithMetadata", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpGetCapacityReservationUsageInput(v *GetCapacityReservationUsageInput) error {
 	if v == nil {
 		return nil
@@ -20655,6 +20737,21 @@ func validateOpGetImageAncestryInput(v *GetImageAncestryInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "GetImageAncestryInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetImageFindingsInput(v *GetImageFindingsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetImageFindingsInput"}
 	if v.ImageId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
 	}

@@ -427,19 +427,18 @@ func isOptimisticPath(path string) bool {
 //
 // A path is a series of keys separated by a dot.
 //
-//  {
-//    "name": {"first": "Tom", "last": "Anderson"},
-//    "age":37,
-//    "children": ["Sara","Alex","Jack"],
-//    "friends": [
-//      {"first": "James", "last": "Murphy"},
-//      {"first": "Roger", "last": "Craig"}
-//    ]
-//  }
-//  "name.last"          >> "Anderson"
-//  "age"                >> 37
-//  "children.1"         >> "Alex"
-//
+//	{
+//	  "name": {"first": "Tom", "last": "Anderson"},
+//	  "age":37,
+//	  "children": ["Sara","Alex","Jack"],
+//	  "friends": [
+//	    {"first": "James", "last": "Murphy"},
+//	    {"first": "Roger", "last": "Craig"}
+//	  ]
+//	}
+//	"name.last"          >> "Anderson"
+//	"age"                >> 37
+//	"children.1"         >> "Alex"
 func Set(json, path string, value interface{}) (string, error) {
 	return SetOptions(json, path, value, nil)
 }
@@ -487,9 +486,19 @@ func Delete(json, path string) (string, error) {
 	return Set(json, path, dtype{})
 }
 
+// DeleteOptions deletes a value from json for the specified path, with the given options.
+func DeleteOptions(json, path string, options *Options) (string, error) {
+	return SetOptions(json, path, dtype{}, options)
+}
+
 // DeleteBytes deletes a value from json for the specified path.
 func DeleteBytes(json []byte, path string) ([]byte, error) {
 	return SetBytes(json, path, dtype{})
+}
+
+// DeleteBytesOptions deletes a value from json for the specified path, with the given options.
+func DeleteBytesOptions(json []byte, path string, options *Options) ([]byte, error) {
+	return SetBytesOptions(json, path, dtype{}, options)
 }
 
 type stringHeader struct {
@@ -505,9 +514,6 @@ type sliceHeader struct {
 
 func set(jstr, path, raw string,
 	stringify, del, optimistic, inplace bool) ([]byte, error) {
-	if path == "" {
-		return []byte(jstr), &errorType{"path cannot be empty"}
-	}
 	if !del && optimistic && isOptimisticPath(path) {
 		res := gjson.Get(jstr, path)
 		if res.Exists() && res.Index > 0 {
@@ -659,6 +665,7 @@ func SetBytesOptions(json []byte, path string, value interface{},
 	jstr := *(*string)(unsafe.Pointer(&json))
 	var res []byte
 	var err error
+tryf64:
 	switch v := value.(type) {
 	default:
 		b, merr := jsongo.Marshal(value)
@@ -705,11 +712,20 @@ func SetBytesOptions(json []byte, path string, value interface{},
 		res, err = set(jstr, path, strconv.FormatUint(uint64(v), 10),
 			false, false, optimistic, inplace)
 	case float32:
-		res, err = set(jstr, path, strconv.FormatFloat(float64(v), 'f', -1, 64),
-			false, false, optimistic, inplace)
+		value = float64(v)
+		goto tryf64
 	case float64:
-		res, err = set(jstr, path, strconv.FormatFloat(float64(v), 'f', -1, 64),
-			false, false, optimistic, inplace)
+		s := strconv.FormatFloat(v, 'f', -1, 64)
+		if s[0] == 'N' || s[0] == 'I' || (s[0] == '-' && s[1] == 'I') ||
+			(s[0] == '+' && s[1] == 'I') {
+			s = strconv.Quote(s)
+			res, err = set(jstr, path, s, false, false, optimistic, inplace)
+			if err == nil {
+				_, err = jsongo.Marshal(v)
+			}
+		} else {
+			res, err = set(jstr, path, s, false, false, optimistic, inplace)
+		}
 	}
 	if err == errNoChange {
 		return json, nil

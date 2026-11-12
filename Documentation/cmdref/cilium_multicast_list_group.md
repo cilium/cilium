@@ -11,7 +11,7 @@ cilium multicast list group [flags]
 ### Options
 
 ```
-  -h, --help                     help for group
+  -h, --help[=true|false]        help for group
   -o, --output string            Output format. One of: json, summary (default "summary")
       --wait-duration duration   Maximum time to wait for result, default 1 minute (default 1m0s)
 ```

@@ -12,7 +12,7 @@ cilium-dbg fqdn cache list [flags]
 
 ```
   -e, --endpoint string       List cache entries for a specific endpoint id
-  -h, --help                  help for list
+  -h, --help[=true|false]     help for list
   -p, --matchpattern string   List cache entries with FQDN that match matchpattern
   -o, --output string         json| yaml| jsonpath='{}'
   -s, --source string         List cache entries from a specific source (lookup, connection)
@@ -22,7 +22,7 @@ cilium-dbg fqdn cache list [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

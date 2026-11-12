@@ -8,6 +8,7 @@ import (
 	armpolicy "github.com/Azure/azure-sdk-for-go/sdk/azcore/arm/policy"
 	armruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/arm/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/internal/sanitizer"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/internal/shared"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/tracing"
@@ -50,6 +51,7 @@ func NewClient(moduleName, moduleVersion string, cred azcore.TokenCredential, op
 	}
 
 	tr := options.TracingProvider.NewTracer(moduleName, moduleVersion)
+	tr = sanitizer.WrapTracer(tr)
 	return &Client{ep: ep, pl: pl, tr: tr}, nil
 }
 

@@ -11,7 +11,7 @@ cilium hubble disable [flags]
 ### Options
 
 ```
-  -h, --help   help for disable
+  -h, --help[=true|false]   help for disable
 ```
 
 ### Options inherited from parent commands

@@ -60,8 +60,14 @@ func decodeDiameterAVPDepth(data []byte, depth int) (DiameterAVP, int, error) {
 		paddedLength = avp.Length + (4 - avp.Length%4)
 	}
 
-	if uint32(len(data)) < paddedLength {
-		return DiameterAVP{}, 0, fmt.Errorf("AVP data truncated: expected %d bytes, got %d", paddedLength, len(data))
+	// The padding is not counted in AVP Length (RFC 6733 section 4), so an
+	// AVP is complete once its own bytes are present; the last AVP of a
+	// message or group may end without it.
+	if uint32(len(data)) < avp.Length {
+		return DiameterAVP{}, 0, fmt.Errorf("AVP data truncated: expected %d bytes, got %d", avp.Length, len(data))
+	}
+	if paddedLength > uint32(len(data)) {
+		paddedLength = uint32(len(data))
 	}
 
 	// Reject an AVP whose declared Length cannot cover its own header. The

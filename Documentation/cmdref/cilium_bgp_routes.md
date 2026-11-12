@@ -29,7 +29,7 @@ cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|ne
 
 ```
       --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
-  -h, --help                        help for routes
+  -h, --help[=true|false]           help for routes
       --node string                 Node from which BGP routes will be fetched, omit to select all nodes
   -o, --output string               Output format. One of: json, summary (default "summary")
       --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)

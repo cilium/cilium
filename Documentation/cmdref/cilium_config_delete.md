@@ -11,8 +11,8 @@ cilium config delete [flags]
 ### Options
 
 ```
-  -h, --help      help for delete
-  -r, --restart   Restart Cilium pods (default true)
+  -h, --help[=true|false]      help for delete
+  -r, --restart[=true|false]   Restart Cilium pods (default true)
 ```
 
 ### Options inherited from parent commands

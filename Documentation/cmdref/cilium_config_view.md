@@ -11,7 +11,7 @@ cilium config view [flags]
 ### Options
 
 ```
-  -h, --help   help for view
+  -h, --help[=true|false]   help for view
 ```
 
 ### Options inherited from parent commands

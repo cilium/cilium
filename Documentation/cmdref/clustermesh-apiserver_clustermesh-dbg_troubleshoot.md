@@ -12,7 +12,7 @@ clustermesh-apiserver clustermesh-dbg troubleshoot [flags]
 
 ```
       --etcd-config string   Path to the etcd configuration (default "/var/lib/cilium/etcd-config.yaml")
-  -h, --help                 help for troubleshoot
+  -h, --help[=true|false]    help for troubleshoot
       --timeout duration     Timeout when checking connectivity to the etcd kvstore (default 5s)
 ```
 

@@ -7,8 +7,8 @@ CLI for interacting with KVStoreMesh
 ### Options
 
 ```
-  -h, --help          help for kvstoremesh-dbg
-  -H, --host string   URI to server-side API (default "localhost:9889")
+  -h, --help[=true|false]   help for kvstoremesh-dbg
+  -H, --host string         URI to server-side API (default "localhost:9889")
 ```
 
 ### SEE ALSO

@@ -11,9 +11,9 @@ cilium hubble ui [flags]
 ### Options
 
 ```
-  -h, --help               help for ui
-      --open-browser       When --open-browser=false is supplied, cilium Hubble UI will not open the browser (default true)
-      --port-forward int   Local port to forward to. 0 will select a random port. (default 12000)
+  -h, --help[=true|false]           help for ui
+      --open-browser[=true|false]   When --open-browser=false is supplied, cilium Hubble UI will not open the browser (default true)
+      --port-forward int            Local port to forward to. 0 will select a random port. (default 12000)
 ```
 
 ### Options inherited from parent commands

@@ -7,7 +7,7 @@ Cilium encryption
 ### Options
 
 ```
-  -h, --help   help for encryption
+  -h, --help[=true|false]   help for encryption
 ```
 
 ### Options inherited from parent commands

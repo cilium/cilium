@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"strings"
 
@@ -23,6 +24,12 @@ const (
 	IPv4EvilBit       IPv4Flag = 1 << 2 // http://tools.ietf.org/html/rfc3514 ;)
 	IPv4DontFragment  IPv4Flag = 1 << 1
 	IPv4MoreFragments IPv4Flag = 1 << 0
+)
+
+// source route option types (RFC 791)
+const (
+	ipv4OptionLSRR uint8 = 131
+	ipv4OptionSSRR uint8 = 137
 )
 
 func (f IPv4Flag) String() string {
@@ -91,11 +98,33 @@ func (ip *IPv4) getIPv4OptionSize() uint8 {
 
 		}
 	}
+	// the header bytes behind End of Option List count towards IHL too
+	optionSize += uint8(len(ip.Padding))
 	// make sure the options are aligned to 32 bit boundary
 	if (optionSize % 4) != 0 {
 		optionSize += 4 - (optionSize % 4)
 	}
 	return optionSize
+}
+
+// finalDstIP returns the address the packet is finally delivered to, which
+// the TCP/UDP pseudo-header uses. While a source route option has addresses
+// left to visit, DstIP is only the next hop and the final destination is the
+// last address of the option (RFC 791).
+func (ip *IPv4) finalDstIP() net.IP {
+	for _, opt := range ip.Options {
+		if opt.OptionType != ipv4OptionLSRR && opt.OptionType != ipv4OptionSSRR {
+			continue
+		}
+		// OptionData is the pointer, then the addresses. The pointer counts
+		// from the option type, 2 bytes before OptionData, and exceeds the
+		// option length once the route is used up.
+		n := len(opt.OptionData)
+		if n >= 5 && int(opt.OptionData[0]) <= n+2 {
+			return net.IP(opt.OptionData[n-4:])
+		}
+	}
+	return ip.DstIP
 }
 
 // SerializeTo writes the serialized form of this layer into the
@@ -124,6 +153,9 @@ func (ip *IPv4) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeO
 	copy(bytes[16:20], ip.DstIP)
 
 	curLocation := 20
+	// PrependBytes does not zero: clear the option area so alignment bytes
+	// never carry what the buffer held before.
+	copy(bytes[curLocation:], lotsOfZeros[:])
 	// Now, we will encode the options
 	for _, opt := range ip.Options {
 		switch opt.OptionType {
@@ -155,6 +187,8 @@ func (ip *IPv4) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeO
 			curLocation += int(opt.OptionLength)
 		}
 	}
+	// the decoder keeps the bytes behind End of Option List in Padding
+	copy(bytes[curLocation:], ip.Padding)
 
 	if opts.ComputeChecksums {
 		// Clear checksum bytes
@@ -186,22 +220,26 @@ func (ip *IPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 	// This code is added for the following enviroment:
 	// * Windows 10 with TSO option activated. ( tested on Hyper-V, RealTek ethernet driver )
-	if ip.Length == 0 {
+	length := int(ip.Length)
+	if length == 0 {
 		// If using TSO(TCP Segmentation Offload), length is zero.
-		// The actual packet length is the length of data.
-		ip.Length = uint16(len(data))
+		// The actual packet length is the length of data, which may be
+		// more than the 16-bit field can hold: keep the real value in an
+		// int and only clamp what is stored in the field.
+		length = len(data)
+		ip.Length = uint16(min(length, math.MaxUint16))
 	}
 
-	if ip.Length < 20 {
-		return fmt.Errorf("Invalid (too small) IP length (%d < 20)", ip.Length)
+	if length < 20 {
+		return fmt.Errorf("Invalid (too small) IP length (%d < 20)", length)
 	} else if ip.IHL < 5 {
 		return fmt.Errorf("Invalid (too small) IP header length (%d < 5)", ip.IHL)
-	} else if int(ip.IHL*4) > int(ip.Length) {
-		return fmt.Errorf("Invalid IP header length > IP length (%d > %d)", ip.IHL, ip.Length)
+	} else if int(ip.IHL*4) > length {
+		return fmt.Errorf("Invalid IP header length > IP length (%d > %d)", ip.IHL, length)
 	}
 
-	if cmp := len(data) - int(ip.Length); cmp > 0 {
-		data = data[:ip.Length]
+	if cmp := len(data) - length; cmp > 0 {
+		data = data[:length]
 	} else if cmp < 0 {
 		df.SetTruncated()
 		if int(ip.IHL)*4 > len(data) {
@@ -210,6 +248,7 @@ func (ip *IPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	}
 
 	ip.Options = ip.Options[:0]
+	ip.Padding = nil
 	ip.Contents = data[:ip.IHL*4]
 	ip.Payload = data[ip.IHL*4:]
 
@@ -246,8 +285,10 @@ pullOutOptions:
 				df.SetTruncated()
 				return fmt.Errorf("IP option length exceeds remaining IP header size, option type %v length %v", opt.OptionType, opt.OptionLength)
 			}
-			if opt.OptionLength <= 2 {
-				return fmt.Errorf("Invalid IP option type %v length %d. Must be greater than 2", opt.OptionType, opt.OptionLength)
+			// The length counts the type and length bytes, so 2 is the
+			// smallest valid value: an option with no data (RFC 791 3.1).
+			if opt.OptionLength < 2 {
+				return fmt.Errorf("Invalid IP option type %v length %d. Must be at least 2", opt.OptionType, opt.OptionLength)
 			}
 			opt.OptionData = headerOptionsData[2:opt.OptionLength]
 			headerOptionsData = headerOptionsData[opt.OptionLength:]
@@ -278,7 +319,13 @@ func (i *IPv4) NextLayerType() gopacket.LayerType {
 	if i.Flags&IPv4MoreFragments != 0 || i.FragOffset != 0 {
 		return gopacket.LayerTypeFragment
 	}
-	return i.Protocol.LayerType()
+	next := i.Protocol.LayerType()
+	if LayerClassIPv6Extension.Contains(next) {
+		// IPProtocolMetadata is shared with IPv6. Extension headers don't
+		// exist in IPv4, so hosts drop these like any unknown protocol.
+		return gopacket.LayerTypeZero
+	}
+	return next
 }
 
 func decodeIPv4(data []byte, p gopacket.PacketBuilder) error {
@@ -325,7 +372,10 @@ func (ip *IPv4) VerifyChecksum() (error, gopacket.ChecksumVerificationResult) {
 	verification := gopacket.ComputeChecksum(ip.Contents, 0)
 	correct := gopacket.FoldChecksum(verification - uint32(existing))
 	return nil, gopacket.ChecksumVerificationResult{
-		Valid:   correct == existing,
+		// RFC 1071: the sum over the data including its checksum is all
+		// ones. Comparing with correct would reject 0xffff, which equals 0
+		// in one's complement arithmetic.
+		Valid:   gopacket.FoldChecksum(verification) == 0,
 		Correct: uint32(correct),
 		Actual:  uint32(existing),
 	}

@@ -244,7 +244,10 @@ func (i *ICMPv6) NextLayerType() gopacket.LayerType {
 	case ICMPv6TypeRedirect:
 		return LayerTypeICMPv6Redirect
 	case ICMPv6TypeMLDv1MulticastListenerQueryMessage: // Same Code for MLDv1 Query and MLDv2 Query
-		if len(i.Payload) > 20 { // Only payload size differs
+		// Only payload size differs. An MLDv2 Query is at least 24 bytes
+		// (RFC 3810 8.1); anything shorter is an MLDv1 Query, possibly with
+		// trailing bytes that MLDv1 listeners ignore (RFC 2710 3.7).
+		if len(i.Payload) >= 24 {
 			return LayerTypeMLDv2MulticastListenerQuery
 		} else {
 			return LayerTypeMLDv1MulticastListenerQuery
@@ -270,7 +273,8 @@ func (i *ICMPv6) VerifyChecksum() (error, gopacket.ChecksumVerificationResult) {
 	}
 	correct := gopacket.FoldChecksum(verification - uint32(existing))
 	return nil, gopacket.ChecksumVerificationResult{
-		Valid:   correct == existing,
+		// RFC 1071 receiver test: 0xffff is as valid as 0x0000
+		Valid:   gopacket.FoldChecksum(verification) == 0,
 		Correct: uint32(correct),
 		Actual:  uint32(existing),
 	}

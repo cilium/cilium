@@ -207,10 +207,28 @@ func (p *packet) DecodeOptions() *DecodeOptions {
 	return &p.decodeOptions
 }
 
+// maxChecksumPasses bounds the bytes the checksums of one packet cover to
+// this many times the size of its largest layer with a checksum. Layers
+// whose checksum covers their payload (GRE, UDP/VXLAN) can be nested as
+// deep as the packet is long, which makes the verification quadratic; 32
+// passes leave room for sixteen levels of IPv4/GRE tunnels.
+const maxChecksumPasses = 32
+
 func (p *packet) VerifyChecksums() (error, []ChecksumMismatch) {
 	mismatches := make([]ChecksumMismatch, 0)
+	covered, largest := 0, 0
 	for i, l := range p.layers {
 		if lwc, ok := l.(LayerWithChecksum); ok {
+			// The bound is taken from the layers, not len(p.data): a
+			// PacketBuilder can be given layers decoded from a larger buffer.
+			size := len(l.LayerContents()) + len(l.LayerPayload())
+			covered += size
+			largest = max(largest, size)
+			if covered > maxChecksumPasses*largest {
+				return fmt.Errorf("couldn't verify checksum for layer %d (%s): too many nested layers with checksums",
+					i+1, l.LayerType()), nil
+			}
+
 			// Verify checksum for that layer
 			err, res := lwc.VerifyChecksum()
 			if err != nil {
@@ -496,9 +514,18 @@ func (p *packet) packetDump() string {
 // eagerPacket implements Packet and PacketBuilder.
 type eagerPacket struct {
 	packet
+	// depth is how many NextDecoder calls are running, one per layer.
+	depth int
 }
 
+// maxEagerDecodeDepth bounds how deep NextDecoder nests. Each layer costs
+// stack frames, and the packet bytes decide how many layers there are: a
+// record stacking millions of 4 byte 802.1Q tags would overflow the goroutine
+// stack, which recover() can't catch. No real packet comes near this.
+const maxEagerDecodeDepth = 4096
+
 var errNilDecoder = errors.New("NextDecoder passed nil decoder, probably an unsupported decode type")
+var errDecodeTooDeep = errors.New("packet nests too many layers to decode")
 
 func (p *eagerPacket) NextDecoder(next Decoder) error {
 	if next == nil {
@@ -511,8 +538,14 @@ func (p *eagerPacket) NextDecoder(next Decoder) error {
 	if len(d) == 0 {
 		return nil
 	}
+	if p.depth >= maxEagerDecodeDepth {
+		return errDecodeTooDeep
+	}
 	// Since we're eager, immediately call the next decoder.
-	return next.Decode(d, p)
+	p.depth++
+	err := next.Decode(d, p)
+	p.depth--
+	return err
 }
 func (p *eagerPacket) initialDecode(dec Decoder) {
 	defer p.recoverDecodeError()
@@ -670,6 +703,13 @@ func (p *lazyPacket) LayerClass(lc LayerClass) Layer {
 func (p *lazyPacket) String() string { p.Layers(); return p.packetString() }
 func (p *lazyPacket) Dump() string   { p.Layers(); return p.packetDump() }
 
+// VerifyChecksums decodes the remaining layers first, so every layer with a
+// checksum is covered and not just the ones an earlier accessor decoded.
+func (p *lazyPacket) VerifyChecksums() (error, []ChecksumMismatch) {
+	p.Layers()
+	return p.packet.VerifyChecksums()
+}
+
 // DecodeOptions tells gopacket how to decode a packet.
 type DecodeOptions struct {
 	// Lazy decoding decodes the minimum number of layers needed to return data
@@ -730,7 +770,10 @@ func NewPacket(data []byte, firstLayerDecoder Decoder, options DecodeOptions) (p
 		)
 		if options.Pool && len(data) <= maximumMTU {
 			poolMemory = poolPackedPool.Get().(*[]byte)
-			dataCopy = (*poolMemory)[:len(data)]
+			// cap at the packet length so a decoder that reslices past the
+			// end panics like it does on a fresh buffer, instead of reading
+			// what the previous packet left in the pool
+			dataCopy = (*poolMemory)[:len(data):len(data)]
 			copy(dataCopy, data)
 			data = dataCopy
 			defer func() {
@@ -952,6 +995,13 @@ func (p *PacketSource) NextPacket() (Packet, error) {
 	}
 	packet := NewPacket(data, p.decoder, p.DecodeOptions)
 	m := packet.Metadata()
+
+	// A zero copy source reuses its AncillaryData slice from one read to the
+	// next, as it does the data. The packet keeps a copy of the data, so it
+	// must keep a copy of the ancillary data too.
+	if !p.NoCopy && len(ci.AncillaryData) > 0 {
+		ci.AncillaryData = append([]interface{}(nil), ci.AncillaryData...)
+	}
 	m.CaptureInfo = ci
 	m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
 	return packet, nil

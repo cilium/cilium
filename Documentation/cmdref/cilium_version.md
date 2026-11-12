@@ -15,8 +15,8 @@ cilium version [flags]
 ### Options
 
 ```
-      --client   If true, shows client version only (no server required)
-  -h, --help     help for version
+      --client[=true|false]   If true, shows client version only (no server required)
+  -h, --help[=true|false]     help for version
 ```
 
 ### Options inherited from parent commands

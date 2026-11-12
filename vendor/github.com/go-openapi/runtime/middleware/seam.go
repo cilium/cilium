@@ -289,12 +289,17 @@ type RedocOpts struct {
 
 	// RedocURL points to the js that generates the redoc site.
 	//
-	// Defaults to: https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js
+	// Defaults to: https://cdn.jsdelivr.net/npm/redoc@3/bundles/redoc.standalone.js
 	RedocURL string
+
+	// RedocV2 serves Redoc v2 instead of v3. Set it if RedocURL points to a Redoc v2 bundle.
+	//
+	// See [docui.WithRedocV2].
+	RedocV2 bool
 }
 
 func (o RedocOpts) toFuncOptions() []docui.Option {
-	const structMembers = 6
+	const structMembers = 7
 	opts := make([]docui.Option, 0, structMembers)
 
 	if o.BasePath != "" {
@@ -319,6 +324,10 @@ func (o RedocOpts) toFuncOptions() []docui.Option {
 
 	if o.RedocURL != "" {
 		opts = append(opts, docui.WithUIAssetsURL(o.RedocURL))
+	}
+
+	if o.RedocV2 {
+		opts = append(opts, docui.WithRedocV2())
 	}
 
 	return opts

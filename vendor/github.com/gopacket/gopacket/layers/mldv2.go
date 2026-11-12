@@ -59,6 +59,9 @@ type MLDv2MulticastListenerQueryMessage struct {
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (m *MLDv2MulticastListenerQueryMessage) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*m = MLDv2MulticastListenerQueryMessage{}
+
 	if len(data) < 24 {
 		df.SetTruncated()
 		return errors.New("ICMP layer less than 24 bytes for Multicast Listener Query Message V2")
@@ -168,7 +171,7 @@ func (m *MLDv2MulticastListenerQueryMessage) String() string {
 	return fmt.Sprintf(
 		"Maximum Response Code: %#x (%dms), Multicast Address: %s, Suppress Routerside Processing: %t, QRV: %#x, QQIC: %#x (%ds), Number of Source Address: %d (actual: %d), Source Addresses: %s",
 		m.MaximumResponseCode,
-		m.MaximumResponseDelay(),
+		m.MaximumResponseDelay()/time.Millisecond,
 		m.MulticastAddress,
 		m.SuppressRoutersideProcessing,
 		m.QueriersRobustnessVariable,
@@ -197,9 +200,10 @@ func (m *MLDv2MulticastListenerQueryMessage) QQI() time.Duration {
 		return time.Second * time.Duration(data)
 	}
 
+	// QQI = (mant | 0x10) << (exp + 3)
 	exp := uint16(data) & 0x70 >> 4
 	mant := uint16(data) & 0x0F
-	return time.Second * time.Duration(mant|0x1000<<(exp+3))
+	return time.Second * time.Duration((mant|0x10)<<(exp+3))
 }
 
 // SetQQI calculates and updates the Querier's Query Interval Code (QQIC)
@@ -218,6 +222,7 @@ func (m *MLDv2MulticastListenerQueryMessage) SetQQI(d time.Duration) error {
 	dms := d / time.Second
 	if dms < 128 {
 		m.QueriersQueryIntervalCode = uint8(dms)
+		return nil
 	}
 
 	if dms > 31744 { // mant=0xF, exp=0x7
@@ -236,7 +241,7 @@ func (m *MLDv2MulticastListenerQueryMessage) SetQQI(d time.Duration) error {
 	}
 
 	mant := uint8(0x000F & (value >> (exp + 3)))
-	sig := uint8(0x10)
+	sig := uint8(0x80)
 	m.QueriersQueryIntervalCode = sig | exp<<4 | mant
 
 	return nil
@@ -247,13 +252,14 @@ func (m *MLDv2MulticastListenerQueryMessage) SetQQI(d time.Duration) error {
 // https://tools.ietf.org/html/rfc3810#section-5.1.3
 func (m *MLDv2MulticastListenerQueryMessage) MaximumResponseDelay() time.Duration {
 	if m.MaximumResponseCode < 0x8000 {
-		return time.Duration(m.MaximumResponseCode)
+		return time.Millisecond * time.Duration(m.MaximumResponseCode)
 	}
 
+	// delay = (mant | 0x1000) << (exp + 3); 0x1fff<<10 needs more than 16 bits
 	exp := m.MaximumResponseCode & 0x7000 >> 12
-	mant := m.MaximumResponseCode & 0x0FFF
+	mant := uint32(m.MaximumResponseCode) & 0x0FFF
 
-	return time.Millisecond * time.Duration(mant|0x1000<<(exp+3))
+	return time.Millisecond * time.Duration((mant|0x1000)<<(exp+3))
 }
 
 // SetMLDv2MaximumResponseDelay updates the Maximum Response Code according to
@@ -272,15 +278,16 @@ func (m *MLDv2MulticastListenerQueryMessage) SetMLDv2MaximumResponseDelay(d time
 
 	if dms < 32768 {
 		m.MaximumResponseCode = uint16(dms)
+		return nil
 	}
 
-	if dms > 4193280 { // mant=0xFFF, exp=0x7
-		return fmt.Errorf("maximum response delay %dms is bigger the than maximum of 4193280ms", dms)
+	if dms > 8387584 { // mant=0xFFF, exp=0x7
+		return fmt.Errorf("maximum response delay %dms is bigger the than maximum of 8387584ms", dms)
 	}
 
-	value := uint32(dms) // ok, because 4193280 < math.MaxUint32
+	value := uint32(dms) // ok, because 8387584 < math.MaxUint32
 	exp := uint8(7)
-	for mask := uint32(0x40000000); exp > 0; exp-- {
+	for mask := uint32(0x400000); exp > 0; exp-- {
 		if mask&value != 0 {
 			break
 		}
@@ -289,7 +296,7 @@ func (m *MLDv2MulticastListenerQueryMessage) SetMLDv2MaximumResponseDelay(d time
 	}
 
 	mant := uint16(0x00000FFF & (value >> (exp + 3)))
-	sig := uint16(0x1000)
+	sig := uint16(0x8000)
 	m.MaximumResponseCode = sig | uint16(exp)<<12 | mant
 	return nil
 }
@@ -307,6 +314,9 @@ type MLDv2MulticastListenerReportMessage struct {
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (m *MLDv2MulticastListenerReportMessage) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*m = MLDv2MulticastListenerReportMessage{}
+
 	if len(data) < 4 {
 		df.SetTruncated()
 		return errors.New("ICMP layer less than 4 bytes for Multicast Listener Report Message V2")

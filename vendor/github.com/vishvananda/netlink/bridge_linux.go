@@ -54,6 +54,9 @@ func (h *Handle) bridgeVlanTunnelShowBy(ifindex int32) ([]nl.TunnelInfo, error) 
 	ret := make([]nl.TunnelInfo, 0)
 	for _, m := range msgs {
 		msg := nl.DeserializeIfInfomsg(m)
+		if msg == nil {
+			continue
+		}
 
 		if ifindex != 0 && msg.Index != ifindex {
 			continue
@@ -158,6 +161,9 @@ func (h *Handle) BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 	ret := make(map[int32][]*nl.BridgeVlanInfo)
 	for _, m := range msgs {
 		msg := nl.DeserializeIfInfomsg(m)
+		if msg == nil {
+			return nil, fmt.Errorf("got short ifinfomsg from netlink")
+		}
 
 		attrs, err := nl.ParseRouteAttr(m[msg.Len():])
 		if err != nil {

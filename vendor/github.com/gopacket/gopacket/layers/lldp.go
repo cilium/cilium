@@ -881,16 +881,21 @@ func decodeLinkLayerDiscovery(data []byte, p gopacket.PacketBuilder) error {
 			if err := checkLLDPTLVLen(v, 9); err != nil {
 				return err
 			}
-			mlen := v.Value[0]
-			if err := checkLLDPTLVLen(v, int(mlen+7)); err != nil {
+			// The address string length counts the subtype byte, so it is at
+			// least 1. Keep both lengths as int so the sums below cannot wrap.
+			mlen := int(v.Value[0])
+			if mlen < 1 {
+				return errors.New("Malformed LinkLayerDiscovery Management Address TLV")
+			}
+			if err := checkLLDPTLVLen(v, mlen+7); err != nil {
 				return err
 			}
 			info.MgmtAddress.Subtype = IANAAddressFamily(v.Value[1])
 			info.MgmtAddress.Address = v.Value[2 : mlen+1]
 			info.MgmtAddress.InterfaceSubtype = LLDPInterfaceSubtype(v.Value[mlen+1])
 			info.MgmtAddress.InterfaceNumber = binary.BigEndian.Uint32(v.Value[mlen+2 : mlen+6])
-			olen := v.Value[mlen+6]
-			if err := checkLLDPTLVLen(v, int(mlen+7+olen)); err != nil {
+			olen := int(v.Value[mlen+6])
+			if err := checkLLDPTLVLen(v, mlen+7+olen); err != nil {
 				return err
 			}
 			info.MgmtAddress.OID = string(v.Value[mlen+7 : mlen+7+olen])
@@ -924,7 +929,7 @@ func (l *LinkLayerDiscoveryInfo) Decode8021() (info LLDPInfo8021, err error) {
 			id := binary.BigEndian.Uint16(o.Info[1:3])
 			info.PPVIDs = append(info.PPVIDs, PortProtocolVLANID{sup, en, id})
 		case LLDP8021SubtypeVLANName:
-			if err = checkLLDPOrgSpecificLen(o, 2); err != nil {
+			if err = checkLLDPOrgSpecificLen(o, 3); err != nil {
 				return
 			}
 			id := binary.BigEndian.Uint16(o.Info[0:2])
@@ -934,6 +939,9 @@ func (l *LinkLayerDiscoveryInfo) Decode8021() (info LLDPInfo8021, err error) {
 				return
 			}
 			l := int(o.Info[0])
+			if err = checkLLDPOrgSpecificLen(o, 1+l); err != nil {
+				return
+			}
 			if l > 0 {
 				info.ProtocolIdentities = append(info.ProtocolIdentities, o.Info[1:1+l])
 			}
@@ -984,7 +992,7 @@ func (l *LinkLayerDiscoveryInfo) Decode8023() (info LLDPInfo8023, err error) {
 			info.PowerViaMDI.PSEPairsAbility = (o.Info[0]&LLDPMDIPowerPairsAbility > 0)
 			info.PowerViaMDI.PSEPowerPair = uint8(o.Info[1])
 			info.PowerViaMDI.PSEClass = uint8(o.Info[2])
-			if len(o.Info) >= 7 {
+			if len(o.Info) >= 8 {
 				info.PowerViaMDI.Type = LLDPPowerType((o.Info[3] & 0xc0) >> 6)
 				info.PowerViaMDI.Source = LLDPPowerSource((o.Info[3] & 0x30) >> 4)
 				if info.PowerViaMDI.Type == 1 || info.PowerViaMDI.Type == 3 {
@@ -1085,7 +1093,7 @@ func (l *LinkLayerDiscoveryInfo) DecodeMedia() (info LLDPInfoMedia, err error) {
 				info.Location.Coordinate.Altitude = b2 & 0x3fffffff
 				info.Location.Coordinate.Datum = uint8(o.Info[15])
 			case LLDPLocationFormatAddress:
-				if err = checkLLDPOrgSpecificLen(o, 3); err != nil {
+				if err = checkLLDPOrgSpecificLen(o, 4); err != nil {
 					return
 				}
 				//ll := uint8(o.Info[0])

@@ -7,7 +7,7 @@ Report which features are enabled in Cilium agents
 ### Options
 
 ```
-  -h, --help   help for features
+  -h, --help[=true|false]   help for features
 ```
 
 ### Options inherited from parent commands

@@ -19,17 +19,17 @@ cilium-dbg post-uninstall-cleanup [flags]
 ### Options
 
 ```
-      --all-state   Remove all cilium state
-      --bpf-state   Remove BPF state
-  -f, --force       Skip confirmation
-  -h, --help        help for post-uninstall-cleanup
+      --all-state[=true|false]   Remove all cilium state
+      --bpf-state[=true|false]   Remove BPF state
+  -f, --force[=true|false]       Skip confirmation
+  -h, --help[=true|false]        help for post-uninstall-cleanup
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

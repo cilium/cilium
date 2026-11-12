@@ -11,19 +11,19 @@ cilium-dbg bpf lb list [flags]
 ### Options
 
 ```
-      --backends        List all service backend entries
-      --frontends       List all service frontend entries
-  -h, --help            help for list
-  -o, --output string   json| yaml| jsonpath='{}'
-      --revnat          List reverse NAT entries
-      --source-ranges   List all source range entries
+      --backends[=true|false]        List all service backend entries
+      --frontends[=true|false]       List all service frontend entries
+  -h, --help[=true|false]            help for list
+  -o, --output string                json| yaml| jsonpath='{}'
+      --revnat[=true|false]          List reverse NAT entries
+      --source-ranges[=true|false]   List all source range entries
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)
