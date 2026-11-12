@@ -1497,6 +1497,7 @@ static __always_inline int
 cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		   struct trace_ctx trace, __be16 proto)
 {
+	bool encrypted = ctx_is_encrypt(ctx);
 	__u32 dst_sec_identity = UNKNOWN_ID;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
@@ -1527,15 +1528,13 @@ cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif
 
 	if (CONFIG(enable_ipsec)) {
-		if (!ctx_is_encrypt(ctx)) {
+		if (!encrypted) {
 			ret = ipsec_maybe_redirect_to_encrypt(ctx, proto,
 							      src_sec_identity);
 			if (ret == CTX_ACT_REDIRECT)
 				return ret;
 			else if (IS_ERR(ret))
 				goto drop_err;
-		} else {
-			trace.reason |= TRACE_REASON_ENCRYPTED;
 		}
 	}
 
@@ -1559,14 +1558,12 @@ cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		 * encrypted WireGuard UDP packets), we check whether the mark
 		 * is set before the redirect.
 		 */
-		if (!ctx_is_encrypt(ctx)) {
+		if (!encrypted) {
 			ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
 			if (ret == CTX_ACT_REDIRECT)
 				return ret;
 			else if (IS_ERR(ret))
 				goto drop_err;
-		} else {
-			trace.reason |= TRACE_REASON_ENCRYPTED;
 		}
 	}
 
@@ -1600,6 +1597,9 @@ cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
 exit:
 	if (IS_ERR(ret))
 		goto drop_err;
+
+	if (encrypted)
+		trace.reason |= TRACE_REASON_ENCRYPTED;
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),

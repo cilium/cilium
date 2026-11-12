@@ -46,6 +46,9 @@ enum trace_reason {
 	 * On TRACE_FROM_* points it flags packets that were just decrypted
 	 * (IPsec at TRACE_FROM_NETWORK, WireGuard at TRACE_FROM_CRYPTO or
 	 * TRACE_FROM_OVERLAY).
+	 *
+	 * On TRACE_TO_* points it flags packets that have been encrypted
+	 * (IPsec and WireGuard at TRACE_TO_NETWORK).
 	 */
 	TRACE_REASON_ENCRYPTED = 0x80,
 } __packed;
@@ -89,7 +92,8 @@ _update_trace_metrics(const struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_TO_OVERLAY:
 	case TRACE_TO_NETWORK:
 		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-				REASON_FORWARDED, line, file);
+				(reason & TRACE_REASON_ENCRYPTED) ?
+				REASON_ENCRYPT : REASON_FORWARDED, line, file);
 		break;
 	case TRACE_FROM_HOST:
 	case TRACE_FROM_STACK:
