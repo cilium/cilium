@@ -27,10 +27,6 @@ on:
     paths-ignore:
     - 'Documentation/**'
 
-permissions:
-  # To be able to set commit status
-  statuses: write
-
 concurrency:
   # Structure:
   # - Workflow name
@@ -193,6 +189,7 @@ jobs:
           kubectl -n kube-system rollout status deployment/hubble-relay
 
       - name: Run Hubble CLI integration test
+        id: run-tests
         timeout-minutes: 5
         run: |
           set -ex
@@ -219,7 +216,7 @@ jobs:
           test "$(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length')" -eq "$(jq -r --slurp 'length' flows.json)"
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
@@ -238,4 +235,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.integration-test.result }}
+      success: ${{ needs.integration-test.result == 'success' }}

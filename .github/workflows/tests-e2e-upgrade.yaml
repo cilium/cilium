@@ -128,7 +128,6 @@ jobs:
     # Same runner as the legs, so the key describes the packages they install.
     runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 20
-    continue-on-error: true
     outputs:
       dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
     steps:
@@ -353,6 +352,7 @@ jobs:
 
       - name: Install Cilium ${{ matrix.skip-upgrade == 'true' && 'from main' || steps.vars.outputs.downgrade_version }}
         shell: bash
+        id: install-cilium
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
@@ -440,14 +440,8 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
-      - name: Run sequential Cilium tests
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-sequential
-          tests: 'seq-.*,!pod-to-world.*'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
-
       - name: Run concurrent Cilium tests
+        timeout-minutes: 50
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-concurrent
@@ -518,14 +512,6 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
-      - name: Run sequential Cilium tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-sequential
-          tests: 'seq-.*,!pod-to-world.*'
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
-
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
@@ -563,7 +549,7 @@ jobs:
           kubectl -n kube-system logs kvstore
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
@@ -579,4 +565,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      success: ${{ needs.setup-and-test.result == 'success' }}

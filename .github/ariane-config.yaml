@@ -72,24 +72,6 @@ triggers:
   /ci-verifier:
     workflows:
     - tests-datapath-verifier.yaml
-  /fqdn-perf:
-    workflows:
-    - fqdn-perf.yaml
-  /scale-100(\s+(?:\s*version=[-+.0-9a-z]+)?)?:
-    workflows:
-    - scale-test-100-gce.yaml
-  /scale-5:
-    workflows:
-    - scale-test-5-gce.yaml
-  /scale-clustermesh:
-    workflows:
-    - scale-test-clustermesh.yaml
-  /scale-egw:
-    workflows:
-    - scale-test-egw.yaml
-  /net-perf-gke:
-    workflows:
-    - net-perf-gke.yaml
   /ci-hubble-cli:
     workflows:
     - hubble-cli-integration-test.yaml

@@ -136,6 +136,11 @@ jobs:
           path: /tmp/.ginkgo-build/
           key: ${{ steps.cache-key.outputs.key }}
 
+      - name: Set GOPROXY
+        run: |
+          # The trailing slash makes the second entry a retry of proxy.golang.org with its own error cache.
+          echo "GOPROXY=https://proxy.golang.org|https://proxy.golang.org/|direct" >> "$GITHUB_ENV"
+
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -247,7 +252,6 @@ jobs:
     # Same runner as the legs, so the key describes the packages they install.
     runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 20
-    continue-on-error: true
     outputs:
       dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
     steps:
@@ -559,4 +563,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      success: ${{ needs.setup-and-test.result == 'success' }}

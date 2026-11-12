@@ -4,6 +4,7 @@ metadata:
   name: cyclonus
   namespace: kube-system
 spec:
+  ttlSecondsAfterFinished: 300
   template:
     spec:
       restartPolicy: Never
@@ -36,11 +37,11 @@ spec:
               exit $rc
           name: cyclonus
           imagePullPolicy: IfNotPresent
-          image: mfenwick100/cyclonus:v0.4.7@sha256:20103a6c8ffae57864d3c665612e69708f3efe6566492776340bad9c4cd98116
+          image: docker.io/mfenwick100/cyclonus:v0.5.6@sha256:f8da1d12837a85ada5d039725c89634f89ac30630e30f50ef17d745150294d26
           volumeMounts:
             - name: results
               mountPath: /results
       volumes:
         - name: results
           emptyDir: {}
-      serviceAccount: cyclonus
+      serviceAccountName: cyclonus

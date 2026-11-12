@@ -266,7 +266,10 @@ jobs:
             --node-count 2 \
             --ip-families ipv4,ipv6 \
             ${{ env.cost_reduction }} \
-            --generate-ssh-keys
+            --generate-ssh-keys \
+            --disable-disk-driver \
+            --disable-file-driver \
+            --disable-snapshot-controller
 
       - name: Get cluster credentials
         run: |
@@ -320,18 +323,11 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --test "seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-sequential-clear (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
-
       - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --test-concurrency=${{ env.test_concurrency }} \
-          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
@@ -363,27 +359,20 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
 
-      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test "seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-sequential-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
-
       - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
           --test-concurrency=${{ env.test_concurrency }} \
-          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-ipsec (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
       - name: Clean up AKS
         if: ${{ always() }}
@@ -394,10 +383,24 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: installation-and-connectivity
+    needs: [generate-matrix, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      # The generate-matrix can be legitimately empty on older branches, so we
+      # consider that as success. On older branches the generated matrix will
+      # get fewer entries since the k8s versions will reach EOL and get removed
+      # from the matrix.
+      success: >-
+        ${{
+          needs.generate-matrix.result == 'success' &&
+        (
+          needs.installation-and-connectivity.result == 'success'
+          ||
+          (
+            needs.generate-matrix.outputs.empty == 'true' &&
+            github.ref_name != github.event.repository.default_branch
+          )
+        ) }}

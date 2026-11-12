@@ -233,22 +233,7 @@ jobs:
           CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
           KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
 
-          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
-            --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
-            --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
-            --deployment-pod-annotations='{ \
-                \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
-                \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
-            }'"
-
           echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ROUTES} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           echo kind_svc_cidr=${KIND_SVC_CIDR} >> $GITHUB_OUTPUT
 
@@ -258,6 +243,10 @@ jobs:
             IPFAMILY=dual \
             KUBEPROXYMODE=none \
             envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-multi-pool.yaml
+
+      - name: Add external docker network
+        uses: ./.github/actions/kind-external-network
+        id: external_network
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -321,6 +310,46 @@ jobs:
 
           kubectl patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
+      # This must run after the step above, which replaces the whole CoreDNS
+      # ConfigMap and would drop the server block appended here.
+      - name: Add external targets to kind cluster
+        uses: ./.github/actions/kind-external-targets
+        id: external_targets
+        with:
+          kind_network: ${{ steps.external_network.outputs.kind_network }}
+          ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
+          ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
+          ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+
+      - name: Set up connectivity test variables
+        id: conn_vars
+        run: |
+          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
+            --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --external-cidr=${{ steps.external_network.outputs.ipv4_external_cidr }} \
+            --external-cidrv6=${{ steps.external_network.outputs.ipv6_external_cidr }} \
+            --external-ip=${{ steps.external_network.outputs.ipv4_external_target }} \
+            --external-ipv6=${{ steps.external_network.outputs.ipv6_external_target }} \
+            --external-other-ip=${{ steps.external_network.outputs.ipv4_other_external_target }} \
+            --external-other-ipv6=${{ steps.external_network.outputs.ipv6_other_external_target }} \
+            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
+            --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
+            --external-target-ca-namespace=external-target-secrets \
+            --external-target-ca-name=custom-ca \
+            --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
+            --deployment-pod-annotations='{ \
+                \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
+                \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
+            }'"
+
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
       - name: Create the IPSec secret
         if: matrix.encryption == 'ipsec'
         run: |
@@ -342,8 +371,9 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test
+        id: run-tests
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.conn_vars.outputs.connectivity_test_defaults }}
 
       - name: Collect Pod and Pool IPs
         id: ips
@@ -382,11 +412,12 @@ jobs:
           kubectl -n kube-system logs kvstore
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} ${{ matrix.name }}"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
@@ -397,4 +428,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.multi-pool-ipam-conformance-test.result }}
+      success: ${{ needs.multi-pool-ipam-conformance-test.result == 'success' }}

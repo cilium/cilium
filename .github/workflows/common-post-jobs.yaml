@@ -9,9 +9,19 @@ on:
       sha:
         required: true
         type: string
-      result:
+      success:
         required: true
-        type: string
+        type: boolean
+      merge-artifacts:
+        description: "Whether to merge and upload cilium-junits-*/features-tested-* artifacts. Set to false for workflows that run no tests and produce no such artifacts (e.g. pure lint jobs)."
+        required: false
+        type: boolean
+        default: true
+      merge-junits:
+        description: "Whether to merge and upload cilium-junits-* artifacts. Set to false for workflows that do not run cilium connectivity test and therefore produce no JUnit report (e.g. kubectl-wait smoke tests)."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -20,7 +30,7 @@ permissions:
 
 jobs:
   merge-upload:
-    if: ${{ always() && inputs.result != 'skipped' }}
+    if: ${{ always() && inputs.merge-artifacts }}
     name: Merge and Upload Artifacts
     # Merging only repackages what the legs uploaded, so a pull request is not
     # worth failing over it. Scheduled runs dispatch with a vX-Y PR-number and
@@ -39,6 +49,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge JUnits
+        if: ${{ inputs.merge-junits }}
         uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: cilium-junits
@@ -62,16 +73,21 @@ jobs:
       statuses: write
     steps:
       - name: Set final commit status
-        if: ${{ inputs.result != 'skipped' }}
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
           sha: ${{ inputs.sha }}
-          status: ${{ inputs.result == 'abandoned' && 'failure' || inputs.result }}
+          status: ${{ inputs.success && 'success' || 'failure' }}
 
-      - name: Set final commit status
-        if: ${{ inputs.result == 'skipped' }}
-        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
-        with:
-          sha: ${{ inputs.sha }}
-          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
-          description: 'Skipped'
+  fail-workflow:
+    if: ${{ inputs.success == false }}
+    name: Fail job if result is failure
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail job if result is failure
+        # Besides reporting in the commit SHA if the test was or not successful,
+        # we should also report it in the workflow itself. This will allow to
+        # store the failure rate of the workflow on OpenSearch, instead of
+        # marking it as successful.
+        run: |
+          echo "::error::Workflow failed because one or more jobs failed"
+          exit 1

@@ -260,6 +260,7 @@ jobs:
 
       # Sequentially kill kube-apiserver pods to verify cilium agent pods fail over to an active instance.
       - name: Test kube-apiserver high availability
+        timeout-minutes: 10
         run: |
           PORT=6443
           NAMESPACE="kube-system"
@@ -352,8 +353,9 @@ jobs:
           retention-days: 5
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.ipFamily }}"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}

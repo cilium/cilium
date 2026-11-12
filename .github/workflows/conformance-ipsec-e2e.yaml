@@ -125,7 +125,6 @@ jobs:
     # Same runner as the legs, so the key describes the packages they install.
     runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 20
-    continue-on-error: true
     outputs:
       dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
     steps:
@@ -302,6 +301,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Install Cilium
+        id: install-cilium
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
@@ -335,37 +335,22 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
-      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
-
-          TEST='"seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"seq-.*,!pod-to-world.*"'
-          fi
-
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }}-sequential-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST
-
       - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        id: run-tests
         shell: bash
         run: |
           mkdir -p cilium-junits
 
-          TEST='"!seq-.*"'
+          TEST=''
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+            TEST='--test "!(pod-to-world.*|pod-to-cidr)"'
           fi
 
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-concurrent-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST \
+            $TEST \
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
@@ -407,37 +392,21 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
-      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
-
-          TEST='"seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"seq-.*,!pod-to-world.*"'
-          fi
-
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }}-sequential-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST
-
       - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
 
-          TEST='"!seq-.*"'
+          TEST=''
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+            TEST='--test "!(pod-to-world.*|pod-to-cidr)"'
           fi
 
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-concurrent-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST \
+            $TEST \
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
@@ -458,7 +427,7 @@ jobs:
           kubectl -n kube-system logs kvstore
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
@@ -474,4 +443,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      success: ${{ needs.setup-and-test.result == 'success' }}

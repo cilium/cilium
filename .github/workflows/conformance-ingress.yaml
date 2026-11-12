@@ -435,21 +435,26 @@ jobs:
             -stop-on-failure
 
       - name: Run basic CLI tests
+        id: run-tests
         shell: bash
         run: |
+          mkdir -p cilium-junits
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml" \
+            --junit-property github_job_step="Run basic CLI tests" \
             --test 'packet-drops'
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} ${{ matrix.name }}"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.install-cilium.outcome == 'success' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
@@ -460,4 +465,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.ingress-conformance-test.result }}
+      success: ${{ needs.ingress-conformance-test.result == 'success' }}

@@ -150,10 +150,12 @@ jobs:
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
       - name: Run cyclonus network policy test
+        id: run-tests
         working-directory: test/k8s/manifests/netpol-cyclonus
         run: ./test-cyclonus.sh
 
       - name: Install Cilium CLI
+        if: ${{ always() }}
         uses: cilium/cilium-cli@d9302835ae0d3cb6148178d4590240622289e193 # v0.20.1
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -162,8 +164,13 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      - name: Run common post steps
+      - name: Wait for Cilium to be ready
         if: ${{ always() }}
+        run: |
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
+
+      - name: Run common post steps
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
