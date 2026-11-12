@@ -1458,15 +1458,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
 
-	/* Trace before clearing skb->cb */
-#ifdef ENABLE_IPSEC
-	if (magic == MARK_MAGIC_ENCRYPT)
-		send_trace_notify(ctx, TRACE_FROM_STACK,
-				  get_encrypt_identity_meta(ctx), UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_ENCRYPTED, 0, proto);
-#endif /* ENABLE_IPSEC */
-
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
