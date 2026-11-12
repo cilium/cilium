@@ -119,7 +119,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       # Quay's registry endpoint only accepts credentials or a JWT signed by
       # Quay itself, so the GitHub OIDC token cannot be used as the registry
@@ -254,7 +254,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       # The runtime token is only minted when the runtime image is rebuilt, so mint
       # a separate one for the builder push.
