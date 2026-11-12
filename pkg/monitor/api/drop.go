@@ -30,6 +30,7 @@ var errors = map[uint8]string{
 	13:  "Interface Encrypting",               // Unused
 	14:  "LB: sock cgroup: Reverse entry delete succeeded",
 	15:  "MTU error message",
+	16:  "Interface Encrypted",
 	130: "Invalid source mac",      // Unused
 	131: "Invalid destination mac", // Unused
 	132: "Invalid source ip",
