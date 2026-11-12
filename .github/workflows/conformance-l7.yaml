@@ -92,7 +92,7 @@ jobs:
           persist-credentials: false
 
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           login-host: ${{ vars.DOCKER_READ_HOST }}

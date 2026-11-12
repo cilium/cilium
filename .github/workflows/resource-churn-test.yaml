@@ -180,7 +180,7 @@ jobs:
           persist-credentials: false
 
       - name: Wait for test images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ needs.vars.outputs.test-tag }}
           images: ${{ needs.vars.outputs.test-images }}
@@ -191,7 +191,7 @@ jobs:
 
       - name: Wait for baseline images
         if: ${{ needs.vars.outputs.base-tag != '' }}
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ needs.vars.outputs.base-tag }}
           images: ${{ needs.vars.outputs.baseline-images }}

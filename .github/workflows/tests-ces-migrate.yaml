@@ -88,7 +88,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci
@@ -277,7 +277,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           always_capture_sysdump: true
           artifacts_suffix: "tests-ces-migrate"

@@ -80,7 +80,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           login-host: ${{ vars.DOCKER_READ_HOST }}
@@ -176,7 +176,7 @@ jobs:
       - name: Provision K8s on LVH VM
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: lvh-kind
-        uses: ./.github/actions/lvh-kind
+        uses: $/.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ steps.kernel-version.outputs.full }}
@@ -266,7 +266,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
           job_status: "${{ job.status }}"

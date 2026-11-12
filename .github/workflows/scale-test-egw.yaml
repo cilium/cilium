@@ -114,7 +114,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-aws-ci cilium-cli-ci
@@ -370,7 +370,7 @@ jobs:
 
       - name: Create EKS cluster
         id: deploy-cluster
-        uses: ./.github/actions/setup-eks-cluster
+        uses: $/.github/actions/setup-eks-cluster
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           region: ${{ steps.vars.outputs.eks_region }}
@@ -612,7 +612,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "final-${{ matrix.test_type }}"
           job_status: "${{ job.status }}"

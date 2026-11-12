@@ -79,7 +79,7 @@ jobs:
           fi
 
       - name: Wait for images to be available
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ steps.vars.outputs.tag }}
           images: cilium-ci operator-generic-ci
@@ -183,7 +183,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"

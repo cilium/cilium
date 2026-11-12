@@ -114,7 +114,6 @@ jobs:
         run: |
           mkdir -p ../cilium-base-branch/.github/actions
           cp -r .github/actions/set-runtime-image ../cilium-base-branch/.github/actions/
-          cp -r .github/actions/cosign ../cilium-base-branch/.github/actions/
 
       - name: Check for disk usage and cleanup /mnt
         shell: bash
@@ -439,7 +438,7 @@ jobs:
         if: ${{ matrix.name != 'cilium-cli' && steps.check.outputs.build != '' }}
         # Don't redden a pull request over a syft, quay or sigstore flake; push and merge_group still fail.
         continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
-        uses: ./../cilium-base-branch/.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest || steps.check-published.outputs.digest }}"
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}"
@@ -449,7 +448,7 @@ jobs:
         id: cosign_race
         if: ${{ matrix.name != 'cilium-cli' && steps.cosign_ci.outcome != 'failure' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
         continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
-        uses: ./../cilium-base-branch/.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race"
@@ -460,7 +459,7 @@ jobs:
         id: cosign_unstripped
         if: ${{ matrix.name != 'cilium-cli' && steps.cosign_ci.outcome != 'failure' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
         continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
-        uses: ./../cilium-base-branch/.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}"
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped"

@@ -103,7 +103,7 @@ jobs:
           persist-credentials: false
 
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           login-host: ${{ vars.DOCKER_READ_HOST }}
@@ -282,7 +282,7 @@ jobs:
 
       - name: Create GKE cluster
         id: create-cluster
-        uses: ./.github/actions/setup-gke-cluster
+        uses: $/.github/actions/setup-gke-cluster
         with:
           cluster-name: ${{ env.clusterName }}-${{ matrix.index }}
           zone: ${{ env.gcp_zone }}
@@ -354,7 +354,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && matrix.mode != 'baseline' && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           always_capture_sysdump: true
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"

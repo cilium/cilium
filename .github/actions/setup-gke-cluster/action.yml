@@ -44,7 +44,7 @@ runs:
   steps:
     - name: Get runner public IP
       id: get-runner-ip
-      uses: ./.github/actions/get-runner-ip
+      uses: $/.github/actions/get-runner-ip
       with:
         source: https://api.ipify.org
         parsing: text

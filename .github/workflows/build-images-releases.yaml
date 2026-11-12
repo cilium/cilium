@@ -163,7 +163,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Generate SBOM, Sign Images, and Attach Attestations
-        uses: ./.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}"
           image_tag: "${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}"
@@ -172,7 +172,7 @@ jobs:
 
       - name: Generate SBOM, Sign Images, and Attach Attestations
         if: ${{ env.PUSH_TO_DOCKER_HUB == 'true' }}
-        uses: ./.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "${{ env.BACKUP_REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}"
           sbom_name: "${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
