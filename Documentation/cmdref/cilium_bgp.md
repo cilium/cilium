@@ -24,6 +24,7 @@ Access to BGP control plane
 ### SEE ALSO
 
 * [cilium](cilium.md)	 - Cilium provides eBPF-based Networking, Security, and Observability for Kubernetes
-* [cilium bgp peers](cilium_bgp_peers.md)	 - Lists BGP peering state
-* [cilium bgp routes](cilium_bgp_routes.md)	 - Lists BGP routes
+* [cilium bgp legacy](cilium_bgp_legacy.md)	 - Access to deprecated REST API based BGP commands
+* [cilium bgp peers](cilium_bgp_peers.md)	 - List BGP peers on Cilium
+* [cilium bgp routes](cilium_bgp_routes.md)	 - List BGP routes on Cilium
 

@@ -8,145 +8,81 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cilium/cilium/api/v1/models"
-
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	expectedRoutesColFormat = []string{
+func Test_printRouteSummary(t *testing.T) {
+	expectedRoutesColFormat := []string{
 		"Node",
-		"VRouter",
+		"Instance",
 		"Prefix",
 		"NextHop",
+		"Best",
 		"Age",
 		"Attrs",
 	}
-	expectedRoutesColFormatWithPeer = []string{
+	expectedRoutesColFormatWithPeer := []string{
 		"Node",
-		"VRouter",
+		"Instance",
 		"Peer",
 		"Prefix",
 		"NextHop",
+		"Best",
 		"Age",
 		"Attrs",
 	}
 
-	route1 = &models.BgpRoute{
-		Prefix:    "10.1.0.0/24",
-		RouterAsn: 65001,
-		Paths: []*models.BgpPath{
-			{
-				Family: &models.BgpFamily{
-					Afi:  "ipv4",
-					Safi: "unicast",
-				},
-				Nlri: &models.BgpNlri{
-					Base64: "GAoBAA==",
-				},
-			},
-		},
+	route1 := []string{
+		"Instance\tPrefix\tNextHop\tBest\tAge\tAttrs",
+		"test_instance\t10.1.0.0/24\t192.168.0.100\t1s\t[{Origin: i} {AsPath: 65001}]",
+	}
+	route2 := []string{
+		"Instance\tPrefix\tNextHop\tBest\tAge\tAttrs",
+		"test_instance\t10.1.0.0/24\t192.168.0.101\t1s\t[{Origin: i} {AsPath: 65001}]",
+	}
+	route1WithPeer := []string{
+		"Instance\tPeer\tPrefix\tNextHop\tBest\tAge\tAttrs",
+		"test_instance\tpeer1\t10.1.0.0/24\t192.168.0.100\t1s\t[{Origin: i} {AsPath: 65001}]",
+	}
+	route2WithPeer := []string{
+		"Instance\tPeer\tPrefix\tNextHop\tBest\tAge\tAttrs",
+		"test_instance\tpeer2\t10.1.0.0/24\t192.168.0.101\t1s\t[{Origin: i} {AsPath: 65001}]",
 	}
 
-	route2 = &models.BgpRoute{
-		Prefix:    "10.1.1.0/24",
-		RouterAsn: 65001,
-		Neighbor:  "192.168.0.100",
-		Paths: []*models.BgpPath{
-			{
-				Family: &models.BgpFamily{
-					Afi:  "ipv4",
-					Safi: "unicast",
-				},
-				Nlri: &models.BgpNlri{
-					Base64: "GAoBAQ==",
-				},
-				PathAttributes: []*models.BgpPathAttribute{
-					{
-						Base64: "QAEBAA==",
-					},
-					{
-						Base64: "QAIKAgIAAP3oAAD96g==",
-					},
-				},
-			},
-		},
-	}
-
-	routeInvalid = &models.BgpRoute{
-		Prefix:    "10.1.0.0/24",
-		RouterAsn: 65001,
-		Paths: []*models.BgpPath{
-			{
-				Family: &models.BgpFamily{
-					Afi:  "ipv4",
-					Safi: "unicast",
-				},
-				Nlri: &models.BgpNlri{
-					Base64: "invalid",
-				},
-			},
-		},
-	}
-)
-
-func Test_printRouteSummary(t *testing.T) {
 	testCases := []struct {
 		Name         string
-		Config       map[string][]*models.BgpRoute
+		Config       map[string][]string
 		printPeer    bool
 		expectedRows int
 	}{
 		{
-			Name: "Single node output, with no route",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {},
-			},
-			expectedRows: 1,
-		},
-		{
 			Name: "Single node output, with single route",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {route1},
+			Config: map[string][]string{
+				"node_1": route1,
 			},
 			expectedRows: 2,
 		},
 		{
 			Name: "Single node output, with multiple routes",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {route1, route2},
-			},
-			printPeer:    true,
-			expectedRows: 3,
-		},
-		{
-			Name: "Single node output, invalid route",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {routeInvalid},
-			},
-			expectedRows: 2,
-		},
-		{
-			Name: "Single node output, with multiple routes, one invalid",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {route1, route2, routeInvalid},
+			Config: map[string][]string{
+				"node_1": append(route1WithPeer, route2WithPeer[1]),
 			},
 			printPeer:    true,
 			expectedRows: 3,
 		},
 		{
 			Name: "Two node output, with single route",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {route1},
-				"node_2": {route2},
+			Config: map[string][]string{
+				"node_1": route1,
+				"node_2": route2,
 			},
 			expectedRows: 3,
 		},
 		{
 			Name: "Two node output, with multiple routes",
-			Config: map[string][]*models.BgpRoute{
-				"node_1": {route1, route2},
-				"node_2": {route1, route2},
+			Config: map[string][]string{
+				"node_1": append(route1, route2[1]),
+				"node_2": append(route1, route2[1]),
 			},
 			expectedRows: 5,
 		},
@@ -157,7 +93,7 @@ func Test_printRouteSummary(t *testing.T) {
 			var out bytes.Buffer
 
 			// function to test
-			printRouteSummary(&out, tt.Config, tt.printPeer)
+			printRouteSummary(&out, tt.Config, tt.printPeer, true)
 
 			// validate rows and cols
 			rows := 0
@@ -187,23 +123,23 @@ func Test_defaultGetRoutesArgs(t *testing.T) {
 		{
 			Name:       "Missing args",
 			Args:       nil,
-			expectArgs: []string{availableKW, ipv4AFI, unicastSAFI},
+			expectArgs: []string{locRibTable, ipv4AFI, unicastSAFI},
 		},
 		{
 			Name:       "Missing afi",
-			Args:       []string{advertisedKW},
-			expectArgs: []string{advertisedKW, ipv4AFI, unicastSAFI},
+			Args:       []string{locRibTable},
+			expectArgs: []string{locRibTable, ipv4AFI, unicastSAFI},
 		},
 		{
 			Name:       "Missing safi",
-			Args:       []string{advertisedKW, ipv4AFI},
-			expectArgs: []string{advertisedKW, ipv4AFI, unicastSAFI},
+			Args:       []string{locRibTable, ipv6AFI},
+			expectArgs: []string{locRibTable, ipv6AFI, unicastSAFI},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
-			args := defaultGetRoutesArgs(tt.Args, true)
+			args := defaultGetRoutesArgs(tt.Args)
 			require.Equal(t, tt.expectArgs, args)
 		})
 	}
@@ -227,78 +163,38 @@ func Test_validateGetRoutesArgs(t *testing.T) {
 		},
 		{
 			Name:      "Missing afi",
-			Args:      []string{"available"},
+			Args:      []string{locRibTable},
 			expectErr: true,
 		},
 		{
 			Name:      "Invalid afi",
-			Args:      []string{"available", "invalid"},
+			Args:      []string{locRibTable, "invalid"},
 			expectErr: true,
 		},
 		{
 			Name:      "Missing safi",
-			Args:      []string{"available", "ipv4"},
+			Args:      []string{locRibTable, ipv4AFI},
 			expectErr: true,
 		},
 		{
 			Name:      "Invalid safi",
-			Args:      []string{"available", "ipv4", "invalid"},
+			Args:      []string{locRibTable, ipv4AFI, "invalid"},
 			expectErr: true,
 		},
 		{
-			Name:      "Available - all mandatory",
-			Args:      []string{"available", "ipv4", "unicast"},
+			Name:      "loc-rib",
+			Args:      []string{locRibTable, ipv6AFI, unicastSAFI},
 			expectErr: false,
 		},
 		{
-			Name:      "Vrouter - missing ASN",
-			Args:      []string{"available", "ipv4", "unicast", "vrouter"},
-			expectErr: true,
-		},
-		{
-			Name:      "Vrouter - invalid ASN",
-			Args:      []string{"available", "ipv4", "unicast", "vrouter", "invalid"},
-			expectErr: true,
-		},
-		{
-			Name:      "Vrouter - valid",
-			Args:      []string{"available", "ipv4", "unicast", "vrouter", "65000"},
+			Name:      "adj-rib-in",
+			Args:      []string{adjRibInTable, ipv4AFI, unicastSAFI},
 			expectErr: false,
 		},
 		{
-			Name:      "Advertised - peer not specified",
-			Args:      []string{"advertised", "ipv4", "unicast"},
+			Name:      "adj-rib-out",
+			Args:      []string{adjRibInTable, ipv6AFI, unicastSAFI},
 			expectErr: false,
-		},
-		{
-			Name:      "Advertised - missing peer IP",
-			Args:      []string{"advertised", "ipv4", "unicast", "peer"},
-			expectErr: true,
-		},
-		{
-			Name:      "Advertised - invalid peer IP",
-			Args:      []string{"advertised", "ipv4", "unicast", "peer", "invalid"},
-			expectErr: true,
-		},
-		{
-			Name:      "Advertised - valid",
-			Args:      []string{"advertised", "ipv4", "unicast", "peer", "1.2.3.4"},
-			expectErr: false,
-		},
-		{
-			Name:      "Advertised with vrouter - valid",
-			Args:      []string{"advertised", "ipv4", "unicast", "vrouter", "65000", "peer", "1.2.3.4"},
-			expectErr: false,
-		},
-		{
-			Name:      "Advertised with vrouter - invalid ASN",
-			Args:      []string{"advertised", "ipv4", "unicast", "vrouter", "invalid", "peer", "1.2.3.4"},
-			expectErr: true,
-		},
-		{
-			Name:      "Advertised with vrouter - missing ASN",
-			Args:      []string{"advertised", "ipv4", "unicast", "vrouter", "peer", "1.2.3.4"},
-			expectErr: true,
 		},
 	}
 
