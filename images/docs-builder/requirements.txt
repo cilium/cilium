@@ -1,6 +1,6 @@
 ## Auto-generated from Documentation/requirements-min/requirements.txt with "make update-requirements"
 Sphinx==9.0.4
-sphinx-autobuild==2024.10.3
+sphinx-autobuild==2025.8.25
 
 # Custom theme, forked from Read the Docs
 sphinx_rtd_theme_cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@aaa00bd49e9873767577c3d8cab45333b027c32c
@@ -22,12 +22,12 @@ yamllint==1.38.0
 alabaster==1.0.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
-anyio==4.15.1
+anyio==4.16.0
 attrs==26.1.0
 babel==2.18.0
 certifi==2026.10.23
 charset-normalizer==3.5.2
-click==8.5.0
+click==8.5.1
 colorama==0.4.6
 deepmerge==4.0.0
 docutils==0.22.4
@@ -45,8 +45,8 @@ mistune==3.4.0
 packaging==26.3
 pathspec==1.1.1
 picobox==4.0.0
-pydantic==2.14.2
-pydantic_core==2.50.2
+pydantic==2.14.3
+pydantic_core==2.50.4
 pyenchant==3.3.0
 Pygments==2.21.0
 PyYAML==6.0.3
@@ -68,8 +68,8 @@ sphinxcontrib-jsmath==2.0.0
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
 starlette==1.10.0
-typer==0.27.3
-typing-inspection==0.4.4
+typer==0.28.0
+typing-inspection==0.4.5
 typing_extensions==4.16.0
 urllib3==2.8.0
 uvicorn==0.54.0
