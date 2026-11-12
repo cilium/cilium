@@ -50,6 +50,12 @@ debug:
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
+  aggregate:
+    # -- Create ClusterRoles that aggregate Cilium custom resources into the
+    # builtin `view` (read access) and `edit`/`admin` (read access plus write
+    # access to CiliumNetworkPolicy and Envoy configs) ClusterRoles. Requires
+    # `rbac.create`.
+    enabled: true
 
 # -- Configure image pull secrets for pulling container images
 imagePullSecrets: []
