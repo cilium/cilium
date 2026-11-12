@@ -288,6 +288,11 @@ type Endpoint struct {
 	// sure that restores when DNS policy is in there are correct
 	dnsHistoryTrigger atomic.Pointer[trigger.Trigger]
 
+	// headerSyncPending is set when a header file sync was requested before
+	// dnsHistoryTrigger existed. The request is replayed once the trigger is
+	// initialized so that it is not lost.
+	headerSyncPending atomic.Bool
+
 	// state is the state the endpoint is in. See setState()
 	state State
 
@@ -700,6 +705,11 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 		return
 	}
 	e.dnsHistoryTrigger.Store(trigger)
+
+	// Replay a sync request that arrived before the trigger existed.
+	if e.headerSyncPending.Swap(false) {
+		trigger.TriggerWithReason("SyncEndpointHeaderFilePending")
+	}
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
@@ -2742,6 +2752,17 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 // file. This includes updating the current DNS History information.
 func (e *Endpoint) SyncEndpointHeaderFile() {
 	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil {
+		trigger.TriggerWithReason("SyncEndpointDNSState")
+		return
+	}
+
+	// The trigger is not initialized yet (it is created on the first
+	// regeneration). Remember the request so initDNSHistoryTrigger replays it.
+	e.headerSyncPending.Store(true)
+
+	// The trigger may have been created concurrently, after the check above
+	// but before the flag was set. Re-check so the request is not stranded.
+	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil && e.headerSyncPending.Swap(false) {
 		trigger.TriggerWithReason("SyncEndpointDNSState")
 	}
 }
