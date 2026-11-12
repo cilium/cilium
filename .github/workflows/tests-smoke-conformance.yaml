@@ -299,6 +299,14 @@ jobs:
             exit 1
           fi
 
+      - name: Run common post steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
@@ -308,7 +316,7 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.conformance-test.result != 'failure' }}
+      success: ${{ needs.conformance-test.result == 'success' }}
       # This job runs a kubectl-based connectivity check rather than cilium
       # connectivity test, so it produces no JUnit report. Skip the junit merge
       # to avoid a spurious "No matching cilium-junits-* artifacts found" warning.
