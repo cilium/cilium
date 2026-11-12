@@ -27,10 +27,6 @@ on:
     paths-ignore:
     - 'Documentation/**'
 
-permissions:
-  # To be able to set commit status
-  statuses: write
-
 concurrency:
   # Structure:
   # - Workflow name
