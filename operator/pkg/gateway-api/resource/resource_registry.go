@@ -71,6 +71,14 @@ func NewGatewayRegistry(r RegistryConfig) *GatewayRegistry {
 
 	gr.AddResource(NewTLSRouteResource(gr.registryConfig))
 
+	if r.IncludeTCPRoutes {
+		gr.AddResource(NewTCPRouteResource(gr.registryConfig))
+	}
+
+	if r.IncludeUDPRoutes {
+		gr.AddResource(NewUDPRouteResource(gr.registryConfig))
+	}
+
 	return gr
 }
 

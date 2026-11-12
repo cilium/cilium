@@ -123,8 +123,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Determine which optional CRDs are enabled. The scheme is registered from
 	// the autodetected CRDs, so Recognizes() reflects what is installed.
 	scheme := r.client.Scheme()
-	tcpRouteEnabled := helpers.HasTCPRouteSupport(scheme)
-	udpRouteEnabled := helpers.HasUDPRouteSupport(scheme)
 	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
 	listenerSetEnabled := helpers.HasListenerSetSupport(scheme)
 	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
@@ -182,16 +180,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		if resource.ShouldWatch() {
 			gatewayBuilder.Watches(resource.GetResource(), resource.GetWatchHandler(r.client, r.logger, r.scheme, r.controllerName))
 		}
-	}
-
-	if tcpRouteEnabled {
-		// Watch TCPRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.TCPRoute{}, watchhandlers.EnqueueRequestForOwningTCPRoute(r.client, r.logger, r.controllerName))
-	}
-
-	if udpRouteEnabled {
-		// Watch UDPRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.UDPRoute{}, watchhandlers.EnqueueRequestForOwningUDPRoute(r.client, r.logger, r.controllerName))
 	}
 
 	if listenerSetEnabled {
