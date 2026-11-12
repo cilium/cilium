@@ -135,10 +135,6 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup field indexer %q: %w", helpers.GatewaySecretIndex, err)
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicyConfigMapIndex, err)
-	}
-
 	return nil
 }
 
