@@ -64,11 +64,11 @@ Bar Flags:
       --baz string   baz usage
 
 Global Flags:
-      --config string   Optional config file (default "`)
+      --config string        Optional config file (default "`)
 
 	expect.WriteString(defaults.ConfigFile)
 	expect.WriteString(`")
-  -D, --debug           Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
 
 Get help:
   -h, --help	Help for any command or subcommand
