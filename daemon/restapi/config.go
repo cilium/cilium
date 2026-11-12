@@ -443,6 +443,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
 		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
 		PacketizationLayerPMTUDMode:         h.mtuConfig.PacketizationLayerPMTUDMode(),
+		PacketizationLayerPMTUDProbeFloor:   int64(h.mtuConfig.PacketizationLayerPMTUDProbeFloor()),
 	}
 
 	cfg := &models.DaemonConfiguration{

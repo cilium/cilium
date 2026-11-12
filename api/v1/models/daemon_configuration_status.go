@@ -96,6 +96,9 @@ type DaemonConfigurationStatus struct {
 	// Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).
 	PacketizationLayerPMTUDMode string `json:"packetizationLayerPMTUDMode,omitempty"`
 
+	// Specifies the probe floor for PLPMTUD probing on the pod netns.
+	PacketizationLayerPMTUDProbeFloor int64 `json:"packetizationLayerPMTUDProbeFloor,omitempty"`
+
 	// Currently applied configuration
 	Realized *DaemonConfigurationSpec `json:"realized,omitempty"`
 

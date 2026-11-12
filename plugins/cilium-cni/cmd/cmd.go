@@ -1469,7 +1469,6 @@ func needsCloudInterfaceConfiguration(conf *models.DaemonConfigurationStatus) bo
 const (
 	// Based on recommendation in https://datatracker.ietf.org/doc/html/rfc4821.
 	mtuProbeBaseMSS = 1024
-	mtuProbeFloor   = 48
 )
 
 // configurePacketPathMTUDiscovery configures netns to use plpmtud for mtu discovery.
@@ -1491,7 +1490,7 @@ func configurePacketizationLayerPMTUD(logger *slog.Logger, conf *models.DaemonCo
 	// Note: These setting apply to both IPv4 and IPv6.
 	if err = sysctl.ApplySettings([]tables.Sysctl{
 		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: conf.PacketizationLayerPMTUDMode},
-		{Name: []string{"net", "ipv4", "tcp_mtu_probe_floor"}, Val: strconv.Itoa(mtuProbeFloor)},
+		{Name: []string{"net", "ipv4", "tcp_mtu_probe_floor"}, Val: strconv.FormatInt(conf.PacketizationLayerPMTUDProbeFloor, 10)},
 	}); err != nil {
 		logger.Warn("could not enable mtu probing",
 			logfields.Error, err)
