@@ -50,6 +50,15 @@ debug:
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
+  # configure additional admission policies to further restrict
+  # kubernetes API actions by various Cilium components
+  admissionPolicies:
+    agent:
+      # -- create all admission policies for the Cilium agent
+      create: true
+    preflight:
+      # -- create all admission policies for pre-flight
+      create: true
 
 # -- Configure image pull secrets for pulling container images
 imagePullSecrets: []
