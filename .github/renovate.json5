@@ -187,7 +187,7 @@
     {
       // Do not pin or update digests for self-referenced cilium/cilium GitHub
       // Actions and reusable workflows (e.g.,
-      // cilium/cilium/.github/actions/set-commit-status@<sha> # main or
+      // cilium/cilium/.github/actions/merge-artifacts@main # main or
       // cilium/cilium/.github/workflows/foo.yaml@<sha> # v1.17). These are
       // internal references within the same repository.
       "matchManagers": [
