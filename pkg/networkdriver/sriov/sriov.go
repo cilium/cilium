@@ -114,6 +114,22 @@ func (d *PciDevice) Merge(old types.Device) {
 	}
 }
 
+// FindLink returns the VF's netdev in the caller's network namespace, found
+// by the VF's PCI address: its name changes once it has been in a pod.
+func (d *PciDevice) FindLink() (netlink.Link, error) {
+	links, err := d.nl.LinkList()
+	if err != nil {
+		return nil, err
+	}
+	for _, l := range links {
+		if l.Attrs().ParentDev == d.Addr {
+			return l, nil
+		}
+	}
+	// Not netlink.LinkNotFoundError{}: its zero value panics in Error().
+	return nil, fmt.Errorf("VF %s: %w", d.Addr, types.ErrLinkNotFound)
+}
+
 // GetCapacity returns no consumable capacity because an SR-IOV VF is allocated
 // as a single, indivisible device.
 func (p PciDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {

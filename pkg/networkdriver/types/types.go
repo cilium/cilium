@@ -65,6 +65,10 @@ const (
 
 var (
 	errUnknownDeviceManagerType = errors.New("unknown device manager type")
+
+	// ErrLinkNotFound is returned when a device's netdev is not in the
+	// caller's network namespace.
+	ErrLinkNotFound = errors.New("link not found")
 )
 
 // Interface name validation constants
