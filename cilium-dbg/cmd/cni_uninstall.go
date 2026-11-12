@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -111,6 +112,12 @@ func cniUninstallConfDirFromEnv() string {
 // .conflist are removed: those are the files read by the kubelet's CNI
 // implementation.
 func removeCiliumCNIConfigs(confDir string) error {
+	return removeCiliumCNIConfigsWith(confDir, os.Remove)
+}
+
+// removeCiliumCNIConfigsWith is removeCiliumCNIConfigs with a pluggable
+// removal function, so that removal failures can be exercised in tests.
+func removeCiliumCNIConfigsWith(confDir string, remove func(string) error) error {
 	entries, err := os.ReadDir(confDir)
 	if err != nil {
 		return fmt.Errorf("reading CNI configuration directory %s: %w", confDir, err)
@@ -127,7 +134,13 @@ func removeCiliumCNIConfigs(confDir string) error {
 		}
 
 		path := filepath.Join(confDir, name)
-		if err := os.Remove(path); err != nil {
+		if err := remove(path); err != nil {
+			// The configuration may have been removed concurrently, which
+			// means the goal of this command is already reached.
+			if errors.Is(err, os.ErrNotExist) {
+				log.Debug("CNI configuration is already gone", logfields.Path, path)
+				continue
+			}
 			return fmt.Errorf("removing %s: %w", path, err)
 		}
 		log.Info("Removed CNI configuration", logfields.Path, path)

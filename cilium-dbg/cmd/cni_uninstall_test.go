@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -87,6 +88,30 @@ func TestRemoveCiliumCNIConfigs(t *testing.T) {
 	t.Run("missing directory", func(t *testing.T) {
 		err := removeCiliumCNIConfigs(filepath.Join(t.TempDir(), "missing"))
 		require.Error(t, err)
+	})
+
+	t.Run("already removed configuration is not an error", func(t *testing.T) {
+		confDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(confDir, "05-cilium.conflist"), []byte("conf"), 0o644))
+
+		var removed []string
+		// Simulate the configuration disappearing between listing the
+		// directory and removing the file.
+		err := removeCiliumCNIConfigsWith(confDir, func(path string) error {
+			removed = append(removed, path)
+			return os.ErrNotExist
+		})
+		require.NoError(t, err, "a concurrently removed configuration must not be fatal")
+		require.Equal(t, []string{filepath.Join(confDir, "05-cilium.conflist")}, removed)
+	})
+
+	t.Run("other removal errors are returned", func(t *testing.T) {
+		confDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(confDir, "05-cilium.conflist"), []byte("conf"), 0o644))
+
+		wantErr := errors.New("permission denied")
+		err := removeCiliumCNIConfigsWith(confDir, func(string) error { return wantErr })
+		require.ErrorIs(t, err, wantErr)
 	})
 }
 
