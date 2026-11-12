@@ -141,7 +141,7 @@ func (d *netlinkSocketDestroyer) Destroy(logger *slog.Logger, filter SocketFilte
 		return fmt.Errorf("unsupported family for socket destroy: %d", family)
 	}
 	var errs error
-	success, failed := 0, 0
+	success, skipped, failed := 0, 0, 0
 
 	// Query sockets matching the passed filter, and then destroy the filtered
 	// sockets.
@@ -157,6 +157,14 @@ func (d *netlinkSocketDestroyer) Destroy(logger *slog.Logger, filter SocketFilte
 			if filter.MatchSocket(sock) {
 				logger.Info("", logfields.Socket, sock)
 				if err := destroySocket(logger, sock, family, filter.Protocol, filter.States, true); err != nil {
+					// Sockets that are already in the TCP_CLOSE state are expected to return ENOENT.
+					// Treat this as benign error.
+					if errors.Is(err, unix.ENOENT) {
+						logger.Debug("socket targeted for destruction was already gone", logfields.Socket, sock)
+						skipped++
+						return
+					}
+
 					errs = errors.Join(errs, fmt.Errorf("destroying socket with filter [%v]: %w", filter, err))
 					failed++
 					return
@@ -186,11 +194,12 @@ func (d *netlinkSocketDestroyer) Destroy(logger *slog.Logger, filter SocketFilte
 	default:
 		return fmt.Errorf("unsupported protocol for socket destroy: %d", filter.Protocol)
 	}
-	if success > 0 || failed > 0 || errs != nil {
+	if success > 0 || failed > 0 || skipped > 0 || errs != nil {
 		logger.Info(
 			"Forcefully terminated sockets",
 			logfields.Filter, filter,
 			logfields.Success, success,
+			logfields.Skipped, skipped,
 			logfields.Failed, failed,
 			logfields.Errors, errs,
 		)
