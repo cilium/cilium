@@ -8,7 +8,7 @@ import (
 	"net/netip"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -28,16 +28,16 @@ type DatapathContext struct {
 type EndpointResolver struct {
 	log            *slog.Logger
 	logLimiter     logging.Limiter
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	ipGetter       getters.IPGetter
+	endpointGetter resolverTypes.EndpointGetter
+	identityGetter resolverTypes.IdentityGetter
+	ipGetter       resolverTypes.IPGetter
 }
 
 func NewEndpointResolver(
 	log *slog.Logger,
-	endpointGetter getters.EndpointGetter,
-	identityGetter getters.IdentityGetter,
-	ipGetter getters.IPGetter,
+	endpointGetter resolverTypes.EndpointGetter,
+	identityGetter resolverTypes.IdentityGetter,
+	ipGetter resolverTypes.IPGetter,
 ) *EndpointResolver {
 	return &EndpointResolver{
 		log:            log,

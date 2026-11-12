@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 )
 
 // Verbosity levels for formatting output.
@@ -43,7 +43,7 @@ type DumpArgs struct {
 	Data        []byte
 	CpuPrefix   string
 	Format      DisplayFormat
-	LinkMonitor getters.LinkGetter
+	LinkMonitor resolverTypes.LinkGetter
 	Dissect     bool
 	Verbosity   Verbosity
 	Buf         *bufio.Writer

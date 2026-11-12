@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -31,12 +31,12 @@ import (
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
 	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	linkGetter     getters.LinkGetter
+	endpointGetter resolverTypes.EndpointGetter
+	identityGetter resolverTypes.IdentityGetter
+	dnsGetter      resolverTypes.DNSGetter
+	ipGetter       resolverTypes.IPGetter
+	serviceGetter  resolverTypes.ServiceGetter
+	linkGetter     resolverTypes.LinkGetter
 
 	dropNotifyDecoder          options.DropNotifyDecoderFunc
 	traceNotifyDecoder         options.TraceNotifyDecoderFunc
@@ -94,12 +94,12 @@ type packetDecoder struct {
 // New returns a new L3/L4 parser
 func New(
 	log *slog.Logger,
-	endpointGetter getters.EndpointGetter,
-	identityGetter getters.IdentityGetter,
-	dnsGetter getters.DNSGetter,
-	ipGetter getters.IPGetter,
-	serviceGetter getters.ServiceGetter,
-	linkGetter getters.LinkGetter,
+	endpointGetter resolverTypes.EndpointGetter,
+	identityGetter resolverTypes.IdentityGetter,
+	dnsGetter resolverTypes.DNSGetter,
+	ipGetter resolverTypes.IPGetter,
+	serviceGetter resolverTypes.ServiceGetter,
+	linkGetter resolverTypes.LinkGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 	packet := &packetDecoder{}

@@ -8,7 +8,7 @@ import (
 	"log/slog"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -24,7 +24,7 @@ import (
 // provided flow. notifyEPID is the endpoint the datapath reported the verdict
 // at, zero if the notification carried none, and takes precedence over the ID
 // derived from the flow, which is unset for the host endpoint.
-func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *flowpb.Flow, notifyEPID uint16) {
+func CorrelatePolicy(logger *slog.Logger, endpointGetter resolverTypes.EndpointGetter, f *flowpb.Flow, notifyEPID uint16) {
 	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
 		// If it's not a policy verdict, we don't care.
 		return
