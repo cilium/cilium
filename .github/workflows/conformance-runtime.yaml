@@ -283,11 +283,11 @@ jobs:
             # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
             go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
             # Use go cache and module cache from the host that is shared with the VM.
-            mkdir -p /go-caches
+            mkdir -p /go-caches/go-build /go-caches/pkg
             tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
             tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
             # An unreported extraction failure here silently costs the whole build cache.
-            if [ -z "$(ls -A /go-caches/go-build 2>/dev/null)" ]; then
+            if [ -z "\$(ls -A /go-caches/go-build 2>/dev/null)" ]; then
               echo "::warning::no Go build cache in the VM, every package compiles cold"
             else
               du -sh /go-caches/go-build /go-caches/pkg
