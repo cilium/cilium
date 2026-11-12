@@ -768,7 +768,7 @@ func newCiliumMetricsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  16,
 		Value:      anyTypeByName(btf, "metrics_value"),
 		MaxEntries: 1024,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
 }

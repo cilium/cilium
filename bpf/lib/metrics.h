@@ -30,8 +30,8 @@ struct {
 	__type(key, struct metrics_key);
 	__type(value, struct metrics_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, METRICS_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(max_entries, 1024);
+	__uint(map_flags, 0);
 } cilium_metrics __section_maps_btf;
 
 /**
