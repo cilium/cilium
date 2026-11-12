@@ -33,6 +33,7 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -143,6 +144,22 @@ type EgressGatewayTestSuite struct {
 	sysctl    sysctl.Sysctl
 }
 
+func newTestRegistry(tb testing.TB, config egressmap.PolicyConfig) *registry.MapRegistry {
+	var reg *registry.MapRegistry
+	h := hive.New(
+		cell.Config(config),
+		registry.Cell,
+		cell.Invoke(func(r *registry.MapRegistry) {
+			reg = r
+		}),
+		egressmap.ConfigurePolicyMapsCell,
+	)
+	logger := hivetest.Logger(tb)
+	require.NoError(tb, h.Start(logger, context.TODO()))
+	tb.Cleanup(func() { require.NoError(tb, h.Stop(logger, context.TODO())) })
+	return reg
+}
+
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
@@ -161,8 +178,9 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	lc := hivetest.Lifecycle(t)
-	policyMap4V2 := egressmap.CreatePrivatePolicyMap4V2(lc, nil, egressmap.DefaultPolicyConfig)
-	policyMap6 := egressmap.CreatePrivatePolicyMap6(lc, nil, egressmap.DefaultPolicyConfig)
+	mapRegistry := newTestRegistry(t, egressmap.DefaultPolicyConfig)
+	policyMap4V2 := egressmap.CreatePrivatePolicyMap4V2(lc, mapRegistry, nil)
+	policyMap6 := egressmap.CreatePrivatePolicyMap6(lc, mapRegistry, nil)
 
 	var (
 		db          *statedb.DB
