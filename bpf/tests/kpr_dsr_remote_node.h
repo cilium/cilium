@@ -539,7 +539,6 @@ int kpr_v4_dsr_remote_node_7syn_non_dsr_check(__maybe_unused const struct __ctx_
 	test_finish();
 }
 
-#ifdef ENABLE_IPV6
 PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_1syn")
 int kpr_v6_dsr_remote_node_1syn_pktgen(struct __ctx_buff *ctx)
 {
@@ -989,4 +988,3 @@ int kpr_v6_dsr_remote_node_7syn_non_check(__maybe_unused const struct __ctx_buff
 
 	test_finish();
 }
-#endif /* ENABLE_IPV6 */

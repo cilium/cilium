@@ -71,7 +71,6 @@ int mock_handle_policy4(struct __ctx_buff *ctx)
 	return CTX_ACT_DROP;
 }
 
-#ifdef ENABLE_IPV6
 static inline int tail_ipv6_ct_ingress_policy_only(struct __ctx_buff *ctx);
 
 __section_entry
@@ -88,7 +87,6 @@ int mock_handle_policy6(struct __ctx_buff *ctx)
 
 	return CTX_ACT_DROP;
 }
-#endif /* ENABLE_IPV6 */
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -98,9 +96,7 @@ struct {
 } mock_policy_call_map __section(".maps") = {
 	.values = {
 		[TEST_LXC_ID_LOCAL_V4] = &mock_handle_policy4,
-#ifdef ENABLE_IPV6
 		[TEST_LXC_ID_LOCAL_V6] = &mock_handle_policy6,
-#endif
 	},
 };
 
@@ -123,9 +119,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 /* Assign necessary load-time configs */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one })
-#ifdef ENABLE_IPV6
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
-#endif /* ENABLE_IPV6 */
 
 /* Deal with testing netkit or veth. */
 #ifdef __CONFIG_ENABLE_NETKIT
@@ -245,8 +239,6 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-#ifdef ENABLE_IPV6
-
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py */
 const __u8 tc_redirect_lxc_ipv6_pre[] = {
 	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv6_pre)
@@ -353,5 +345,3 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
-
-#endif /* ENABLE_IPV6 */

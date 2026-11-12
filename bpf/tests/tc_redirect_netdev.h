@@ -349,8 +349,6 @@ int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ct
 	test_finish();
 }
 
-#ifdef ENABLE_IPV6
-
 const __u8 tc_redirect_netdev_ipv6_pre[] = {
 	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_pre)
 };
@@ -498,5 +496,3 @@ int tc_redirect_pod_egress_ipv6_check(__maybe_unused const struct __ctx_buff *ct
 
 	test_finish();
 }
-
-#endif /* ENABLE_IPV6 */
