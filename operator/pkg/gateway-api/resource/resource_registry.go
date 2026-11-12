@@ -69,7 +69,13 @@ func NewGatewayRegistry(r RegistryConfig) *GatewayRegistry {
 		registryConfig: r,
 	}
 
+	gr.AddResource(NewHTTPRouteResource(gr.registryConfig))
+	gr.AddResource(NewGRPCRouteResource(gr.registryConfig))
 	gr.AddResource(NewTLSRouteResource(gr.registryConfig))
+
+	if r.IncludeListenerSets {
+		gr.AddResource(NewListenerSetResource(gr.registryConfig))
+	}
 
 	if r.IncludeTCPRoutes {
 		gr.AddResource(NewTCPRouteResource(gr.registryConfig))

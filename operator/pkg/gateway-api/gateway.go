@@ -124,7 +124,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// the autodetected CRDs, so Recognizes() reflects what is installed.
 	scheme := r.client.Scheme()
 	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
-	listenerSetEnabled := helpers.HasListenerSetSupport(scheme)
 	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
 
 	if err := r.inputLoader.SetupIndexes(mgr); err != nil {
@@ -180,11 +179,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		if resource.ShouldWatch() {
 			gatewayBuilder.Watches(resource.GetResource(), resource.GetWatchHandler(r.client, r.logger, r.scheme, r.controllerName))
 		}
-	}
-
-	if listenerSetEnabled {
-		// Watch ListenerSet linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.ListenerSet{}, watchhandlers.EnqueueRequestForListenerSetOwner(r.client, r.logger, r.controllerName))
 	}
 
 	if serviceImportEnabled {

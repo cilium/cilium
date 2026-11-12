@@ -127,25 +127,6 @@ func NewTranslationInputLoader(client helpers.ClientReader, logger *slog.Logger,
 }
 
 func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
-	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceHTTPRouteIndex: indexers.GenerateIndexerHTTPRouteByBackendService(l.client, l.logger),
-		indexers.GatewayHTTPRouteIndex:        indexers.IndexHTTPRouteByGateway,
-		indexers.InferencePoolHTTPRouteIndex:  indexers.GenerateIndexerHTTPRouteByInferencePool,
-	} {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-		}
-	}
-
-	if l.config.IncludeServiceImports {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.BackendServiceImportHTTPRouteIndex, indexers.IndexHTTPRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportHTTPRouteIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.BackendServiceImportGRPCRouteIndex, indexers.IndexGRPCRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportGRPCRouteIndex, err)
-		}
-	}
-
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, indexers.ImplementationGatewayIndex, indexers.GenerateIndexerGatewayByImplementation(l.client, gatewayv1.GatewayController(l.controllerName))); err != nil {
 		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ImplementationGatewayIndex, err)
 	}
@@ -154,32 +135,8 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup field indexer %q: %w", helpers.GatewaySecretIndex, err)
 	}
 
-	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceGRPCRouteIndex: indexers.GenerateIndexerGRPCRoutebyBackendService(l.client, l.logger),
-		indexers.GatewayGRPCRouteIndex:        indexers.IndexGRPCRouteByGateway,
-	} {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexName, indexerFunc); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-		}
-	}
-
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap); err != nil {
 		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicyConfigMapIndex, err)
-	}
-
-	if l.config.IncludeListenerSets {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ListenerSetGatewayIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", helpers.ListenerSetSecretIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.HTTPRouteListenerSetIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.GRPCRouteListenerSetIndex, indexers.IndexGRPCRouteByListenerSet); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.GRPCRouteListenerSetIndex, err)
-		}
 	}
 
 	return nil
