@@ -6,10 +6,8 @@ package redirectpolicy_test
 import (
 	"context"
 	"flag"
-	"iter"
 	"log/slog"
 	"maps"
-	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -36,7 +34,6 @@ import (
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -103,7 +100,7 @@ func TestScript(t *testing.T) {
 						if testutils.IsPrivileged() {
 							return nil
 						}
-						return &fakeSkipLBMap{}
+						return &lbmaps.FakeSkipLBMap{}
 					},
 				),
 			)
@@ -129,89 +126,3 @@ func TestScript(t *testing.T) {
 			}
 		}, []string{}, "testdata/*.txtar")
 }
-
-type fakeSkipLBMap struct {
-	entries lock.Map[any, any]
-}
-
-// OpenOrCreate implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) OpenOrCreate() error {
-	return nil
-}
-
-// Close implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) Close() error {
-	return nil
-}
-
-// AddLB4 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AddLB4(netnsCookie uint64, ip netip.Addr, port uint16) error {
-	key := lbmaps.SkipLB4Key{
-		NetnsCookie: netnsCookie,
-		Address:     ip.As4(),
-		Port:        port,
-	}
-	f.entries.Store(
-		key,
-		&lbmaps.SkipLB4Value{},
-	)
-	return nil
-}
-
-// AddLB6 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AddLB6(netnsCookie uint64, ip netip.Addr, port uint16) error {
-	key := lbmaps.SkipLB6Key{
-		NetnsCookie: netnsCookie,
-		Address:     ip.As16(),
-		Port:        port,
-	}
-	f.entries.Store(
-		key,
-		&lbmaps.SkipLB6Value{},
-	)
-	return nil
-}
-
-// AllLB4 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AllLB4() iter.Seq2[*lbmaps.SkipLB4Key, *lbmaps.SkipLB4Value] {
-	return func(yield func(*lbmaps.SkipLB4Key, *lbmaps.SkipLB4Value) bool) {
-		f.entries.Range(func(key any, value any) bool {
-			switch key := key.(type) {
-			case lbmaps.SkipLB4Key:
-				if !yield(&key, value.(*lbmaps.SkipLB4Value)) {
-					return false
-				}
-			}
-			return true
-		})
-	}
-}
-
-// AllLB6 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AllLB6() iter.Seq2[*lbmaps.SkipLB6Key, *lbmaps.SkipLB6Value] {
-	return func(yield func(*lbmaps.SkipLB6Key, *lbmaps.SkipLB6Value) bool) {
-		f.entries.Range(func(key any, value any) bool {
-			switch key := key.(type) {
-			case lbmaps.SkipLB6Key:
-				if !yield(&key, value.(*lbmaps.SkipLB6Value)) {
-					return false
-				}
-			}
-			return true
-		})
-	}
-}
-
-// DeleteLB4 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB4(key *lbmaps.SkipLB4Key) error {
-	f.entries.Delete(*key)
-	return nil
-}
-
-// DeleteLB6 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB6(key *lbmaps.SkipLB6Key) error {
-	f.entries.Delete(*key)
-	return nil
-}
-
-var _ lbmaps.SkipLBMap = &fakeSkipLBMap{}

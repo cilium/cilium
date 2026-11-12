@@ -11,9 +11,12 @@ import (
 	"net/netip"
 	"slices"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -1330,4 +1333,229 @@ func TestBackendReleaseTracksSingletonReferences(t *testing.T) {
 	state, found := e.ops.backendStates[backend]
 	require.True(t, found, "backend of the other frontend was released")
 	require.Equal(t, 1, state.refCount)
+}
+
+func TestBPFOpsRestorePrunePreservesDesired(t *testing.T) {
+	e := newRestoreEnv(t)
+	first := frontendWithBackend(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80))
+	last := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.2", 80))
+	last.Backends = concatBe(last.Backends, newTestBackend(restoreAddr(loadbalancer.TCP, "10.1.0.2", 80), loadbalancer.BackendStateActive), 1)
+	stale := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.3", 80))
+	stale.Backends = concatBe(stale.Backends, newTestBackend(restoreAddr(loadbalancer.TCP, "10.1.0.3", 80), loadbalancer.BackendStateActive), 1)
+
+	// Program the previous agent's maps through real Update operations.
+	firstID := e.updateFrontend(first)
+	lastID := e.updateFrontend(last)
+	want := maps.DumpLBMaps(e.lbmaps, false, nil)
+	e.updateFrontend(stale)
+	before := maps.DumpLBMaps(e.lbmaps, false, nil)
+	e.restore()
+	e.ops.initialReconciliationPending = true
+
+	// The automatic prune may run between reconciliation batches.
+	require.Equal(t, firstID, e.updateFrontend(first.Clone()))
+	e.prune()
+	require.Equal(t, before, maps.DumpLBMaps(e.lbmaps, false, nil), "prune must wait for the initial pass")
+	require.Equal(t, lastID, e.updateFrontend(last.Clone()), "the retained service ID must still be reusable")
+	e.ops.initialReconciliationPending = false
+	e.prune()
+	require.Equal(t, want, maps.DumpLBMaps(e.lbmaps, false, nil))
+}
+
+func TestBPFOpsInitialPruneChurn(t *testing.T) {
+	setup := func(t *testing.T) (*restoreEnv, *loadbalancer.Frontend) {
+		t.Helper()
+		e := newRestoreEnv(t)
+		fe := frontendWithBackend(restoreAddr(loadbalancer.TCP, "172.18.0.2", 80))
+		e.updateFrontend(fe)
+		e.restore()
+		e.ops.initialReconciliationPending = true
+		return e, fe
+	}
+	withNewBackend := func(fe *loadbalancer.Frontend) *loadbalancer.Frontend {
+		fe = fe.Clone()
+		fe.ID = 0
+		fe.Backends = concatBe(baseFrontend.Backends, newTestBackend(restoreAddr(loadbalancer.TCP, "10.1.0.2", 80), loadbalancer.BackendStateActive), 2)
+		return fe
+	}
+	checkUpdated := func(t *testing.T, e *restoreEnv, fe *loadbalancer.Frontend) {
+		t.Helper()
+		actualID, found := e.masterID(fe.Address)
+		require.True(t, found, "the desired frontend must survive pruning")
+		require.Equal(t, fe.ID, actualID)
+		var backends []loadbalancer.L3n4Addr
+		require.NoError(t, e.lbmaps.DumpBackend(func(_ maps.BackendKey, v maps.BackendValue) {
+			backends = append(backends, beValueToAddr(v.ToHost()))
+		}))
+		require.Equal(t, []loadbalancer.L3n4Addr{restoreAddr(loadbalancer.TCP, "10.1.0.2", 80)}, backends)
+	}
+
+	t.Run("deleted", func(t *testing.T) {
+		e, fe := setup(t)
+		e.delete(fe.Address)
+		e.ops.initialReconciliationPending = false
+		e.prune()
+		require.Empty(t, maps.DumpLBMaps(e.lbmaps, false, nil))
+	})
+
+	t.Run("recreated", func(t *testing.T) {
+		e, fe := setup(t)
+		e.delete(fe.Address)
+		require.Equal(t, fe.ID, e.updateFrontend(withNewBackend(fe)))
+		e.ops.initialReconciliationPending = false
+		e.prune()
+		checkUpdated(t, e, fe)
+	})
+
+	t.Run("backend-changed", func(t *testing.T) {
+		e, fe := setup(t)
+		require.Equal(t, fe.ID, e.updateFrontend(withNewBackend(fe)))
+		e.ops.initialReconciliationPending = false
+		e.prune()
+		checkUpdated(t, e, fe)
+	})
+}
+
+func TestBPFOpsWaitForInitialReconciliation(t *testing.T) {
+	newOps := func(t *testing.T) *BPFOps {
+		t.Helper()
+		db := statedb.New()
+		fes, err := loadbalancer.NewFrontendsTable(loadbalancer.Config{}, db)
+		require.NoError(t, err)
+		return &BPFOps{db: db, frontends: fes}
+	}
+	put := func(t *testing.T, ops *BPFOps, fe *loadbalancer.Frontend) {
+		t.Helper()
+		fes := ops.frontends.(statedb.RWTable[*loadbalancer.Frontend])
+		txn := ops.db.WriteTxn(fes)
+		_, _, err := fes.Insert(txn, fe)
+		require.NoError(t, err)
+		txn.Commit()
+	}
+	remove := func(t *testing.T, ops *BPFOps, fe *loadbalancer.Frontend) {
+		t.Helper()
+		fes := ops.frontends.(statedb.RWTable[*loadbalancer.Frontend])
+		txn := ops.db.WriteTxn(fes)
+		_, _, err := fes.Delete(txn, fe)
+		require.NoError(t, err)
+		txn.Commit()
+	}
+	startWait := func(t *testing.T, ops *BPFOps) (<-chan error, context.CancelFunc) {
+		t.Helper()
+		ctx, cancel := context.WithCancel(t.Context())
+		snapshot := ops.db.ReadTxn()
+		done := make(chan error, 1)
+		go func() { done <- ops.waitForInitialReconciliation(ctx, snapshot) }()
+		synctest.Wait()
+		require.Empty(t, done, "pending snapshot must not finish")
+		return done, cancel
+	}
+
+	for _, status := range []reconciler.Status{
+		reconciler.StatusDone(),
+		reconciler.StatusError(fmt.Errorf("map is full")),
+	} {
+		t.Run(status.Kind.String(), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ops := newOps(t)
+				fe := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80))
+				put(t, ops, fe)
+				done, cancel := startWait(t, ops)
+				defer cancel()
+
+				fe = fe.Clone()
+				fe.Status = status
+				put(t, ops, fe)
+				require.NoError(t, <-done)
+			})
+		})
+	}
+
+	t.Run("deleted", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ops := newOps(t)
+			fe := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80))
+			put(t, ops, fe)
+			done, cancel := startWait(t, ops)
+			defer cancel()
+
+			remove(t, ops, fe)
+			require.NoError(t, <-done)
+		})
+	})
+
+	t.Run("recreated", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ops := newOps(t)
+			fe := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80))
+			put(t, ops, fe)
+			done, cancel := startWait(t, ops)
+			defer cancel()
+
+			remove(t, ops, fe)
+			fe = fe.Clone()
+			fe.Status = reconciler.StatusPending()
+			put(t, ops, fe)
+			time.Sleep(20 * time.Millisecond) // Advance the watch debounce in the synctest clock.
+			synctest.Wait()
+			require.Empty(t, done, "replacement must still be processed")
+
+			fe = fe.Clone()
+			fe.Status = reconciler.StatusDone()
+			put(t, ops, fe)
+			require.NoError(t, <-done)
+		})
+	})
+
+	t.Run("multiple-frontends", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ops := newOps(t)
+			first := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80))
+			last := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.2", 80))
+			put(t, ops, first)
+			put(t, ops, last)
+			done, cancel := startWait(t, ops)
+			defer cancel()
+
+			first = first.Clone()
+			first.Status = reconciler.StatusDone()
+			put(t, ops, first)
+			time.Sleep(20 * time.Millisecond) // Advance the watch debounce in the synctest clock.
+			synctest.Wait()
+			require.Empty(t, done, "all initial frontends must be processed")
+
+			// A completed target must not rejoin the wait when it changes again.
+			first = first.Clone()
+			first.Status = reconciler.StatusPending()
+			put(t, ops, first)
+			// Objects introduced after the snapshot must not prolong startup either.
+			put(t, ops, frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.3", 80)))
+			last = last.Clone()
+			last.Status = reconciler.StatusError(fmt.Errorf("map is full"))
+			put(t, ops, last)
+			require.NoError(t, <-done)
+		})
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ops := newOps(t)
+			fe := frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80))
+			put(t, ops, fe)
+			remove(t, ops, fe) // An empty table can still have a nonzero revision.
+			require.NoError(t, ops.waitForInitialReconciliation(t.Context(), ops.db.ReadTxn()))
+		})
+	})
+
+	t.Run("canceled", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ops := newOps(t)
+			put(t, ops, frontendAt(restoreAddr(loadbalancer.TCP, "172.18.0.1", 80)))
+			done, cancel := startWait(t, ops)
+			defer cancel()
+
+			cancel()
+			require.ErrorIs(t, <-done, context.Canceled)
+		})
+	})
 }

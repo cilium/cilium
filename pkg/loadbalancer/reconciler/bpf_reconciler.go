@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	stdmaps "maps"
 	"net/netip"
 	"slices"
 	"sort"
@@ -54,7 +55,11 @@ func newBPFReconciler(p reconciler.Params, jobs job.Registry, health cell.Health
 	}
 	g.Add(
 		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
-			if len(ops.restoredServiceIDs) > 0 {
+			ops.mu.Lock()
+			restored := len(ops.restoredServiceIDs) > 0
+			ops.initialReconciliationPending = restored
+			ops.mu.Unlock()
+			if restored {
 				// We give a short grace period for initializers to finish populating the initial contents
 				// of the tables to avoid scaling down load-balancing due to e.g. seeing backends from k8s
 				// much earlier than from ClusterMesh for the same service.
@@ -97,15 +102,75 @@ func newBPFReconciler(p reconciler.Params, jobs job.Registry, health cell.Health
 					30*time.Minute,
 				),
 			)
-			if err == nil {
-				resolve.Resolve(r)
-			} else {
+			if err != nil {
 				resolve.Reject(err)
+				return err
 			}
-			return err
+			resolve.Resolve(r)
+			if !restored {
+				return nil
+			}
+
+			// Reconciliation may start before initialization finishes, but pruning
+			// must wait until the complete initial snapshot has been processed.
+			_, initialized := fes.Initialized(p.DB.ReadTxn())
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-initialized:
+			}
+			health.OK("Waiting for initial load-balancing reconciliation")
+			if err := ops.waitForInitialReconciliation(ctx, p.DB.ReadTxn()); err != nil {
+				return nil
+			}
+			ops.mu.Lock()
+			ops.initialReconciliationPending = false
+			ops.mu.Unlock()
+			// The automatic initialization prune may already have been skipped.
+			r.Prune()
+			health.OK("Initial load-balancing reconciliation complete")
+			return nil
 		}),
 	)
 	return promise
+}
+
+// waitForInitialReconciliation follows the snapshot-waiting pattern in node.Writer.
+// A target completes when Done or Error is observed, or when it disappears.
+// Errors count because stale map entries may need to be removed before Update
+// can succeed. Disappeared frontends are left for pruning.
+// Frontend addresses added after the snapshot do not extend this wait.
+func (ops *BPFOps) waitForInitialReconciliation(ctx context.Context, txn statedb.ReadTxn) error {
+	targets := map[loadbalancer.L3n4Addr]statedb.Revision{}
+	for fe := range ops.frontends.All(txn) {
+		targets[fe.Address] = 0
+	}
+
+	ws := statedb.NewWatchSet()
+	for len(targets) > 0 {
+		frontends, watch := ops.frontends.AllWatch(txn)
+		rev := ops.frontends.Revision(txn)
+		for fe := range frontends {
+			if _, found := targets[fe.Address]; !found {
+				continue
+			}
+			if fe.Status.Kind == reconciler.StatusKindDone || fe.Status.Kind == reconciler.StatusKindError {
+				delete(targets, fe.Address)
+			} else {
+				targets[fe.Address] = rev
+			}
+		}
+		stdmaps.DeleteFunc(targets, func(_ loadbalancer.L3n4Addr, seen statedb.Revision) bool { return seen != rev })
+		if len(targets) == 0 {
+			return nil
+		}
+		ws.Add(watch)
+		if _, err := ws.Wait(ctx, 10*time.Millisecond); err != nil {
+			return err
+		}
+		txn = ops.db.ReadTxn()
+	}
+	return nil
 }
 
 type BPFOps struct {
@@ -122,9 +187,11 @@ type BPFOps struct {
 	pruneCount    atomic.Int32
 	metrics       *reconcilerMetrics
 
-	// mu protects the state below. The reconciler itself is single-threaded, but we need
-	// to protect the state in order to be able to ResetAndRestore() in tests.
+	// mu protects the state below, including the startup gate shared with the
+	// registration job. It also serializes ResetAndRestore() with reconciliation in tests.
 	mu lock.Mutex
+
+	initialReconciliationPending bool
 
 	serviceIDAlloc     idAllocator[loadbalancer.ServiceID]
 	restoredServiceIDs map[loadbalancer.L3n4Addr]loadbalancer.ServiceID
@@ -1018,6 +1085,9 @@ func (ops *BPFOps) pruneMaglev() error {
 func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
+	if ops.initialReconciliationPending {
+		return nil
+	}
 	defer func() { ops.pruneCount.Add(1) }()
 	ops.log.Debug("Pruning")
 	// The restored IDs are only dropped once the stale service slots, source ranges,
