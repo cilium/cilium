@@ -94,7 +94,6 @@ differently than in prior releases:
   ExternalIP node addresses. Traffic to InternalIP node addresses will not be
   masqueraded anymore.
 * ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
-* ``bpf.masquerade`` is enabled by default on new Cilium deployments.
 * The SPIRE Helm values have moved from ``authentication.mutual.spire.*`` to
   ``encryption.ztunnel.spire.*`` because mutual authentication has been removed
   and SPIRE is now only used by ztunnel. The previous
