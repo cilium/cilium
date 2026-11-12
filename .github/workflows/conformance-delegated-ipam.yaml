@@ -149,7 +149,8 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
           # Cilium configured with delegated IPAM mode.
-          # * Set cni.customConf=true since conflist is configured using host mount into kind nodes.
+          # * Set cni.customConf=true since conflist is installed into kind nodes by the workflow
+          #   after Cilium becomes ready.
           # * Delegated IPAM requires direct routing mode.
           # * Delegated IPAM is incompatible with all options that require cilium-agent to assign itself an IP address,
           #    so set local-router-ipv4 and endpointHealthChecking.enabled=false.
@@ -240,19 +241,9 @@ jobs:
                   controllerManager:
                     extraArgs:
                       allocate-node-cidrs: "false"
-              extraMounts:
-                - hostPath: kind-control-plane-delegated-ipam.conflist
-                  containerPath: /etc/cni/net.d/05-cilium.conflist
 
             - role: worker
-              extraMounts:
-                - hostPath: kind-worker-delegated-ipam.conflist
-                  containerPath: /etc/cni/net.d/05-cilium.conflist
-
             - role: worker
-              extraMounts:
-                - hostPath: kind-worker2-delegated-ipam.conflist
-                  containerPath: /etc/cni/net.d/05-cilium.conflist
 
           networking:
             disableDefaultCNI: true
@@ -316,11 +307,6 @@ jobs:
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
           auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
-      - name: Wait for nodes to become ready
-        run: |
-          kubectl wait --for=condition=Ready nodes --all --timeout=300s
-          kubectl get nodes -oyaml
-
       # Delegated IPAM requires direct routing, and we can't use autoDirectNodeRoutes or BGP because
       # Cilium isn't aware of the pod CIDR for each node.
       # So use `ip route add` to ensure pod traffic is routed to the correct node.
@@ -365,6 +351,17 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl -n kube-system get pods -owide
+
+      - name: Install conflist on each node
+        run: |
+          for node in kind-control-plane kind-worker kind-worker2; do
+            docker cp "${node}-delegated-ipam.conflist" "${node}:/etc/cni/net.d/05-cilium.conflist"
+          done
+
+      - name: Wait for nodes to become ready
+        run: |
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          kubectl get nodes -oyaml
 
       - name: Make JUnit report directory
         run: |
