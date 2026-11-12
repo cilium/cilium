@@ -105,7 +105,6 @@ xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
 	return frag_not_found_world(ret, info ? info->sec_identity : world_ipv4_id());
 }
 
-#if defined(ENABLE_IPV6)
 static __always_inline __maybe_unused int
 xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 {
@@ -117,7 +116,6 @@ xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 	info = lookup_ip6_remote_endpoint((const union v6addr *)&ip6->saddr, 0);
 	return frag_not_found_world(ret, info ? info->sec_identity : world_ipv6_id());
 }
-#endif /* ENABLE_IPV6 */
 
 #ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
@@ -190,7 +188,6 @@ static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 	return 0;
 }
 
-#ifdef ENABLE_IPV6
 #ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
@@ -261,7 +258,6 @@ static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 
 	return 0;
 }
-#endif /* ENABLE_IPV6 */
 
 #ifndef xdp_early_hook
 #define xdp_early_hook(ctx, proto) CTX_ACT_OK
@@ -293,8 +289,10 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 		if (NODEPORT_ENABLED)
 			ret = check_v4_lb(ctx);
 		break;
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			break;
+
 		if (CONFIG(enable_xdp_prefilter)) {
 			ret = prefilter_v6(ctx);
 			if (ret == CTX_ACT_DROP)
@@ -304,7 +302,6 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 		if (NODEPORT_ENABLED)
 			ret = check_v6_lb(ctx);
 		break;
-#endif /* ENABLE_IPV6 */
 	default:
 		break;
 	}
