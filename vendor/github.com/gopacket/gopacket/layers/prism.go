@@ -15,11 +15,16 @@ import (
 	"github.com/gopacket/gopacket"
 )
 
+// prismValueDataLen is the size of the data slot at the end of a 12-byte value.
+const prismValueDataLen = 4
+
 func decodePrismValue(data []byte, pv *PrismValue) {
 	pv.DID = PrismDID(binary.LittleEndian.Uint32(data[0:4]))
 	pv.Status = binary.LittleEndian.Uint16(data[4:6])
 	pv.Length = binary.LittleEndian.Uint16(data[6:8])
-	pv.Data = data[8 : 8+pv.Length]
+
+	// Length is capped at the slot so Data never runs into the next value
+	pv.Data = data[8 : 8+min(int(pv.Length), prismValueDataLen)]
 }
 
 type PrismDID uint32

@@ -62,7 +62,8 @@ func (e *EAP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	switch {
 	case e.Length > 4:
 		e.Type = EAPType(data[4])
-		e.TypeData = data[5:]
+		// bytes past Length are link-layer padding (RFC 3748 section 4)
+		e.TypeData = data[5:e.Length]
 	case e.Length == 4:
 		e.Type = 0
 		e.TypeData = nil

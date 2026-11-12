@@ -11,8 +11,8 @@ cilium hubble port-forward [flags]
 ### Options
 
 ```
-  -h, --help               help for port-forward
-      --port-forward int   Local port to forward to. 0 will select a random port. (default 4245)
+  -h, --help[=true|false]   help for port-forward
+      --port-forward int    Local port to forward to. 0 will select a random port. (default 4245)
 ```
 
 ### Options inherited from parent commands

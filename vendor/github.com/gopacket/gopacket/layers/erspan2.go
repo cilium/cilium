@@ -9,6 +9,7 @@ package layers
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/gopacket/gopacket"
 )
@@ -40,6 +41,11 @@ func (erspan2 *ERSPANII) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback
 		return errors.New("ERSPAN II header too short")
 	}
 	erspan2.Version = data[0] & 0xF0 >> 4
+	// The version selects the header format: only Type II has this 8-byte
+	// layout, Type III (version 2) is 12 bytes or more.
+	if erspan2.Version != ERSPANIIVersion && erspan2.Version != ERSPANIIVersionObsolete {
+		return fmt.Errorf("unsupported ERSPAN version: %d", erspan2.Version)
+	}
 	erspan2.VLANIdentifier = binary.BigEndian.Uint16(data[:2]) & 0x0FFF
 	erspan2.CoS = data[2] & 0xE0 >> 5
 	erspan2.TrunkEncap = data[2] & 0x18 >> 3

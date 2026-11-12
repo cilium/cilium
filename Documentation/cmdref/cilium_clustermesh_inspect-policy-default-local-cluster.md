@@ -11,10 +11,10 @@ cilium clustermesh inspect-policy-default-local-cluster [flags]
 ### Options
 
 ```
-  -A, --all-namespaces            If present, list the resources across all namespace. Namespace in current context or specified with --policy-namespace is ignored.
-  -h, --help                      help for inspect-policy-default-local-cluster
-  -o, --output string             Output format. One of: json, summary (default "summary")
-  -p, --policy-namespace string   Namespace used for listing policy resources
+  -A, --all-namespaces[=true|false]   If present, list the resources across all namespace. Namespace in current context or specified with --policy-namespace is ignored.
+  -h, --help[=true|false]             help for inspect-policy-default-local-cluster
+  -o, --output string                 Output format. One of: json, summary (default "summary")
+  -p, --policy-namespace string       Namespace used for listing policy resources
 ```
 
 ### Options inherited from parent commands

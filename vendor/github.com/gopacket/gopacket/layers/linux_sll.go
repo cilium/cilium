@@ -77,6 +77,13 @@ func (sll *LinuxSLL) LinkFlow() gopacket.Flow {
 }
 
 func (sll *LinuxSLL) NextLayerType() gopacket.LayerType {
+	// As in LinuxSLL2, the protocol type is not an ethernet type when the
+	// captured frame had an 802.3 length field: libpcap then writes 0x0004
+	// and the payload begins with an 802.2 LLC header. A radiotap record
+	// carries no meaningful protocol type, so leave it alone.
+	if sll.EthernetType == LinuxSLL2EthernetTypeLLC && sll.AddrType != uint16(ARPHardwareTypeDot11Radiotap) {
+		return LayerTypeLLC
+	}
 	return sll.EthernetType.LayerType()
 }
 
@@ -107,5 +114,8 @@ func decodeLinuxSLL(data []byte, p gopacket.PacketBuilder) error {
 	}
 	p.AddLayer(sll)
 	p.SetLinkLayer(sll)
+	if next := sll.NextLayerType(); next == LayerTypeLLC {
+		return p.NextDecoder(next)
+	}
 	return p.NextDecoder(sll.EthernetType)
 }

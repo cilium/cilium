@@ -11,19 +11,19 @@ cilium-dbg config [<option>=(enable|disable) ...] [flags]
 ### Options
 
 ```
-  -a, --all             Display all cilium configurations
-  -h, --help            help for config
-      --list-options    List available options
-  -n, --num-pages int   Number of pages for perf ring buffer. New values have to be > 0
-  -o, --output string   json| yaml| jsonpath='{}'
-  -r, --read-only       Display read only configurations
+  -a, --all[=true|false]            Display all cilium configurations
+  -h, --help[=true|false]           help for config
+      --list-options[=true|false]   List available options
+  -n, --num-pages int               Number of pages for perf ring buffer. New values have to be > 0
+  -o, --output string               json| yaml| jsonpath='{}'
+  -r, --read-only[=true|false]      Display read only configurations
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

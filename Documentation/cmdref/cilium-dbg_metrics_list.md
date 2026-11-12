@@ -11,7 +11,7 @@ cilium-dbg metrics list [flags]
 ### Options
 
 ```
-  -h, --help                     help for list
+  -h, --help[=true|false]        help for list
   -p, --match-pattern string     Show only metrics whose names match matchpattern
   -o, --output string            json| yaml| jsonpath='{}'
       --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
@@ -21,7 +21,7 @@ cilium-dbg metrics list [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

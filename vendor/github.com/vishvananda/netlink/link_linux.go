@@ -1503,47 +1503,48 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		}
 
 		queues := tuntap.Queues
-
-		var fds []*os.File
-		var req ifReq
-		copy(req.Name[:15], base.Name)
-
-		req.Flags = uint16(tuntap.Flags)
+		flags := uint16(tuntap.Flags)
 
 		if queues == 0 { //Legacy compatibility
 			queues = 1
 			if tuntap.Flags == 0 {
-				req.Flags = uint16(TUNTAP_DEFAULTS)
+				flags = uint16(TUNTAP_DEFAULTS)
 			}
 		} else {
 			// For best peformance set Flags to TUNTAP_MULTI_QUEUE_DEFAULTS | TUNTAP_VNET_HDR
 			// when a) KVM has support for this ABI and
 			//      b) the value of the flag is queryable using the TUNGETIFF ioctl
 			if tuntap.Flags == 0 {
-				req.Flags = uint16(TUNTAP_MULTI_QUEUE_DEFAULTS)
+				flags = uint16(TUNTAP_MULTI_QUEUE_DEFAULTS)
 			}
 		}
+		flags |= uint16(tuntap.Mode)
 
-		req.Flags |= uint16(tuntap.Mode)
+		req, err := unix.NewIfreq(base.Name)
+		if err != nil {
+			return fmt.Errorf("tuntap name %q is invalid: %w", base.Name, err)
+		}
+		req.SetUint16(flags)
+
+		var fds []*os.File
 		const TUN = "/dev/net/tun"
 		for i := 0; i < queues; i++ {
-			localReq := req
+			iterReq := *req
 			fd, err := unix.Open(TUN, os.O_RDWR|syscall.O_CLOEXEC, 0)
 			if err != nil {
 				cleanupFds(fds)
 				return err
 			}
 
-			_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(unix.TUNSETIFF), uintptr(unsafe.Pointer(&localReq)))
-			if errno != 0 {
+			if err := unix.IoctlIfreq(fd, unix.TUNSETIFF, &iterReq); err != nil {
 				// close the new fd
 				unix.Close(fd)
 				// and the already opened ones
 				cleanupFds(fds)
-				return fmt.Errorf("Tuntap IOCTL TUNSETIFF failed [%d], errno %v", i, errno)
+				return fmt.Errorf("Tuntap IOCTL TUNSETIFF failed [%d]: %w", i, err)
 			}
 
-			_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), syscall.TUNSETOWNER, uintptr(tuntap.Owner))
+			_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), syscall.TUNSETOWNER, uintptr(tuntap.Owner))
 			if errno != 0 {
 				cleanupFds(fds)
 				return fmt.Errorf("Tuntap IOCTL TUNSETOWNER failed [%d], errno %v", i, errno)
@@ -1584,14 +1585,14 @@ func (h *Handle) linkModify(link Link, flags int) error {
 			fds = append(fds, file)
 
 			// 1) we only care for the name of the first tap in the multi queue set
-			// 2) if the original name was empty, the localReq has now the actual name
+			// 2) if the original name was empty, iterReq has now the actual name
 			//
 			// In addition:
 			// This ensures that the link name is always identical to what the kernel returns.
 			// Not only in case of an empty name, but also when using name templates.
 			// e.g. when the provided name is "tap%d", the kernel replaces %d with the next available number.
 			if i == 0 {
-				link.Attrs().Name = strings.Trim(string(localReq.Name[:]), "\x00")
+				link.Attrs().Name = strings.Trim(iterReq.Name(), "\x00")
 			}
 
 		}
@@ -2151,6 +2152,9 @@ func execGetLink(req *nl.NetlinkRequest) (Link, error) {
 // a link object.
 func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	msg := nl.DeserializeIfInfomsg(m)
+	if msg == nil {
+		return nil, fmt.Errorf("got short ifinfomsg from netlink")
+	}
 
 	attrs, err := nl.ParseRouteAttr(m[msg.Len():])
 	if err != nil {
@@ -2673,6 +2677,9 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 					continue
 				}
 				ifmsg := nl.DeserializeIfInfomsg(m.Data)
+				if ifmsg == nil {
+					continue
+				}
 				header := unix.NlMsghdr(m.Header)
 				link, err := LinkDeserialize(&header, m.Data)
 				if err != nil {
@@ -3497,8 +3504,12 @@ func addGretapAttrs(gretap *Gretap, linkInfo *nl.RtAttr) {
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_FLAGS, nl.Uint16Attr(gretap.EncapFlags))
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_SPORT, htons(gretap.EncapSport))
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_DPORT, htons(gretap.EncapDport))
-	if gretap.IgnoreDf != GRETAP_IGNORE_DF_FALSE {
-		data.AddRtAttr(nl.IFLA_GRE_IGNORE_DF, nl.Uint8Attr(uint8(gretap.IgnoreDf)))
+	data.AddRtAttr(nl.IFLA_GRE_IGNORE_DF, nl.Uint8Attr(uint8(gretap.IgnoreDf)))
+	if gretap.FlowInfo != 0 {
+		data.AddRtAttr(nl.IFLA_GRE_FLOWINFO, htonl(gretap.FlowInfo))
+	}
+	if gretap.TnlFlags != 0 {
+		data.AddRtAttr(nl.IFLA_GRE_FLAGS, nl.Uint32Attr(gretap.TnlFlags))
 	}
 }
 
@@ -3506,9 +3517,11 @@ func parseGretapData(link Link, data []syscall.NetlinkRouteAttr) {
 	gre := link.(*Gretap)
 	for _, datum := range data {
 		switch datum.Attr.Type {
-		case nl.IFLA_GRE_OKEY:
-			gre.IKey = ntohl(datum.Value[0:4])
+		case nl.IFLA_GRE_LINK:
+			gre.Link = native.Uint32(datum.Value[0:4])
 		case nl.IFLA_GRE_IKEY:
+			gre.IKey = ntohl(datum.Value[0:4])
+		case nl.IFLA_GRE_OKEY:
 			gre.OKey = ntohl(datum.Value[0:4])
 		case nl.IFLA_GRE_LOCAL:
 			gre.Local = net.IP(datum.Value)
@@ -3534,6 +3547,12 @@ func parseGretapData(link Link, data []syscall.NetlinkRouteAttr) {
 			gre.EncapFlags = native.Uint16(datum.Value[0:2])
 		case nl.IFLA_GRE_COLLECT_METADATA:
 			gre.FlowBased = true
+		case nl.IFLA_GRE_IGNORE_DF:
+			gre.IgnoreDf = GretapIgnoreDf(datum.Value[0])
+		case nl.IFLA_GRE_FLOWINFO:
+			gre.FlowInfo = ntohl(datum.Value[0:4])
+		case nl.IFLA_GRE_FLAGS:
+			gre.TnlFlags = native.Uint32(datum.Value[0:4])
 		}
 	}
 }
@@ -3585,12 +3604,21 @@ func addGretunAttrs(gre *Gretun, linkInfo *nl.RtAttr) {
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_FLAGS, nl.Uint16Attr(gre.EncapFlags))
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_SPORT, htons(gre.EncapSport))
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_DPORT, htons(gre.EncapDport))
+	data.AddRtAttr(nl.IFLA_GRE_IGNORE_DF, boolAttr(gre.IgnoreDf))
+	if gre.FlowInfo != 0 {
+		data.AddRtAttr(nl.IFLA_GRE_FLOWINFO, htonl(gre.FlowInfo))
+	}
+	if gre.TnlFlags != 0 {
+		data.AddRtAttr(nl.IFLA_GRE_FLAGS, nl.Uint32Attr(gre.TnlFlags))
+	}
 }
 
 func parseGretunData(link Link, data []syscall.NetlinkRouteAttr) {
 	gre := link.(*Gretun)
 	for _, datum := range data {
 		switch datum.Attr.Type {
+		case nl.IFLA_GRE_LINK:
+			gre.Link = native.Uint32(datum.Value[0:4])
 		case nl.IFLA_GRE_IKEY:
 			gre.IKey = ntohl(datum.Value[0:4])
 		case nl.IFLA_GRE_OKEY:
@@ -3619,6 +3647,12 @@ func parseGretunData(link Link, data []syscall.NetlinkRouteAttr) {
 			gre.EncapDport = ntohs(datum.Value[0:2])
 		case nl.IFLA_GRE_COLLECT_METADATA:
 			gre.FlowBased = true
+		case nl.IFLA_GRE_IGNORE_DF:
+			gre.IgnoreDf = datum.Value[0] != 0
+		case nl.IFLA_GRE_FLOWINFO:
+			gre.FlowInfo = ntohl(datum.Value[0:4])
+		case nl.IFLA_GRE_FLAGS:
+			gre.TnlFlags = native.Uint32(datum.Value[0:4])
 		}
 	}
 }

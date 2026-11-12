@@ -7,7 +7,7 @@ Access to BGP control plane
 ### Options
 
 ```
-  -h, --help   help for bgp
+  -h, --help[=true|false]   help for bgp
 ```
 
 ### Options inherited from parent commands

@@ -48,7 +48,7 @@ func (eth *Ethernet) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) er
 	eth.EthernetType = EthernetType(binary.BigEndian.Uint16(data[12:14]))
 	eth.BaseLayer = BaseLayer{data[:14], data[14:]}
 	eth.Length = 0
-	if eth.EthernetType < 0x0600 {
+	if eth.EthernetType < ethernetTypeMinValue {
 		eth.Length = uint16(eth.EthernetType)
 		eth.EthernetType = EthernetTypeLLC
 		if cmp := len(eth.Payload) - int(eth.Length); cmp < 0 {
@@ -85,7 +85,7 @@ func (eth *Ethernet) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Seria
 		}
 		if eth.EthernetType != EthernetTypeLLC {
 			return fmt.Errorf("ethernet type %v not compatible with length value %v", eth.EthernetType, eth.Length)
-		} else if eth.Length > 0x0600 {
+		} else if eth.Length > ethernetTypeMinValue {
 			return fmt.Errorf("invalid ethernet length %v", eth.Length)
 		}
 		binary.BigEndian.PutUint16(bytes[12:], eth.Length)

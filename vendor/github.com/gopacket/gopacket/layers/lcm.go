@@ -116,6 +116,9 @@ func decodeLCM(data []byte, p gopacket.PacketBuilder) error {
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (lcm *LCM) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*lcm = LCM{}
+
 	if len(data) < 8 {
 		df.SetTruncated()
 		return errors.New("LCM < 8 bytes")

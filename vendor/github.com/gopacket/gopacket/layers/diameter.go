@@ -111,7 +111,7 @@ func decodeDiameter(data []byte, p gopacket.PacketBuilder) error {
 	}
 	p.AddLayer(d)
 	p.SetApplicationLayer(d)
-	return nil
+	return p.NextDecoder(d.NextLayerType())
 }
 
 // DecodeFromBytes decodes the given bytes into this layer
@@ -169,7 +169,9 @@ func (d *Diameter) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 		avpData = avpData[bytesConsumed:]
 	}
 
-	d.BaseLayer = BaseLayer{Contents: data[:d.MessageLength]}
+	// Bytes past MessageLength are not part of this message (over TCP they
+	// start the next one), so hand them on rather than dropping them.
+	d.BaseLayer = BaseLayer{Contents: data[:d.MessageLength], Payload: data[d.MessageLength:]}
 
 	return nil
 }

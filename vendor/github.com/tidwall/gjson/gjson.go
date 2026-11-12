@@ -2336,13 +2336,15 @@ func unescape(json string) string {
 				}
 				r := runeit(json[i+1:])
 				i += 5
-				if utf16.IsSurrogate(r) {
-					// need another code
+				if r >= 0xD800 && r < 0xDC00 {
+					// high surrogate
 					if len(json[i:]) >= 6 && json[i] == '\\' &&
 						json[i+1] == 'u' {
-						// we expect it to be correct so just consume it
-						r = utf16.DecodeRune(r, runeit(json[i+2:]))
-						i += 6
+						r2 := runeit(json[i+2:])
+						if r2 >= 0xDC00 && r2 < 0xE000 {
+							r = utf16.DecodeRune(r, r2)
+							i += 6
+						}
 					}
 				}
 				// provide enough space to encode the largest utf8 possible

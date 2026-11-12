@@ -11,9 +11,9 @@ cilium hubble enable [flags]
 ### Options
 
 ```
-  -h, --help    help for enable
-      --relay   Deploy Hubble Relay (default true)
-      --ui      Enable Hubble UI
+  -h, --help[=true|false]    help for enable
+      --relay[=true|false]   Deploy Hubble Relay (default true)
+      --ui[=true|false]      Enable Hubble UI
 ```
 
 ### Options inherited from parent commands

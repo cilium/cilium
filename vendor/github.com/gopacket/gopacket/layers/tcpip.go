@@ -29,8 +29,9 @@ func (ip *IPv4) pseudoheaderChecksum() (csum uint32, err error) {
 	}
 	csum += (uint32(ip.SrcIP[0]) + uint32(ip.SrcIP[2])) << 8
 	csum += uint32(ip.SrcIP[1]) + uint32(ip.SrcIP[3])
-	csum += (uint32(ip.DstIP[0]) + uint32(ip.DstIP[2])) << 8
-	csum += uint32(ip.DstIP[1]) + uint32(ip.DstIP[3])
+	dstIP := ip.finalDstIP()
+	csum += (uint32(dstIP[0]) + uint32(dstIP[2])) << 8
+	csum += uint32(dstIP[1]) + uint32(dstIP[3])
 	return csum, nil
 }
 
@@ -38,11 +39,12 @@ func (ip *IPv6) pseudoheaderChecksum() (csum uint32, err error) {
 	if err := ip.AddressTo16(); err != nil {
 		return 0, err
 	}
+	dstIP := ip.finalDstIP()
 	for i := 0; i < 16; i += 2 {
 		csum += uint32(ip.SrcIP[i]) << 8
 		csum += uint32(ip.SrcIP[i+1])
-		csum += uint32(ip.DstIP[i]) << 8
-		csum += uint32(ip.DstIP[i+1])
+		csum += uint32(dstIP[i]) << 8
+		csum += uint32(dstIP[i+1])
 	}
 	return csum, nil
 }

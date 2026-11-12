@@ -189,7 +189,10 @@ func (i *IGMP) decodeIGMPv3MembershipReport(data []byte) error {
 		gr.NumberOfSources = binary.BigEndian.Uint16(data[recordOffset+2 : recordOffset+4])
 		gr.MulticastAddress = net.IP(data[recordOffset+4 : recordOffset+8])
 
-		if len(data) < recordOffset+8+int(gr.NumberOfSources)*4 {
+		// AuxDataLen counts 32-bit words of auxiliary data behind the sources;
+		// a receiver steps over it (RFC 3376 4.2.10).
+		recordLen := 8 + 4*int(gr.NumberOfSources) + 4*int(gr.AuxDataLen)
+		if len(data) < recordOffset+recordLen {
 			return errors.New("IGMPv3 Membership Report too small #3")
 		}
 
@@ -200,7 +203,7 @@ func (i *IGMP) decodeIGMPv3MembershipReport(data []byte) error {
 		}
 
 		i.GroupRecords = append(i.GroupRecords, gr)
-		recordOffset += 8 + 4*int(gr.NumberOfSources)
+		recordOffset += recordLen
 	}
 	return nil
 }
@@ -285,6 +288,9 @@ func (i *IGMPv1or2) CanDecode() gopacket.LayerClass {
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (i *IGMP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*i = IGMP{}
+
 	if len(data) < 1 {
 		return errors.New("IGMP packet is too small")
 	}

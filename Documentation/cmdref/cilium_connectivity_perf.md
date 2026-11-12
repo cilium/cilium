@@ -11,35 +11,35 @@ cilium connectivity perf [flags]
 ### Options
 
 ```
-      --bandwidth                        Test pod network bandwidth manage
-      --crr                              Run CRR test
-  -d, --debug                            Show debug messages
-      --duration duration                Duration for the Performance test to run (default 10s)
-  -h, --help                             help for perf
-      --host-net                         Test host network (default true)
-      --host-to-pod                      Test host-to-pod traffic
-      --msg-size int                     Size of message to use in UDP test (default 1024)
-      --namespace-labels map             Add labels to the connectivity test namespace
-      --net-qos                          Test pod network Quality of Service
-      --node-selector-client string      Node selector (label query) for the other-node client pod (default "cilium.io/no-schedule!=true")
-      --node-selector-server string      Node selector (label query) for the server pod (and client same-node) (default "cilium.io/no-schedule!=true")
-      --other-node                       Run tests in which the client and the server are hosted on difference nodes (default true)
-      --performance-image string         Image path to use for performance (default "quay.io/cilium/network-perf:3.22-1793546159-db4fb5f@sha256:064597d7836703ae0b5c948ad4c311e12022a7be8398e5eedd724568440aff4c")
-      --pod-net                          Test pod network (default true)
-      --pod-to-host                      Test pod-to-host traffic
-      --print-image-artifacts            Prints the used image artifacts
-      --report-dir string                Directory to save perf results in json format
-      --rr                               Run RR test (default true)
-      --same-node                        Run tests in which the client and the server are hosted on the same node (default true)
-      --samples int                      Number of Performance samples to capture (how many times to run each test) (default 1)
-      --setup-delay duration             Extra delay before starting the performance tests
-      --streams uint                     The parallelism of tests with multiple streams (default 4)
-      --test-namespace string            Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1) (default "cilium-test")
-      --throughput                       Run throughput test (default true)
-      --throughput-multi                 Run throughput test with multiple streams (default true)
-      --tolerations strings              Extra NoSchedule tolerations added to test pods
-      --udp                              Run UDP tests
-      --unsafe-capture-kernel-profiles   Capture kernel profiles during test execution. Warning: run on disposable nodes only, as it installs additional software and modifies their configuration
+      --bandwidth[=true|false]                        Test pod network bandwidth manage
+      --crr[=true|false]                              Run CRR test
+  -d, --debug[=true|false]                            Show debug messages
+      --duration duration                             Duration for the Performance test to run (default 10s)
+  -h, --help[=true|false]                             help for perf
+      --host-net[=true|false]                         Test host network (default true)
+      --host-to-pod[=true|false]                      Test host-to-pod traffic
+      --msg-size int                                  Size of message to use in UDP test (default 1024)
+      --namespace-labels map                          Add labels to the connectivity test namespace
+      --net-qos[=true|false]                          Test pod network Quality of Service
+      --node-selector-client string                   Node selector (label query) for the other-node client pod (default "cilium.io/no-schedule!=true")
+      --node-selector-server string                   Node selector (label query) for the server pod (and client same-node) (default "cilium.io/no-schedule!=true")
+      --other-node[=true|false]                       Run tests in which the client and the server are hosted on difference nodes (default true)
+      --performance-image string                      Image path to use for performance (default "quay.io/cilium/network-perf:3.22-1793546159-db4fb5f@sha256:064597d7836703ae0b5c948ad4c311e12022a7be8398e5eedd724568440aff4c")
+      --pod-net[=true|false]                          Test pod network (default true)
+      --pod-to-host[=true|false]                      Test pod-to-host traffic
+      --print-image-artifacts[=true|false]            Prints the used image artifacts
+      --report-dir string                             Directory to save perf results in json format
+      --rr[=true|false]                               Run RR test (default true)
+      --same-node[=true|false]                        Run tests in which the client and the server are hosted on the same node (default true)
+      --samples int                                   Number of Performance samples to capture (how many times to run each test) (default 1)
+      --setup-delay duration                          Extra delay before starting the performance tests
+      --streams uint                                  The parallelism of tests with multiple streams (default 4)
+      --test-namespace string                         Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1) (default "cilium-test")
+      --throughput[=true|false]                       Run throughput test (default true)
+      --throughput-multi[=true|false]                 Run throughput test with multiple streams (default true)
+      --tolerations strings                           Extra NoSchedule tolerations added to test pods
+      --udp[=true|false]                              Run UDP tests
+      --unsafe-capture-kernel-profiles[=true|false]   Capture kernel profiles during test execution. Warning: run on disposable nodes only, as it installs additional software and modifies their configuration
 ```
 
 ### Options inherited from parent commands

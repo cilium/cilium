@@ -35,15 +35,15 @@ cilium-health completion bash
 ### Options
 
 ```
-  -h, --help              help for bash
-      --no-descriptions   disable completion descriptions
+  -h, --help[=true|false]              help for bash
+      --no-descriptions[=true|false]   disable completion descriptions
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -D, --debug         Enable debug messages
-  -H, --host string   URI to cilium-health server API
+  -D, --debug[=true|false]   Enable debug messages
+  -H, --host string          URI to cilium-health server API
 ```
 
 ### SEE ALSO

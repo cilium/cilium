@@ -13,14 +13,14 @@ See each sub-command's help for details on how to use the generated script.
 ### Options
 
 ```
-  -h, --help   help for completion
+  -h, --help[=true|false]   help for completion
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -D, --debug         Enable debug messages
-  -H, --host string   URI to cilium-health server API
+  -D, --debug[=true|false]   Enable debug messages
+  -H, --host string          URI to cilium-health server API
 ```
 
 ### SEE ALSO

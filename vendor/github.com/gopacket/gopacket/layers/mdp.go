@@ -50,6 +50,9 @@ func (m *MDP) LayerType() gopacket.LayerType { return LayerTypeMDP }
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (m *MDP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*m = MDP{}
+
 	var length int
 	if len(data) < 28 {
 		df.SetTruncated()
@@ -80,7 +83,6 @@ func (m *MDP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 		switch t {
 		case MdpTlvDeviceInfo:
-			m.Contents = append(m.Contents, data[offset:offset+2+length]...)
 			m.DeviceInfo = string(value)
 		case MdpTlvNetworkInfo:
 			m.NetworkInfo = string(value)

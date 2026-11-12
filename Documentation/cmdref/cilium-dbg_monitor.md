@@ -21,11 +21,11 @@ cilium-dbg monitor [flags]
 
 ```
       --from []uint16           Filter by source endpoint id
-  -h, --help                    help for monitor
-      --hex                     Do not dissect, print payload in HEX
-  -j, --json                    Enable json output. Shadows -v flag
+  -h, --help[=true|false]       help for monitor
+      --hex[=true|false]        Do not dissect, print payload in HEX
+  -j, --json[=true|false]       Enable json output. Shadows -v flag
       --monitor-socket string   Configure monitor socket path
-  -n, --numeric                 Display all security identities as numeric values
+  -n, --numeric[=true|false]    Display all security identities as numeric values
       --related-to []uint16     Filter by either source or destination endpoint id
       --to []uint16             Filter by destination endpoint id
   -t, --type []string           Filter by event types [agent capture debug drop l7 policy-verdict trace trace-sock]
@@ -36,7 +36,7 @@ cilium-dbg monitor [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

@@ -7,7 +7,7 @@ CLI for interacting with ClusterMesh
 ### Options
 
 ```
-  -h, --help   help for clustermesh-dbg
+  -h, --help[=true|false]   help for clustermesh-dbg
 ```
 
 ### SEE ALSO

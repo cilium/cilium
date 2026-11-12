@@ -7,7 +7,7 @@ Run the ClusterMesh apiserver
 ### Options
 
 ```
-  -h, --help   help for clustermesh-apiserver
+  -h, --help[=true|false]   help for clustermesh-apiserver
 ```
 
 ### SEE ALSO

@@ -16,8 +16,8 @@ cilium bgp peers [flags]
 
 ```
       --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
-  -c, --capabilities                Show all BGP peer capabilities in detail
-  -h, --help                        help for peers
+  -c, --capabilities[=true|false]   Show all BGP peer capabilities in detail
+  -h, --help[=true|false]           help for peers
       --node string                 Node from which BGP status will be fetched, omit to select all nodes
   -o, --output string               Output format. One of: json, summary (default "summary")
       --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)

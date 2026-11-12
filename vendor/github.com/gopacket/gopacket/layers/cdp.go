@@ -316,7 +316,11 @@ func decodeCiscoDiscoveryInfo(data []byte, p gopacket.PacketBuilder) error {
 			l := len(v)
 			if l%5 == 0 && l >= 5 {
 				for len(v) > 0 {
-					_, ipnet, _ := net.ParseCIDR(fmt.Sprintf("%d.%d.%d.%d/%d", v[0], v[1], v[2], v[3], v[4]))
+					// a prefix length over 32 makes ParseCIDR return a nil net
+					_, ipnet, err := net.ParseCIDR(fmt.Sprintf("%d.%d.%d.%d/%d", v[0], v[1], v[2], v[3], v[4]))
+					if err != nil {
+						return fmt.Errorf("Invalid TLV %v prefix length %d", val.Type, v[4])
+					}
 					info.IPPrefixes = append(info.IPPrefixes, *ipnet)
 					v = v[5:]
 				}
@@ -411,7 +415,8 @@ func decodeCiscoDiscoveryInfo(data []byte, p gopacket.PacketBuilder) error {
 			}
 			info.PowerRequest.ID = binary.BigEndian.Uint16(val.Value[0:2])
 			info.PowerRequest.MgmtID = binary.BigEndian.Uint16(val.Value[2:4])
-			for n := 4; n < len(val.Value); n += 4 {
+			// only whole 4-byte values; a partial tail is not sliced past the TLV
+			for n := 4; n+4 <= len(val.Value); n += 4 {
 				info.PowerRequest.Values = append(info.PowerRequest.Values, binary.BigEndian.Uint32(val.Value[n:n+4]))
 			}
 		case CDPTLVPowerAvailable:
@@ -420,7 +425,7 @@ func decodeCiscoDiscoveryInfo(data []byte, p gopacket.PacketBuilder) error {
 			}
 			info.PowerAvailable.ID = binary.BigEndian.Uint16(val.Value[0:2])
 			info.PowerAvailable.MgmtID = binary.BigEndian.Uint16(val.Value[2:4])
-			for n := 4; n < len(val.Value); n += 4 {
+			for n := 4; n+4 <= len(val.Value); n += 4 {
 				info.PowerAvailable.Values = append(info.PowerAvailable.Values, binary.BigEndian.Uint32(val.Value[n:n+4]))
 			}
 			//		case CDPTLVPortUnidirectional
@@ -450,18 +455,21 @@ func decodeCiscoDiscoveryInfo(data []byte, p gopacket.PacketBuilder) error {
 					return fmt.Errorf("Too many TLV's - wanted %d, saw %d", tlvNum, numSeen)
 				}
 				tType := CDPEnergyWiseSubtype(binary.BigEndian.Uint32(data[0:4]))
-				tLen := int(binary.BigEndian.Uint32(data[4:8]))
-				if tLen > len(data)-8 {
+				// keep the 32-bit length unsigned so it cannot go
+				// negative where int is 32 bits
+				tLen := binary.BigEndian.Uint32(data[4:8])
+				if tLen > uint32(len(data)-8) {
 					return fmt.Errorf("Invalid TLV length %d vs %d", tLen, len(data)-8)
 				}
 				data = data[8:]
+				// copy the sub-TLV's own value, not the rest of the TLV
 				switch tType {
 				case CDPEnergyWiseRole:
-					info.EnergyWise.Role = string(data[:])
+					info.EnergyWise.Role = string(data[:tLen])
 				case CDPEnergyWiseDomain:
-					info.EnergyWise.Domain = string(data[:])
+					info.EnergyWise.Domain = string(data[:tLen])
 				case CDPEnergyWiseName:
-					info.EnergyWise.Name = string(data[:])
+					info.EnergyWise.Name = string(data[:tLen])
 				case CDPEnergyWiseReplyTo:
 					if len(data) >= 18 {
 						info.EnergyWise.ReplyUnknown1 = data[0:2]
@@ -502,7 +510,7 @@ type CDPAddressType uint64
 const (
 	CDPAddressTypeCLNP      CDPAddressType = 0x81
 	CDPAddressTypeIPV4      CDPAddressType = 0xcc
-	CDPAddressTypeIPV6      CDPAddressType = 0xaaaa030000000800
+	CDPAddressTypeIPV6      CDPAddressType = 0xaaaa0300000086dd
 	CDPAddressTypeDECNET    CDPAddressType = 0xaaaa030000006003
 	CDPAddressTypeAPPLETALK CDPAddressType = 0xaaaa03000000809b
 	CDPAddressTypeIPX       CDPAddressType = 0xaaaa030000008137
@@ -517,7 +525,7 @@ func decodeAddresses(v []byte) (addresses []net.IP, err error) {
 		return nil, fmt.Errorf("Invalid Address TLV number %d", numaddr)
 	}
 	v = v[4:]
-	if len(v) < numaddr*8 {
+	if len(v)/8 < numaddr { // numaddr*8 can overflow a 32-bit int
 		return nil, fmt.Errorf("Invalid Address TLV length %d", len(v))
 	}
 	for i := 0; i < numaddr; i++ {
@@ -530,11 +538,23 @@ func decodeAddresses(v []byte) (addresses []net.IP, err error) {
 			(prottype == CDPProtocolType802_2 && protlen != 3 && protlen != 8) { // invalid length
 			return nil, fmt.Errorf("Invalid Address Protocol length %d", protlen)
 		}
+
+		// The 8 byte minimum per entry only covers a 3 byte protocol; an
+		// 8 byte one needs 12 bytes up to and including the address length.
+		if len(v) < 2+protlen+2 {
+			return nil, fmt.Errorf("Invalid Address TLV length %d", len(v))
+		}
 		plen := make([]byte, 8)
 		copy(plen[8-protlen:], v[2:2+protlen])
 		protocol := CDPAddressType(binary.BigEndian.Uint64(plen))
 		v = v[2+protlen:]
-		addrlen := binary.BigEndian.Uint16(v[0:2])
+
+		// The address length comes from the packet; compare it in int so
+		// 2+addrlen cannot wrap, and before slicing with it.
+		addrlen := int(binary.BigEndian.Uint16(v[0:2]))
+		if len(v) < 2+addrlen {
+			return nil, fmt.Errorf("Invalid Address length %d", addrlen)
+		}
 		ab := v[2 : 2+addrlen]
 		if protocol == CDPAddressTypeIPV4 && addrlen == 4 {
 			addresses = append(addresses, net.IPv4(ab[0], ab[1], ab[2], ab[3]))

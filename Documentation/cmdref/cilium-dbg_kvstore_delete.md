@@ -17,15 +17,15 @@ cilium kvstore delete --recursive foo
 ### Options
 
 ```
-  -h, --help        help for delete
-      --recursive   Recursive lookup
+  -h, --help[=true|false]        help for delete
+      --recursive[=true|false]   Recursive lookup
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --kvstore string       Key-Value Store type
       --kvstore-opt map      Key-Value Store options

@@ -40,7 +40,7 @@ cilium [flags]
       --as-group stringArray       Group to impersonate for the operation, this flag can be repeated to specify multiple groups.
       --context string             Kubernetes configuration context
       --helm-release-name string   Helm release name (default "cilium")
-  -h, --help                       help for cilium
+  -h, --help[=true|false]          help for cilium
       --kubeconfig string          Path to the kubeconfig file
   -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
 ```

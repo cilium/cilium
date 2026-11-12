@@ -11,16 +11,16 @@ cilium-dbg bpf policy add <endpoint id> <traffic-direction> <identity> [port/pro
 ### Options
 
 ```
-      --cookie uint32   Sets policy log cookie
-      --deny            Sets deny mode
-  -h, --help            help for add
+      --cookie uint32       Sets policy log cookie
+      --deny[=true|false]   Sets deny mode
+  -h, --help[=true|false]   help for add
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

@@ -11,9 +11,9 @@ cilium clustermesh status [flags]
 ### Options
 
 ```
-  -h, --help                     help for status
+  -h, --help[=true|false]        help for status
   -o, --output string            Output format. One of: json, summary (default "summary")
-      --wait                     Wait until status is successful
+      --wait[=true|false]        Wait until status is successful
       --wait-duration duration   Maximum time to wait (default 15m0s)
 ```
 

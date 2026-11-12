@@ -7,7 +7,7 @@ Hubble observability
 ### Options
 
 ```
-  -h, --help   help for hubble
+  -h, --help[=true|false]   help for hubble
 ```
 
 ### Options inherited from parent commands

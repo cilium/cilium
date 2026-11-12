@@ -68,8 +68,11 @@ type Entry struct {
 	// When the entry was created (seconds since Unix epoch).
 	CreatedAt            int64                       `protobuf:"varint,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	AdditionalAttributes *Entry_AdditionalAttributes `protobuf:"bytes,16,opt,name=additional_attributes,json=additionalAttributes,proto3,oneof" json:"additional_attributes,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// The time to live for WIT-SVID identities issued for this entry (in seconds).
+	// The server default will be used if unset.
+	WitSvidTtl    int32 `protobuf:"varint,17,opt,name=wit_svid_ttl,json=witSvidTtl,proto3" json:"wit_svid_ttl,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Entry) Reset() {
@@ -214,6 +217,13 @@ func (x *Entry) GetAdditionalAttributes() *Entry_AdditionalAttributes {
 	return nil
 }
 
+func (x *Entry) GetWitSvidTtl() int32 {
+	if x != nil {
+		return x.WitSvidTtl
+	}
+	return 0
+}
+
 // Field mask for Entry fields
 type EntryMask struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -247,8 +257,10 @@ type EntryMask struct {
 	CreatedAt bool `protobuf:"varint,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// additional_attributes field mask
 	AdditionalAttributes bool `protobuf:"varint,16,opt,name=additional_attributes,json=additionalAttributes,proto3" json:"additional_attributes,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// wit_svid_ttl field mask
+	WitSvidTtl    bool `protobuf:"varint,17,opt,name=wit_svid_ttl,json=witSvidTtl,proto3" json:"wit_svid_ttl,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EntryMask) Reset() {
@@ -386,6 +398,13 @@ func (x *EntryMask) GetAdditionalAttributes() bool {
 	return false
 }
 
+func (x *EntryMask) GetWitSvidTtl() bool {
+	if x != nil {
+		return x.WitSvidTtl
+	}
+	return false
+}
+
 // * This nested message is reserved to contain a number of optional fields
 // controlling the various aspects of the agent's behaviour with respect to a
 // given registration entry. It serves to enable introducing and testing out new
@@ -458,7 +477,7 @@ var File_spire_api_types_entry_proto protoreflect.FileDescriptor
 
 const file_spire_api_types_entry_proto_rawDesc = "" +
 	"\n" +
-	"\x1bspire/api/types/entry.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\"\xa2\x06\n" +
+	"\x1bspire/api/types/entry.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\"\xc4\x06\n" +
 	"\x05Entry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\tspiffe_id\x18\x02 \x01(\v2\x19.spire.api.types.SPIFFEIDR\bspiffeId\x126\n" +
@@ -482,11 +501,13 @@ const file_spire_api_types_entry_proto_rawDesc = "" +
 	"\x04hint\x18\x0e \x01(\tR\x04hint\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x0f \x01(\x03R\tcreatedAt\x12e\n" +
-	"\x15additional_attributes\x18\x10 \x01(\v2+.spire.api.types.Entry.AdditionalAttributesH\x00R\x14additionalAttributes\x88\x01\x01\x1a\x84\x01\n" +
+	"\x15additional_attributes\x18\x10 \x01(\v2+.spire.api.types.Entry.AdditionalAttributesH\x00R\x14additionalAttributes\x88\x01\x01\x12 \n" +
+	"\fwit_svid_ttl\x18\x11 \x01(\x05R\n" +
+	"witSvidTtl\x1a\x84\x01\n" +
 	"\x14AdditionalAttributes\x12;\n" +
 	"\x1adisable_x509_svid_prefetch\x18\x01 \x01(\bR\x17disableX509SvidPrefetch\x12/\n" +
 	"\x14jwt_svid_include_jti\x18\x02 \x01(\bR\x11jwtSvidIncludeJtiB\x18\n" +
-	"\x16_additional_attributes\"\xf2\x03\n" +
+	"\x16_additional_attributes\"\x94\x04\n" +
 	"\tEntryMask\x12\x1b\n" +
 	"\tspiffe_id\x18\x02 \x01(\bR\bspiffeId\x12\x1b\n" +
 	"\tparent_id\x18\x03 \x01(\bR\bparentId\x12\x1c\n" +
@@ -509,7 +530,9 @@ const file_spire_api_types_entry_proto_rawDesc = "" +
 	"\x04hint\x18\x0e \x01(\bR\x04hint\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x0f \x01(\bR\tcreatedAt\x123\n" +
-	"\x15additional_attributes\x18\x10 \x01(\bR\x14additionalAttributesB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
+	"\x15additional_attributes\x18\x10 \x01(\bR\x14additionalAttributes\x12 \n" +
+	"\fwit_svid_ttl\x18\x11 \x01(\bR\n" +
+	"witSvidTtlB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
 
 var (
 	file_spire_api_types_entry_proto_rawDescOnce sync.Once

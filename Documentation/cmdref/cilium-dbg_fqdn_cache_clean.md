@@ -11,8 +11,8 @@ cilium-dbg fqdn cache clean [flags]
 ### Options
 
 ```
-  -f, --force                 Skip confirmation
-  -h, --help                  help for clean
+  -f, --force[=true|false]    Skip confirmation
+  -h, --help[=true|false]     help for clean
   -p, --matchpattern string   Delete cache entries with FQDNs that match matchpattern
 ```
 
@@ -20,7 +20,7 @@ cilium-dbg fqdn cache clean [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

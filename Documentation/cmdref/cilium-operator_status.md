@@ -7,7 +7,7 @@ Display status of operator
 ### Options
 
 ```
-  -h, --help   help for status
+  -h, --help[=true|false]   help for status
 ```
 
 ### SEE ALSO

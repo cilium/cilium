@@ -33,6 +33,14 @@ type GRERouting struct {
 	Next                 *GRERouting
 }
 
+// maxGRESourceRouteEntries bounds the number of Source Route Entries decoded
+// from one GRE header. Each entry becomes a node of the GRERouting.Next list,
+// which LayerString and friends follow recursively; an entry can be as small
+// as 4 bytes, so a crafted packet could otherwise build a list deep enough to
+// exhaust the stack. One entry already holds a whole list of addresses, and
+// RFC 2784 deprecates the routing field, so real headers carry very few.
+const maxGRESourceRouteEntries = 32
+
 // LayerType returns gopacket.LayerTypeGRE.
 func (g *GRE) LayerType() gopacket.LayerType { return LayerTypeGRE }
 
@@ -65,10 +73,13 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	g.KeyPresent = data[0]&0x20 != 0
 	g.SeqPresent = data[0]&0x10 != 0
 	g.StrictSourceRoute = data[0]&0x08 != 0
-	g.AckPresent = data[1]&0x80 != 0
 	g.RecursionControl = data[0] & 0x7
 	g.Flags = data[1] >> 3
 	g.Version = data[1] & 0x7
+	// Only enhanced GRE (version 1, RFC 2637) carries an acknowledgment
+	// number. In version 0 the bit is reserved and ignored on receipt
+	// (RFC 2784 2.3); it stays visible in Flags so SerializeTo keeps it.
+	g.AckPresent = g.Version == 1 && data[1]&0x80 != 0
 	g.Protocol = EthernetType(binary.BigEndian.Uint16(data[2:4]))
 	offset := 4
 	if g.ChecksumPresent || g.RoutingPresent {
@@ -95,7 +106,7 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	}
 	if g.RoutingPresent {
 		tail := &g.GRERouting
-		for {
+		for count := 0; ; count++ {
 			if err := requireBytes(offset, 4); err != nil {
 				return err
 			}
@@ -111,6 +122,9 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 			offset += 4 + int(sre.SRELength)
 			if sre.AddressFamily == 0 && sre.SRELength == 0 {
 				break
+			}
+			if count >= maxGRESourceRouteEntries {
+				return errors.New("GRE packet has too many source route entries")
 			}
 			(*tail) = sre
 			tail = &sre.Next
@@ -210,6 +224,7 @@ func (g *GRE) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 		}
 		// Terminate routing field with a "NULL" SRE.
 		binary.BigEndian.PutUint32(buf[offset:offset+4], 0)
+		offset += 4
 	}
 	if g.AckPresent {
 		binary.BigEndian.PutUint32(buf[offset:offset+4], g.Ack)
@@ -233,6 +248,12 @@ func (g *GRE) CanDecode() gopacket.LayerClass {
 
 // NextLayerType returns the layer type contained by this DecodingLayer.
 func (g *GRE) NextLayerType() gopacket.LayerType {
+	// ERSPAN Type I and Type II share a protocol type. Type I has no ERSPAN
+	// header: the mirrored frame directly follows a GRE header without
+	// optional fields, whereas Type II always carries a sequence number.
+	if g.Protocol == EthernetTypeERSPAN && len(g.Contents) == 4 {
+		return LayerTypeEthernet
+	}
 	return g.Protocol.LayerType()
 }
 
@@ -243,7 +264,8 @@ func (g *GRE) VerifyChecksum() (error, gopacket.ChecksumVerificationResult) {
 	verification := gopacket.ComputeChecksum(bytes, 0)
 	correct := gopacket.FoldChecksum(verification - uint32(existing))
 	return nil, gopacket.ChecksumVerificationResult{
-		Valid:   !g.ChecksumPresent || correct == existing,
+		// RFC 1071 receiver test: 0xffff is as valid as 0x0000
+		Valid:   !g.ChecksumPresent || gopacket.FoldChecksum(verification) == 0,
 		Correct: uint32(correct),
 		Actual:  uint32(existing),
 	}

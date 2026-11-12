@@ -16,7 +16,7 @@ cilium features status [flags]
 
 ```
       --agent-pod-selector string           Label on cilium-agent pods to select with (default "k8s-app=cilium")
-  -h, --help                                help for status
+  -h, --help[=true|false]                   help for status
       --node string                         Node from which features status will be fetched, omit to select all nodes
       --operator-container-command string   Binary used to run Cilium Operator
       --operator-node string                Node from which features status will be fetched, omit to select all nodes

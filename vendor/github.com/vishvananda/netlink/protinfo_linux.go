@@ -31,6 +31,9 @@ func (h *Handle) LinkGetProtinfo(link Link) (Protinfo, error) {
 
 	for _, m := range msgs {
 		ans := nl.DeserializeIfInfomsg(m)
+		if ans == nil {
+			continue
+		}
 		if int(ans.Index) != base.Index {
 			continue
 		}

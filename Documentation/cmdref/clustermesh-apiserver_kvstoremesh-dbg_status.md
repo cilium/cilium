@@ -11,9 +11,9 @@ clustermesh-apiserver kvstoremesh-dbg status [flags]
 ### Options
 
 ```
-  -h, --help            help for status
-  -o, --output string   json| yaml| jsonpath='{}'
-      --verbose         Output verbose status information for ready clusters as well
+  -h, --help[=true|false]      help for status
+  -o, --output string          json| yaml| jsonpath='{}'
+      --verbose[=true|false]   Output verbose status information for ready clusters as well
 ```
 
 ### Options inherited from parent commands

@@ -11,9 +11,9 @@ cilium-dbg bpf ct list [cluster <identifier>] [flags]
 ### Options
 
 ```
-  -h, --help                                help for list
+  -h, --help[=true|false]                   help for list
   -o, --output string                       json| yaml| jsonpath='{}'
-  -d, --time-diff                           print time difference for entries
+  -d, --time-diff[=true|false]              print time difference for entries
       --time-diff-clocksource-hz int        manually set clock source Hz (default 250)
       --time-diff-clocksource-mode string   manually set clock source mode (instead of contacting the server)
 ```
@@ -22,7 +22,7 @@ cilium-dbg bpf ct list [cluster <identifier>] [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

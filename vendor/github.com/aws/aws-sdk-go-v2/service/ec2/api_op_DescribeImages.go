@@ -197,6 +197,46 @@ type DescribeImagesInput struct {
 	//   - root-device-type - The type of the root device volume ( ebs | instance-store
 	//   ).
 	//
+	//   - scan-result.critical-fix-available-since - The earliest date and time, in
+	//   the ISO 8601 format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), at which
+	//   Amazon Inspector reported a fix as available for a critical severity finding
+	//   on the AMI.
+	//
+	//   - scan-result.finding-scan-date - The date and time, in the ISO 8601 format in
+	//   the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), of the most recent Amazon
+	//   Inspector scan of the AMI.
+	//
+	//   - scan-result.high-fix-available-since - The earliest date and time, in the
+	//   ISO 8601 format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), at which Amazon
+	//   Inspector reported a fix as available for a high severity finding on the AMI.
+	//
+	//   - scan-result.highest-finding-severity-label - The highest severity among the
+	//   AMI's Amazon Inspector findings, whether or not a fix is available. The valid
+	//   values are the following Amazon Inspector severity levels:
+	//
+	//   - informational - CVSS score of 0.
+	//
+	//   - low - CVSS score of 0.1 to 3.9.
+	//
+	//   - medium - CVSS score of 4.0 to 6.9.
+	//
+	//   - high - CVSS score of 7.0 to 8.9.
+	//
+	//   - critical - CVSS score of 9.0 to 10.0.
+	//
+	//   - scan-result.informational-fix-available-since - The earliest date and time,
+	//   in the ISO 8601 format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), at which
+	//   Amazon Inspector reported a fix as available for an informational severity
+	//   finding on the AMI.
+	//
+	//   - scan-result.low-fix-available-since - The earliest date and time, in the ISO
+	//   8601 format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), at which Amazon
+	//   Inspector reported a fix as available for a low severity finding on the AMI.
+	//
+	//   - scan-result.medium-fix-available-since - The earliest date and time, in the
+	//   ISO 8601 format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), at which Amazon
+	//   Inspector reported a fix as available for a medium severity finding on the AMI.
+	//
 	//   - source-image-id - The ID of the source AMI from which the AMI was created.
 	//
 	//   - source-image-region - The Region of the source AMI.

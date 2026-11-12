@@ -51,6 +51,12 @@ type CreateCapacityReservationFleetInput struct {
 	// [Allocation strategy]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#allocation-strategy
 	AllocationStrategy *string
 
+	// Reserved for internal use.
+	AvailabilityZone *string
+
+	// Reserved for internal use.
+	AvailabilityZoneId *string
+
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensure Idempotency].
 	//
@@ -82,6 +88,9 @@ type CreateCapacityReservationFleetInput struct {
 	// Instances do not need to explicitly target a Capacity Reservation Fleet to use
 	// its reserved capacity.
 	InstanceMatchCriteria types.FleetInstanceMatchCriteria
+
+	// Reserved for internal use.
+	InstanceRequirements *types.InstanceRequirementsRequest
 
 	// Information about the instance types for which to reserve the capacity.
 	InstanceTypeSpecifications []types.ReservationFleetInstanceSpecification

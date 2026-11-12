@@ -7,7 +7,7 @@ Multi Cluster Management
 ### Options
 
 ```
-  -h, --help   help for clustermesh
+  -h, --help[=true|false]   help for clustermesh
 ```
 
 ### Options inherited from parent commands

@@ -14,6 +14,10 @@ import (
 	"github.com/gopacket/gopacket"
 )
 
+// ethernetTypeMinValue is the first value of the type/length field that is
+// an EtherType; anything below it is an 802.3 length (IEEE 802.3 3.2.6).
+const ethernetTypeMinValue = 0x0600
+
 // Dot1Q is the packet layer for 802.1Q VLAN headers.
 type Dot1Q struct {
 	BaseLayer
@@ -37,6 +41,15 @@ func (d *Dot1Q) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	d.VLANIdentifier = binary.BigEndian.Uint16(data[:2]) & 0x0FFF
 	d.Type = EthernetType(binary.BigEndian.Uint16(data[2:4]))
 	d.BaseLayer = BaseLayer{Contents: data[:4], Payload: data[4:]}
+	if d.Type < ethernetTypeMinValue {
+		// An 802.3 length rather than an EtherType, as in Ethernet: an LLC
+		// header follows and the payload ends after that many bytes.
+		if len(d.Payload) < int(d.Type) {
+			df.SetTruncated()
+		} else {
+			d.Payload = d.Payload[:d.Type]
+		}
+	}
 	return nil
 }
 
@@ -47,6 +60,10 @@ func (d *Dot1Q) CanDecode() gopacket.LayerClass {
 
 // NextLayerType returns the layer type contained by this DecodingLayer.
 func (d *Dot1Q) NextLayerType() gopacket.LayerType {
+	if d.Type < ethernetTypeMinValue {
+		// 802.3 length field, see DecodeFromBytes.
+		return LayerTypeLLC
+	}
 	return d.Type.LayerType()
 }
 

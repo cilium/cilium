@@ -159,6 +159,7 @@ func (i *ICMPv6Echo) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) er
 	}
 	i.Identifier = binary.BigEndian.Uint16(data[0:2])
 	i.SeqNumber = binary.BigEndian.Uint16(data[2:4])
+	i.BaseLayer = BaseLayer{data[:4], data[4:]}
 
 	return nil
 }
@@ -194,6 +195,8 @@ func (i *ICMPv6RouterSolicitation) DecodeFromBytes(data []byte, df gopacket.Deco
 		df.SetTruncated()
 		return errors.New("ICMP layer less then 4 bytes for ICMPv6 router solicitation")
 	}
+
+	i.BaseLayer = BaseLayer{data, nil} // assume no payload
 
 	// truncate old options
 	i.Options = i.Options[:0]

@@ -17,16 +17,16 @@ cilium kvstore set foo=bar
 ### Options
 
 ```
-  -h, --help           help for set
-      --key string     Key
-      --value string   Value
+  -h, --help[=true|false]   help for set
+      --key string          Key
+      --value string        Value
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --kvstore string       Key-Value Store type
       --kvstore-opt map      Key-Value Store options

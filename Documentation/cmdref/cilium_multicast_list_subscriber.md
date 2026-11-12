@@ -11,9 +11,9 @@ cilium multicast list subscriber [flags]
 ### Options
 
 ```
-      --all                      Show all subscribers
+      --all[=true|false]         Show all subscribers
   -g, --group-ip string          Multicast group IP address
-  -h, --help                     help for subscriber
+  -h, --help[=true|false]        help for subscriber
   -o, --output string            Output format. One of: json, summary (default "summary")
       --wait-duration duration   Maximum time to wait for result, default 1 minute (default 1m0s)
 ```

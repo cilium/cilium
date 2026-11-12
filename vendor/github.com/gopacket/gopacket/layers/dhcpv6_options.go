@@ -571,16 +571,18 @@ func (o DHCPv6Option) String() string {
 		}
 		return fmt.Sprintf("Option(%s:[%s])", o.Code, duid.String())
 	case DHCPv6OptOro:
-		options := ""
+		// Build the list in a buffer: the number of codes comes from the
+		// option's length field, and appending to a string is quadratic.
+		var options bytes.Buffer
 		// Only whole 2-byte codes; an odd-length ORO would read one past Data.
 		for i := 0; i+2 <= len(o.Data); i += 2 {
-			if options != "" {
-				options += ","
+			if i > 0 {
+				options.WriteByte(',')
 			}
 			option := DHCPv6Opt(binary.BigEndian.Uint16(o.Data[i : i+2]))
-			options += option.String()
+			options.WriteString(option.String())
 		}
-		return fmt.Sprintf("Option(%s:[%s])", o.Code, options)
+		return fmt.Sprintf("Option(%s:[%s])", o.Code, options.String())
 	default:
 		return fmt.Sprintf("Option(%s:%v)", o.Code, o.Data)
 	}
@@ -615,9 +617,10 @@ func (o *DHCPv6Option) decode(data []byte) error {
 	}
 	o.Code = DHCPv6Opt(binary.BigEndian.Uint16(data[0:2]))
 	o.Length = binary.BigEndian.Uint16(data[2:4])
+	// add in int: 4+Length wraps in uint16 for 0xfffc..0xffff
 	if len(data) < 4+int(o.Length) {
-		return fmt.Errorf("dhcpv6 option size < length %d", 4+o.Length)
+		return fmt.Errorf("dhcpv6 option size < length %d", 4+int(o.Length))
 	}
-	o.Data = data[4 : 4+o.Length]
+	o.Data = data[4 : 4+int(o.Length)]
 	return nil
 }

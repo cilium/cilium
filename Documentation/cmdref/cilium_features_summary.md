@@ -18,9 +18,9 @@ cilium features summary [flags]
 ### Options
 
 ```
-  -a, --anchor                     Add workaround HTML anchor to generated markdown (For GitHub step summary).
+  -a, --anchor[=true|false]        Add workaround HTML anchor to generated markdown (For GitHub step summary).
   -c, --commit string              Commit SHA to retrieve the metrics.
-  -h, --help                       help for summary
+  -h, --help[=true|false]          help for summary
       --metrics-directory string   Directory where the metrics are saved from GitHub. (default "ci-features-metrics")
   -o, --output string              Output format. One of: markdown (default "markdown")
       --output-file string         Outputs into a file. Defaults to stdout (default "-")

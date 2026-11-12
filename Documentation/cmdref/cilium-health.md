@@ -15,9 +15,9 @@ cilium-health [flags]
 ### Options
 
 ```
-  -D, --debug         Enable debug messages
-  -h, --help          help for cilium-health
-  -H, --host string   URI to cilium-health server API
+  -D, --debug[=true|false]   Enable debug messages
+  -h, --help[=true|false]    help for cilium-health
+  -H, --host string          URI to cilium-health server API
 ```
 
 ### SEE ALSO

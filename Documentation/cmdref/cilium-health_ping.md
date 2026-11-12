@@ -11,14 +11,14 @@ cilium-health ping [flags]
 ### Options
 
 ```
-  -h, --help   help for ping
+  -h, --help[=true|false]   help for ping
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -D, --debug         Enable debug messages
-  -H, --host string   URI to cilium-health server API
+  -D, --debug[=true|false]   Enable debug messages
+  -H, --host string          URI to cilium-health server API
 ```
 
 ### SEE ALSO

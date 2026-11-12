@@ -200,6 +200,7 @@ type SIP struct {
 	cseq             uint32
 	contentLength    int
 	lastHeaderParsed string
+	headerOrder      []string
 }
 
 // decodeSIP decodes the byte slice into a SIP type. It also
@@ -245,17 +246,22 @@ func (s *SIP) NextLayerType() gopacket.LayerType {
 
 // DecodeFromBytes decodes the slice into the SIP struct.
 func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// start from a clean layer: DecodingLayerParser reuses one per packet
+	*s = SIP{Headers: make(map[string][]string), contentLength: -1}
+
 	// Init some vars for parsing follow-up
 	var countLines int
 	var line []byte
 	var err error
 	var offset int
-	var eoh = false // track End Of Headers
+	var eoh = false   // track End Of Headers
+	var header []byte // current header, continuation lines included
 
 	// Iterate on all lines of the SIP Headers
 	// and stop when we reach the SDP (aka when the new line
 	// is at index 0 of the remaining packet)
 	buffer := bytes.NewBuffer(data)
+	s.headerOrder = s.headerOrder[:0]
 
 	for {
 
@@ -293,14 +299,27 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 				return err
 			}
 
+		} else if len(header) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			// RFC 3261 - 7.3.1 - a line break and the whitespace around it
+			// stand for a single SP. Unfold before parsing, so that CSeq and
+			// Content-Length are computed from the whole value.
+			header = append(bytes.TrimRight(header, " \t"), ' ')
+			header = append(header, bytes.TrimSpace(line)...)
+
 		} else {
-			err = s.ParseHeader(line)
+			// A new header starts, the previous one is complete
+			err = s.ParseHeader(header)
 			if err != nil {
 				return err
 			}
+			header = line
 		}
 
 		countLines++
+	}
+	err = s.ParseHeader(header)
+	if err != nil {
+		return err
 	}
 	if !eoh {
 		df.SetTruncated()
@@ -327,7 +346,9 @@ func (s *SIP) setBaseLayer(data []byte, offset int, df gopacket.DecodeFeedback) 
 	} else if s.contentLength == 0 {
 		// We have a zero Content-Length, no payload
 		s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: []byte{}} // no payload
-	} else if len(data) < offset+s.contentLength {
+	} else if len(data)-offset < s.contentLength {
+		// subtract rather than add: offset+contentLength wraps where int
+		// is 32 bits
 		// Not enough data to fulfill the Content-Length. We set the packet as truncated
 		// and return what we have. The receiver of the packet will be able to determine this
 		// by comparing the SIP.ContentLength with the length of the SIP.Payload.
@@ -361,7 +382,8 @@ func (s *SIP) ParseFirstLine(firstLine []byte) error {
 	}
 
 	// Determine the SIP packet type
-	if strings.HasPrefix(splits[0], "SIP") {
+	// RFC 3261 7.1: the SIP-Version string is case-insensitive
+	if strings.HasPrefix(strings.ToUpper(splits[0]), "SIP") {
 
 		// --> Response
 		s.IsResponse = true
@@ -443,12 +465,14 @@ func (s *SIP) ParseHeader(header []byte) (err error) {
 	index := bytes.Index(header, []byte(":"))
 	if index >= 0 {
 
-		headerName := strings.ToLower(string(bytes.Trim(header[:index], " ")))
-		headerValue := string(bytes.Trim(header[index+1:], " "))
+		// RFC 3261 - 25.1 - HCOLON allows SP and HTAB on both sides of the colon
+		headerName := strings.ToLower(string(bytes.Trim(header[:index], " \t")))
+		headerValue := string(bytes.Trim(header[index+1:], " \t"))
 
 		// Add header to object
 		s.Headers[headerName] = append(s.Headers[headerName], headerValue)
 		s.lastHeaderParsed = headerName
+		s.headerOrder = append(s.headerOrder, headerName)
 
 		// Compute specific headers
 		err = s.ParseSpecificHeaders(headerName, headerValue)
@@ -469,7 +493,8 @@ func (s *SIP) ParseSpecificHeaders(headerName string, headerValue string) (err e
 		// CSeq header value is formatted like that :
 		// CSeq: 123 INVITE
 		// We split the value to parse Cseq integer value, and method
-		splits := strings.Split(headerValue, " ")
+		// (separated by LWS: any number of SP or HTAB)
+		splits := strings.Fields(headerValue)
 		if len(splits) > 1 {
 			// parse CSEQ
 			s.cseq, err = parseUint32(splits[0])
@@ -485,8 +510,8 @@ func (s *SIP) ParseSpecificHeaders(headerName string, headerValue string) (err e
 			}
 		}
 
-	case "content-length":
-		// Parse Content-Length
+	case "content-length", "l":
+		// Parse Content-Length, "l" being its compact form
 		s.contentLength, err = parsePositiveInt32(headerValue)
 		if err != nil {
 			return fmt.Errorf("invalid Content-Length: %w", err)
@@ -525,17 +550,30 @@ func (s *SIP) GetAllHeaders() map[string][]string {
 }
 
 // GetHeader will return all the headers with
-// the specified name.
+// the specified name, whether they use its long or its compact form.
 func (s *SIP) GetHeader(headerName string) []string {
 	headerName = strings.ToLower(headerName)
 	h := make([]string, 0)
-	if _, ok := s.Headers[headerName]; ok {
-		return s.Headers[headerName]
+	long := s.Headers[headerName]
+	compactHeader, ok := compactSipHeadersCorrespondance[headerName]
+	if !ok {
+		return append(h, long...)
 	}
-	compactHeader := compactSipHeadersCorrespondance[headerName]
-	if _, ok := s.Headers[compactHeader]; ok {
-		return s.Headers[compactHeader]
+	compact := s.Headers[compactHeader]
+
+	// RFC 3261 - 7.3.3 - Compact Form allows a message to use both forms
+	// of a header name, so merge them in the order they had in the message
+	for _, name := range s.headerOrder {
+		if name == headerName && len(long) > 0 {
+			h, long = append(h, long[0]), long[1:]
+		} else if name == compactHeader && len(compact) > 0 {
+			h, compact = append(h, compact[0]), compact[1:]
+		}
 	}
+
+	// Headers which did not go through ParseHeader have no known order
+	h = append(h, long...)
+	h = append(h, compact...)
 	return h
 }
 

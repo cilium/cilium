@@ -12,7 +12,7 @@ cilium multicast delete [flags]
 
 ```
   -g, --group-ip string          Multicast group IP address
-  -h, --help                     help for delete
+  -h, --help[=true|false]        help for delete
       --wait-duration duration   Maximum time to wait for result, default 1 minute (default 1m0s)
 ```
 

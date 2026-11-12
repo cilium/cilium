@@ -11,7 +11,7 @@ cilium-dbg shell [command] [args]... [flags]
 ### Options
 
 ```
-  -h, --help                     help for shell
+  -h, --help[=true|false]        help for shell
       --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
@@ -19,7 +19,7 @@ cilium-dbg shell [command] [args]... [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

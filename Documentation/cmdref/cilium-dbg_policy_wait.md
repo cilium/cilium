@@ -12,7 +12,7 @@ cilium-dbg policy wait <revision> [flags]
 
 ```
       --fail-wait-time int   Wait time after which command fails if endpoint regeration fails (seconds) (default 60)
-  -h, --help                 help for wait
+  -h, --help[=true|false]    help for wait
       --max-wait-time int    Wait time after which command fails (seconds) (default 360)
       --sleep-time int       Sleep interval between checks (seconds) (default 1)
 ```
@@ -21,7 +21,7 @@ cilium-dbg policy wait <revision> [flags]
 
 ```
       --config string        Config file (default is $HOME/.cilium.yaml)
-  -D, --debug                Enable debug messages
+  -D, --debug[=true|false]   Enable debug messages
   -H, --host string          URI to server-side API
       --log-driver strings   Logging endpoints to use (example: syslog)
       --log-opt map          Log driver options (example: format=json)

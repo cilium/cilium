@@ -18,6 +18,13 @@ const (
 	enipMinRegSessionPacketLen int = 4
 	enipMinSendRRDataPacketLen int = 36
 
+	// Common Packet Format item type IDs (CIP Volume 2, 2-6.3)
+	enipItemConnectedAddress uint16 = 0x00A1
+	enipItemConnectedData    uint16 = 0x00B1
+	enipItemUnconnectedData  uint16 = 0x00B2
+	enipItemSockaddrInfoOT   uint16 = 0x8000
+	enipItemSockaddrInfoTO   uint16 = 0x8001
+
 	// TCPPortENIP is the TCP port used to transport EtherNet/IP packets
 	TCPPortENIP uint16 = 44818
 	// UDPPortENIP is the UDP port used to transport EtherNet/IP packets
@@ -151,7 +158,16 @@ func (enip *ENIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error
 	enip.Status = binary.LittleEndian.Uint32(data[8:12])
 	enip.SenderContext = data[12:20]
 	enip.Options = binary.LittleEndian.Uint32(data[20:24])
-	return enip.getPayload(data, df)
+
+	// Length counts the bytes behind the header; anything past it belongs
+	// to the next message. A message cut short is decoded as far as it goes
+	// and marked truncated.
+	end := enipMinPacketLen + int(enip.Length)
+	if len(data) < end {
+		df.SetTruncated()
+		end = len(data)
+	}
+	return enip.getPayload(data[:end], df)
 }
 
 func (enip *ENIP) getPayload(data []byte, df gopacket.DecodeFeedback) (err error) {
@@ -174,6 +190,7 @@ func (enip *ENIP) getPayload(data []byte, df gopacket.DecodeFeedback) (err error
 		// Grab the item count
 		itemCount := int(binary.LittleEndian.Uint16(data[30:32]))
 		csdEnd := 32
+		payloadEnd := len(data)
 		for i := 0; i < itemCount; i++ {
 			if csdEnd+4 > len(data) {
 				df.SetTruncated()
@@ -184,6 +201,30 @@ func (enip *ENIP) getPayload(data []byte, df gopacket.DecodeFeedback) (err error
 			if err != nil {
 				return err
 			}
+
+			// The data item carries the encapsulated message: the walk
+			// ends on it and its length bounds the payload, so items behind
+			// it (e.g. Sockaddr Info) are neither read as headers at the
+			// wrong offset nor handed to the CIP decoder.
+			if dataFormatID == enipItemConnectedData || dataFormatID == enipItemUnconnectedData {
+				if csdEnd+itemLen > len(data) {
+					df.SetTruncated()
+					return ErrENIPDataTooSmall
+				}
+				itemDataLen := int(binary.LittleEndian.Uint16(data[csdEnd+2:]))
+				payloadEnd = csdEnd + 4 + itemDataLen
+				if payloadEnd > len(data) {
+					df.SetTruncated()
+					payloadEnd = len(data)
+				}
+				csdEnd += itemLen
+				// a connected data item shorter than its own sequence
+				// count carries no message
+				if payloadEnd < csdEnd {
+					payloadEnd = csdEnd
+				}
+				break
+			}
 			csdEnd += itemLen
 		}
 		if len(data) < csdEnd {
@@ -192,7 +233,7 @@ func (enip *ENIP) getPayload(data []byte, df gopacket.DecodeFeedback) (err error
 		}
 		enip.CommandSpecific.Data = data[24:csdEnd]
 		enip.Contents = data[0:csdEnd]
-		enip.Payload = data[csdEnd:]
+		enip.Payload = data[csdEnd:payloadEnd]
 	default:
 		enip.CommandSpecific.Data = data[24:]
 		enip.Contents = data
@@ -207,7 +248,7 @@ func getDataFormatIDLen(id uint16, data []byte) (int, error) {
 		return 4, nil // ID (2 bytes) + length field (2 bytes)
 	case 0x000C:
 		return 8, nil // Sockaddr info
-	case 0x00A1:
+	case enipItemConnectedAddress, enipItemSockaddrInfoOT, enipItemSockaddrInfoTO:
 		if len(data) < 2 {
 			return 0, ErrENIPDataTooSmall
 		}
@@ -217,17 +258,13 @@ func getDataFormatIDLen(id uint16, data []byte) (int, error) {
 		if totalLen < 0 || length < 0 || 2+length > len(data) {
 			return 0, ErrENIPDataTooSmall
 		}
-		return totalLen, nil // Connected data item
-	case 0x00B1:
-		return 6, nil // Connected address item
-	case 0x00B2:
-		return 4, nil // Sequenced address item
+		return totalLen, nil
+	case enipItemConnectedData:
+		return 6, nil // header with sequence count; the data follows
+	case enipItemUnconnectedData:
+		return 4, nil // header only; the data follows
 	case 0x0100:
 		return 4, nil // List services response
-	case 0x8000:
-		return 4, nil // CIP identity
-	case 0x8001:
-		return 2, nil // CIP security
 	case 0x8002:
 		return 2, nil // EtherNet/IP capability
 	default:

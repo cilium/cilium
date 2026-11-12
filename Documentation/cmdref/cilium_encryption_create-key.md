@@ -16,7 +16,7 @@ cilium encryption create-key [flags]
 
 ```
       --auth-algo string         IPsec key authentication algorithm. One of: rfc4106-gcm-aes, cbc-aes-sha256, cbc-aes-sha512 (default "rfc4106-gcm-aes")
-  -h, --help                     help for create-key
+  -h, --help[=true|false]        help for create-key
       --wait-duration duration   Maximum time to wait for result, default 1 minute (default 1m0s)
 ```
 

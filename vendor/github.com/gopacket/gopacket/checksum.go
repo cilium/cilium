@@ -6,6 +6,8 @@
 
 package gopacket
 
+import "math"
+
 // ChecksumVerificationResult provides information about a checksum verification.
 // The checksums are represented using uint32 to fit even the largest checksums.
 // If a checksum is optional and unset, Correct and Actual might mismatch even
@@ -37,16 +39,30 @@ func ComputeChecksum(data []byte, csum uint32) uint32 {
 	// handle the last byte specifically by checking against the original
 	// length.
 	length := len(data) - 1
+	// Sum in 64 bits: the words of more than 128 KiB of data, which an IPv6
+	// jumbogram can carry, add up to more than 32 bits, and the carry out
+	// of bit 31 would be lost.
+	sum := uint64(csum)
 	for i := 0; i < length; i += 2 {
 		// For our test packet, doing this manually is about 25% faster
 		// (740 ns vs. 1000ns) than doing it by calling binary.BigEndian.Uint16.
-		csum += uint32(data[i]) << 8
-		csum += uint32(data[i+1])
+		sum += uint64(data[i]) << 8
+		sum += uint64(data[i+1])
 	}
 	if len(data)%2 == 1 {
-		csum += uint32(data[length]) << 8
+		sum += uint64(data[length]) << 8
 	}
-	return csum
+	if sum > math.MaxUint32 {
+		// Fold the sum so that it fits the 32-bit result. Adding 0xffff,
+		// which is zero in one's complement arithmetic, keeps the result at
+		// least as large as any word that was summed, so that callers can
+		// still subtract the checksum found in the data before folding.
+		for sum > 0xffff {
+			sum = (sum >> 16) + (sum & 0xffff)
+		}
+		sum += 0xffff
+	}
+	return uint32(sum)
 }
 
 // FoldChecksum folds a 32 bit checksum as defined in RFC1071.
