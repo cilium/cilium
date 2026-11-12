@@ -1100,7 +1100,6 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 }
 #endif /* ATTACHMENT_XDP */
 
-#ifdef ENABLE_IPV6
 PKTGEN(PROG_TYPE, "kpr_v6_dsr_lb1_syn")
 int kpr_v6_dsr_lb1_syn_pktgen(struct __ctx_buff *ctx)
 {
@@ -1857,4 +1856,3 @@ int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 #endif /* ATTACHMENT_XDP */
-#endif /* ENABLE_IPV6 */
