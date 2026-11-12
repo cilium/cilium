@@ -258,17 +258,7 @@ func (h *Handler) processNodeWithHealth(
 }
 
 func (h *Handler) run(ctx context.Context, health cell.Health) error {
-	// Wait for the nodes table to be initialized before processing changes.
-	// We do this before the for loop so that after the first batch of changes
-	// we are sure, we can finalize the initializer.
-	// the route reconciler will delete old routes for us after an agent restart.
 	finalized := false
-	_, initialized := h.nodes.Initialized(h.db.ReadTxn())
-	select {
-	case <-ctx.Done():
-		return nil
-	case <-initialized:
-	}
 
 	wtxn := h.db.WriteTxn(h.nodes)
 	changes, err := h.nodes.Changes(wtxn)
@@ -286,6 +276,7 @@ func (h *Handler) run(ctx context.Context, health cell.Health) error {
 		}
 	}()
 
+	var initializedWatch <-chan struct{}
 	for {
 		rtxn := h.db.ReadTxn()
 		batch, watch := changes.Next(rtxn)
@@ -295,8 +286,20 @@ func (h *Handler) run(ctx context.Context, health cell.Health) error {
 		}
 
 		if !finalized {
-			h.routeManager.FinalizeInitializer(h.initializer)
-			finalized = true
+			// we cannot wait for the node table to be initialized
+			// before starting the loop because other components need
+			// the route information before marking the node table as
+			// initialized (e.g. clustermesh). What we do instead is check
+			// for initialization within the loop and finalize
+			// the route manager once the node table is initialized.
+			initialized, watch := h.nodes.Initialized(rtxn)
+			if initialized {
+				h.routeManager.FinalizeInitializer(h.initializer)
+				finalized = true
+				initializedWatch = nil
+			} else {
+				initializedWatch = watch
+			}
 		}
 
 		updateHealth(health, degradedMap)
@@ -310,6 +313,7 @@ func (h *Handler) run(ctx context.Context, health cell.Health) error {
 		case <-ctx.Done():
 			return nil
 		case <-watch:
+		case <-initializedWatch:
 		}
 	}
 }
