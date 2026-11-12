@@ -1016,7 +1016,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 	__u32 ipcache_srcid = 0;
 	enum metric_dir dir = METRIC_INGRESS;
 	void *data, *data_end;
-	struct ipv6hdr __maybe_unused *ip6;
+	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
 	struct arp_eth *arp;
 	int hdrlen = 0;
@@ -1933,7 +1933,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 	int ret = CTX_ACT_OK;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct ipv6hdr *ip6 __maybe_unused;
+	struct ipv6hdr *ip6;
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):

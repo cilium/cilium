@@ -244,13 +244,13 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 __section_entry
 int cil_from_wireguard(struct __ctx_buff *ctx)
 {
-	void __maybe_unused *data, *data_end;
-	struct ipv6hdr __maybe_unused *ip6;
-	struct iphdr __maybe_unused *ip4;
-	int __maybe_unused ret;
-	const struct remote_endpoint_info __maybe_unused *info;
-	__u32 __maybe_unused identity = UNKNOWN_ID;
-	__s8 __maybe_unused ext_err = 0;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct iphdr *ip4;
+	int ret;
+	const struct remote_endpoint_info *info;
+	__u32 identity = UNKNOWN_ID;
+	__s8 ext_err = 0;
 	__be16 proto = ctx_get_protocol(ctx);
 
 	ctx_skip_nodeport_clear(ctx);
