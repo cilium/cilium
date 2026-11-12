@@ -7,7 +7,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4			1
-#define ENABLE_NODEPORT			1
 
 #define SRC_POD_V4			v4_pod_one
 #define SRC_POD_SEC_IDENTITY		(CIDR_IDENTITY_RANGE_START - 2)
@@ -24,9 +23,11 @@
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = NODE_IP })
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_identity_mark, true)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline
 int v4_build_packet(struct __ctx_buff *ctx)
