@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	datapathMaps "github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -28,10 +29,10 @@ import (
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -407,6 +408,21 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 	}
 }
 
+// getBPFMapSize returns the map's configured max entries by extracting it from map registry, or 0
+// if an error is encountered. If an error occurs, a warning message is logged.
+func (d *statusCollector) getBPFMapSize(mapName string) int64 {
+	spec, err := d.statusParams.MapRegistry.Get(mapName)
+	if err != nil {
+		d.statusParams.Logger.Warn(
+			"Failed to get BPF map max entries from registry. Map size will be reported as zero",
+			logfields.Error, err,
+			logfields.BPFMapName, mapName)
+		return 0
+	}
+
+	return int64(spec.MaxEntries)
+}
+
 func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 	policyMaxEntries := int64(0)
 	policyStatsMaxEntries := int64(0)
@@ -472,7 +488,7 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "Metrics",
-				Size: int64(metricsmap.MaxEntries),
+				Size: d.getBPFMapSize(datapathMaps.CiliumMetrics),
 			},
 			{
 				Name: "Ratelimit metrics",
