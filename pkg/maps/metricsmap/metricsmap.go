@@ -6,7 +6,6 @@ package metricsmap
 import (
 	"fmt"
 	"log/slog"
-	"unsafe"
 
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,8 +25,8 @@ var Cell = cell.Module(
 	cell.Provide(newMetricsMap),
 )
 
-func newMetricsMap(lifecycle cell.Lifecycle, logger *slog.Logger) bpf.MapOut[MetricsMap] {
-	metricsMap := newMap(logger)
+func newMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[MetricsMap] {
+	metricsMap := newMap()
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
@@ -50,31 +49,23 @@ type IterateCallback func(*Key, *Values)
 // mock maps for unit tests.
 type MetricsMap interface {
 	IterateWithCallback(IterateCallback) error
-	Delete(*Key) error
+	DeleteAll() error
 }
 
 type metricsMap struct {
-	bpfMap *ebpf.Map
+	bpfMap *bpf.Map
 }
 
-func newMap(logger *slog.Logger) *metricsMap {
-	return &metricsMap{
-		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       mapName,
-			Type:       ebpf.PerCPUHash,
-			KeySize:    uint32(unsafe.Sizeof(Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(Value{})),
-			MaxEntries: MaxEntries,
-			Pinning:    ebpf.PinByName,
-		}),
-	}
+func newMap() *metricsMap {
+	m := bpf.NewMap(mapName, ebpf.PerCPUHash, &Key{}, &Value{}, MaxEntries, 0)
+	return &metricsMap{bpfMap: m}
 }
 
 // LoadMetricsMap loads the pre-initialized metrics map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
 func LoadMetricsMap(logger *slog.Logger) (MetricsMap, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(logger, mapName)
+	bpfMap, err := bpf.OpenMap(bpf.MapPath(logger, mapName), &Key{}, &Value{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to load bpf map: %w", err)
 	}
@@ -142,11 +133,26 @@ type Key struct {
 	Reserved [3]uint8 `align:"reserved"`
 }
 
+func (k *Key) String() string {
+	return fmt.Sprintf("Reason=%s,Direction=%s,File=%s,Line=%d",
+		k.DropForwardReason(), k.Direction(), k.FileName(), k.Line)
+}
+
+func (k *Key) New() bpf.MapKey { return &Key{} }
+
 // Value must be in sync with struct metrics_value in <bpf/lib/metrics.h>
 type Value struct {
 	Count uint64 `align:"count"`
 	Bytes uint64 `align:"bytes"`
 }
+
+func (v *Value) String() string {
+	return fmt.Sprintf("Count=%d,Bytes=%d", v.Count, v.Bytes)
+}
+
+func (v *Value) New() bpf.MapValue { return &Value{} }
+
+func (v *Value) NewSlice() any { return &Values{} }
 
 // Values is a slice of Values
 type Values []Value
@@ -154,16 +160,16 @@ type Values []Value
 // IterateWithCallback iterates through all the keys/values of a metrics map,
 // passing each key/value pair to the cb callback
 func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
-	return m.bpfMap.IterateWithCallback(&Key{}, &Values{}, func(k, v any) {
+	return m.bpfMap.DumpPerCPUWithCallback(func(k bpf.MapKey, v any) {
 		key := k.(*Key)
 		values := v.(*Values)
 		cb(key, values)
 	})
 }
 
-// Delete removes the provided key from the map
-func (m metricsMap) Delete(key *Key) error {
-	return m.bpfMap.Delete(key)
+// DeleteAll removes all entries from the map.
+func (m metricsMap) DeleteAll() error {
+	return m.bpfMap.DeleteAll()
 }
 
 // MetricDirection gets the direction in human readable string format
