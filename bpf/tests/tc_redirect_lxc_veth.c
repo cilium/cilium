@@ -7,3 +7,4 @@
 #include "tc_redirect_lxc.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)

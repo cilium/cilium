@@ -20,6 +20,7 @@
 #include "lib/ipcache.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(__u32, wg_ifindex, 42)
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 ASSIGN_CONFIG(bool, enable_wireguard, true)

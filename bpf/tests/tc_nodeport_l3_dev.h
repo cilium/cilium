@@ -77,6 +77,7 @@ ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
 #endif
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 #include "lib/metrics.h"

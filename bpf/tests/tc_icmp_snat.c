@@ -10,6 +10,7 @@
 #include "bpf_nat_icmp6.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, debug, true)

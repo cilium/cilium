@@ -52,6 +52,7 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 ASSIGN_CONFIG(bool, encryption_strict_ingress, true)
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_wireguard, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

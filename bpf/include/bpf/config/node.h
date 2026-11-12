@@ -19,6 +19,7 @@
 #include <node_config.h>
 
 NODE_CONFIG(bool, enable_ipv4, "Enable IPv4 support")
+NODE_CONFIG(bool, enable_ipv6, "Enable IPv6 support")
 
 NODE_CONFIG(__u32, cilium_net_ifindex, "Interface index of the cilium_net device")
 NODE_CONFIG(union macaddr, cilium_net_mac, "MAC address of the cilium_net device")

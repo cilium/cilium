@@ -68,6 +68,7 @@ ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, proxy_redirect_via_cilium_net, true)
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_l7_lb, true)
 
 /* Test 1: IPv4 L7 LB on bridge device. Ensure packets is hairpinned via cilium_net. */

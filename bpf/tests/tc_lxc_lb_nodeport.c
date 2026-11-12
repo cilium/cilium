@@ -70,6 +70,7 @@ ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP })
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .enable_by_user = true })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 
