@@ -403,6 +403,8 @@ workflows:
         - 'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6'
         - 'google-github-actions/auth@12060449e87204eca501a11f2f7f1483024afff0'
         - 'google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db'
+    '.github/workflows/lint-actions-lock.yaml':
+        - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
     '.github/workflows/lint-ariane-config.yaml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
