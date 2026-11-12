@@ -89,8 +89,8 @@ Available Commands:
   version     Display detailed version information
 
 Global Flags:
-      --config string   Optional config file (default "%s")
-  -D, --debug           Enable debug messages
+      --config string        Optional config file (default "%s")
+  -D, --debug[=true|false]   Enable debug messages
 
 Get help:
   -h, --help	Help for any command or subcommand
