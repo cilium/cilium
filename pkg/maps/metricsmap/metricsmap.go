@@ -9,13 +9,15 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -23,21 +25,44 @@ var Cell = cell.Module(
 	"eBPF Metrics Map",
 	cell.Invoke(registerCollector),
 	cell.Provide(newMetricsMap),
+	cell.Invoke(configureMetricsMap),
 )
 
-func newMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[MetricsMap] {
-	metricsMap := newMap()
+func newMetricsMap(lifecycle cell.Lifecycle,
+	mapRegistry *mapregistry.MapRegistry) bpf.MapOut[MetricsMap] {
+	metricsMap := &metricsMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			return metricsMap.init()
+			var err error
+			if metricsMap.bpfMap, err = bpf.NewMapFromRegistry(mapRegistry, mapName, &Key{},
+				&Value{}); err != nil {
+				return fmt.Errorf("pull map from registry: %w", err)
+			}
+			if err := metricsMap.bpfMap.OpenOrCreate(); err != nil {
+				return fmt.Errorf("open/create map: %w", err)
+			}
+			return nil
 		},
 		OnStop: func(context cell.HookContext) error {
-			return metricsMap.close()
+			if err := metricsMap.bpfMap.Close(); err != nil {
+				return fmt.Errorf("close map: %w", err)
+			}
+			return nil
 		},
 	})
 
 	return bpf.NewMapOut(MetricsMap(metricsMap))
+}
+
+func configureMetricsMap(reg *mapregistry.MapRegistry) error {
+	var flags uint32
+	if !option.Config.PreAllocateMaps {
+		flags |= unix.BPF_F_NO_PREALLOC
+	}
+	return reg.Modify(mapName, func(m *mapregistry.MapSpecPatch) {
+		m.Flags = flags
+	})
 }
 
 // IterateCallback represents the signature of the callback function expected by
@@ -56,11 +81,6 @@ type metricsMap struct {
 	bpfMap *bpf.Map
 }
 
-func newMap() *metricsMap {
-	m := bpf.NewMap(mapName, ebpf.PerCPUHash, &Key{}, &Value{}, MaxEntries, 0)
-	return &metricsMap{bpfMap: m}
-}
-
 // LoadMetricsMap loads the pre-initialized metrics map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
@@ -73,32 +93,9 @@ func LoadMetricsMap(logger *slog.Logger) (MetricsMap, error) {
 	return &metricsMap{bpfMap: bpfMap}, nil
 }
 
-func (m *metricsMap) init() error {
-	if err := m.bpfMap.OpenOrCreate(); err != nil {
-		return fmt.Errorf("failed to init bpf map: %w", err)
-	}
-
-	return nil
-}
-
-func (m *metricsMap) close() error {
-	if err := m.bpfMap.Close(); err != nil {
-		return fmt.Errorf("failed to close bpf map: %w", err)
-	}
-
-	return nil
-}
-
 const (
 	// MapName for metrics map.
 	mapName = "cilium_metrics"
-	// MaxEntries is the maximum number of keys that can be present in the
-	// Metrics Map.
-	//
-	// Currently max. 2 bits of the Key.Dir member are used (unknown,
-	// ingress or egress). Thus we can reduce from the theoretical max. size
-	// of 2**16 (2 uint8) to 2**10 (1 uint8 + 2 bits).
-	MaxEntries = 1024
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
 	// in bpf/lib/metrics.h
