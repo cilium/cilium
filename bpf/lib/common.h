@@ -213,6 +213,7 @@ struct srv6_policy_key6 {
 #define REASON_RESERVED_2		13 /* was REASON_DECRYPTING */
 #define REASON_LB_REVNAT_DELETE		14
 #define REASON_MTU_ERROR_MSG			15
+#define REASON_ENCRYPT			16
 
 /* Cilium metrics direction for dropping/forwarding packet */
 enum metric_dir {
