@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -26,23 +27,27 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle cell.Lifecycle, mapRegistry *mapregistry.MapRegistry) bpf.MapOut[Map] {
-	return newMap(lifecycle, mapRegistry)
-}
-
 type l2V6ResponderMap struct {
 	*bpf.Map
 }
 
-func newMap(lifecycle cell.Lifecycle, mapRegistry *mapregistry.MapRegistry) bpf.MapOut[Map] {
+func NewMap(
+	lifecycle cell.Lifecycle,
+	mapRegistry *mapregistry.MapRegistry,
+	daemonConfig *option.DaemonConfig,
+) bpf.MapOut[Map] {
 	outerMap := &l2V6ResponderMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
+			if !daemonConfig.EnableL2Announcements {
+				return nil
+			}
+
 			m, err := bpf.NewMapFromRegistry(mapRegistry, MapName, &L2V6ResponderKey{},
 				&l2respondermap.L2ResponderStats{})
 			if err != nil {
-				return fmt.Errorf("failed to %s map from registry: %w", MapName, err)
+				return fmt.Errorf("failed to get %s map from registry: %w", MapName, err)
 			}
 			outerMap.Map = m
 
@@ -51,6 +56,13 @@ func newMap(lifecycle cell.Lifecycle, mapRegistry *mapregistry.MapRegistry) bpf.
 			}
 
 			return nil
+		},
+		OnStop: func(hc cell.HookContext) error {
+			if outerMap.Map == nil {
+				return nil
+			}
+
+			return outerMap.Map.Close()
 		},
 	})
 
