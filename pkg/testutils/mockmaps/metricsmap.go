@@ -4,9 +4,6 @@
 package mockmaps
 
 import (
-	"fmt"
-	"slices"
-
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 )
 
@@ -29,7 +26,7 @@ func NewMetricsMockMap(records []MetricsRecord) *MetricsMockMap {
 	return m
 }
 
-// DumpWithCallback runs the callback on each entry of the mock map.
+// IterateWithCallback runs the callback on each entry of the mock map.
 func (m *MetricsMockMap) IterateWithCallback(cb metricsmap.IterateCallback) error {
 	if cb == nil {
 		return nil
@@ -42,13 +39,8 @@ func (m *MetricsMockMap) IterateWithCallback(cb metricsmap.IterateCallback) erro
 	return nil
 }
 
-// Delete removes the provided key from the map
-func (m *MetricsMockMap) Delete(key *metricsmap.Key) error {
-	for i, e := range m.Entries {
-		if e.Key == *key {
-			m.Entries = slices.Delete(m.Entries, i, i+1)
-			return nil
-		}
-	}
-	return fmt.Errorf("key not found")
+// DeleteAll removes all the entries from the map.
+func (m *MetricsMockMap) DeleteAll() error {
+	m.Entries = nil
+	return nil
 }
