@@ -274,6 +274,8 @@ jobs:
             apt-get update
             apt-get install zstd -y
             cd /host
+            # The guest does not inherit the runner's environment.
+            export GOPROXY="${{ env.GOPROXY }}"
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
             go install golang.org/dl/go${{ env.go-version }}@latest
