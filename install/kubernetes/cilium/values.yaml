@@ -1354,8 +1354,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.4.13"
-    digest: "sha256:f0c16ea8abe251d448a7fd04bdd93fe0f85fb1c3a456a455e05f7bb107dc2ff1"
+    tag: "v0.4.14"
+    digest: "sha256:2f89929b7474b739d5225d69f44bd70d9e28067ff6dc7fdbe0f6407828fb8395"
     useDigest: true
     pullPolicy: "IfNotPresent"
   # @schema
