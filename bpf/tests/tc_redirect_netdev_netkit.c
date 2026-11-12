@@ -10,3 +10,4 @@
 #include "tc_redirect_netdev.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)

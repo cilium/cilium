@@ -15,6 +15,7 @@
 #include "nodeport_defaults.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(__u16, nodeport_port_min_nat_ext, 1024)
 ASSIGN_CONFIG(__u16, nodeport_port_max_nat_ext, 29999)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)

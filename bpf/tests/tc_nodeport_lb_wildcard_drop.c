@@ -29,6 +29,7 @@ static const union v6addr backend_ip6 = { .addr = v6_pod_one_addr };
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)

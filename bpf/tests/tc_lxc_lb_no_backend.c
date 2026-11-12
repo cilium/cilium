@@ -19,6 +19,7 @@
 #include "lib/bpf_lxc.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
 ASSIGN_CONFIG(__u32, security_label, CLIENT_IDENTITY)

@@ -30,6 +30,7 @@ ASSIGN_CONFIG(__u32, trace_payload_len, 10UL);
 ASSIGN_CONFIG(__u32, trace_payload_len_overlay, 20UL);
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_ipsec, true)
 
 /* Defining checks for packets from L3 devices as a macro for reusability. */

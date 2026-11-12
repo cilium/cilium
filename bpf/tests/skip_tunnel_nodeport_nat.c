@@ -88,6 +88,7 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 #include "lib/nodeport.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

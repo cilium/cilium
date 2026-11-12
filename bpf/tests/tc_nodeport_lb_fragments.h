@@ -28,6 +28,7 @@ ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 #endif
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_ipv4_fragments, true)
 ASSIGN_CONFIG(bool, enable_ipv6_fragments, true)

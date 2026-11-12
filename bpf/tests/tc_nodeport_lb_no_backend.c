@@ -19,6 +19,7 @@
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = FRONTEND_IP})
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)

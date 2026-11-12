@@ -30,6 +30,7 @@ mock_fib_lookup(void *ctx __maybe_unused, const struct bpf_fib_lookup *params __
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)

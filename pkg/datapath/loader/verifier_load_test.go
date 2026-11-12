@@ -24,6 +24,7 @@ func setDebugOptions(t *config.Node, v bool) {
 
 func setBasePermutations(t *config.Node) {
 	t.EnableIPv4 = true
+	t.EnableIPv6 = true
 	t.EnableBPFHostRouting = true
 	t.IPv4SNATExclusion.DstAddr.Addr = [4]byte{0xff, 0xff, 0x00, 0x00}
 	t.IPv4SNATExclusion.Bits = 16

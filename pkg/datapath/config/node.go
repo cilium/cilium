@@ -34,6 +34,7 @@ func NodeConfig(lnc *Config) Node {
 	}
 
 	node.EnableIPv4 = lnc.EnableIPv4
+	node.EnableIPv6 = lnc.EnableIPv6
 
 	if lnc.ServiceLoopbackIPv4.IsValid() {
 		node.ServiceLoopbackIPv4.Addr = lnc.ServiceLoopbackIPv4.As4()

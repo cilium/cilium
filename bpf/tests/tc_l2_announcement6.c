@@ -21,6 +21,7 @@
 
 #define V6_ALEN 16
 
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(__u64, l2_announcements_max_liveness, 3000000000ULL)
 ASSIGN_CONFIG(bool, enable_l2_announcements, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})

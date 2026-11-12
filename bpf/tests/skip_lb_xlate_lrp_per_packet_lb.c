@@ -13,6 +13,7 @@
 #define NETNS_COOKIE	5000
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_lrp, true)
 ASSIGN_CONFIG(__u64, endpoint_netns_cookie, NETNS_COOKIE)
 ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })

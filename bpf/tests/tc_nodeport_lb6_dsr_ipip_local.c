@@ -148,6 +148,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)

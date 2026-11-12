@@ -46,6 +46,7 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

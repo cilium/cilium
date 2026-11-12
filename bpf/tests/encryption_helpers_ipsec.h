@@ -33,6 +33,7 @@
 #define VXLAN_PORT bpf_htons(8472)
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_ipsec, true)
 
 static __always_inline

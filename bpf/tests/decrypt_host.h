@@ -16,6 +16,7 @@
 #include "scapy.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
 /* packet defined in ./scapy/wg_from_netdev_pkt_defs.py */
