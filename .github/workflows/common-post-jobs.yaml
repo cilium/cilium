@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Merge JUnits
         if: ${{ inputs.merge-junits }}
-        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-junits
           pattern: cilium-junits-*
@@ -57,7 +57,7 @@ jobs:
 
       - name: Merge Features tested
         if: ${{ inputs.merge-features }}
-        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        uses: $/.github/actions/merge-artifacts
         with:
           name: features-tested
           pattern: features-tested-*

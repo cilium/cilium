@@ -729,7 +729,7 @@ jobs:
     needs: resource-churn
     steps:
       - name: Merge Sysdumps
-        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -737,7 +737,7 @@ jobs:
           separate-directories: false
 
       - name: Merge Logs
-        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-logs
           pattern: cilium-logs-*
