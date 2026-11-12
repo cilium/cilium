@@ -2216,19 +2216,29 @@ func TestNewClusterSharingEndpointReplaysWatches(t *testing.T) {
 
 func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 	c := &cacheImpl{}
-	var sotwResponses []cache.Response
+	var sotwResponses []watchResponse
+	var deltaResponses []deltaWatchResponse
 	for _, typeURL := range []string{
 		envoy_resource.EndpointType,
 		envoy_resource.RouteType,
 		envoy_resource.ClusterType,
 		envoy_resource.ListenerType,
 	} {
-		// The backend may produce these responses in randomized watch-map order.
-		sotwResponses = append(sotwResponses, &cache.RawResponse{Request: &discovery.DiscoveryRequest{TypeUrl: typeURL}})
+		// go-control-plane may produce responses in randomized watch-map order.
+		sotwResponses = append(sotwResponses, watchResponse{
+			Response: &cache.RawResponse{Request: &discovery.DiscoveryRequest{TypeUrl: typeURL}},
+			watch:    &trackedWatch{deliverySync: deliverySync[cache.Response]{deliveryCanceled: make(chan struct{})}},
+		})
+		deltaResponses = append(deltaResponses, deltaWatchResponse{
+			DeltaResponse: &cache.RawDeltaResponse{DeltaRequest: &discovery.DeltaDiscoveryRequest{TypeUrl: typeURL}},
+			watch:         &trackedDeltaWatch{deliverySync: deliverySync[cache.DeltaResponse]{deliveryCanceled: make(chan struct{})}},
+		})
 	}
 	// Coalesced responses for a stream share one relay/channel.
 	orderedSotW := make(chan cache.Response, 4)
 	c.deliverResponses([]responseDelivery{{channel: orderedSotW, responses: sotwResponses}})
+	orderedDelta := make(chan cache.DeltaResponse, 4)
+	c.deliverDeltaResponses([]deltaResponseDelivery{{channel: orderedDelta, responses: deltaResponses}})
 	for _, want := range []string{
 		envoy_resource.ClusterType,
 		envoy_resource.EndpointType,
@@ -2236,6 +2246,7 @@ func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 		envoy_resource.RouteType,
 	} {
 		require.Equal(t, want, (<-orderedSotW).GetRequest().GetTypeUrl())
+		require.Equal(t, want, (<-orderedDelta).GetDeltaRequest().GetTypeUrl())
 	}
 }
 
@@ -2341,6 +2352,659 @@ func TestCiliumSnapshotIndexedResourcesWithoutDeltaVersions(t *testing.T) {
 	require.Nil(t, snapshot.GetVersionMap(envoy_resource.EndpointType))
 	require.Nil(t, snapshot.GetVersionMap(typeurl.NetworkPolicyURL))
 	require.Nil(t, snapshot.GetVersionMap("type.googleapis.com/unknown.Resource"))
+}
+
+func TestDeltaEnabledCacheServesIndependentSotWSubscriptions(t *testing.T) {
+	for _, tt := range []struct {
+		typeURL  typeurl.Index
+		resource func(string) proto.Message
+	}{
+		{typeurl.Endpoint, func(name string) proto.Message {
+			return &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+		}},
+		{typeurl.Route, func(name string) proto.Message {
+			return &envoy_config_route.RouteConfiguration{Name: name}
+		}},
+		{typeurl.Secret, func(name string) proto.Message {
+			return testSecret(name, "secret")
+		}},
+	} {
+		for _, deferred := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/deferred=%t", tt.typeURL.URL(), deferred), func(t *testing.T) {
+				const nodeID = "node1"
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "wanted", tt.resource("wanted"), nil, nil))
+				if !deferred {
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "other", tt.resource("other"), nil, nil))
+				}
+
+				request := &cache.Request{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: tt.typeURL.URL(),
+					ResourceNames: []string{"wanted"},
+				}
+				subscription := stream.NewSotwSubscription(request.ResourceNames, false)
+				responses := make(chan cache.Response, 1)
+				receive := func() cache.Response {
+					t.Helper()
+					select {
+					case response := <-responses:
+						require.Equal(t, map[string]string{"wanted": response.GetResponseVersion()}, response.GetReturnedResources())
+						return response
+					default:
+						t.Fatal("unrelated resources must not block a named SotW response")
+						return nil
+					}
+				}
+				cancel, err := c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				if deferred {
+					initial := receive()
+					request.VersionInfo = initial.GetResponseVersion()
+					subscription.SetReturnedResources(initial.GetReturnedResources())
+					cancel, err = c.CreateWatch(request, subscription, responses)
+					require.NoError(t, err)
+					t.Cleanup(cancel)
+					require.Empty(t, responses)
+
+					// Publishing another resource of this type must keep this
+					// independent subscription serviceable.
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "other", tt.resource("other"), nil, nil))
+				}
+				response := receive()
+				if deferred {
+					require.NotEqual(t, request.VersionInfo, response.GetResponseVersion())
+				}
+			})
+		}
+	}
+}
+
+func TestDeltaSubscriptionPreservesResourceAcceptance(t *testing.T) {
+	const nodeID = "node1"
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+	t.Cleanup(func() { c.completionCbs.OnDeltaStreamClosed(1, nil) })
+	secret := testSecret("a", "secret")
+	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Secret, secret.Name, secret, nil, nil))
+
+	request := &cache.DeltaRequest{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Secret.URL(),
+		ResourceNamesSubscribe: []string{secret.Name},
+	}
+	require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+	subscription := stream.NewDeltaSubscription(request.ResourceNamesSubscribe, nil, nil, false)
+	responses := make(chan cache.DeltaResponse, 1)
+	cancel, err := c.CreateDeltaWatch(request, &subscription, responses)
+	require.NoError(t, err)
+	if cancel != nil {
+		t.Cleanup(cancel)
+	}
+	var response cache.DeltaResponse
+	select {
+	case response = <-responses:
+	default:
+		t.Fatal("expected an immediate Delta response")
+	}
+	wire, err := response.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	wire.Nonce = "a"
+	c.completionCbs.OnStreamDeltaResponse(1, request, wire)
+	require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, &cache.DeltaRequest{
+		TypeUrl: typeurl.Secret.URL(), ResponseNonce: wire.Nonce,
+	}))
+	require.True(t, c.completionCbs.ResourceAccepted(nodeID, typeurl.Secret, secret.Name, secret, true, callbacks.Revision{}))
+
+	// Adding another subscription does not invalidate Envoy's acceptance of A.
+	require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, &cache.DeltaRequest{
+		TypeUrl: typeurl.Secret.URL(), ResourceNamesSubscribe: []string{"b"},
+	}))
+	done := make(chan error, 1)
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Secret, secret.Name, secret, wg,
+		func(err error) { done <- err }))
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	default:
+		t.Fatal("an unchanged, already accepted resource must not wait for another Delta response")
+	}
+	require.NoError(t, wg.Wait())
+}
+
+func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		typeURL   typeurl.Index
+		a, b      proto.Message
+		wildcard  bool
+		sotwFirst bool
+	}{
+		{
+			name: "named CDS streams", typeURL: typeurl.Cluster,
+			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
+		},
+		{
+			name: "SotW and Delta stream ID and nonce collision", typeURL: typeurl.Cluster, sotwFirst: true,
+			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
+		},
+		{
+			name: "wildcard CDS subscription", typeURL: typeurl.Cluster, wildcard: true,
+			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
+		},
+		{
+			name: "wildcard EDS subscription", typeURL: typeurl.Endpoint, wildcard: true,
+			a: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "a"},
+			b: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "b"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			const nodeID = "node1"
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+			t.Cleanup(func() {
+				c.completionCbs.OnStreamClosed(2, nil)
+				for streamID := range int64(3) {
+					c.completionCbs.OnDeltaStreamClosed(streamID+1, nil)
+				}
+			})
+			receive := func(streamID int64, subscription *stream.Subscription, nonce string) *discovery.DeltaDiscoveryResponse {
+				t.Helper()
+				request := &cache.DeltaRequest{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: tt.typeURL.URL(),
+					ResourceNamesSubscribe: slices.Collect(maps.Keys(subscription.SubscribedResources())),
+				}
+				if subscription.IsWildcard() {
+					request.ResourceNamesSubscribe = []string{"*"}
+				}
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(streamID, request))
+				responses := make(chan cache.DeltaResponse, 1)
+				cancel, err := c.CreateDeltaWatch(request, subscription, responses)
+				require.NoError(t, err)
+				if cancel != nil {
+					t.Cleanup(cancel)
+				}
+				select {
+				case response := <-responses:
+					wire, err := response.GetDeltaDiscoveryResponse()
+					require.NoError(t, err)
+					wire.Nonce = nonce
+					c.completionCbs.OnStreamDeltaResponse(streamID, request, wire)
+					subscription.SetReturnedResources(response.GetReturnedResources())
+					return wire
+				default:
+					t.Fatal("expected an immediate Delta response")
+					return nil
+				}
+			}
+
+			aDone, bDone := make(chan error, 1), make(chan error, 1)
+			aWG, bWG := completion.NewWaitGroup(t.Context()), completion.NewWaitGroup(t.Context())
+			t.Cleanup(aWG.Cancel)
+			t.Cleanup(bWG.Cancel)
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "a", tt.a, aWG,
+				func(err error) { aDone <- err }))
+			first := stream.NewDeltaSubscription([]string{"a"}, nil, nil, false)
+			if tt.wildcard {
+				first = stream.NewDeltaSubscription(nil, nil, nil, true)
+			}
+			if tt.sotwFirst {
+				request := &cache.Request{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: tt.typeURL.URL(), ResourceNames: []string{"a"},
+				}
+				require.NoError(t, c.completionCbs.OnStreamRequest(2, request))
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(request.ResourceNames, false), responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				var response cache.Response
+				select {
+				case response = <-responses:
+				default:
+					t.Fatal("expected an immediate SotW response")
+				}
+				c.completionCbs.OnStreamResponse(response.GetContext(), 2, request, &discovery.DiscoveryResponse{
+					TypeUrl: tt.typeURL.URL(), VersionInfo: response.GetResponseVersion(), Nonce: "b",
+				})
+			} else {
+				receive(1, &first, "a")
+			}
+			// A has been delivered, but has not been ACKed.
+
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "b", tt.b, bWG,
+				func(err error) { bDone <- err }))
+			second := stream.NewDeltaSubscription([]string{"b"}, nil, nil, false)
+			secondID, subscription := int64(2), &second
+			if tt.wildcard {
+				// A subscription-only request can precede the ACK for A.
+				secondID, subscription = 1, &first
+			}
+			response := receive(secondID, subscription, "b")
+			require.Len(t, response.Resources, 1)
+			require.Equal(t, "b", response.Resources[0].Name)
+			require.NoError(t, c.completionCbs.OnStreamDeltaRequest(secondID, &cache.DeltaRequest{
+				TypeUrl: tt.typeURL.URL(), ResponseNonce: response.Nonce,
+			}))
+			select {
+			case err := <-bDone:
+				require.NoError(t, err)
+			default:
+				t.Fatal("ACK did not complete B's wait")
+			}
+			requireCoveragePending(t, aDone)
+			require.False(t, c.completionCbs.ResourceAccepted(nodeID, tt.typeURL, "a", tt.a, true, callbacks.Revision{}))
+			require.True(t, c.completionCbs.ResourceAccepted(nodeID, tt.typeURL, "b", tt.b, true, callbacks.Revision{}))
+
+			// An omitted name must also retain its response-owned recovery.
+			// A fresh stream explicitly requests A so its rejection has its own nonce.
+			retry := stream.NewDeltaSubscription([]string{"a"}, nil, nil, false)
+			rejected := receive(3, &retry, "retry-a")
+			require.NoError(t, c.completionCbs.OnStreamDeltaRequest(3, &cache.DeltaRequest{
+				TypeUrl: tt.typeURL.URL(), ResponseNonce: rejected.Nonce,
+				ErrorDetail: &status.Status{Message: "rejected A"},
+			}))
+			select {
+			case err := <-aDone:
+				require.ErrorContains(t, err, "rejected A")
+			default:
+				t.Fatal("NACK did not complete A's wait")
+			}
+			require.Nil(t, c.GetResource(nodeID, tt.typeURL, "a"))
+			require.Same(t, tt.b, c.GetResource(nodeID, tt.typeURL, "b"))
+		})
+	}
+}
+
+func TestDeltaCoalescedRollbackPublishesRestoredRevision(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		typeURL         typeurl.Index
+		projected       bool
+		failPublication bool
+	}{
+		{name: "secret", typeURL: typeurl.Secret},
+		{name: "endpoint", typeURL: typeurl.Endpoint},
+		{name: "projected endpoint", typeURL: typeurl.Endpoint, projected: true},
+		{name: "after failed publication", typeURL: typeurl.Secret, failPublication: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			const nodeID, name = "node1", "a"
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+			t.Cleanup(func() { c.completionCbs.OnDeltaStreamClosed(1, nil) })
+			var original proto.Message = &envoy_config_tls.Secret{Name: name}
+			var updated proto.Message = &envoy_config_tls.Secret{
+				Name: name, Type: &envoy_config_tls.Secret_GenericSecret{GenericSecret: &envoy_config_tls.GenericSecret{}},
+			}
+			if tt.typeURL == typeurl.Endpoint {
+				original = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+				updated = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name, Policy: &envoy_config_endpoint.ClusterLoadAssignment_Policy{}}
+			}
+			if tt.projected {
+				original = nil
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
+					&envoy_config_cluster.Cluster{
+						Name: "cluster", ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+						EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{ServiceName: name},
+					}, nil, nil))
+			} else {
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, name, original, nil, nil))
+			}
+			if tt.failPublication {
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "marker",
+					&envoy_config_cluster.Cluster{Name: "marker"}, nil, nil))
+			}
+
+			var nonces typeurl.Slots[string]
+			nonce := 0
+			watch := func(index typeurl.Index, subscription *stream.Subscription) chan cache.DeltaResponse {
+				t.Helper()
+				request := &cache.DeltaRequest{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: index.URL(),
+					ResourceNamesSubscribe: slices.Collect(maps.Keys(subscription.SubscribedResources())),
+					ResponseNonce:          nonces[index],
+				}
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+				responses := make(chan cache.DeltaResponse, 1)
+				cancel, err := c.CreateDeltaWatch(request, subscription, responses)
+				require.NoError(t, err)
+				if cancel != nil {
+					t.Cleanup(cancel)
+				}
+				return responses
+			}
+			receive := func(index typeurl.Index, subscription *stream.Subscription) *discovery.DeltaDiscoveryResponse {
+				t.Helper()
+				select {
+				case response := <-watch(index, subscription):
+					wire, err := response.GetDeltaDiscoveryResponse()
+					require.NoError(t, err)
+					nonce++
+					wire.Nonce = fmt.Sprint(nonce)
+					nonces[index] = wire.Nonce
+					c.completionCbs.OnStreamDeltaResponse(1, response.GetDeltaRequest(), wire)
+					subscription.SetReturnedResources(response.GetReturnedResources())
+					return wire
+				default:
+					t.Fatal("restored revision did not produce a Delta response")
+					return nil
+				}
+			}
+			ack := func(response *discovery.DeltaDiscoveryResponse) {
+				t.Helper()
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, &cache.DeltaRequest{
+					TypeUrl: response.TypeUrl, ResponseNonce: response.Nonce,
+				}))
+			}
+			subscription := stream.NewDeltaSubscription([]string{name}, nil, nil, false)
+			initial := receive(tt.typeURL, &subscription)
+			ack(initial)
+			markerSubscription := stream.NewDeltaSubscription([]string{"marker"}, nil, nil, false)
+			if tt.failPublication {
+				ack(receive(typeurl.Cluster, &markerSubscription))
+			}
+
+			rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, tt.typeURL, name, updated, nil, nil)
+			require.NoError(t, err)
+			require.NoError(t, rollback.Revert()) // B was never published; A now has a fresh revision.
+
+			if tt.failPublication {
+				// A different type's watch lets a bulk update try to publish the
+				// pending restored revision. On failure, that revision must stay dirty.
+				require.Empty(t, watch(typeurl.Cluster, &markerSubscription))
+				failed := newMockSnapshotCache()
+				failed.snapshots[nodeID] = mustSnapshot(t, c, nodeID)
+				failed.setSnapshotErr = errors.New("publication failed")
+				restore := c.replaceSnapshotCache(t, failed)
+				require.ErrorIs(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+					Secrets:  map[string]*envoy_config_tls.Secret{name: {Name: name, Type: &envoy_config_tls.Secret_TlsCertificate{TlsCertificate: &envoy_config_tls.TlsCertificate{}}}},
+					Clusters: map[string]*envoy_config_cluster.Cluster{"marker": {Name: "marker", AltStatName: "changed"}},
+				}}, nil, TypeURLCallbacks{}), failed.setSnapshotErr)
+				restore()
+			}
+			done := make(chan error, 1)
+			wg := completion.NewWaitGroup(t.Context())
+			t.Cleanup(wg.Cancel)
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, name, original, wg,
+				func(err error) { done <- err }))
+			requireCoveragePending(t, done)
+			restored := receive(tt.typeURL, &subscription)
+			require.Len(t, restored.Resources, 1)
+			require.Equal(t, name, restored.Resources[0].Name)
+			require.True(t, proto.Equal(initial.Resources[0].Resource, restored.Resources[0].Resource))
+			require.NotEqual(t, initial.Resources[0].Version, restored.Resources[0].Version)
+			require.True(t, proto.Equal(original, c.GetResource(nodeID, tt.typeURL, name)))
+
+			ack(initial)
+			requireCoveragePending(t, done)
+			ack(restored)
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			default:
+				t.Fatal("ACK for the restored revision did not complete the wait")
+			}
+			require.NoError(t, wg.Wait())
+		})
+	}
+}
+
+func TestCiliumSnapshotDeltaVersionsTrackResourceChanges(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS()).(*cacheImpl)
+	state := &nodeState{epoch: 1, resourceGeneration: 1}
+	state.seedResourceAtGeneration(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 1}, 1)
+	state.seedResourceAtGeneration(typeurl.NetworkPolicy, "unchanged", &cilium.NetworkPolicy{EndpointId: 2}, 1)
+
+	initial, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	require.NoError(t, initial.ConstructVersionMap())
+	require.Equal(t, map[string]string{
+		"changed":   "e1:g1",
+		"unchanged": "e1:g1",
+	}, initial.GetVersionMap(typeurl.NetworkPolicyURL))
+
+	changedTypeURLs := state.applyUnpublishedTestResource(
+		typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 3})
+	updated, err := c.generateSnapshotFromStateIncrementally(state, initial, changedTypeURLs)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"changed":   "e1:g2",
+		"unchanged": "e1:g1",
+	}, updated.GetVersionMap(typeurl.NetworkPolicyURL))
+
+	changedTypeURLs = state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "changed", nil)
+	removed, err := c.generateSnapshotFromStateIncrementally(state, updated, changedTypeURLs)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"unchanged": "e1:g1",
+	}, removed.GetVersionMap(typeurl.NetworkPolicyURL))
+
+	rebound := removed.(*ciliumSnapshot).withEpoch(2)
+	require.Equal(t, map[string]string{
+		"unchanged": "e2:g1",
+	}, rebound.GetVersionMap(typeurl.NetworkPolicyURL))
+	require.Equal(t, "e1:g1", removed.GetVersionMap(typeurl.NetworkPolicyURL)["unchanged"],
+		"rebinding an epoch must not mutate the published snapshot")
+}
+
+type deltaResponseWithoutSerialization struct {
+	cache.DeltaResponse
+}
+
+func (*deltaResponseWithoutSerialization) GetDeltaDiscoveryResponse() (*discovery.DeltaDiscoveryResponse, error) {
+	return nil, errors.New("native Delta serialization must not be called")
+}
+
+func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		subscribed []string
+	}{
+		{name: "wildcard"},
+		{name: "named", subscribed: []string{"changed"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := slog.New(slog.DiscardHandler)
+			c := newCache(logger, WithNodeIDs("node1"), WithDeltaADS())
+			state := &nodeState{epoch: 1, resourceGeneration: 1}
+			state.seedResourceAtGeneration(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 1}, 1)
+			state.seedResourceAtGeneration(typeurl.NetworkPolicy, "unchanged", &cilium.NetworkPolicy{EndpointId: 2}, 1)
+			initial, err := c.generateSnapshotFromState(state)
+			require.NoError(t, err)
+
+			// Use the native cache for filtering, but prohibit its hash-based wire
+			// serialization so the adapter must preserve snapshot versions directly.
+			backend := cache.NewSnapshotCache(true, cache.IDHash{}, snapshotCacheLogger(logger))
+			require.NoError(t, backend.SetSnapshot(t.Context(), "node1", initial))
+			subscription := stream.NewDeltaSubscription(tc.subscribed, nil, nil, true)
+			request := &discovery.DeltaDiscoveryRequest{
+				Node:                   &envoy_config_core.Node{Id: "node1"},
+				TypeUrl:                typeurl.NetworkPolicyURL,
+				ResourceNamesSubscribe: tc.subscribed,
+			}
+			responses := make(chan cache.DeltaResponse, 1)
+			cancel, err := backend.CreateDeltaWatch(request, &subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			var response cache.DeltaResponse
+			select {
+			case response = <-responses:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for initial native Delta response")
+			}
+			require.IsType(t, &cache.RawDeltaResponse{}, response)
+			response = c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 1, initial, &subscription), 0)
+			wire, err := response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			if len(tc.subscribed) == 0 {
+				require.Len(t, wire.Resources, 2)
+			} else {
+				require.Len(t, wire.Resources, 1)
+			}
+			for _, resource := range wire.Resources {
+				require.Equal(t, "e1:g1", resource.Version)
+				require.Equal(t, response.GetReturnedResources()[resource.Name], resource.Version)
+				require.Equal(t, typeurl.NetworkPolicyURL, resource.GetResource().GetTypeUrl())
+			}
+			again, err := response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			require.Same(t, wire, again, "Delta responses must only be serialized once")
+
+			subscription.SetReturnedResources(response.GetReturnedResources())
+			request.ResponseNonce = "acked"
+			cancel, err = backend.CreateDeltaWatch(request, &subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			changed := state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 3})
+			updated, err := c.generateSnapshotFromStateIncrementally(state, initial, changed)
+			require.NoError(t, err)
+			require.NoError(t, backend.SetSnapshot(t.Context(), "node1", updated))
+			select {
+			case response = <-responses:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for updated native Delta response")
+			}
+			response = c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 2, updated, &subscription), 0)
+			wire, err = response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			require.Len(t, wire.Resources, 1, "unchanged resources must not be resent")
+			require.Equal(t, "changed", wire.Resources[0].Name)
+			require.Equal(t, "e1:g2", wire.Resources[0].Version)
+			require.Equal(t, "e1:g1", updated.GetVersionMap(typeurl.NetworkPolicyURL)["unchanged"])
+			decoded := &cilium.NetworkPolicy{}
+			require.NoError(t, wire.Resources[0].Resource.UnmarshalTo(decoded))
+			require.Equal(t, uint64(3), decoded.GetEndpointId())
+
+			subscription.SetReturnedResources(response.GetReturnedResources())
+			cancel, err = backend.CreateDeltaWatch(request, &subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			changed = state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "changed", nil)
+			removed, err := c.generateSnapshotFromStateIncrementally(state, updated, changed)
+			require.NoError(t, err)
+			require.NoError(t, backend.SetSnapshot(t.Context(), "node1", removed))
+			select {
+			case response = <-responses:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for native Delta removal")
+			}
+			response = c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 3, removed, &subscription), 0)
+			wire, err = response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			require.Empty(t, wire.Resources)
+			require.Equal(t, []string{"changed"}, wire.RemovedResources)
+		})
+	}
+}
+
+func TestDeltaResponseSerializesPublishedSnapshot(t *testing.T) {
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS())
+	state := &nodeState{epoch: 1, resourceGeneration: 1}
+	state.seedResourceAtGeneration(typeurl.NetworkPolicy, "kept", &cilium.NetworkPolicy{EndpointId: 1}, 1)
+	published, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	subscription := stream.NewDeltaSubscription([]string{"kept", "removed"}, nil, map[string]string{
+		"kept": "e1:g0", "removed": "e1:g0", "unsubscribed": "e1:g0",
+	}, false)
+	response := cache.NewTestRawDeltaResponse(
+		&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.NetworkPolicyURL}, published.GetVersion(typeurl.NetworkPolicyURL),
+		nil, []string{"removed"}, map[string]string{"kept": "e1:g1"},
+	)
+	response.Ctx = callbacks.WithSnapshotPublication(t.Context(), 1, published)
+	changes := state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "kept", &cilium.NetworkPolicy{EndpointId: 2})
+	latest, err := c.generateSnapshotFromStateIncrementally(state, published, changes)
+	require.NoError(t, err)
+
+	adapted := c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+		&deltaResponseWithoutSerialization{response}, 2, latest, &subscription), 0)
+	wire, err := adapted.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Equal(t, published.GetVersion(typeurl.NetworkPolicyURL), wire.SystemVersionInfo)
+	require.Len(t, wire.Resources, 1)
+	require.Equal(t, "kept", wire.Resources[0].Name)
+	require.Equal(t, "e1:g1", wire.Resources[0].Version)
+	decoded := &cilium.NetworkPolicy{}
+	require.NoError(t, wire.Resources[0].Resource.UnmarshalTo(decoded))
+	require.Equal(t, uint64(1), decoded.GetEndpointId(), "delayed serialization must not use a newer publication")
+	require.Equal(t, []string{"removed"}, wire.RemovedResources, "unsubscription is not a resource removal")
+}
+
+func TestDeltaResponseRejectsMissingPublishedResource(t *testing.T) {
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS())
+	snapshot, err := c.generateSnapshotFromState(&nodeState{epoch: 1})
+	require.NoError(t, err)
+	subscription := stream.NewDeltaSubscription(nil, nil, nil, true)
+	response := cache.NewTestRawDeltaResponse(
+		&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.NetworkPolicyURL}, "e1:g1",
+		nil, nil, map[string]string{"missing": "e1:g1"},
+	)
+	adapted := c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(response, 1, snapshot, &subscription), 0)
+	wire, err := adapted.GetDeltaDiscoveryResponse()
+	require.Nil(t, wire)
+	require.ErrorContains(t, err, `missing Delta resource "missing" at version "e1:g1"`)
+}
+
+func TestCreateDeltaWatchSelectsEpochFromInitialResourceVersions(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS()).(*cacheImpl)
+	policy := &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", policy, nil, nil))
+
+	request := &discovery.DeltaDiscoveryRequest{
+		Node:                    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl:                 typeurl.NetworkPolicyURL,
+		InitialResourceVersions: map[string]string{"policy": "e1:g99"},
+	}
+	subscription := stream.NewDeltaSubscription(nil, nil, request.GetInitialResourceVersions(), true)
+	responses := make(chan cache.DeltaResponse, 1)
+	cancel, err := c.CreateDeltaWatch(request, &subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	var response cache.DeltaResponse
+	select {
+	case response = <-responses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for initial Delta response")
+	}
+	require.Equal(t, uint64(2), c.getNodeState("node1").epoch)
+	require.Equal(t, uint64(2), c.getNodeState("node1").typeStates[typeurl.NetworkPolicy].negotiatedEpoch)
+	require.Equal(t, "e2:g1", response.GetReturnedResources()["policy"])
+
+	deltaResponse, err := response.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Len(t, deltaResponse.GetResources(), 1)
+	require.Equal(t, "policy", deltaResponse.GetResources()[0].GetName())
+	require.Equal(t, "e2:g1", deltaResponse.GetResources()[0].GetVersion())
+	require.Empty(t, deltaResponse.GetRemovedResources())
+	cancel()
+
+	reconnect := &discovery.DeltaDiscoveryRequest{
+		Node:                    request.GetNode(),
+		TypeUrl:                 typeurl.NetworkPolicyURL,
+		InitialResourceVersions: map[string]string{"policy": deltaResponse.GetResources()[0].GetVersion()},
+	}
+	reconnectedSubscription := stream.NewDeltaSubscription(nil, nil, reconnect.GetInitialResourceVersions(), true)
+	reconnectedResponses := make(chan cache.DeltaResponse, 1)
+	cancelReconnect, err := c.CreateDeltaWatch(reconnect, &reconnectedSubscription, reconnectedResponses)
+	require.NoError(t, err)
+	t.Cleanup(cancelReconnect)
+	select {
+	case response = <-reconnectedResponses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for reconnect Delta response")
+	}
+	deltaResponse, err = response.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Empty(t, deltaResponse.GetResources(), "unchanged policy must not be resent")
+	require.Empty(t, deltaResponse.GetRemovedResources())
+	require.Equal(t, uint64(2), c.getNodeState("node1").epoch)
 }
 
 func TestGenerateSnapshotProjectionPreservesDesiredResources(t *testing.T) {

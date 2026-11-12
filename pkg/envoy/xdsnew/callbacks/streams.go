@@ -8,9 +8,9 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // StreamMode distinguishes go-control-plane's independently numbered SotW and
@@ -30,34 +30,45 @@ type StreamLifecycleHandler interface {
 	StreamClosed(streamID int64, nodeID string, mode StreamMode)
 }
 
+// streamKey includes the mode because go-control-plane allocates SotW and Delta
+// stream IDs independently, while both servers share CompletionCallbacks.
 type streamKey struct {
 	streamID int64
 	mode     StreamMode
 }
 
+// streamRequest normalizes transport fields for shared ACK/NACK processing.
+// Delta has no echoed version; a matching nonce identifies its response instead.
+// Resource names come from the recorded response, never from ACK/NACK requests.
+type streamRequest struct {
+	nodeID, typeURL, version, nonce string
+	errorDetail                     *status.Status
+	// Retain the original Delta request to associate its subsequent cache watch.
+	deltaRequest *discovery.DeltaDiscoveryRequest
+}
+
 type callbackStreamState struct {
 	nodeID    string
 	responses typeurl.Slots[pendingResponse]
-}
-
-// ensureStreamState returns stream state, creating it when needed.
-// cb.mutex must be held.
-func (cb *CompletionCallbacks) ensureStreamState(key streamKey) *callbackStreamState {
-	stream := cb.streams[key]
-	if stream == nil {
-		stream = &callbackStreamState{}
-		cb.streams[key] = stream
-	}
-	return stream
+	// deltaRequest associates the next cache watch with this stream. Request
+	// handling and watch creation run consecutively on the stream goroutine.
+	deltaRequest *discovery.DeltaDiscoveryRequest
+	// Encoding transfers metadata only for the response this stream will
+	// immediately report through OnStreamDeltaResponse.
+	preparedDeltaResponse deltaResponseMetadata
 }
 
 // streamForRequest remembers the request's node ID. Subsequent requests may
 // omit Node. started reports the first association of this stream with a node.
 // Caller must hold cb.mutex.
-func (cb *CompletionCallbacks) streamForRequest(streamID int64, req *discovery.DiscoveryRequest) (*callbackStreamState, bool) {
-	stream := cb.ensureStreamState(streamKey{streamID: streamID, mode: StreamModeSotW})
-	started := stream.nodeID == "" && req.GetNode().GetId() != ""
-	if nodeID := req.GetNode().GetId(); nodeID != "" {
+func (cb *CompletionCallbacks) streamForRequest(key streamKey, nodeID string) (*callbackStreamState, bool) {
+	stream := cb.streams[key]
+	if stream == nil {
+		stream = &callbackStreamState{}
+		cb.streams[key] = stream
+	}
+	started := stream.nodeID == "" && nodeID != ""
+	if nodeID != "" {
 		stream.nodeID = nodeID
 	}
 	return stream, started
@@ -71,19 +82,25 @@ func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64,
 
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
+	cb.closeStream(streamID, node, StreamModeSotW)
+}
+
+func (cb *CompletionCallbacks) closeStream(streamID int64, node *core.Node, mode StreamMode) {
+	key := streamKey{streamID: streamID, mode: mode}
 	cb.mutex.Lock()
 	var nodeID string
-	if stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeSotW}]; stream != nil {
+	stream := cb.streams[key]
+	if stream != nil {
 		nodeID = stream.nodeID
 	}
 	if nodeID == "" && node != nil {
 		nodeID = node.GetId()
 	}
-	delete(cb.streams, streamKey{streamID: streamID, mode: StreamModeSotW})
+	delete(cb.streams, key)
 	if nodeState := cb.nodes[nodeID]; nodeState != nil {
 		for typeURL := range typeurl.Count {
 			state := &nodeState.typeURLs[typeURL].response
-			if state.pendingStreamID == streamID {
+			if state.pendingStreamKey == key {
 				state.clearPending()
 			}
 		}
@@ -109,17 +126,30 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 	}
 	cb.mutex.Unlock()
 	if cb.streamLifecycle != nil && nodeID != "" {
-		cb.streamLifecycle.StreamClosed(streamID, nodeID, StreamModeSotW)
+		cb.streamLifecycle.StreamClosed(streamID, nodeID, mode)
 	}
-
-	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
 }
 
 func (cb *CompletionCallbacks) OnDeltaStreamOpen(ctx context.Context, streamID int64, typeURL string) error {
-	panic("unimplemented")
+	return nil
 }
 
 // OnDeltaStreamClosed invokes DeltaStreamClosedFunc.
 func (cb *CompletionCallbacks) OnDeltaStreamClosed(streamID int64, node *core.Node) {
-	panic("unimplemented")
+	cb.closeStream(streamID, node, StreamModeDelta)
+}
+
+// StreamIDForDeltaRequest associates a cache watch with its originating stream.
+// The watch retains the ID because another request can arrive before delivery.
+// go-control-plane handles each request and creates its watch consecutively.
+func (cb *CompletionCallbacks) StreamIDForDeltaRequest(req *discovery.DeltaDiscoveryRequest) int64 {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	for key, stream := range cb.streams {
+		if key.mode == StreamModeDelta && stream.deltaRequest == req {
+			stream.deltaRequest = nil
+			return key.streamID
+		}
+	}
+	return 0
 }
