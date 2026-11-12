@@ -1014,15 +1014,12 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		.reason = decrypted ? TRACE_REASON_ENCRYPTED : TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	fraginfo_t fraginfo = 0;
 	__u32 ipcache_srcid = 0;
 	enum metric_dir dir = METRIC_INGRESS;
 	void *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr *ip4;
 	struct arp_eth *arp;
-	int hdrlen = 0;
-	__u8 next_proto = 0;
 	__s8 ext_err = 0;
 	int ret;
 
@@ -1094,16 +1091,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 
 		if (CONFIG(enable_host_firewall) && from_host)
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-
-		if (CONFIG(enable_wireguard) && !from_host) {
-			next_proto = ip6->nexthdr;
-			hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &next_proto, &fraginfo);
-			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, fraginfo,
-					     identity)) {
-				trace.reason = TRACE_REASON_ENCRYPTED;
-			}
-		}
 
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
@@ -1186,16 +1173,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 
 		if (CONFIG(enable_host_firewall) && from_host)
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-
-		if (CONFIG(enable_wireguard) && !from_host) {
-			next_proto = ip4->protocol;
-			hdrlen = ipv4_hdrlen(ip4);
-			fraginfo = ipfrag_encode_ipv4(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, fraginfo,
-					     identity)) {
-				trace.reason = TRACE_REASON_ENCRYPTED;
-			}
-		}
 
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
