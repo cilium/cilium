@@ -79,7 +79,7 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("egress-gateway-policy-map-max", def.EgressGatewayPolicyMapMax, "Maximum number of entries in egress gateway policy map")
 }
 
-// PolicyMap4 is used to communicate ipv4 EGW policies to the datapath.
+// PolicyMap4V2 is used to communicate ipv4 EGW policies to the datapath.
 type PolicyMap4V2 interface {
 	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4V2, error)
 	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP netip.Addr, gatewayIP netip.Addr, egressIfindex uint32) error
@@ -141,7 +141,7 @@ func createPolicyMaps(in createPolicyMapsParams) (out struct {
 	return
 }
 
-// CreatePrivatePolicyMap4 creates an unpinned IPv4 policy map.
+// CreatePrivatePolicyMap4V2 creates an unpinned IPv4 policy map.
 //
 // Useful for testing.
 func CreatePrivatePolicyMap4V2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) PolicyMap4V2 {
@@ -211,7 +211,7 @@ func createPolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyC
 	return &policyMap6{m}
 }
 
-// OpenPinnedPolicyMap4 opens an existing pinned IPv4 policy map.
+// OpenPinnedPolicyMap4V2 opens an existing pinned IPv4 policy map.
 func OpenPinnedPolicyMap4V2(logger *slog.Logger) (PolicyMap4V2, error) {
 	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName4V2), &EgressPolicyKey4{}, &EgressPolicyVal4V2{})
 	if err != nil {
@@ -244,8 +244,8 @@ func NewEgressPolicyKey4(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPol
 	return key
 }
 
-// NewEgressPolicyVal4 returns a new EgressPolicyVal4 object representing for
-// the given egress IP and gateway IPs
+// NewEgressPolicyVal4V2 returns a new EgressPolicyVal4 object representing for the given egress IP
+// and gateway IPs
 func NewEgressPolicyVal4V2(egressIP, gatewayIP netip.Addr, egressIfindex uint32) EgressPolicyVal4V2 {
 	val := EgressPolicyVal4V2{}
 
@@ -292,12 +292,12 @@ func (v *EgressPolicyVal4V2) Match(egressIP, gatewayIP netip.Addr, egressIfindex
 		v.EgressIfindex == egressIfindex
 }
 
-// GetEgressIP returns the egress policy value's egress IP.
+// GetEgressAddr returns the egress policy value's egress IP.
 func (v *EgressPolicyVal4V2) GetEgressAddr() netip.Addr {
 	return v.EgressIP.Addr()
 }
 
-// GetGatewayIP returns the egress policy value's gateway IP.
+// GetGatewayAddr returns the egress policy value's gateway IP.
 func (v *EgressPolicyVal4V2) GetGatewayAddr() netip.Addr {
 	return v.GatewayIP.Addr()
 }
@@ -335,9 +335,9 @@ func (m *policyMap4V2) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error 
 	return m.m.Delete(&key)
 }
 
-// EgressPolicyIterateCallback represents the signature of the callback function
-// expected by the IterateWithCallback method, which in turn is used to iterate
-// all the keys/values of an egress policy map.
+// EgressPolicyIterateCallbackV2 represents the signature of the callback function expected by the
+// IterateWithCallback method, which in turn is used to iterate all the keys/values of an egress
+// policy map.
 type EgressPolicyIterateCallbackV2 func(*EgressPolicyKey4, *EgressPolicyVal4V2)
 
 // IterateWithCallback iterates through all the keys/values of an egress policy
@@ -412,12 +412,12 @@ func (v *EgressPolicyVal6) Match(egressIP, gatewayIP netip.Addr, egressIfindex u
 		v.EgressIfindex == egressIfindex
 }
 
-// GetEgressIP returns the egress policy value's egress IP.
+// GetEgressAddr returns the egress policy value's egress IP.
 func (v *EgressPolicyVal6) GetEgressAddr() netip.Addr {
 	return v.EgressIP.Addr()
 }
 
-// GetGatewayIP returns the egress policy value's gateway IP.
+// GetGatewayAddr returns the egress policy value's gateway IP.
 func (v *EgressPolicyVal6) GetGatewayAddr() netip.Addr {
 	return v.GatewayIP.Addr()
 }
