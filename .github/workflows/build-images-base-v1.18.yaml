@@ -315,7 +315,7 @@ jobs:
           image: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Attach SBOM attestation to container image
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           cosign attest -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
