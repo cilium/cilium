@@ -1008,10 +1008,10 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_sec_
 
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
-	  enum trace_point obs_point, const bool from_host)
+	  enum trace_point obs_point, const bool from_host, const bool decrypted)
 {
 	struct trace_ctx trace = {
-		.reason = TRACE_REASON_UNKNOWN,
+		.reason = decrypted ? TRACE_REASON_ENCRYPTED : TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	fraginfo_t fraginfo = 0;
@@ -1260,6 +1260,7 @@ __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 src_id = UNKNOWN_ID;
+	bool decrypted = false;
 	__be16 proto = 0;
 	__u32 flags;
 
@@ -1310,6 +1311,9 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	}
 
 	if (CONFIG(enable_ipsec)) {
+		/* do_decrypt() clears the mark of decrypted packets. */
+		decrypted = ctx_is_decrypt(ctx);
+
 		/* If the packet needs decryption, we want to send it straight to the
 		 * stack. There's no need to run service handling logic, host firewall,
 		 * etc. on an encrypted packet.
@@ -1329,7 +1333,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (ret != CTX_ACT_OK)
 		goto drop_err;
 
-	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
+	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false, decrypted);
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, METRIC_INGRESS);
 }
@@ -1384,7 +1388,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
 		obs_point = TRACE_FROM_PROXY;
 
-	return do_netdev(ctx, proto, identity, obs_point, true);
+	return do_netdev(ctx, proto, identity, obs_point, true, false);
 }
 
 struct cil_to_netdev_cont_info {
