@@ -1512,6 +1512,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+			const struct lb6_backend *selected;
+			__u32 selected_id;
+
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends. UDP connections are not drained because
 			 * UDP is connectionless.
@@ -1530,11 +1533,20 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				goto no_service;
 			}
 
-			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
-			backend = lb6_lookup_backend(ctx, backend_id);
-			if (!backend)
+			selected_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			selected = lb6_lookup_backend(ctx, selected_id);
+			if (!selected)
 				goto no_service;
 
+			/* With no active backend left, keep the UDP flow on its backend
+			 * instead of selecting among the terminating ones on every packet.
+			 */
+			if (backend && tuple->nexthdr == IPPROTO_UDP &&
+			    selected->flags != BE_STATE_ACTIVE)
+				break;
+
+			backend_id = selected_id;
+			backend = selected;
 			new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
@@ -2357,6 +2369,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+			const struct lb4_backend *selected;
+			__u32 selected_id;
+
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends. UDP connections are not drained because
 			 * UDP is connectionless.
@@ -2375,11 +2390,20 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				goto no_service;
 			}
 
-			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
-			backend = lb4_lookup_backend(ctx, backend_id);
-			if (!backend)
+			selected_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			selected = lb4_lookup_backend(ctx, selected_id);
+			if (!selected)
 				goto no_service;
 
+			/* With no active backend left, keep the UDP flow on its backend
+			 * instead of selecting among the terminating ones on every packet.
+			 */
+			if (backend && tuple->nexthdr == IPPROTO_UDP &&
+			    selected->flags != BE_STATE_ACTIVE)
+				break;
+
+			backend_id = selected_id;
+			backend = selected;
 			new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
