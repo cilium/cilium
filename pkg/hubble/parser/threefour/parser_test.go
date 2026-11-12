@@ -2160,6 +2160,30 @@ func TestDecode_TraceNotify(t *testing.T) {
 			},
 		},
 		{
+			name: "v2_from_overlay_encrypted",
+			event: monitor.TraceNotify{
+				Type:     byte(monitorAPI.MessageTypeTrace),
+				Source:   hostEP,
+				ObsPoint: monitorAPI.TraceFromOverlay,
+				Version:  monitor.TraceNotifyVersion2,
+				Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+				OrigIP:   types.IPv6{1, 2, 3, 4},
+			},
+			ipTuple: xlatedEgressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 9,
+				},
+				IP: &flowpb.IP{
+					SourceXlated: xlatedIP.String(),
+					Encrypted:    true,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceReason:           flowpb.TraceReason_TRACE_REASON_UNKNOWN,
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_OVERLAY,
+			},
+		},
+		{
 			name: "v0_to_lxc_reply",
 			event: monitor.TraceNotify{
 				Type:     byte(monitorAPI.MessageTypeTrace),
