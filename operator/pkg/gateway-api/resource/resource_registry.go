@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
@@ -26,7 +25,7 @@ type Indexable interface {
 
 type Watchable interface {
 	ShouldWatch() bool
-	GetWatchHandler(client.Client, *slog.Logger, *runtime.Scheme, string) handler.TypedEventHandler[client.Object, reconcile.Request]
+	GetWatchHandlers(client.Client, *slog.Logger, *runtime.Scheme, string) []handler.EventHandler
 }
 
 type Resource interface {
@@ -72,6 +71,8 @@ func NewGatewayRegistry(r RegistryConfig) *GatewayRegistry {
 	gr.AddResource(NewHTTPRouteResource(gr.registryConfig))
 	gr.AddResource(NewGRPCRouteResource(gr.registryConfig))
 	gr.AddResource(NewTLSRouteResource(gr.registryConfig))
+	gr.AddResource(NewBackendTLSPolicyResource(gr.registryConfig))
+	gr.AddResource(NewConfigMapResource(gr.registryConfig))
 
 	if r.IncludeListenerSets {
 		gr.AddResource(NewListenerSetResource(gr.registryConfig))

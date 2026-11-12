@@ -152,10 +152,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch related backend Service for status
 		// LB Services are handled by the Owns call later.
 		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.client, r.scheme, *r.logger, r.controllerName)).
-		// Watch HTTPRoute linked to Gateway
-		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.client, r.logger, r.controllerName)).
-		// Watch GRPCRoute linked to Gateway
-		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForOwningGRPCRoute(r.client, r.logger, r.controllerName)).
 		Watches(&corev1.Secret{},
 			watchhandlers.EnqueueRequestForTLSSecret(r.client, r.controllerName, r.logger)).
 		// Watch related namespace in allowed namespaces
@@ -163,12 +159,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			watchhandlers.EnqueueRequestForAllowedNamespace(r.client, r.logger)).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForReferenceGrant(r.client, r.logger)).
-		// Watch for changes to BackendTLSPolicy
-		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.client, r.logger, r.controllerName)).
-		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.client, r.logger, r.controllerName)).
-		// Watch for changes to Gateway Frontend TLS Validation ConfigMaps
-		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForFrontendTLSConfigMap(r.client, r.logger, r.controllerName)).
-		// Watch for changes to node in order to populate gateway ip addresses if svc of type NodePort
 		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.client, r.logger, owningGatewayLabel, r.controllerName)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
@@ -177,7 +167,9 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	for _, resource := range r.resourceRegistry.GetResources() {
 		if resource.ShouldWatch() {
-			gatewayBuilder.Watches(resource.GetResource(), resource.GetWatchHandler(r.client, r.logger, r.scheme, r.controllerName))
+			for _, handler := range resource.GetWatchHandlers(r.client, r.logger, r.scheme, r.controllerName) {
+				gatewayBuilder.Watches(resource.GetResource(), handler)
+			}
 		}
 	}
 

@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -63,6 +62,6 @@ func (udpr *UDPRouteResource) ShouldWatch() bool {
 	return udpr.registryConfig.IncludeUDPRoutes
 }
 
-func (udpr *UDPRouteResource) GetWatchHandler(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) handler.TypedEventHandler[client.Object, reconcile.Request] {
-	return watchhandlers.EnqueueRequestForOwningUDPRoute(c, logger, controllerName)
+func (udpr *UDPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
+	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningUDPRoute(c, logger, controllerName)}
 }
