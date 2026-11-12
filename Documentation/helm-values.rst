@@ -3908,6 +3908,14 @@
      - Set to ``true`` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
      - bool
      - ``false``
+   * - :spelling:ignore:`rbac.admissionPolicies.agent.create`
+     - create all admission policies for the Cilium agent
+     - bool
+     - ``true``
+   * - :spelling:ignore:`rbac.admissionPolicies.preflight.create`
+     - create all admission policies for pre-flight
+     - bool
+     - ``true``
    * - :spelling:ignore:`rbac.create`
      - Enable creation of Resource-Based Access Control configuration.
      - bool
