@@ -2142,7 +2142,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 				Source:   hostEP,
 				ObsPoint: monitorAPI.TraceFromCrypto,
 				Version:  monitor.TraceNotifyVersion1,
-				Reason:   monitor.TraceReasonUnknown,
+				Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
 				Flags:    monitor.TraceNotifyFlagIsL3Device,
 				OrigIP:   types.IPv6{1, 2, 3, 4},
 			},
@@ -2153,6 +2153,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 				},
 				IP: &flowpb.IP{
 					SourceXlated: xlatedIP.String(),
+					Encrypted:    true,
 				},
 				Source:                &flowpb.Endpoint{ID: 1234},
 				TraceReason:           flowpb.TraceReason_TRACE_REASON_UNKNOWN,
