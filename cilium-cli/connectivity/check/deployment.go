@@ -2685,7 +2685,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
-	srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
+	srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName, loadbalancerL7DeploymentName}
 	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
 		srcList = append(srcList, client3DeploymentName)
 	}
