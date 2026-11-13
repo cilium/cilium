@@ -187,6 +187,8 @@ Recommended Controls
 
 -  Kubernetes workloads should have `defined resource limits`_.
    This will help in ensuring that Cilium is not starved of resources due to a misbehaving deployment in a cluster.
+-  Do not grant workloads access to read, write or modify Cilium resources in
+   the Kubernetes API.
 -  Cilium can be given prioritized access to system resources either via
    Kubernetes, cgroups, or other controls.
 -  Runtime security solutions such as `Tetragon`_ should be deployed to 
@@ -590,7 +592,9 @@ Recommended Controls
 
 - `Kubernetes RBAC`_ should be configured to only grant necessary permissions
   to users and service accounts. Access to resources in the ``kube-system``
-  and ``cilium`` namespaces in particular should be highly limited.
+  and ``cilium`` namespaces in particular should be highly limited. Unless
+  explicitly necessary for a particular use case, access to Cilium custom
+  resources in all namespaces should be limited to the cluster admin.
 - Review the :ref:`L7-aware traffic management
   <gs_l7_traffic_management>` documentation to understand the security
   implications and implementation details of ``CiliumEnvoyConfig`` (CEC) and
@@ -721,6 +725,10 @@ production Kubernetes cluster with Cilium:
 #. Ensure that workload privileges and capabilities are only granted when
    essential to the functionality of the workload, and ensure that specific
    controls to limit and monitor the behavior of the workload are in place.
+#. Avoid delegating access to Cilium custom resources in Kubernetes roles
+   unless strictly necessary. Exercise caution when choosing to delegate Cilium
+   resource access, as namespaced Cilium resources may not be designed for
+   end-user tenant usage.
 #. Use :ref:`network policies <network_policy>` to ensure that network traffic in Kubernetes is segregated.
 #. Use :ref:`gsg_encryption` in Cilium to ensure that communication between
    workloads is secured.
