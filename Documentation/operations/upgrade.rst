@@ -350,6 +350,17 @@ Custom Resource Versions
   Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
   ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
 
+IPsec
+#####
+
+* In Cilium v1.19.0 - v1.19.10, ``--use-cilium-internal-ip-for-ipsec`` was silently
+  ignored with IPsec encryption, so nodes used the Kubernetes ``InternalIP``
+  instead of the ``CiliumInternalIP``. The flag is honored again from
+  v1.19.11. If you set it, make sure ESP traffic is allowed between the
+  ``CiliumInternalIP`` addresses of your nodes, or connectivity may break
+  when upgrading from an affected version. Consider an IPsec key rotation
+  afterwards to clean up stale XFRM states.
+
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
 
