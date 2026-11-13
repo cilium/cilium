@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -502,6 +503,11 @@ func printPath(w *tabwriter.Writer, path *apiutil.Path) {
 		fmt.Fprintf(w, "%s\t%s\t%s\n", path.Nlri.String(), "<error>", err)
 		return
 	}
+	agentPath.PathAttributes = slices.Clone(agentPath.PathAttributes)
+	sort.SliceStable(agentPath.PathAttributes, func(i, j int) bool {
+		return agentPath.PathAttributes[i].GetType() <
+			agentPath.PathAttributes[j].GetType()
+	})
 	fmt.Fprintf(w, "%s\t%s\t%s\n", path.Nlri.String(), api.NextHopFromPathAttributes(agentPath.PathAttributes), agentPath.PathAttributes)
 }
 
