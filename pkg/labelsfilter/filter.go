@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -29,6 +32,10 @@ const (
 
 	// reservedLabelsPattern is the prefix pattern for all reserved labels
 	reservedLabelsPattern = labels.LabelSourceReserved + ":.*"
+
+	// reservedLabelsMissing is the error message that is printed when reserved:.* is missing from (or excluded by) the label configuration.
+	reservedLabelsMissing = "Reserved labels must not be excluded for Cilium to work properly. " +
+		"Add '" + reservedLabelsPattern + "' to your label configuration."
 )
 
 // LabelPrefix is Cilium's representation of a label prefix.
@@ -111,7 +118,6 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, file string) error {
 	var cfg, nodeCfg *labelPrefixCfg
 	var err error
-	var fromCustomFile bool
 
 	// Use default label prefix if configuration file not provided
 	if file == "" {
@@ -126,8 +132,6 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		if err != nil {
 			return fmt.Errorf("unable to read label prefix file: %w", err)
 		}
-
-		fromCustomFile = true
 	}
 
 	nodeCfg = &labelPrefixCfg{}
@@ -171,21 +175,11 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
-	if fromCustomFile {
-		found := false
-		for _, label := range cfg.LabelPrefixes {
-			if label.Source+":"+label.Prefix == reservedLabelsPattern {
-				found = true
-				break
-			}
-		}
+	allReservedIdentities := identity.ListReservedIdentities()
 
-		if !found {
-			logger.Error(
-				fmt.Sprintf("'%s' needs to be included in the final label list for "+
-					"Cilium to work properly.", reservedLabelsPattern),
-			)
-		}
+	allReservedLabels := labels.NewFrom(slices.Collect(maps.Values(allReservedIdentities))...)
+	if filteredLabels, _ := cfg.filterLabels(allReservedLabels); len(filteredLabels) != len(allReservedLabels) {
+		logger.Error(reservedLabelsMissing)
 	}
 
 	validLabelPrefixes = cfg
