@@ -29,6 +29,12 @@ authenticated using mutual TLS before being sent to the destination.
 Generating secrets for authentication
 =====================================
 
+.. warning::
+
+   By default (``encryption.ztunnel.ca.type=internal``), Cilium uses a
+   built-in CA to issue workload certificates. The built-in CA is intended
+   for testing and evaluation only. Do not use it in production.
+
 Cilium's ztunnel integration requires a set of private keys and accompanying
 to certificates be present via Kubernetes secrets. This follows the same pattern
 as IPsec key injections.
@@ -228,6 +234,12 @@ Limitations
 
 Known Issues
 ============
+
+* The built-in CA (``encryption.ztunnel.ca.type=internal``) is for testing
+  only and is not suitable for production. See
+  `Generating secrets for authentication`_. Integration with SPIRE
+  (``encryption.ztunnel.ca.type=spire``) is in progress and will be the
+  recommended CA for production use.
 
 * Cluster Mesh is not currently supported when ztunnel is enabled. Attempting
   to enable both will result in a validation error.
