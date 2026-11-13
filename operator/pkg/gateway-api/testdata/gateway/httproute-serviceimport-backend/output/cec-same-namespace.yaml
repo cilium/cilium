@@ -15,7 +15,7 @@ metadata:
   resourceVersion: "1"
 spec:
   backendServices:
-    - name: serviceimport-backend
+    - name: derived-9hp25dlcg0
       namespace: gateway-conformance-infra
       number:
         - "8080"
@@ -82,13 +82,13 @@ spec:
             - match:
                 pathSeparatedPrefix: /serviceimport
               route:
-                cluster: gateway-conformance-infra:serviceimport-backend:8080
+                cluster: gateway-conformance-infra:derived-9hp25dlcg0:8080
                 maxStreamDuration:
                   maxStreamDuration: 0s
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
-        serviceName: gateway-conformance-infra/serviceimport-backend:8080
-      name: gateway-conformance-infra:serviceimport-backend:8080
+        serviceName: gateway-conformance-infra/derived-9hp25dlcg0:8080
+      name: gateway-conformance-infra:derived-9hp25dlcg0:8080
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS

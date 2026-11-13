@@ -17,10 +17,10 @@ import (
 
 type ConfigMapResource struct {
 	ResourceType   *corev1.ConfigMap
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewConfigMapResource(r RegistryConfig) *ConfigMapResource {
+func NewConfigMapResource(r helpers.ResourceConfig) *ConfigMapResource {
 	return &ConfigMapResource{
 		ResourceType:   &corev1.ConfigMap{},
 		registryConfig: r,
@@ -28,30 +28,34 @@ func NewConfigMapResource(r RegistryConfig) *ConfigMapResource {
 }
 
 // ShouldIndex - ConfigMaps should never be indexed.
-func (tr *ConfigMapResource) ShouldIndex() bool {
+func (cm *ConfigMapResource) ShouldIndex() bool {
 	return false
 }
 
 // GetIndexers Returns an empty map so the nil is typed correctly.
 // Should never be called because ShouldIndex is false.
-func (tr *ConfigMapResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (cm *ConfigMapResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 	return returnMap
 }
 
-func (tr *ConfigMapResource) GetResource() client.Object {
-	return tr.ResourceType
+func (cm *ConfigMapResource) GetResource() client.Object {
+	return cm.ResourceType
 }
 
 // ShouldWatch - ConfigMaps should always be watched.
-func (tr *ConfigMapResource) ShouldWatch() bool {
+func (cm *ConfigMapResource) ShouldWatch() bool {
 	return true
 }
 
-func (tr *ConfigMapResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
+func (cm *ConfigMapResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	handlers := []handler.EventHandler{}
 
 	handlers = append(handlers, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(c, logger, controllerName))
 	handlers = append(handlers, watchhandlers.EnqueueRequestForFrontendTLSConfigMap(c, logger, controllerName))
 	return handlers
+}
+
+func (cm *ConfigMapResource) HandleStatus() bool {
+	return false
 }

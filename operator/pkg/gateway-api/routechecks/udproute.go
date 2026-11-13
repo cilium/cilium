@@ -19,11 +19,14 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
+var _ Input = (*UDPRouteInput)(nil)
+
 // UDPRouteInput is used to implement the Input interface for UDPRoute.
 type UDPRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
+	ResourceConfig helpers.ResourceConfig
 	Grants         []gatewayv1.ReferenceGrant
 	UDPRoute       *gatewayv1.UDPRoute
 	ControllerName string
@@ -81,6 +84,10 @@ func (u *UDPRouteInput) GetRules() []GenericRule {
 
 func (u *UDPRouteInput) GetClient() client.Client {
 	return u.Client
+}
+
+func (u *UDPRouteInput) GetResourceConfig() helpers.ResourceConfig {
+	return u.ResourceConfig
 }
 
 func (u *UDPRouteInput) GetContext() context.Context {

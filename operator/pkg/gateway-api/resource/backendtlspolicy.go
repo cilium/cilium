@@ -19,10 +19,10 @@ import (
 
 type BackendTLSPolicyResource struct {
 	ResourceType   *gatewayv1.BackendTLSPolicy
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewBackendTLSPolicyResource(r RegistryConfig) *BackendTLSPolicyResource {
+func NewBackendTLSPolicyResource(r helpers.ResourceConfig) *BackendTLSPolicyResource {
 	return &BackendTLSPolicyResource{
 		ResourceType:   &gatewayv1.BackendTLSPolicy{},
 		registryConfig: r,
@@ -30,11 +30,11 @@ func NewBackendTLSPolicyResource(r RegistryConfig) *BackendTLSPolicyResource {
 }
 
 // ShouldIndex - BackendTLSPolicies should always be indexed.
-func (tr *BackendTLSPolicyResource) ShouldIndex() bool {
+func (btlsp *BackendTLSPolicyResource) ShouldIndex() bool {
 	return true
 }
 
-func (tr *BackendTLSPolicyResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (btlsp *BackendTLSPolicyResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	// First, set up the simple indexers
@@ -43,15 +43,19 @@ func (tr *BackendTLSPolicyResource) GetIndexers(c helpers.ClientReader, logger *
 	return returnMap
 }
 
-func (tr *BackendTLSPolicyResource) GetResource() client.Object {
-	return tr.ResourceType
+func (btlsp *BackendTLSPolicyResource) GetResource() client.Object {
+	return btlsp.ResourceType
 }
 
 // ShouldWatch - BackendTLSPolicys should always be watched.
-func (tr *BackendTLSPolicyResource) ShouldWatch() bool {
+func (btlsp *BackendTLSPolicyResource) ShouldWatch() bool {
 	return true
 }
 
-func (tr *BackendTLSPolicyResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.TypedEventHandler[client.Object, reconcile.Request] {
+func (btlsp *BackendTLSPolicyResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.TypedEventHandler[client.Object, reconcile.Request] {
 	return []handler.TypedEventHandler[client.Object, reconcile.Request]{watchhandlers.EnqueueRequestForBackendTLSPolicy(c, logger, controllerName)}
+}
+
+func (btlsp *BackendTLSPolicyResource) HandleStatus() bool {
+	return true
 }

@@ -18,10 +18,10 @@ import (
 
 type TCPRouteResource struct {
 	ResourceType   *gatewayv1.TCPRoute
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewTCPRouteResource(r RegistryConfig) *TCPRouteResource {
+func NewTCPRouteResource(r helpers.ResourceConfig) *TCPRouteResource {
 	return &TCPRouteResource{
 		ResourceType:   &gatewayv1.TCPRoute{},
 		registryConfig: r,
@@ -33,14 +33,14 @@ func (tcpr *TCPRouteResource) ShouldIndex() bool {
 	return tcpr.registryConfig.IncludeTCPRoutes
 }
 
-func (tcpr *TCPRouteResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (tcpr *TCPRouteResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	// First, set up the simple indexers
 	returnMap[indexers.GatewayTCPRouteIndex] = indexers.IndexTCPRouteByGateway
 
 	// Next, the complex indexers
-	returnMap[indexers.BackendServiceTCPRouteIndex] = indexers.GenerateIndexerTCPRoutebyBackendService(c, logger)
+	returnMap[indexers.BackendServiceTCPRouteIndex] = indexers.GenerateIndexerTCPRoutebyBackendService(logger, tcpr.registryConfig)
 
 	// Lastly, conditional indexers
 	if tcpr.registryConfig.IncludeListenerSets {
@@ -64,4 +64,8 @@ func (tcpr *TCPRouteResource) ShouldWatch() bool {
 
 func (tcpr *TCPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningTCPRoute(c, logger, controllerName)}
+}
+
+func (tcpr *TCPRouteResource) HandleStatus() bool {
+	return true
 }

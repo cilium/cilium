@@ -32,8 +32,8 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
-	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/loading"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -378,10 +378,12 @@ func Test_Conformance(t *testing.T) {
 		{name: "hostNetwork-enabled-mixed-routes", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-tcp-route", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}, wantErr: true, skipCEC: true}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-udp-route", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}, wantErr: true, skipCEC: true}}, hostNetwork: true},
-		{name: "hostNetwork-enabled-nodelabel", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled-nodeselector", Namespace: "gateway-conformance-infra"}, wantErr: false, skipCEC: true}}, hostNetwork: true,
+		{
+			name: "hostNetwork-enabled-nodelabel", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled-nodeselector", Namespace: "gateway-conformance-infra"}, wantErr: false, skipCEC: true}}, hostNetwork: true,
 			nodeLabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{
 				"role": "gateway",
-			}}},
+			}},
+		},
 
 		// ListenerSet tests
 		{name: "listenerset-default-not-allowed", gateway: []gwDetails{
@@ -446,42 +448,30 @@ func Test_Conformance(t *testing.T) {
 			scheme := testhelpers.TestScheme(optionalKinds, helpers.RegisterGatewayAPITypesToScheme)
 			base := k8stestutils.ReadObjectsDir(t, "testdata/gateway/base", scheme)
 			input := k8stestutils.ReadObjectsDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name), scheme)
+
+			resourceConfig := helpers.ResourceConfig{
+				IncludeTCPRoutes:        !tt.disableTCPRoute,
+				IncludeUDPRoutes:        !tt.disableUDPRoute,
+				IncludeServiceImports:   helpers.HasServiceImportSupport(scheme),
+				IncludeListenerSets:     helpers.HasListenerSetSupport(scheme),
+				IncludeInferencePools:   helpers.HasInferencePoolSupport(scheme),
+				TCPRouteUDPRouteSupport: !tt.hostNetwork,
+				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+			}
+
+			resourceRegistry := resource.NewGatewayRegistry(resourceConfig)
+
 			clientBuilder := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(append(base, input...)...).
 				WithStatusSubresource(&corev1.Service{}).
 				WithStatusSubresource(&corev1.Namespace{}).
-				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
-				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
-				WithStatusSubresource(&gatewayv1.TLSRoute{}).
 				WithStatusSubresource(&gatewayv1.Gateway{}).
 				WithStatusSubresource(&gatewayv1.GatewayClass{}).
-				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{}).
-				WithStatusSubresource(&gatewayv1.ListenerSet{}).
 				WithInterceptorFuncs(typeMetaInterceptor(scheme))
 
-			// Add any required indexes here
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
-			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.BackendServiceGRPCRouteIndex, fakeIndexGRPCRouteByBackendService)
-			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
-			// TCPRoute/UDPRoute types are only registered in the scheme when their
-			// CRDs are installed, so only set their status subresource and index then.
-			if !tt.disableTCPRoute {
-				clientBuilder.WithStatusSubresource(&gatewayv1.TCPRoute{})
-				clientBuilder.WithIndex(&gatewayv1.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway)
-				clientBuilder.WithIndex(&gatewayv1.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet)
-			}
-			if !tt.disableUDPRoute {
-				clientBuilder.WithStatusSubresource(&gatewayv1.UDPRoute{})
-				clientBuilder.WithIndex(&gatewayv1.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway)
-				clientBuilder.WithIndex(&gatewayv1.UDPRoute{}, indexers.UDPRouteListenerSetIndex, indexers.IndexUDPRouteByListenerSet)
-			}
-			clientBuilder.WithIndex(&gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway)
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet)
-			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GRPCRouteListenerSetIndex, indexers.IndexGRPCRouteByListenerSet)
-			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.TLSRouteListenerSetIndex, indexers.IndexTLSRouteByListenerSet)
+			// Ensure all Resources have Indexers registered for the test
+			addStatusAndIndexersToClient(logger, clientBuilder, resourceRegistry)
 
 			c := clientBuilder.Build()
 			nodeLabel := &slim_meta_v1.LabelSelector{MatchLabels: tt.nodeLabelSelector.MatchLabels}
@@ -503,33 +493,17 @@ func Test_Conformance(t *testing.T) {
 			})
 
 			r := &gatewayReconciler{
-				client:     c,
-				scheme:     c.Scheme(),
-				translator: gatewayAPITranslator,
-				inputLoader: loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{
-					IncludeTCPRoutes:      !tt.disableTCPRoute,
-					IncludeUDPRoutes:      !tt.disableUDPRoute,
-					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
-					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
-				}),
-				gatewayStatusManager: NewGatewayStatusManager(c, logger, tt.nodeLabelSelector),
-				listenerStatusManager: NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{
-					TCPUDPRouteSupport:      !tt.hostNetwork,
-					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-				}),
-				routeStatusManager: NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{
-					IncludeTCPRoutes:        !tt.disableTCPRoute,
-					IncludeUDPRoutes:        !tt.disableUDPRoute,
-					TCPUDPRouteSupport:      !tt.hostNetwork,
-					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-				}),
+				client:                        c,
+				scheme:                        c.Scheme(),
+				translator:                    gatewayAPITranslator,
+				inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, resourceConfig),
+				gatewayStatusManager:          NewGatewayStatusManager(c, logger, tt.nodeLabelSelector),
+				listenerStatusManager:         NewListenerStatusManager(c, logger, resourceConfig),
+				routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, resourceConfig, nil),
 				backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
 				logger:                        logger,
 				controllerName:                defaultControllerName,
-				tcpUDPRouteSupport:            !tt.hostNetwork,
-				tcpUDPUnsupportedReason:       hostNetworkTCPUDPRouteUnsupportedReason,
-				hostNetworkEnabled:            tt.hostNetwork,
-				hostNetworkLabel:              tt.nodeLabelSelector,
+				resourceRegistry:              resourceRegistry,
 			}
 
 			// Reconcile all related HTTPRoute objects
@@ -569,7 +543,7 @@ func Test_Conformance(t *testing.T) {
 			for _, gwDetail := range tt.gateway {
 				// Reconcile the gateway under test
 				result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
-				require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error for Gateway %s. want: %t, got: %t", gwDetail.FullName.Name, gwDetail.wantErr, err != nil)
+				require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error for Gateway %s. want: %t, got: %t, err %s", gwDetail.FullName.Name, gwDetail.wantErr, err != nil, err)
 				require.Equal(t, ctrl.Result{}, result)
 				// Checking the output for Gateway
 				actualGateway := &gatewayv1.Gateway{}
@@ -894,27 +868,35 @@ func Test_gatewayReconciler_Reconcile_GRPCRouteOrdering(t *testing.T) {
 		}
 		return c.Patch(ctx, obj, patch, opts...)
 	}
-	c := fake.NewClientBuilder().
+
+	resourceConfig := helpers.ResourceConfig{}
+	resourceRegistry := resource.NewGatewayRegistry(resourceConfig)
+
+	clientBuilder := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(objects...).
 		WithStatusSubresource(&gatewayv1.Gateway{}, &gatewayv1.GRPCRoute{}).
-		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
-		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
-		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
-		WithInterceptorFuncs(funcs).
-		Build()
+		WithInterceptorFuncs(funcs)
+
+	// Ensure all Resources have Indexers registered for the test
+	addStatusAndIndexersToClient(logger, clientBuilder, resourceRegistry)
+
+	c := clientBuilder.Build()
+
 	config := translation.Config{}
+
 	r := &gatewayReconciler{
 		client:                        c,
 		scheme:                        scheme,
 		logger:                        logger,
 		controllerName:                defaultControllerName,
-		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{}),
+		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, helpers.ResourceConfig{}),
 		translator:                    gatewayApiTranslation.NewTranslator(translation.NewCECTranslator(config), config),
 		gatewayStatusManager:          NewGatewayStatusManager(c, logger),
-		listenerStatusManager:         NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{}),
-		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{}),
+		listenerStatusManager:         NewListenerStatusManager(c, logger, resourceConfig),
+		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, resourceConfig, nil),
 		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
+		resourceRegistry:              resource.NewGatewayRegistry(resourceConfig),
 	}
 	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)}
 	result, err := r.Reconcile(t.Context(), req)
@@ -1038,22 +1020,24 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 				WithObjects(objects...).
 				Build()
 
+			resourceConfig := helpers.ResourceConfig{
+				TCPRouteUDPRouteSupport: true,
+				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+			}
+
 			r := &gatewayReconciler{
 				client: c,
 				scheme: c.Scheme(),
-				inputLoader: loading.NewTranslationInputLoader(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), defaultControllerName, loading.TranslationInputLoaderConfig{
+				inputLoader: loading.NewTranslationInputLoader(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), defaultControllerName, helpers.ResourceConfig{
 					IncludeTCPRoutes:      helpers.HasTCPRouteSupport(c.Scheme()),
 					IncludeUDPRoutes:      helpers.HasUDPRouteSupport(c.Scheme()),
 					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
-				gatewayStatusManager: NewGatewayStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))),
-				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
-					TCPUDPRouteSupport:      true,
-					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-				}),
-				logger:         hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-				controllerName: defaultControllerName,
+				gatewayStatusManager:  NewGatewayStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))),
+				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), resourceConfig),
+				logger:                hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+				controllerName:        defaultControllerName,
 			}
 
 			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)})
@@ -1103,20 +1087,22 @@ func Test_gatewayReconciler_Reconcile_deletesOwnedCECWithoutListeners(t *testing
 
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
-	c := fake.NewClientBuilder().
+	resourceConfig := helpers.ResourceConfig{}
+	resourceRegistry := resource.NewGatewayRegistry(resourceConfig)
+	clientBuilder := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(gw, gwClass, cec).
-		WithStatusSubresource(&gatewayv1.Gateway{}).
-		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
-		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
-		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
-		Build()
+		WithStatusSubresource(&gatewayv1.Gateway{})
+
+	addStatusAndIndexersToClient(logger, clientBuilder, resourceRegistry)
+
+	c := clientBuilder.Build()
 	r := &gatewayReconciler{
 		client:                        c,
-		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{}),
+		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, helpers.ResourceConfig{}),
 		gatewayStatusManager:          NewGatewayStatusManager(c, logger),
-		listenerStatusManager:         NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{}),
-		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{}),
+		listenerStatusManager:         NewListenerStatusManager(c, logger, resourceConfig),
+		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, resourceConfig, nil),
 		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
 		logger:                        logger,
 		controllerName:                defaultControllerName,
@@ -1393,10 +1379,11 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 						Build()
 				}(),
 			}
-			r.listenerStatusManager = NewListenerStatusManager(r.client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
-				TCPUDPRouteSupport:      true,
+			resourceConfig := helpers.ResourceConfig{
+				TCPRouteUDPRouteSupport: true,
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-			})
+			}
+			r.listenerStatusManager = NewListenerStatusManager(r.client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), resourceConfig)
 			gotStatus, err := r.listenerStatusManager.setGatewayListenerStatus(
 				t.Context(),
 				gw,
@@ -1641,7 +1628,7 @@ func Test_setListenerStatus_FrontendTLSConfigMapReferenceGrant(t *testing.T) {
 				WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 				WithObjects(objects...).
 				Build()
-			manager := NewListenerStatusManager(c, hivetest.Logger(t), ListenerStatusManagerConfig{})
+			manager := NewListenerStatusManager(c, hivetest.Logger(t), helpers.ResourceConfig{})
 			gw := &gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "gateway",
@@ -1720,95 +1707,7 @@ func findListenerStatus(statuses []gatewayv1.ListenerStatus, name gatewayv1.Sect
 	return nil
 }
 
-// fakeIndexHTTPRouteByBackendService is a client.IndexerFunc that takes a single HTTPRoute and
-// returns all referenced backend service full names (`namespace/name`) to add to the relevant index.
-//
-// The actual indexer does some dereferencing lookups in order to handle some ServiceImport
-// behaviors correctly. This one is what that indexer used to look like before we added ServiceImport
-// support.
-func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1.HTTPRoute)
-	if !ok {
-		return nil
-	}
-	var backendServices []string
-
-	for _, rule := range route.Spec.Rules {
-		for _, backend := range rule.BackendRefs {
-			if !helpers.IsService(backend.BackendObjectReference) {
-				continue
-			}
-			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-			backendServices = append(
-				backendServices,
-				types.NamespacedName{
-					Namespace: namespace,
-					Name:      string(backend.Name),
-				}.String(),
-			)
-		}
-		for _, f := range rule.Filters {
-			if f.Type != gatewayv1.HTTPRouteFilterRequestMirror || f.RequestMirror == nil {
-				continue
-			}
-			if !helpers.IsService(f.RequestMirror.BackendRef) {
-				continue
-			}
-			namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
-			backendServices = append(
-				backendServices,
-				types.NamespacedName{
-					Namespace: namespace,
-					Name:      string(f.RequestMirror.BackendRef.Name),
-				}.String(),
-			)
-		}
-	}
-	return backendServices
-}
-
-func fakeIndexGRPCRouteByBackendService(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1.GRPCRoute)
-	if !ok {
-		return nil
-	}
-	var backendServices []string
-
-	for _, rule := range route.Spec.Rules {
-		for _, backend := range rule.BackendRefs {
-			if !helpers.IsService(backend.BackendObjectReference) {
-				continue
-			}
-			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-			backendServices = append(
-				backendServices,
-				types.NamespacedName{
-					Namespace: namespace,
-					Name:      string(backend.Name),
-				}.String(),
-			)
-		}
-		for _, f := range rule.Filters {
-			if f.Type != gatewayv1.GRPCRouteFilterRequestMirror || f.RequestMirror == nil {
-				continue
-			}
-			if !helpers.IsService(f.RequestMirror.BackendRef) {
-				continue
-			}
-			namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
-			backendServices = append(
-				backendServices,
-				types.NamespacedName{
-					Namespace: namespace,
-					Name:      string(f.RequestMirror.BackendRef.Name),
-				}.String(),
-			)
-		}
-	}
-	return backendServices
-}
-
-func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, client.WithWatch) {
+func testReconcilerWithTCPRouteAndUDPRoute(t *testing.T, obj ...client.Object) (*gatewayReconciler, client.WithWatch) {
 	t.Helper()
 
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
@@ -1819,24 +1718,24 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}, &gatewayv1.GRPCRoute{}).
 		Build()
 
+	resourceConfig := helpers.ResourceConfig{
+		IncludeTCPRoutes:        true,
+		IncludeUDPRoutes:        true,
+		TCPRouteUDPRouteSupport: true,
+		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+	}
+
+	resourceRegistry := resource.NewGatewayRegistry(resourceConfig)
+
 	reconciler := &gatewayReconciler{
-		client:                  fakeClient,
-		logger:                  logger,
-		controllerName:          defaultControllerName,
-		tcpUDPRouteSupport:      true,
-		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-		gatewayStatusManager:    NewGatewayStatusManager(fakeClient, logger),
-		listenerStatusManager: NewListenerStatusManager(fakeClient, logger, ListenerStatusManagerConfig{
-			TCPUDPRouteSupport:      true,
-			TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-		}),
-		routeStatusManager: NewRouteStatusManager(fakeClient, logger, defaultControllerName, RouteStatusManagerConfig{
-			IncludeTCPRoutes:        true,
-			IncludeUDPRoutes:        true,
-			TCPUDPRouteSupport:      true,
-			TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-		}),
+		client:                        fakeClient,
+		logger:                        logger,
+		controllerName:                defaultControllerName,
+		gatewayStatusManager:          NewGatewayStatusManager(fakeClient, logger),
+		listenerStatusManager:         NewListenerStatusManager(fakeClient, logger, resourceConfig),
+		routeStatusManager:            NewRouteStatusManager(fakeClient, logger, defaultControllerName, resourceConfig, nil),
 		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(fakeClient, defaultControllerName),
+		resourceRegistry:              resourceRegistry,
 	}
 
 	return reconciler, fakeClient
@@ -1922,7 +1821,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 			},
 		}
 
-		r, c := testReconciler(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
+		r, c := testReconcilerWithTCPRouteAndUDPRoute(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
 
 		hrList := &gatewayv1.HTTPRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
@@ -1990,7 +1889,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 			},
 		}
 
-		r, c := testReconciler(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
+		r, c := testReconcilerWithTCPRouteAndUDPRoute(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
 
 		hrList := &gatewayv1.GRPCRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
@@ -2128,5 +2027,18 @@ func Test_gatewayStatusManager_SetStaticAddressStatus(t *testing.T) {
 			}
 			require.Equal(t, metav1.ConditionTrue, programmed.Status)
 		})
+	}
+}
+
+func addStatusAndIndexersToClient(logger *slog.Logger, clientBuilder *fake.ClientBuilder, resourceRegistry resource.Registry) {
+	for _, resource := range resourceRegistry.GetResources() {
+		if resource.HandleStatus() {
+			clientBuilder.WithStatusSubresource(resource.GetResource())
+		}
+		if resource.ShouldIndex() {
+			for indexName, indexFunc := range resource.GetIndexers(logger) {
+				clientBuilder.WithIndex(resource.GetResource(), indexName, indexFunc)
+			}
+		}
 	}
 }

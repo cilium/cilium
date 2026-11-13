@@ -18,10 +18,10 @@ import (
 
 type UDPRouteResource struct {
 	ResourceType   *gatewayv1.UDPRoute
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewUDPRouteResource(r RegistryConfig) *UDPRouteResource {
+func NewUDPRouteResource(r helpers.ResourceConfig) *UDPRouteResource {
 	return &UDPRouteResource{
 		ResourceType:   &gatewayv1.UDPRoute{},
 		registryConfig: r,
@@ -33,14 +33,14 @@ func (udpr *UDPRouteResource) ShouldIndex() bool {
 	return udpr.registryConfig.IncludeUDPRoutes
 }
 
-func (udpr *UDPRouteResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (udpr *UDPRouteResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	// First, set up the simple indexers
 	returnMap[indexers.GatewayUDPRouteIndex] = indexers.IndexUDPRouteByGateway
 
 	// Next, the complex indexers
-	returnMap[indexers.BackendServiceUDPRouteIndex] = indexers.GenerateIndexerUDPRoutebyBackendService(c, logger)
+	returnMap[indexers.BackendServiceUDPRouteIndex] = indexers.GenerateIndexerUDPRoutebyBackendService(logger, udpr.registryConfig)
 
 	// Lastly, conditional indexers
 	if udpr.registryConfig.IncludeListenerSets {
@@ -64,4 +64,8 @@ func (udpr *UDPRouteResource) ShouldWatch() bool {
 
 func (udpr *UDPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningUDPRoute(c, logger, controllerName)}
+}
+
+func (udpr *UDPRouteResource) HandleStatus() bool {
+	return true
 }

@@ -78,7 +78,7 @@ func IndexHTTPRouteByGammaService(rawObj client.Object) []string {
 
 // GenerateIndexerHTTPRouteByBackendService makes a client.IndexerFunc that takes a single HTTPRoute and
 // returns all referenced backend service full names (`namespace/name`) to add to the relevant index.
-func GenerateIndexerHTTPRouteByBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerHTTPRouteByBackendService(logger *slog.Logger, resourceConfig helpers.ResourceConfig) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route, ok := rawObj.(*gatewayv1.HTTPRoute)
 		if !ok {
@@ -93,7 +93,7 @@ func GenerateIndexerHTTPRouteByBackendService(c helpers.ClientReader, logger *sl
 					continue
 				}
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
+				backendServiceName, err := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
 				if err != nil {
 					logger.Error("Failed to get backend service name",
 						logfields.LogSubsys, logfields.HTTPRoute,
@@ -118,7 +118,7 @@ func GenerateIndexerHTTPRouteByBackendService(c helpers.ClientReader, logger *sl
 				switch {
 				case f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil:
 					namespace = helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
-					backendServiceName, err = helpers.GetBackendServiceName(c, namespace, f.RequestMirror.BackendRef)
+					backendServiceName, err = helpers.GetBackendServiceName(namespace, f.RequestMirror.BackendRef, resourceConfig)
 					if err != nil {
 						logger.Error("Failed to get request mirror backend service name",
 							logfields.LogSubsys, logfields.HTTPRoute,
@@ -128,7 +128,7 @@ func GenerateIndexerHTTPRouteByBackendService(c helpers.ClientReader, logger *sl
 					}
 				case f.Type == gatewayv1.HTTPRouteFilterExternalAuth && f.ExternalAuth != nil:
 					namespace = helpers.NamespaceDerefOr(f.ExternalAuth.BackendRef.Namespace, route.Namespace)
-					backendServiceName, err = helpers.GetBackendServiceName(c, namespace, f.ExternalAuth.BackendRef)
+					backendServiceName, err = helpers.GetBackendServiceName(namespace, f.ExternalAuth.BackendRef, resourceConfig)
 					if err != nil {
 						logger.Error("Failed to get ext_auth backend service name",
 							logfields.LogSubsys, logfields.HTTPRoute,

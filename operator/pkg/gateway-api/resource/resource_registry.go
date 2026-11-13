@@ -20,7 +20,7 @@ type IndexerFuncMap map[string]client.IndexerFunc
 
 type Indexable interface {
 	ShouldIndex() bool
-	GetIndexers(helpers.ClientReader, *slog.Logger) IndexerFuncMap
+	GetIndexers(*slog.Logger) IndexerFuncMap
 }
 
 type Watchable interface {
@@ -28,12 +28,16 @@ type Watchable interface {
 	GetWatchHandlers(client.Client, *slog.Logger, *runtime.Scheme, string) []handler.EventHandler
 }
 
+type TrackStatus interface {
+	HandleStatus() bool
+}
 type Resource interface {
 	// GetResource gets the concrete type as a client.Object, which is required
 	// by many controller-runtime things.
 	GetResource() client.Object
 	Indexable
 	Watchable
+	TrackStatus
 }
 
 type Registry interface {
@@ -41,20 +45,9 @@ type Registry interface {
 	GetResources() []Resource
 }
 
-// RegistryConfig stores what optional functionality is available.
-// Sometimes Resources need to know if they or an interaction of
-// theirs with another feature is enabled.
-type RegistryConfig struct {
-	IncludeTCPRoutes      bool
-	IncludeUDPRoutes      bool
-	IncludeServiceImports bool
-	IncludeListenerSets   bool
-	IncludeInferencePools bool
-}
-
 type GatewayRegistry struct {
 	resources      []Resource
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
 // NewGatewayRegistry creates a new registry for Gateway API Resources.
@@ -63,7 +56,7 @@ type GatewayRegistry struct {
 //
 // So, addition of Resources must be gated by if the resource is present
 // in the cluster. Use the registryConfig to determine this.
-func NewGatewayRegistry(r RegistryConfig) *GatewayRegistry {
+func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
 	gr := &GatewayRegistry{
 		registryConfig: r,
 	}

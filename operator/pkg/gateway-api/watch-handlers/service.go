@@ -133,7 +133,7 @@ func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, lo
 
 // EnqueueRequestForBackendServiceImport makes sure that Gateways are reconciled
 // if a relevant route backend ServiceImport is updated.
-func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, controllerName string) handler.EventHandler {
+func EnqueueRequestForBackendServiceImport(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		_, ok := o.(*mcsapiv1beta1.ServiceImport)
 		if !ok {

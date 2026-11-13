@@ -102,22 +102,14 @@ func (r *TranslationInputs) AttachedUDPRoutes(gw *gatewayv1.Gateway) []gatewayv1
 	return filtered
 }
 
-type TranslationInputLoaderConfig struct {
-	IncludeTCPRoutes      bool
-	IncludeUDPRoutes      bool
-	IncludeServiceImports bool
-	IncludeListenerSets   bool
-	IncludeInferencePools bool
-}
-
 type TranslationInputLoader struct {
 	client         helpers.ClientReader
 	logger         *slog.Logger
 	controllerName string
-	config         TranslationInputLoaderConfig
+	config         helpers.ResourceConfig
 }
 
-func NewTranslationInputLoader(client helpers.ClientReader, logger *slog.Logger, controllerName string, config TranslationInputLoaderConfig) *TranslationInputLoader {
+func NewTranslationInputLoader(client helpers.ClientReader, logger *slog.Logger, controllerName string, config helpers.ResourceConfig) *TranslationInputLoader {
 	return &TranslationInputLoader{
 		client:         client,
 		logger:         logger,

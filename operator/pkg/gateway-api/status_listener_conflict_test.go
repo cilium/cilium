@@ -303,7 +303,7 @@ func Test_setListenerStatus_usesCrossSourceConflicts(t *testing.T) {
 		},
 	}
 
-	reconciler, _ := testReconciler(t, gw)
+	reconciler, _ := testReconcilerWithTCPRouteAndUDPRoute(t, gw)
 	conflicts := listenerConflictsBySource{
 		gatewayFQR(gw): {
 			"gateway": {

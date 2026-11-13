@@ -16,7 +16,7 @@ import (
 
 // indexTLSRoutebyBackendService takes a single TLSRoute and  returns all referenced backend service full names (`namespace/name`)
 // to add to the relevant index.
-func GenerateIndexerTLSRoutebyBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerTLSRoutebyBackendService(logger *slog.Logger, resourceConfig helpers.ResourceConfig) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route := rawObj.(*gatewayv1.TLSRoute)
 		var backendServices []string
@@ -24,7 +24,7 @@ func GenerateIndexerTLSRoutebyBackendService(c helpers.ClientReader, logger *slo
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
+				backendServiceName, err := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
 				if err != nil {
 					logger.Error("Failed to get backend service name",
 						logfields.LogSubsys, logfields.TLSRoute,

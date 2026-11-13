@@ -89,6 +89,7 @@ type Input interface {
 	GetRules() []GenericRule
 	GetNamespace() string
 	GetClient() client.Client
+	GetResourceConfig() helpers.ResourceConfig
 	GetContext() context.Context
 	GetGVK() schema.GroupVersionKind
 	GetGrants() []gatewayv1.ReferenceGrant

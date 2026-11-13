@@ -19,11 +19,14 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
+var _ Input = (*TCPRouteInput)(nil)
+
 // TCPRouteInput is used to implement the Input interface for TCPRoute.
 type TCPRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
+	ResourceConfig helpers.ResourceConfig
 	Grants         []gatewayv1.ReferenceGrant
 	TCPRoute       *gatewayv1.TCPRoute
 	ControllerName string
@@ -81,6 +84,10 @@ func (t *TCPRouteInput) GetRules() []GenericRule {
 
 func (t *TCPRouteInput) GetClient() client.Client {
 	return t.Client
+}
+
+func (t *TCPRouteInput) GetResourceConfig() helpers.ResourceConfig {
+	return t.ResourceConfig
 }
 
 func (t *TCPRouteInput) GetContext() context.Context {

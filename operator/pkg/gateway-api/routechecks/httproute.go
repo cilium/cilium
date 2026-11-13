@@ -21,11 +21,14 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
+var _ Input = (*HTTPRouteInput)(nil)
+
 // HTTPRouteInput is used to implement the Input interface for HTTPRoute
 type HTTPRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
+	ResourceConfig helpers.ResourceConfig
 	Grants         []gatewayv1.ReferenceGrant
 	HTTPRoute      *gatewayv1.HTTPRoute
 	ControllerName string
@@ -85,6 +88,10 @@ func (h *HTTPRouteInput) GetRules() []GenericRule {
 
 func (h *HTTPRouteInput) GetClient() client.Client {
 	return h.Client
+}
+
+func (h *HTTPRouteInput) GetResourceConfig() helpers.ResourceConfig {
+	return h.ResourceConfig
 }
 
 func (h *HTTPRouteInput) GetContext() context.Context {

@@ -29,6 +29,7 @@ type GRPCRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
+	ResourceConfig helpers.ResourceConfig
 	Grants         []gatewayv1.ReferenceGrant
 	GRPCRoute      *gatewayv1.GRPCRoute
 	ControllerName string
@@ -80,6 +81,10 @@ func (g *GRPCRouteInput) GetNamespace() string {
 
 func (g *GRPCRouteInput) GetClient() client.Client {
 	return g.Client
+}
+
+func (g *GRPCRouteInput) GetResourceConfig() helpers.ResourceConfig {
+	return g.ResourceConfig
 }
 
 func (g *GRPCRouteInput) GetContext() context.Context {

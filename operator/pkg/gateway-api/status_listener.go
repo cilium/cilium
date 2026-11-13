@@ -24,15 +24,9 @@ import (
 )
 
 type ListenerStatusManager struct {
-	client                  client.Client
-	logger                  *slog.Logger
-	tcpUDPRouteSupport      bool
-	tcpUDPUnsupportedReason string
-}
-
-type ListenerStatusManagerConfig struct {
-	TCPUDPRouteSupport      bool
-	TCPUDPUnsupportedReason string
+	client client.Client
+	logger *slog.Logger
+	config helpers.ResourceConfig
 }
 
 type listenerConflict struct {
@@ -87,12 +81,11 @@ const (
 	ListenersStatusAllValid                     ListenersStatus = "AllValid"
 )
 
-func NewListenerStatusManager(client client.Client, logger *slog.Logger, cfg ListenerStatusManagerConfig) *ListenerStatusManager {
+func NewListenerStatusManager(client client.Client, logger *slog.Logger, cfg helpers.ResourceConfig) *ListenerStatusManager {
 	return &ListenerStatusManager{
-		client:                  client,
-		logger:                  logger,
-		tcpUDPRouteSupport:      cfg.TCPUDPRouteSupport,
-		tcpUDPUnsupportedReason: cfg.TCPUDPUnsupportedReason,
+		client: client,
+		logger: logger,
+		config: cfg,
 	}
 }
 
@@ -567,9 +560,9 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 		res.isValid = false
 	}
 
-	if !m.tcpUDPRouteSupport && m.isL4Protocol(l.Protocol) {
+	if !m.config.TCPRouteUDPRouteSupport && m.isL4Protocol(l.Protocol) {
 		res.invalidMessages = append(res.invalidMessages,
-			fmt.Sprintf("%s listeners are not supported: %s", l.Protocol, m.tcpUDPUnsupportedReason))
+			fmt.Sprintf("%s listeners are not supported: %s", l.Protocol, m.config.TCPUDPUnsupportedReason))
 		res.invalidReason = gatewayv1.ListenerReasonUnsupportedProtocol
 		res.isValid = false
 		return res

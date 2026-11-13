@@ -131,12 +131,14 @@ func Test_setTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	routes := &gatewayv1.TCPRouteList{}
 	require.NoError(t, c.List(t.Context(), routes))
 
-	m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, RouteStatusManagerConfig{
+	m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, helpers.ResourceConfig{
 		IncludeTCPRoutes:        true,
 		IncludeUDPRoutes:        true,
-		TCPUDPRouteSupport:      true,
+		TCPRouteUDPRouteSupport: true,
 		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-	})
+	},
+		nil,
+	)
 	require.NoError(t, m.setTCPRouteStatuses(t.Context(), slog.Default(), routes.Items, nil))
 
 	updated := &gatewayv1.TCPRoute{}
@@ -160,12 +162,14 @@ func Test_setUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	routes := &gatewayv1.UDPRouteList{}
 	require.NoError(t, c.List(t.Context(), routes))
 
-	m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, RouteStatusManagerConfig{
+	m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, helpers.ResourceConfig{
 		IncludeTCPRoutes:        true,
 		IncludeUDPRoutes:        true,
-		TCPUDPRouteSupport:      true,
+		TCPRouteUDPRouteSupport: true,
 		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-	})
+	},
+		nil,
+	)
 	require.NoError(t, m.setUDPRouteStatuses(t.Context(), slog.Default(), routes.Items, nil))
 
 	updated := &gatewayv1.UDPRoute{}

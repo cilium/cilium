@@ -18,10 +18,10 @@ import (
 
 type TLSRouteResource struct {
 	ResourceType   *gatewayv1.TLSRoute
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewTLSRouteResource(r RegistryConfig) *TLSRouteResource {
+func NewTLSRouteResource(r helpers.ResourceConfig) *TLSRouteResource {
 	return &TLSRouteResource{
 		ResourceType:   &gatewayv1.TLSRoute{},
 		registryConfig: r,
@@ -33,14 +33,14 @@ func (tr *TLSRouteResource) ShouldIndex() bool {
 	return true
 }
 
-func (tr *TLSRouteResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (tr *TLSRouteResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	// First, set up the simple indexers
 	returnMap[indexers.GatewayTLSRouteIndex] = indexers.IndexTLSRouteByGateway
 
 	// Next, the complex indexers
-	returnMap[indexers.BackendServiceTLSRouteIndex] = indexers.GenerateIndexerTLSRoutebyBackendService(c, logger)
+	returnMap[indexers.BackendServiceTLSRouteIndex] = indexers.GenerateIndexerTLSRoutebyBackendService(logger, tr.registryConfig)
 
 	// Lastly, conditional indexers
 	if tr.registryConfig.IncludeListenerSets {
@@ -64,4 +64,8 @@ func (tr *TLSRouteResource) ShouldWatch() bool {
 
 func (tr *TLSRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningTLSRoute(c, logger, controllerName)}
+}
+
+func (tr *TLSRouteResource) HandleStatus() bool {
+	return true
 }

@@ -4,6 +4,7 @@
 package gateway_api
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -18,7 +19,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
-	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
 )
 
 func TestBackendTLSPolicyStatusForGRPCRoute(t *testing.T) {
@@ -81,14 +82,27 @@ func TestBackendTLSPolicyStatusForGRPCRoute(t *testing.T) {
 		},
 	}
 	scheme := testhelpers.TestScheme(nil, helpers.RegisterGatewayAPITypesToScheme)
-	c := fake.NewClientBuilder().
+	resourceConfig := helpers.ResourceConfig{}
+	resourceRegistry := resource.NewGatewayRegistry(resourceConfig)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	clientBuilder := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(policy, service, grpcRoute).
 		WithStatusSubresource(&gatewayv1.BackendTLSPolicy{}).
-		WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, func(client.Object) []string { return nil }).
-		WithIndex(&gatewayv1.GRPCRoute{}, indexers.BackendServiceGRPCRouteIndex, fakeIndexGRPCRouteByBackendService).
-		WithInterceptorFuncs(typeMetaInterceptor(scheme)).
-		Build()
+		WithInterceptorFuncs(typeMetaInterceptor(scheme))
+
+	for _, resource := range resourceRegistry.GetResources() {
+		if resource.HandleStatus() {
+			clientBuilder.WithStatusSubresource(resource.GetResource())
+		}
+		if resource.ShouldIndex() {
+			for indexName, indexFunc := range resource.GetIndexers(logger) {
+				clientBuilder.WithIndex(resource.GetResource(), indexName, indexFunc)
+			}
+		}
+	}
+	c := clientBuilder.Build()
 
 	manager := NewBackendTLSPolicyStatusManager(c, defaultControllerName)
 	btlspMap, err := manager.SetBackendTLSPolicyStatuses(
