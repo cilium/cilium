@@ -1570,6 +1570,16 @@ func (n *Node) syncToAPIServer() error {
 	// released IP in the pool is fine, as the agent will ignore it.
 	pool := n.Pool()
 
+	// Multi-pool agents read their CIDRs from Spec.IPAM.Pools and ignore
+	// Spec.IPAM.Pool, so leave it empty. This also clears any pool written
+	// before the agent switched allocators.
+	n.mutex.RLock()
+	isMultiPool := n.isMultiPoolNodeLocked()
+	n.mutex.RUnlock()
+	if isMultiPool {
+		pool = nil
+	}
+
 	// Always update the status first to ensure that the IPAM information
 	// is synced for all addresses that are marked as available.
 	//
