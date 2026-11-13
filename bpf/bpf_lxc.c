@@ -53,7 +53,7 @@
 #include "lib/subnet.h"
 #include "lib/socket_lb.h"
 
-static __always_inline __maybe_unused int
+static __always_inline int
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 {
 	int ret __maybe_unused;
@@ -70,7 +70,7 @@ lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 	return DROP_HOST_NOT_READY;
 }
 
-static __always_inline __maybe_unused int
+static __always_inline int
 lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		     __be16 proto, struct trace_ctx *trace)
 {
@@ -621,7 +621,7 @@ DEFINE_AUX(struct ct_buffer6, cilium_tail_call_buffer6);
  * forwarded rather than delivered to the host, and the stack decrements the
  * TTL when it does so.
  */
-static __always_inline __maybe_unused int
+static __always_inline int
 l7lb_redirect_to_stack(struct __ctx_buff *ctx)
 {
 	union macaddr host_mac = CONFIG(cilium_host_mac);
