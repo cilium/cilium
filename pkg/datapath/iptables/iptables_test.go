@@ -965,6 +965,35 @@ func TestTunnelRulesTunnelingDisabled(t *testing.T) {
 	require.NoError(t, mockIp6tables.checkExpectations())
 }
 
+func TestTunnelRulesNativeRoutingWithTunneledDSR(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	mockManager := &manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: false,
+			TunnelPort:       6081,
+		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
+	}
+
+	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
+
+	mockIp4tables.expectations = []expectation{
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", 6081, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", 6081, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", 6081, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+	}
+	mockIp6tables.expectations = mockIp4tables.expectations
+
+	require.NoError(t, mockManager.addCiliumTunnelRules())
+	require.NoError(t, mockIp4tables.checkExpectations())
+	require.NoError(t, mockIp6tables.checkExpectations())
+}
+
 func TestInstallPostNatRules(t *testing.T) {
 	hairpin := "-t nat -A CILIUM_POST_nat -m mark --mark 0x00000f00/0x00000f00 -o cilium_host " +
 		"-m conntrack --ctstate DNAT -m comment --comment hairpin traffic that originated from a local pod " +

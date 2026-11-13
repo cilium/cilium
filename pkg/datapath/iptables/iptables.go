@@ -753,7 +753,8 @@ func (m *manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 func (m *manager) addCiliumTunnelRules() (err error) {
 	port := m.sharedCfg.TunnelPort
 
-	if !m.sharedCfg.TunnelingEnabled || port == 0 {
+	// port is only set when encapsulation is in use (tunnel mode or tunneled DSR)
+	if port == 0 {
 		return nil
 	}
 
