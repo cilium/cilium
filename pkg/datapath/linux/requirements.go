@@ -5,6 +5,7 @@ package linux
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -147,6 +148,10 @@ func CheckRequirements(log *slog.Logger) error {
 				return errors.New("Unable to determine if BPF_FIB_LOOKUP_SRC is supported")
 			}
 			log.Info("BPF_FIB_LOOKUP_SRC is not supported; it will not be used")
+		}
+
+		if err := probes.HaveBTF(); err != nil {
+			return fmt.Errorf("Require kernel BTF support (CONFIG_DEBUG_INFO_BTF=y): %w", err)
 		}
 	}
 	return nil
