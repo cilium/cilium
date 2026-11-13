@@ -4,14 +4,20 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
 	"strings"
 	"testing"
 
+	"github.com/go-openapi/runtime"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -222,5 +228,58 @@ func TestParseProcSocketAddressNativeEndian(t *testing.T) {
 		if err != nil || got != address || port != 8080 {
 			t.Fatalf("parse %s: got %s:%d, err=%v", ip, got, port, err)
 		}
+	}
+}
+
+func TestHostPortNodePortOverlap(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		min, max uint16
+		ports    []int
+		conflict bool
+	}{
+		{"below range", 30000, 32767, []int{29999}, false},
+		{"lower boundary", 30000, 32767, []int{30000}, true},
+		{"upper boundary", 30000, 32767, []int{32767}, true},
+		{"above range", 30000, 32767, []int{32768}, false},
+		{"custom range", 10000, 11000, []int{10500}, true},
+		{"custom range permits default ports", 10000, 11000, []int{30000}, false},
+		{"later mapping", 10000, 11000, []int{8080, 10500}, true},
+		{"single port range", 10000, 10000, []int{10000}, true},
+		{"disabled or no HostPorts", 30000, 32767, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Exercise the same JSON representation returned by the agent API.
+			data, err := json.Marshal(map[string]any{"NodePortMin": tc.min, "NodePortMax": tc.max})
+			require.NoError(t, err)
+			var config map[string]any
+			require.NoError(t, runtime.JSONConsumer().Consume(bytes.NewReader(data), &config))
+			var mappings []types.PortMapping
+			for _, port := range tc.ports {
+				mappings = append(mappings, types.PortMapping{HostPort: port})
+			}
+			err = validateHostPortNodePortOverlap(mappings, config)
+			if tc.conflict {
+				require.ErrorContains(t, err, "overlaps with the configured NodePort range")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHostPortNodePortRangeCompatibility(t *testing.T) {
+	mappings := []types.PortMapping{{HostPort: 30000}}
+	require.NoError(t, validateHostPortNodePortOverlap(mappings, nil))
+	for _, config := range []map[string]any{
+		{"NodePortMin": json.Number("30000")},
+		{"NodePortMin": "30000", "NodePortMax": "32767"},
+		{"NodePortMin": json.Number("32767"), "NodePortMax": json.Number("30000")},
+		{"NodePortMin": json.Number("0"), "NodePortMax": json.Number("65536")},
+		{"NodePortMin": json.Number("30000.5"), "NodePortMax": json.Number("32767")},
+		{"NodePortMin": json.Number("invalid"), "NodePortMax": json.Number("32767")},
+		{"NodePortMin": json.Number("30000"), "NodePortMax": json.Number("999999999999999999999999")},
+	} {
+		require.ErrorContains(t, validateHostPortNodePortOverlap(mappings, config), "invalid NodePort range")
 	}
 }
