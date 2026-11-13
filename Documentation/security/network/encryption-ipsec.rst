@@ -320,12 +320,6 @@ errors.
    from the anti-reply oseq on the destination node. This can be fixed by
    properly performing a new key rotation.
 
- * ``XfrmFwdHdrError`` and ``XfrmInError`` happen when the kernel fails to
-   lookup the route for a packet it decrypted. This can legitimately happen
-   when a pod was deleted but some packets are still in transit. Note these
-   errors can also happen under memory pressure when the kernel fails to
-   allocate memory.
-
  * ``XfrmInStateInvalid`` can happen on rare occasions if packets are received
    while an XFRM state is being deleted. XFRM states get deleted as part of
    node scale-downs and for some upgrades and downgrades.
@@ -338,9 +332,6 @@ errors.
    =======================  ==================================================
    Error                    Known explanation
    =======================  ==================================================
-   XfrmInError              The kernel (1) decrypted and tried to route a
-                            packet for a pod that was deleted or (2) failed to
-                            allocate memory.
    XfrmInNoStates           Bug in the XFRM configuration for decryption.
    XfrmInStateProtoError    There is a key or anti-replay seq mismatch between
                             nodes.
@@ -354,9 +345,6 @@ errors.
                             configuration reached its maximum value.
    XfrmOutPolBlock          Cilium dropped packets that would have otherwise
                             left the node in plain-text.
-   XfrmFwdHdrError          The kernel (1) decrypted and tried to route a
-                            packet for a pod that was deleted or (2) failed to
-                            allocate memory.
    =======================  ==================================================
 
  * In addition to the above XFRM errors, packet drops of type ``No node ID
