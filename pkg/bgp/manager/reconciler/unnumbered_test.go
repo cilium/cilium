@@ -307,3 +307,30 @@ func TestUnnumberedReconciler_NeighborChangeTrackerObserver(t *testing.T) {
 		})
 	}
 }
+
+func TestUnnumberedReconciler_AlternativeInterfaceNameZone(t *testing.T) {
+	req := require.New(t)
+	db, err := setupStateDBWithNeighbors(nil, []*tables.Neighbor{peerNeighbor("fe80::1", 123)})
+	req.NoError(err)
+	devices := db.GetTable(db.ReadTxn(), "devices").(statedb.RWTable[*tables.Device])
+	txn := db.WriteTxn(devices)
+	dev, _, found := devices.Get(txn, tables.DeviceByName("eth0"))
+	req.True(found)
+	dev = dev.DeepCopy()
+	dev.AltNames = []string{"bgp-uplink", "bgp-unnumbered-uplink"}
+	_, _, err = devices.Insert(txn, dev)
+	req.NoError(err)
+	txn.Commit()
+	r := &UnnumberedReconciler{
+		DB: db, deviceTable: devices,
+		neighborTable: db.GetTable(db.ReadTxn(), "neighbors").(statedb.Table[*tables.Neighbor]),
+	}
+	for _, ifname := range []string{"eth0", "bgp-uplink", "bgp-unnumbered-uplink"} {
+		t.Run(ifname, func(t *testing.T) {
+			address, linkIndex, err := r.getUnnumberedPeerAddress(ifname)
+			require.NoError(t, err)
+			require.Equal(t, "fe80::1%eth0", address)
+			require.Equal(t, 123, linkIndex)
+		})
+	}
+}
