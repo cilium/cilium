@@ -24,7 +24,8 @@ type Loader interface {
 	EndpointTemplateReady() <-chan struct{}
 	PrecompileEndpointTemplate(ctx context.Context) error
 
-	ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, cfg *config.Config, stats *metrics.SpanStat) (string, error)
+	// beforeExpose is optional and must succeed before new programs become reachable.
+	ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, cfg *config.Config, stats *metrics.SpanStat, beforeExpose func() error) (string, error)
 	EndpointHash(cfg endpoint.Config, lnCfg *config.Config) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
 	Reinitialize(ctx context.Context, cfg *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Config) error

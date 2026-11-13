@@ -51,14 +51,14 @@ var _ XDSServer = &onDemandXdsStarter{}
 
 var errEnvoyStopped = errors.New("standalone Envoy has already stopped")
 
-func (o *onDemandXdsStarter) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (o *onDemandXdsStarter) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	if err := o.startStandaloneEnvoy(ctx, nil); err != nil {
 		o.logger.Error("Envoy: Failed to start standalone Envoy proxy on demand",
 			logfields.Error, err,
 		)
 	}
 
-	return o.XDSServer.AddListener(ctx, name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
+	return o.XDSServer.AddListener(ctx, name, kind, port, isIngress, mayUseOriginalSourceAddr, wg)
 }
 
 func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {

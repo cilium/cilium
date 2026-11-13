@@ -373,11 +373,4 @@ func (e *Endpoint) Stop() {
 	if trigger := e.dnsHistoryTrigger.Swap(nil); trigger != nil {
 		trigger.Shutdown()
 	}
-
-	// Given that we are deleting the endpoint and that no more builds are
-	// going to occur for this endpoint, close the channel which signals whether
-	// the endpoint has its BPF program compiled or not to avoid it persisting
-	// if anything is blocking on it. If a delete request has already been
-	// enqueued for this endpoint, this is a no-op.
-	e.closeBPFProgramChannel()
 }

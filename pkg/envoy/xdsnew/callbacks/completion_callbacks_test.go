@@ -255,7 +255,7 @@ func (cb *CompletionCallbacks) newTestCompletion(t *testing.T, typeURL typeurl.I
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
 	pending := cb.NewTypeGenerationCompletionOwner("node-1", typeURL, generation, ResourceScope{})
-	return wg, wg.AddCompletionWithCallback(pending, nil), pending
+	return wg, wg.AddCompletion(pending), pending
 }
 
 func registerTypeGenerationRollback(t *testing.T, cb *CompletionCallbacks, generation Generation, typeURL typeurl.Index, rollback revert.RevertFunc) {
@@ -865,7 +865,7 @@ func TestDetachedPolicyWaitCompletesWithoutDiscardingNACKRollback(t *testing.T) 
 	otherWG := completion.NewWaitGroup(t.Context())
 	t.Cleanup(otherWG.Cancel)
 	otherPending := cb.NewTypeGenerationCompletionOwner("node-2", typeurl.NetworkPolicy, 2, ResourceScope{})
-	otherComp := otherWG.AddCompletionWithCallback(otherPending, nil)
+	otherComp := otherWG.AddCompletion(otherPending)
 	registered, err := cb.AddPreparedTypeGenerationCompletion(otherComp, otherPending, "version-2", true)
 	require.NoError(t, err)
 	require.True(t, registered)
@@ -1217,7 +1217,7 @@ func TestWaitCancellationRetainsResponseRollback(t *testing.T) {
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
 			owner := cb.NewTypeGenerationCompletionOwner("node-1", listenerTypeURL, 1, ResourceScope{})
-			comp := wg.AddCompletionWithCallback(owner, nil)
+			comp := wg.AddCompletion(owner)
 			registerTypeGenerationCompletion(t, cb, comp, owner, "version-1")
 			reverted, finalized := false, false
 			cb.AddTypeGenerationWithRollback(tc.rollbackGeneration, listenerTypeURL, "node-1",

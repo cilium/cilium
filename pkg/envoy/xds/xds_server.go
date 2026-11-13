@@ -26,8 +26,8 @@ type XDSServer interface {
 	// The listener is created on the given port and direction (ingress/egress).
 	// If mayUseOriginalSourceAddr is true, the listener may use the original source address
 	// for upstream connections.
-	// The completion is signaled on 'wg' and 'cb' is called with any error from Envoy ACK/NACK.
-	AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error
+	// The completion is signaled on 'wg' with any error from Envoy ACK/NACK.
+	AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error
 
 	// AddAdminListener adds an Envoy admin API listener on the given port.
 	// The completion is signaled on 'wg'.
@@ -55,9 +55,9 @@ type XDSServer interface {
 	// indefinite blocking in case Envoy never responds with an ACK/NACK.
 	DeleteEnvoyResources(ctx context.Context, resources Resources, wg *completion.WaitGroup) error
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
-	// When the proxy acknowledges the network policy update, it will result in
-	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function. After
-	// a successful update, the caller must eventually finalize or revert the
+	// The caller waits for acceptance through wg and records the submitted policy's
+	// revision after a successful wait. A nil wg seeds the cache without waiting.
+	// After a successful update, the caller must eventually finalize or revert the
 	// returned Revertible when the enclosing endpoint transaction finishes.
 	UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible)
 	// RemoveNetworkPolicy removes network policies relevant to the specified
@@ -75,22 +75,16 @@ type Resources struct {
 	Routes    map[string]*envoy_config_route.RouteConfiguration
 	Clusters  map[string]*envoy_config_cluster.Cluster
 	Endpoints map[string]*envoy_config_endpoint.ClusterLoadAssignment
-
-	// Callback functions that confirm newly allocated primary proxy ports after
-	// the corresponding Listener change is successfully ACKed by Envoy. A
-	// listener update that retains its primary port must not call one again.
-	PortAllocationCallbacks map[string]func(context.Context) error `json:"-" yaml:"-"`
 }
 
 // NewResources returns a Resources with all maps initialized.
 func NewResources() Resources {
 	return Resources{
-		Listeners:               make(map[string]*envoy_config_listener.Listener),
-		Secrets:                 make(map[string]*envoy_config_tls.Secret),
-		Routes:                  make(map[string]*envoy_config_route.RouteConfiguration),
-		Clusters:                make(map[string]*envoy_config_cluster.Cluster),
-		Endpoints:               make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
-		PortAllocationCallbacks: make(map[string]func(context.Context) error),
+		Listeners: make(map[string]*envoy_config_listener.Listener),
+		Secrets:   make(map[string]*envoy_config_tls.Secret),
+		Routes:    make(map[string]*envoy_config_route.RouteConfiguration),
+		Clusters:  make(map[string]*envoy_config_cluster.Cluster),
+		Endpoints: make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
 	}
 }
 

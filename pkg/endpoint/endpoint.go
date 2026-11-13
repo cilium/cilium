@@ -400,8 +400,6 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
-	hasBPFProgram chan struct{}
-
 	// desiredPolicy is the policy calculated during regeneration. After
 	// successful regeneration, it is copied to realizedPolicy
 	// To write, both ep.mutex and ep.buildMutex must be held.
@@ -577,20 +575,9 @@ func (ep *Endpoint) SetIsHost(isHost bool) {
 	ep.isHost = isHost
 }
 
-// closeBPFProgramChannel closes the channel that signals whether the endpoint
-// has had its BPF program compiled. If the channel is already closed, this is
-// a no-op.
-func (e *Endpoint) closeBPFProgramChannel() {
-	select {
-	case <-e.hasBPFProgram:
-	default:
-		close(e.hasBPFProgram)
-	}
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held. The caller must Cancel the group on error.
-func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup, redirects map[string]uint16, policyRevision uint64) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
@@ -611,6 +598,19 @@ func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitG
 		return fmt.Errorf("proxy state changes failed: %w", err)
 	}
 	e.getLogger().Debug("Wait time for proxy updates", logfields.Duration, time.Since(start))
+
+	// Update policy revision after successful Wait.
+	if policyRevision != 0 {
+		e.OnProxyPolicyUpdate(policyRevision)
+	}
+
+	// Install redirection rules after successful Wait.
+	// Keep acknowledged allocations even if a later build step fails.
+	if len(redirects) > 0 {
+		if err := e.proxy.AckRedirects(parentCtx, redirects); err != nil {
+			return fmt.Errorf("installing proxy redirection rules: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -650,7 +650,6 @@ func createEndpoint(
 		DNSZombies:         fqdn.NewDNSZombieMappings(p.Logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:              "",
 		status:             NewEndpointStatus(),
-		hasBPFProgram:      make(chan struct{}),
 		desiredPolicy:      policy.NewEndpointPolicy(p.Logger, p.PolicyRepo),
 		controllers:        controller.NewManager(),
 		regenFailedChan:    make(chan struct{}, 1),
@@ -992,7 +991,6 @@ func ParseEndpoint(p EndpointParams,
 	ep.SetDefaultOpts(nil)
 
 	// Initialize fields to values which are non-nil that are not serialized.
-	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(p.Logger, p.PolicyRepo)
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.forcePolicyCompute = true
@@ -1677,11 +1675,9 @@ OKState:
 	return true
 }
 
-// OnProxyPolicyUpdate is a callback used to update the Endpoint's
-// proxyPolicyRevision when the specified revision has been applied in the
-// proxy.
+// OnProxyPolicyUpdate records the submitted policy revision after a successful
+// proxy wait. It acquires the endpoint lock, which the caller must not hold.
 func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
-	// NOTE: unconditionalLock is used here because this callback has no way of reporting an error
 	e.unconditionalLock()
 	if revision > e.proxyPolicyRevision {
 		e.proxyPolicyRevision = revision
@@ -3072,7 +3068,6 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 	clone.aliveCtx, clone.aliveCancel = context.WithCancel(context.Background())
 	clone.controllers = controller.NewManager()
 	clone.regenFailedChan = make(chan struct{}, 1)
-	clone.hasBPFProgram = make(chan struct{})
 	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
 	clone.realizedPolicy = clone.desiredPolicy
 	clone.initialEnvoyPolicyComputed = make(chan struct{})
