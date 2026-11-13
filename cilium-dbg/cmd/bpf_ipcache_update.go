@@ -72,9 +72,15 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 			Usagef(cmd, "Invalid cluster ID. "+usage)
 		}
 
+		ipCacheMap, err := ipcache.OpenMap(log)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening map: %v\n", err)
+			os.Exit(1)
+		}
+
 		key := ipcache.NewKey(prefix, clusterID)
 		value := ipcache.NewValue(identity, tunnelEndpoint, encryptKey, flags)
-		if err := ipcache.NewMap(nil, ipcache.Name).Update(&key, &value); err != nil {
+		if err := ipCacheMap.Update(&key, &value); err != nil {
 			fmt.Fprintf(os.Stderr, "Error updating entry %s: %v\n", key, err)
 			os.Exit(1)
 		}
