@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -92,16 +91,6 @@ func (m *manager) Enabled() bool {
 
 func (m *manager) BBREnabled() bool {
 	return m.params.Config.EnableBBR
-}
-
-func (m *manager) defines() (defines.Map, error) {
-	cDefinesMap := make(defines.Map)
-
-	if m.Enabled() {
-		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
-	}
-
-	return cDefinesMap, nil
 }
 
 func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio uint32) {

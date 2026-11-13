@@ -9,9 +9,8 @@ static __u64 __now;
 
 #include "common.h"
 
-#define ENABLE_BANDWIDTH_MANAGER 1
-
 #include <bpf/config/node.h>
+ASSIGN_CONFIG(bool, enable_bandwidth_manager, true)
 #include "lib/common.h"
 #include "lib/edt.h"
 

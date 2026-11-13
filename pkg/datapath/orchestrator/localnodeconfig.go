@@ -71,6 +71,7 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.Agent,
 	ipsecCfg ipsec.Config,
+	bandwidthManagerEnabled bool,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
 ) (config.Config, []<-chan struct{}, error) {
@@ -235,6 +236,7 @@ func newLocalNodeConfig(
 		DirectRoutingSkipUnreachable: daemon.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         daemon.EnableLocalNodeRoute && daemon.IPAM != ipamOption.IPAMENI && daemon.IPAM != ipamOption.IPAMAzure && daemon.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgAgent.Enabled(),
+		EnableBandwidthManager:       bandwidthManagerEnabled,
 		EnablePolicyAccounting:       daemon.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),

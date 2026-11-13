@@ -197,6 +197,7 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 			mtuTable,
 			wgAgent,
 			fakeipsec.Config{},
+			false,
 			fakeconnector.NewVeth(),
 			nil,
 		)

@@ -617,20 +617,20 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
 
-#ifdef ENABLE_BANDWIDTH_MANAGER
-	/* In tunneling mode, we should do this as close as possible to the
-	 * phys dev where FQ runs, but the issue is that the aggregate state
-	 * (in queue_mapping) is overridden on tunnel xmit. Hence set the
-	 * timestamp already here. The tunnel dev has noqueue qdisc, so as
-	 * tradeoff it's close enough.
-	 */
-	ret = edt_sched_departure(ctx, proto);
-	/* No send_drop_notify_error() here given we're rate-limiting. */
-	if (ret < 0) {
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
-		return CTX_ACT_DROP;
+	if (CONFIG(enable_bandwidth_manager)) {
+		/* In tunneling mode, we should do this as close as possible to the
+		 * phys dev where FQ runs, but the issue is that the aggregate state
+		 * (in queue_mapping) is overridden on tunnel xmit. Hence set the
+		 * timestamp already here. The tunnel dev has noqueue qdisc, so as
+		 * tradeoff it's close enough.
+		 */
+		ret = edt_sched_departure(ctx, proto);
+		/* No send_drop_notify_error() here given we're rate-limiting. */
+		if (ret < 0) {
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
+			return CTX_ACT_DROP;
+		}
 	}
-#endif
 
 	/* This must be after above ctx_snat_done, since the MARK_MAGIC_CLUSTER_ID
 	 * is a super set of the MARK_MAGIC_SNAT_DONE. They will never be used together,

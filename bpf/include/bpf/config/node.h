@@ -239,3 +239,5 @@ NODE_CONFIG(bool, enable_masquerade_ipv4, "Enable BPF masquerading for IPv4 traf
 NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
 
 NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")
+
+NODE_CONFIG(bool, enable_bandwidth_manager, "Enable bandwidth manager")
