@@ -2942,18 +2942,17 @@ func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
 		// When using IPAM delegated plugin, IP addresses are allocated by the CNI binary,
 		// not the daemon. Therefore, features which require the daemon to allocate IPs for itself
 		// must be disabled.
-		if c.EnableIPv4 && c.LocalRouterIPv4 == "" {
-			return fmt.Errorf("--%s must be provided when IPv4 is enabled with --%s=%s", LocalRouterIPv4, IPAM, ipamOption.IPAMDelegatedPlugin)
-		}
-		if c.EnableIPv6 && c.LocalRouterIPv6 == "" {
-			return fmt.Errorf("--%s must be provided when IPv6 is enabled with --%s=%s", LocalRouterIPv6, IPAM, ipamOption.IPAMDelegatedPlugin)
-		}
+		// Without --local-router-ipv4/--local-router-ipv6 the router
+		// addresses are leased from the delegated IPAM plugin.
 		if c.EnableEndpointHealthChecking {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
-		// envoy config (Ingress, Gateway API, ...) require cilium-agent to create an IP address
-		// specifically for differentiating envoy traffic, which is not possible
-		// with delegated IPAM.
+		// Envoy config for Ingress and Gateway API requires cilium-agent to
+		// create an IP address specifically for differentiating envoy traffic,
+		// which is not directly possible with delegated IPAM. CFP-45607
+		// introduces a delegated IPAM path for this. The restriction is
+		// kept here and will be lifted in a later commit once the path is
+		// activated.
 		if c.EnableEnvoyConfig {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEnvoyConfig, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
