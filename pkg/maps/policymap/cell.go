@@ -4,7 +4,9 @@
 package policymap
 
 import (
+	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"os"
 
@@ -15,9 +17,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/maps"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 var Cell = cell.Module(
@@ -27,6 +31,7 @@ var Cell = cell.Module(
 	cell.Provide(newStatsMap),
 	cell.Provide(createFactory),
 	cell.Invoke(configurePolicyMaps),
+	cell.Invoke(configureSharedPolicyMaps),
 )
 
 type PolicyConfig struct {
@@ -36,30 +41,47 @@ type PolicyConfig struct {
 
 	// PolicyStatsMapMax is the maximum number of entries allowed in a BPF policy map.
 	BpfPolicyStatsMapMax int
+
+	// BpfPolicySharedMapMax is the maximum number of entries allowed in the shared BPF policy map.
+	BpfPolicySharedMapMax int
 }
 
 var DefaultPolicyConfig = PolicyConfig{
-	BpfPolicyMapMax:      16384,
-	BpfPolicyStatsMapMax: 1 << 16,
+	BpfPolicyMapMax:       16384,
+	BpfPolicyStatsMapMax:  1 << 16,
+	BpfPolicySharedMapMax: 1 << 21,
 }
 
 const (
-	PolicyMapMaxName      = "bpf-policy-map-max"
-	PolicyStatsMapMaxName = "bpf-policy-stats-map-max"
+	PolicyMapMaxName       = "bpf-policy-map-max"
+	PolicyStatsMapMaxName  = "bpf-policy-stats-map-max"
+	PolicySharedMapMaxName = "bpf-policy-shared-map-max"
 )
 
 func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(PolicyMapMaxName, def.BpfPolicyMapMax, "Maximum number of entries in endpoint policy map (per endpoint)")
 	flags.Int(PolicyStatsMapMaxName, def.BpfPolicyStatsMapMax, "Maximum number of entries in bpf policy stats map")
+	flags.Int(PolicySharedMapMaxName, def.BpfPolicySharedMapMax, "Maximum number of entries in shared BPF policy map")
 }
 
 type Factory interface {
 	OpenEndpoint(id uint16) (PolicyMap, error)
+	// RemoveEndpoint removes the endpoint's policy program from the global policy
+	// call maps, and its policy map pin, or with the shared policy map, its overlay
+	// entry and its reference to its rule set.
 	RemoveEndpoint(id uint16) error
-	RemoveGlobalMapping(id uint32) error
 
 	PolicyMaxEntries() int
 	StatsMaxEntries() int
+
+	SharedPolicyEnabled() bool
+	SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) error
+	// LockdownEndpoint makes the datapath deny all traffic of the endpoint until its next
+	// successful SyncEndpointOverlay.
+	LockdownEndpoint(epID uint16) error
+	DumpEndpointSharedEntries(epID uint16) (PolicyEntriesDump, error)
+	HasEndpointOverlay(epID uint16) bool
+	RemoveStaleEndpointOverlays(exists func(uint16) bool) error
 }
 
 type factory struct {
@@ -74,10 +96,14 @@ type factory struct {
 	statsMapEntries int
 
 	stats *StatsMap
+
+	sharedMap  policyBPFMap
+	overlayMap policyBPFMap
+	allocator  *RuleSetAllocator
 }
 
 func newFactory(logger *slog.Logger, mapRegistry *mapregistry.MapRegistry, stats *StatsMap,
-	policyMapEntries int, statsMapEntries int) Factory {
+	policyMapEntries int, statsMapEntries int) *factory {
 	return &factory{
 		logger:           logger,
 		mapRegistry:      mapRegistry,
@@ -102,13 +128,19 @@ func (f *factory) OpenEndpoint(id uint16) (PolicyMap, error) {
 	return m, nil
 }
 
-// RemoveEndpoint removes the policy map of the specified endpoint.
+// RemoveEndpoint removes the policy state of the specified endpoint. All steps are
+// attempted even if some fail, and the errors are joined.
 func (f *factory) RemoveEndpoint(id uint16) error {
-	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id))
-}
-
-func (f *factory) RemoveGlobalMapping(id uint32) error {
-	return RemoveGlobalMapping(f.logger, id)
+	var errs error
+	if err := RemoveGlobalMapping(f.logger, uint32(id)); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("removing endpoint program from global policymap: %w", err))
+	}
+	if f.SharedPolicyEnabled() {
+		errs = errors.Join(errs, f.removeEndpointOverlay(id))
+	} else if err := os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id)); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("removing policy map pin: %w", err))
+	}
+	return errs
 }
 
 func (f *factory) PolicyMaxEntries() int {
@@ -127,6 +159,7 @@ type createFactoryParams struct {
 	MapRegistry *mapregistry.MapRegistry
 	Stats       *StatsMap
 	PolicyConfig
+	DaemonConfig *option.DaemonConfig
 }
 
 func createFactory(in createFactoryParams) Factory {
@@ -162,7 +195,11 @@ func createFactory(in createFactoryParams) Factory {
 
 	newCallMaps(in.Lifecycle, in.MapRegistry)
 
-	return newFactory(in.Log, in.MapRegistry, in.Stats, in.BpfPolicyMapMax, in.BpfPolicyStatsMapMax)
+	f := newFactory(in.Log, in.MapRegistry, in.Stats, in.BpfPolicyMapMax, in.BpfPolicyStatsMapMax)
+	if in.DaemonConfig.EnableSharedPolicy {
+		f.registerSharedPolicy(in.Lifecycle, in.MapRegistry)
+	}
+	return f
 }
 
 func configurePolicyMaps(reg *mapregistry.MapRegistry, factory Factory) error {
@@ -184,4 +221,23 @@ func configurePolicyMaps(reg *mapregistry.MapRegistry, factory Factory) error {
 	}
 
 	return configureCallMaps(reg)
+}
+
+func configureSharedPolicyMaps(reg *mapregistry.MapRegistry, cfg PolicyConfig, daemonConfig *option.DaemonConfig) error {
+	if !daemonConfig.EnableSharedPolicy {
+		return nil
+	}
+	if cfg.BpfPolicySharedMapMax > 0 {
+		if err := reg.Modify(SharedPolicyMapName, func(m *mapregistry.MapSpecPatch) {
+			m.MaxEntries = uint32(cfg.BpfPolicySharedMapMax)
+		}); err != nil && !errors.Is(err, mapregistry.ErrMapNotFound) {
+			return err
+		}
+	}
+	if err := reg.Modify(PolicyOverlayMapName, func(m *mapregistry.MapSpecPatch) {
+		m.MaxEntries = defaults.MaxEndpointID
+	}); err != nil && !errors.Is(err, mapregistry.ErrMapNotFound) {
+		return err
+	}
+	return nil
 }
