@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type fixture struct {
@@ -63,6 +64,7 @@ func newFixture(t testing.TB) *fixture {
 		reconciler: NewL2ResponderReconciler(params{
 			Lifecycle:           &cell.DefaultLifecycle{},
 			Logger:              logger,
+			DaemonConfig:        &option.DaemonConfig{EnableL2Announcements: true},
 			L2AnnouncementTable: tbl,
 			StateDB:             db,
 			L2ResponderMap:      m,

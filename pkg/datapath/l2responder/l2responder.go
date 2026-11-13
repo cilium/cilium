@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/mapsweeper"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 	"github.com/cilium/cilium/pkg/multicast"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -44,13 +46,29 @@ var Cell = cell.Module(
 	),
 	cell.Invoke(NewL2ResponderReconciler),
 	cell.Provide(newNeighborNetlink),
+	cell.Provide(disabledMapsHook),
 )
+
+// disabledMapsHook registers the L2 responder maps for removal by the
+// map sweeper when L2 announcements are disabled.
+func disabledMapsHook(daemonConfig *option.DaemonConfig) mapsweeper.DisabledMapsHookOut {
+	return mapsweeper.DisabledMapsHookOut{
+		DisabledMapsHook: func() []string {
+			if daemonConfig.EnableL2Announcements {
+				return nil
+			}
+
+			return []string{l2respondermap.MapName, l2v6respondermap.MapName}
+		},
+	}
+}
 
 type params struct {
 	cell.In
 
 	Lifecycle           cell.Lifecycle
 	Logger              *slog.Logger
+	DaemonConfig        *option.DaemonConfig
 	L2AnnouncementTable statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
@@ -122,7 +140,9 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 		params: params,
 	}
 
-	params.JobGroup.Add(job.OneShot("l2-responder-reconciler", reconciler.run))
+	if params.DaemonConfig.EnableL2Announcements {
+		params.JobGroup.Add(job.OneShot("l2-responder-reconciler", reconciler.run))
+	}
 
 	return &reconciler
 }
