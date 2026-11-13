@@ -5,65 +5,63 @@ package policymap
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"math"
 	"strconv"
-	"unsafe"
 
 	ciliumebpf "github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 )
 
-const (
-	// Name is the canonical name for the policy stats map on the filesystem.
-	// Note: There is no underscore between 'policy' and 'stats' as that would confuse tools
-	// trying to parse an endpoint ID from 'stats'.
-	StatsMapName = "cilium_policystats"
-
-	StatNotAvailable = uint64(math.MaxUint64)
-)
+const StatNotAvailable = uint64(math.MaxUint64)
 
 // PolicyStatsMap maps endpoint IDs to the fd for the program which
 // implements its policy.
 type StatsMap struct {
-	*ebpf.Map
+	*bpf.Map
 	log *slog.Logger
 }
 
-func newStatsMap(maxStatsEntries int, log *slog.Logger) (*StatsMap, int) {
-	nCPU := possibleCPU(log)
-	roundDown := maxStatsEntries % nCPU
-	maxStatsEntries -= roundDown
-
-	// Must return a valid map even if returning an error
-	return &StatsMap{
-		Map: ebpf.NewMap(log, &ebpf.MapSpec{
-			Name:       StatsMapName,
-			Type:       ebpf.LRUCPUHash,
-			KeySize:    uint32(unsafe.Sizeof(StatsKey{})),
-			ValueSize:  uint32(unsafe.Sizeof(StatsValue{})),
-			MaxEntries: uint32(maxStatsEntries),
-			Flags:      unix.BPF_F_NO_COMMON_LRU,
-			Pinning:    ebpf.PinByName,
-		}),
+func newStatsMap(
+	lc cell.Lifecycle,
+	reg *mapregistry.MapRegistry,
+	log *slog.Logger,
+) bpf.MapOut[*StatsMap] {
+	statsMap := &StatsMap{
 		log: log,
-	}, maxStatsEntries
+	}
+	lc.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			var err error
+			statsMap.Map, err = bpf.NewMapFromRegistry(reg, maps.CiliumPolicystats, &StatsKey{}, &StatsValue{})
+			if err != nil {
+				return fmt.Errorf("create policy stats map from registry: %w", err)
+			}
+			return statsMap.OpenOrCreate()
+		},
+		OnStop: func(cell.HookContext) error {
+			return statsMap.Close()
+		},
+	})
+
+	return bpf.NewMapOut(statsMap)
 }
 
 // OpenStatsMap opens the existing global policy stats map.
 // Should only be called from cilium-dbg
 func OpenStatsMap(logger *slog.Logger) (*StatsMap, error) {
-	m, err := ebpf.LoadRegisterMap(logger, StatsMapName)
+	m, err := bpf.OpenMap(bpf.MapPath(logger, maps.CiliumPolicystats), &StatsKey{}, &StatsValue{})
 	if err != nil {
 		return nil, err
 	}
-	return &StatsMap{
-		Map: m,
-		log: logger,
-	}, nil
+	return &StatsMap{log: logger, Map: m}, nil
 }
 
 func possibleCPU(logger *slog.Logger) int {
@@ -86,10 +84,21 @@ type StatsKey struct {
 	DestPortNetwork  uint16 `align:"dport"` // In network byte-order
 }
 
+func (k *StatsKey) String() string {
+	return fmt.Sprintf("%d %d %d %d %d %d", k.EpID, k.PrefixLen, k.Identity,
+		k.TrafficDirection, k.Nexthdr, k.DestPortNetwork)
+}
+
+func (k *StatsKey) New() bpf.MapKey { return &StatsKey{} }
+
 type StatsValue struct {
 	Packets uint64 `align:"packets"`
 	Bytes   uint64 `align:"bytes"`
 }
+
+func (v *StatsValue) New() bpf.MapValue { return &StatsValue{} }
+
+func (v *StatsValue) NewSlice() any { return &StatsValues{} }
 
 func (v *StatsValue) String() string {
 	bb := make([]byte, 0, 20)
@@ -111,6 +120,10 @@ func (v *StatsValue) String() string {
 // StatsMap is a per-CPU map, so the value is a slice
 type StatsValues []StatsValue
 
+func (vs StatsValues) String() string { return fmt.Sprint([]StatsValue(vs)) }
+
+func (vs StatsValues) New() bpf.MapValue { return StatsValues{} }
+
 // GetStat looks up stats for the given endpoint and policy key
 func (m *StatsMap) GetStat(epID uint16, k PolicyKey) (packets, bytes uint64) {
 	statsKey := StatsKey{
@@ -121,10 +134,9 @@ func (m *StatsMap) GetStat(epID uint16, k PolicyKey) (packets, bytes uint64) {
 		Nexthdr:          k.Nexthdr,
 		DestPortNetwork:  k.DestPortNetwork,
 	}
-	var values StatsValues
-	err := m.Lookup(&statsKey, &values)
+	value, err := m.Lookup(&statsKey)
 	if err == nil {
-		for _, v := range values {
+		for _, v := range *value.(*StatsValues) {
 			packets += v.Packets
 			bytes += v.Bytes
 		}
@@ -175,7 +187,7 @@ func (m *StatsMap) ZeroStat(epID uint16, k PolicyKey) error {
 	nCPU := possibleCPU(m.log)
 	zeroValue := make(StatsValues, nCPU)
 
-	err := m.Update(&statsKey, zeroValue, 0)
+	err := m.Update(&statsKey, zeroValue)
 
 	if err != nil {
 		m.log.Warn("Error zeroing policy stats",
