@@ -330,9 +330,11 @@ Cilium Agent's logs rather than a more specific error message.
 .. _RFC-2385 : https://www.rfc-editor.org/rfc/rfc2385.html
 
 If a ``CiliumBGPPeerConfig`` is deployed with an ``authSecretRef`` that Cilium cannot find,
-the BGP session will use an empty password and the agent will log an error such as in the following example::
+the BGP peer is not configured and the agent will log an error such as in the following example::
 
-    level=error msg="Failed to fetch secret \"secretname\": not found (will continue with empty password)" component=manager.fetchPeerPassword subsys=bgp-control-plane
+    level=error msg="Failed to fetch secret \"secretname\": not found, skipping peer" component=manager.fetchPeerPassword subsys=bgp-control-plane
+
+The peer is configured once the secret exists.
 
 .. _bgp_peer_configuration_timers:
 
