@@ -246,6 +246,12 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return err
 	}
 
+	var sourceService, destinationService *pb.Service
+	if p.serviceGetter != nil {
+		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort)
+		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort)
+	}
+
 	ip := decoded.GetIP()
 	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
@@ -274,11 +280,6 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, srcLabelID, datapathContext)
 	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, dstLabelID, datapathContext)
-	var sourceService, destinationService *pb.Service
-	if p.serviceGetter != nil {
-		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort)
-		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort)
-	}
 
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
 	decoded.DropReason = decodeDropReason(dn, pvn)

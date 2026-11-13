@@ -1641,6 +1641,78 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	assert.Empty(t, f.IP.SourceXlated)
 }
 
+func TestTraceNotifyOriginalIPService(t *testing.T) {
+	f := &flowpb.Flow{}
+	svc := &flowpb.Service{Namespace: "default", Name: "echo"}
+	serviceGetter := &testutils.FakeServiceGetter{
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+			if ip == netip.MustParseAddr("10.0.0.2") && port == 80 {
+				return svc
+			}
+			return nil
+		},
+	}
+	parser, err := New(hivetest.Logger(t), &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(t, err)
+
+	v0 := monitor.TraceNotify{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Version:  monitor.TraceNotifyVersion0,
+		ObsPoint: monitorAPI.TraceToLxc,
+		Reason:   monitor.TraceReasonCtReply,
+	}
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		Version:  4,
+		Protocol: layers.IPProtocolTCP,
+		SrcIP:    net.ParseIP("10.0.0.2"),
+		DstIP:    net.ParseIP("10.0.0.3"),
+	}
+	tcp := layers.TCP{SrcPort: 80, DstPort: 41020, ACK: true}
+	data, err := testutils.CreateL3L4Payload(v0, &eth, &ip, &tcp)
+	require.NoError(t, err)
+
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, "10.0.0.2", f.IP.Source)
+	assert.Empty(t, f.IP.SourceXlated)
+	assert.Equal(t, svc, f.GetSourceService())
+
+	v1 := monitor.TraceNotify{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Version:  monitor.TraceNotifyVersion1,
+		ObsPoint: monitorAPI.TraceToLxc,
+		Reason:   monitor.TraceReasonCtReply,
+		OrigIP:   [16]byte{1, 1, 1, 1},
+	}
+	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &tcp)
+	require.NoError(t, err)
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, "1.1.1.1", f.IP.Source)
+	assert.Equal(t, "10.0.0.2", f.IP.SourceXlated)
+	assert.Equal(t, svc, f.GetSourceService())
+
+	v1 = monitor.TraceNotify{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Version:  monitor.TraceNotifyVersion1,
+		ObsPoint: monitorAPI.TraceToLxc,
+		Reason:   monitor.TraceReasonCtReply,
+		OrigIP:   [16]byte{10, 0, 0, 2},
+	}
+	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &tcp)
+	require.NoError(t, err)
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, "10.0.0.2", f.IP.Source)
+	assert.Empty(t, f.IP.SourceXlated)
+	assert.Equal(t, svc, f.GetSourceService())
+}
+
 func TestICMP(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
 	require.NoError(t, err)
