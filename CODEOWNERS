@@ -302,6 +302,7 @@
 /.nvim @cilium/contributing
 /.vscode @cilium/contributing
 /api/ @cilium/api
+/api/v1/.clang-format @cilium/contributing @cilium/sig-hubble-api
 /api/v1/Makefile @cilium/sig-hubble-api
 /api/v1/Makefile.protoc @cilium/sig-hubble-api
 /api/v1/flow/ @cilium/sig-hubble-api

@@ -11,18 +11,18 @@ option go_package = "github.com/cilium/cilium/api/v1/standalonednsproxy";
 // Standalone DNS proxy sends FQDN-IP mapping updates to Cilium Agent.
 // CFP: https://github.com/cilium/design-cfps/pull/54
 service FQDNData {
-  // StreamPolicyState is used by the Standalone DNS proxy to get the current policy state. 
-  // Policy state includes the DNS policies and the identity to IP mapping.
-  // Cilium agent will stream DNS policies state to Standalone DNS proxy.
-  // In case of any client side error, cilium agent will cancel the stream and SDP will have to re-subscribe.
-  // In case of any server side error, cilium agent will send an error response and SDP will have to re-subscribe.  
-  rpc StreamPolicyState(stream PolicyStateResponse) returns (stream PolicyState) {}
-  
-  // UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in turn update L3/L4 policy maps.
-  // In case of any error, SDP will either retry the connection if the error is server side or will error out.
-  // Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg) from the DNS server it follows the same behavior as
-  // the inbuilt dns proxy in cilium.
-  rpc UpdateMappingRequest(FQDNMapping) returns (UpdateMappingResponse) {}
+    // StreamPolicyState is used by the Standalone DNS proxy to get the current policy state.
+    // Policy state includes the DNS policies and the identity to IP mapping.
+    // Cilium agent will stream DNS policies state to Standalone DNS proxy.
+    // In case of any client side error, cilium agent will cancel the stream and SDP will have to re-subscribe.
+    // In case of any server side error, cilium agent will send an error response and SDP will have to re-subscribe.
+    rpc StreamPolicyState(stream PolicyStateResponse) returns (stream PolicyState) {}
+
+    // UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in
+    // turn update L3/L4 policy maps. In case of any error, SDP will either retry the connection if the error is server
+    // side or will error out. Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg)
+    // from the DNS server it follows the same behavior as the inbuilt dns proxy in cilium.
+    rpc UpdateMappingRequest(FQDNMapping) returns (UpdateMappingResponse) {}
 }
 
 // Response code returned by RPC methods.
@@ -32,25 +32,25 @@ enum ResponseCode {
     RESPONSE_CODE_FORMAT_ERROR = 2;
     RESPONSE_CODE_SERVER_FAILURE = 3;
     RESPONSE_CODE_NOT_IMPLEMENTED = 4;
-    RESPONSE_CODE_ERROR_INVALID_ARGUMENT = 6; // Invalid argument passed to the RPC method
+    RESPONSE_CODE_ERROR_INVALID_ARGUMENT = 6;   // Invalid argument passed to the RPC method
     RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND = 5; // Endpoint not found for the given IP
     RESPONSE_CODE_REFUSED = 7;
 }
 
 // Ack sent from SDP to Agent on processing DNS policy rules
-message PolicyStateResponse  {
+message PolicyStateResponse {
     ResponseCode response = 1;
     string request_id = 2; // Request ID for which response is sent to
 }
 
-// FQDN-IP mapping goalstate sent from SDP to agent 
+// FQDN-IP mapping goalstate sent from SDP to agent
 message FQDNMapping {
-    string fqdn = 1; // dns name
+    string fqdn = 1;              // dns name
     repeated bytes record_ip = 2; // List of IPs corresponding to dns name
-    uint32 ttl = 3;  // TTL of DNS record
-    uint32 source_identity = 4; // Identity of the client making the DNS request
-    bytes source_ip = 5; // IP address of the client making the DNS request
-    uint32 response_code = 6; // DNS Response code as specified in RFC2316
+    uint32 ttl = 3;               // TTL of DNS record
+    uint32 source_identity = 4;   // Identity of the client making the DNS request
+    bytes source_ip = 5;          // IP address of the client making the DNS request
+    uint32 response_code = 6;     // DNS Response code as specified in RFC2316
     MetricsData metrics_data = 7; // Metrics and access logging data collected by the standalone DNS proxy.
 }
 
@@ -76,14 +76,14 @@ enum ProxyErrorType {
 // needs to emit proxy metrics and access log records for DNS events
 // originating from the standalone DNS proxy.
 message MetricsData {
-    ProcessingStats processing_stats = 1; // Proxy request processing timing statistics
+    ProcessingStats processing_stats = 1;  // Proxy request processing timing statistics
     DNSResponseData dns_response_data = 2; // DNS response metadata extracted from the DNS message
-    uint32 source_port = 3; // Source port of the endpoint making the DNS request
-    string server_addr = 4; // IP:port of the destination DNS server as "ip:port" string (e.g., "8.8.8.8:53")
-    uint32 server_identity = 5; // Security identity of the destination DNS server
-    string protocol = 6; // L4 protocol used for the DNS request (e.g., "udp", "tcp")
-    bool allowed = 7; // Whether the DNS request was allowed by policy
-    string error_message = 8; // Error message if the DNS request encountered an error (empty if no error)
+    uint32 source_port = 3;                // Source port of the endpoint making the DNS request
+    string server_addr = 4;        // IP:port of the destination DNS server as "ip:port" string (e.g., "8.8.8.8:53")
+    uint32 server_identity = 5;    // Security identity of the destination DNS server
+    string protocol = 6;           // L4 protocol used for the DNS request (e.g., "udp", "tcp")
+    bool allowed = 7;              // Whether the DNS request was allowed by policy
+    string error_message = 8;      // Error message if the DNS request encountered an error (empty if no error)
     ProxyErrorType error_type = 9; // Structured error classification for metrics without relying on string matching.
 }
 
@@ -103,9 +103,9 @@ message ProcessingStats {
 // DNSResponseData holds the DNS message details extracted from the response
 // that are needed for access logging on the agent side.
 message DNSResponseData {
-    bool is_response = 1; // Whether this is a DNS response (true) or request (false)
-    repeated string cnames = 2; // CNAME records from the DNS response
-    repeated uint32 qtypes = 3; // DNS question types
+    bool is_response = 1;             // Whether this is a DNS response (true) or request (false)
+    repeated string cnames = 2;       // CNAME records from the DNS response
+    repeated uint32 qtypes = 3;       // DNS question types
     repeated uint32 answer_types = 4; // DNS answer record types
 }
 
@@ -116,25 +116,28 @@ message UpdateMappingResponse {
 
 // DNServer identity, port and protocol the requests be allowed to
 message DNSServer {
-    uint32 dns_server_identity = 1;  // Identity of destination DNS server
+    uint32 dns_server_identity = 1; // Identity of destination DNS server
     uint32 dns_server_port = 2;
     uint32 dns_server_proto = 3;
 }
 
 // L7 DNS policy specifying which requests are permitted to which DNS server
 message DNSPolicy {
-    uint32 source_endpoint_id = 1;  // Endpoint ID of the workload this L7 DNS policy should apply to
-    repeated string dns_pattern = 2;  // Allowed DNS pattern this identity is allowed to resolve.
+    uint32 source_endpoint_id = 1;      // Endpoint ID of the workload this L7 DNS policy should apply to
+    repeated string dns_pattern = 2;    // Allowed DNS pattern this identity is allowed to resolve.
     repeated DNSServer dns_servers = 3; // List of DNS servers to be allowed to connect.
 }
 
-// L7 DNS policy snapshot of all local endpoints and identity to ip mapping of source 
+// L7 DNS policy snapshot of all local endpoints and identity to ip mapping of source
 // and destinatione egress endpoints enforcing fqdn rules.
 message PolicyState {
     repeated DNSPolicy egress_l7_dns_policy = 1;
-    string request_id = 2; // Random UUID based identifier which will be referenced in ACKs
-    repeated IdentityToEndpointMapping identity_to_endpoint_mapping = 3; // Identity to Endpoint mapping for the DNS server and the source identity
-    repeated IdentityToPrefixMapping identity_to_prefix_mapping = 4; // Identity to Prefix mapping for the identity
+    // Random UUID based identifier which will be referenced in ACKs
+    string request_id = 2;
+    // Identity to Endpoint mapping for the DNS server and the source identity
+    repeated IdentityToEndpointMapping identity_to_endpoint_mapping = 3;
+    // Identity to Prefix mapping for the identity
+    repeated IdentityToPrefixMapping identity_to_prefix_mapping = 4;
 }
 
 // Cilium Identity ID to IP address mapping

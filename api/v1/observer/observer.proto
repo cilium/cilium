@@ -138,7 +138,7 @@ message GetFlowsRequest {
 
 // GetFlowsResponse contains either a flow or a protocol message.
 message GetFlowsResponse {
-    oneof response_types{
+    oneof response_types {
         flow.Flow flow = 1;
         // node_status informs clients about the state of the nodes
         // participating in this particular GetFlows request.
@@ -274,14 +274,14 @@ message GetNamespacesResponse {
 }
 
 message Namespace {
-  string cluster = 1;
-  string namespace = 2;
+    string cluster = 1;
+    string namespace = 2;
 }
 
 // ExportEvent contains an event to be exported. Not to be used outside of the
 // exporter feature.
 message ExportEvent {
-    oneof response_types{
+    oneof response_types {
         flow.Flow flow = 1;
         // node_status informs clients about the state of the nodes
         // participating in this particular GetFlows request.

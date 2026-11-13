@@ -65,8 +65,7 @@ message AttachmentContext {
     }
 
     // attachment context for bpf_sock (connect4,bind4,...)
-    message Socket {
-    }
+    message Socket {}
 
     // attachment context for bpf_wireguard (cilium_wg)
     message Wireguard {
@@ -223,5 +222,4 @@ message InstrumentCollectionRequest {
     string cookie = 6;
 }
 
-message InstrumentCollectionResponse {
-}
+message InstrumentCollectionResponse {}
