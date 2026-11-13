@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -45,6 +46,7 @@ type mapSweeperParams struct {
 	LBConfig                loadbalancer.Config
 	KPRConfig               kpr.KPRConfig
 	DisabledMapsHooks       []DisabledMapsHook `group:"disabled-maps-hooks"`
+	PolicyMapFactory        policymap.Factory
 }
 
 func registerMapSweeper(params mapSweeperParams) {
@@ -55,7 +57,8 @@ func registerMapSweeper(params mapSweeperParams) {
 			EndpointManager: params.EndpointManager,
 		},
 		params.LBConfig,
-		params.KPRConfig)
+		params.KPRConfig,
+		params.PolicyMapFactory)
 	ms.disabledMapsHooks = params.DisabledMapsHooks
 
 	params.JobGroup.Add(job.OneShot("cleanup", func(ctx context.Context, health cell.Health) error {
