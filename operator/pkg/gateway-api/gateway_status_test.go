@@ -10,8 +10,11 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/hive/hivetest"
 )
 
 func TestValidateTLSFrontend(t *testing.T) {
@@ -202,6 +205,155 @@ func Test_listenerProgrammedCondition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := listenerProgrammedCondition(tt.args.generation, tt.args.ready, tt.args.reason, tt.args.msg)
 			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "listenerProgrammedCondition() = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+func TestGatewayStatusManager_validateStaticAddresses(t *testing.T) {
+	namedAddressType := gatewayv1.NamedAddressType
+	ipAddressType := gatewayv1.IPAddressType
+
+	tests := []struct {
+		name               string
+		addresses          []gatewayv1.GatewaySpecAddress
+		expectedValid      bool
+		expectedAccepted   *metav1.Condition
+		expectedProgrammed *metav1.Condition
+	}{
+		{
+			name:          "no static addresses",
+			addresses:     nil,
+			expectedValid: true,
+		},
+		{
+			name: "valid IPv4 address",
+			addresses: []gatewayv1.GatewaySpecAddress{
+				{
+					Type:  &ipAddressType,
+					Value: "192.0.2.1",
+				},
+			},
+			expectedValid: true,
+		},
+		{
+			name: "valid IPv6 address",
+			addresses: []gatewayv1.GatewaySpecAddress{
+				{
+					Type:  &ipAddressType,
+					Value: "2001:db8::1",
+				},
+			},
+			expectedValid: true,
+		},
+		{
+			name: "valid address with nil type defaults to IPAddress",
+			addresses: []gatewayv1.GatewaySpecAddress{
+				{
+					Type:  nil,
+					Value: "192.0.2.2",
+				},
+			},
+			expectedValid: true,
+		},
+		{
+			name: "unsupported address type",
+			addresses: []gatewayv1.GatewaySpecAddress{
+				{
+					Type:  &namedAddressType,
+					Value: "my-named-address",
+				},
+			},
+			expectedValid: false,
+			expectedAccepted: &metav1.Condition{
+				Type:    string(gatewayv1.GatewayConditionAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayReasonUnsupportedAddress),
+				Message: "Unsupported Gateway address, address type is not supported",
+			},
+			expectedProgrammed: &metav1.Condition{
+				Type:    string(gatewayv1.GatewayConditionProgrammed),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayReasonInvalid),
+				Message: "Address is not ready",
+			},
+		},
+		{
+			name: "empty address value",
+			addresses: []gatewayv1.GatewaySpecAddress{
+				{
+					Type:  &ipAddressType,
+					Value: "",
+				},
+			},
+			expectedValid: false,
+			expectedAccepted: &metav1.Condition{
+				Type:    string(gatewayv1.GatewayConditionAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayReasonUnsupportedAddress),
+				Message: "Unsupported Gateway address, address value is not set",
+			},
+			expectedProgrammed: &metav1.Condition{
+				Type:    string(gatewayv1.GatewayConditionProgrammed),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayReasonInvalid),
+				Message: "Address is not ready",
+			},
+		},
+		{
+			name: "invalid ip address string",
+			addresses: []gatewayv1.GatewaySpecAddress{
+				{
+					Type:  &ipAddressType,
+					Value: "invalid-ip-999.999.999.999",
+				},
+			},
+			expectedValid: false,
+			expectedAccepted: &metav1.Condition{
+				Type:    string(gatewayv1.GatewayConditionAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayReasonUnsupportedAddress),
+				Message: "Unsupported Gateway address, invalid ip address",
+			},
+			expectedProgrammed: &metav1.Condition{
+				Type:    string(gatewayv1.GatewayConditionProgrammed),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayReasonInvalid),
+				Message: "Address is not ready",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewGatewayStatusManager(nil, hivetest.Logger(t))
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gw",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					Addresses: tt.addresses,
+				},
+			}
+
+			valid := m.validateStaticAddresses(gw)
+			assert.Equal(t, tt.expectedValid, valid)
+
+			if tt.expectedAccepted != nil {
+				cond := meta.FindStatusCondition(gw.Status.Conditions, tt.expectedAccepted.Type)
+				require.NotNil(t, cond)
+				assert.Equal(t, tt.expectedAccepted.Status, cond.Status)
+				assert.Equal(t, tt.expectedAccepted.Reason, cond.Reason)
+				assert.Equal(t, tt.expectedAccepted.Message, cond.Message)
+			}
+
+			if tt.expectedProgrammed != nil {
+				cond := meta.FindStatusCondition(gw.Status.Conditions, tt.expectedProgrammed.Type)
+				require.NotNil(t, cond)
+				assert.Equal(t, tt.expectedProgrammed.Status, cond.Status)
+				assert.Equal(t, tt.expectedProgrammed.Reason, cond.Reason)
+				assert.Equal(t, tt.expectedProgrammed.Message, cond.Message)
+			}
 		})
 	}
 }

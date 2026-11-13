@@ -72,17 +72,17 @@ func (m *GatewayStatusManager) validateStaticAddresses(gw *gatewayv1.Gateway) bo
 	for _, address := range gw.Spec.Addresses {
 		if address.Type != nil && *address.Type != gatewayv1.IPAddressType {
 			setGatewayAccepted(gw, false, "Unsupported Gateway address, address type is not supported", gatewayv1.GatewayReasonUnsupportedAddress)
-			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonInvalid)
 			return false
 		}
 		if address.Value == "" {
 			setGatewayAccepted(gw, false, "Unsupported Gateway address, address value is not set", gatewayv1.GatewayReasonUnsupportedAddress)
-			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonInvalid)
 			return false
 		}
 		if _, err := netip.ParseAddr(address.Value); err != nil {
 			setGatewayAccepted(gw, false, "Unsupported Gateway address, invalid ip address", gatewayv1.GatewayReasonUnsupportedAddress)
-			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonInvalid)
 			return false
 		}
 	}
