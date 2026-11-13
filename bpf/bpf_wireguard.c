@@ -41,7 +41,6 @@
 #include "lib/nodeport_egress.h"
 #include "lib/local_delivery.h"
 
-#ifdef ENABLE_IPV6
 /* See the equivalent v4 path for comments */
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err)
@@ -118,7 +117,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 					METRIC_INGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err)
@@ -246,13 +244,13 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 __section_entry
 int cil_from_wireguard(struct __ctx_buff *ctx)
 {
-	void __maybe_unused *data, *data_end;
-	struct ipv6hdr __maybe_unused *ip6;
-	struct iphdr __maybe_unused *ip4;
-	int __maybe_unused ret;
-	const struct remote_endpoint_info __maybe_unused *info;
-	__u32 __maybe_unused identity = UNKNOWN_ID;
-	__s8 __maybe_unused ext_err = 0;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct iphdr *ip4;
+	int ret;
+	const struct remote_endpoint_info *info;
+	__u32 identity = UNKNOWN_ID;
+	__s8 ext_err = 0;
 	__be16 proto = ctx_get_protocol(ctx);
 
 	ctx_skip_nodeport_clear(ctx);
@@ -284,8 +282,10 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			break;
+
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID, METRIC_INGRESS);
 
@@ -302,7 +302,6 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		/* See the equivalent v4 path for comments */
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
-#endif
 
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4))

@@ -48,7 +48,6 @@
 #include "lib/arp.h"
 #include "lib/encap.h"
 
-#ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
@@ -174,7 +173,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 						  METRIC_INGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
@@ -538,13 +536,14 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	}
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			break;
+
 		ret = resolve_srcid_from_tunnel(ctx, proto, &src_sec_identity);
 		if (IS_ERR(ret))
 			goto out;
 		break;
-#endif
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4))
 			break;
@@ -563,11 +562,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-#ifdef ENABLE_IPV6
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY, &ext_err);
-#else
-		ret = DROP_UNKNOWN_L3;
-#endif
+		if (is_defined(ENABLE_IPV6))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY, &ext_err);
+		else
+			ret = DROP_UNKNOWN_L3;
 		break;
 
 	case bpf_htons(ETH_P_IP):
