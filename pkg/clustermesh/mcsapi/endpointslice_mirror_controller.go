@@ -393,7 +393,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
 	if !maps.Equal(derivedEpSlice.Labels, desiredDerivedEndpointSlice.Labels) {
 		return true
 	}
-	if len(derivedEpSlice.OwnerReferences) != 1 &&
+	if len(derivedEpSlice.OwnerReferences) != 1 ||
 		derivedEpSlice.OwnerReferences[0].UID != derivedService.UID {
 		return true
 	}
