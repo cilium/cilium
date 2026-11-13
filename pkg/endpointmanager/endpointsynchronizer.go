@@ -301,6 +301,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 						scopedLog.Debug("storing CEP UID after create", logfields.CEPUID, localCEP.UID)
 						e.SetCiliumEndpointUID(localCEP.UID)
+						// Persist the new UID to ep_config.json so it survives
+						// an agent restart.
+						e.SyncEndpointHeaderFile()
 
 						// continue the execution so we update the endpoint
 						// status immediately upon endpoint creation
