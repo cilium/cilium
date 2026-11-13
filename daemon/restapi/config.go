@@ -34,6 +34,7 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -84,6 +85,7 @@ type configModifyApiHandlerParams struct {
 	BandwidthConfig bandwidth.Config
 	WgConfig        wgTypes.Config
 	ConnectorConfig connector.Config
+	LBConfig        loadbalancer.Config
 	LocalNodeStore  *node.LocalNodeStore
 	NetworkDriver   networkdriverConfig.Config
 
@@ -113,6 +115,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			bandwidthConfig: params.BandwidthConfig,
 			wgConfig:        params.WgConfig,
 			connectorConfig: params.ConnectorConfig,
+			lbConfig:        params.LBConfig,
 			localNodeStore:  params.LocalNodeStore,
 			networkDriver:   params.NetworkDriver.Enabled,
 		},
@@ -373,6 +376,7 @@ type getConfigHandler struct {
 	bandwidthConfig bandwidth.Config
 	wgConfig        wgTypes.Config
 	connectorConfig connector.Config
+	lbConfig        loadbalancer.Config
 	localNodeStore  *node.LocalNodeStore
 	networkDriver   bool
 }
@@ -397,10 +401,12 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		}
 	}
 
-	// Manually add fields that are behind accessors.
+	// Manually add fields from accessors and other configuration cells.
 	devs, _ := datapathTables.SelectedDevices(h.devices, h.db.ReadTxn())
 	m["Devices"] = datapathTables.DeviceNames(devs)
 	m["EnableNetworkDriver"] = h.networkDriver
+	m["NodePortMin"] = h.lbConfig.NodePortMin
+	m["NodePortMax"] = h.lbConfig.NodePortMax
 
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),

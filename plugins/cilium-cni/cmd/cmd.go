@@ -614,6 +614,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	if err != nil {
 		return err
 	}
+	if err := validateHostPortNodePortOverlap(n.RuntimeConfig.PortMappings, conf.DaemonConfigurationMap); err != nil {
+		return err
+	}
 
 	for _, hook := range cmd.onConfigReady {
 		if err := hook.OnConfigReady(args, cniArgs, conf); err != nil {
