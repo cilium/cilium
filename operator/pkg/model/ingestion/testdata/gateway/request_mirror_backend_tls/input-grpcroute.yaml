@@ -1,0 +1,61 @@
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: GRPCRoute
+  metadata:
+    name: mirror-route
+    namespace: default
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - matches:
+          - method:
+              service: mirror.Test
+              method: ValidAll
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-valid-all
+                port: 8443
+      - matches:
+          - method:
+              service: mirror.Test
+              method: ValidPort
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-valid-port
+                port: 8443
+      - matches:
+          - method:
+              service: mirror.Test
+              method: InvalidAll
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-invalid-all
+                port: 8443
+      - matches:
+          - method:
+              service: mirror.Test
+              method: InvalidPort
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-invalid-port
+                port: 8443

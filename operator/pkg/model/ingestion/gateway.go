@@ -445,10 +445,15 @@ func extractRoutes(logger *slog.Logger,
 					continue
 				}
 
-				backend, _, ok := resolveBackendRef(hr.GetNamespace(), gatewayv1.BackendRef{BackendObjectReference: f.RequestMirror.BackendRef}, gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), services, serviceImports, grants)
-				if ok {
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(backend, f.RequestMirror))
+				backend, svc, ok := resolveBackendRef(hr.GetNamespace(), gatewayv1.BackendRef{BackendObjectReference: f.RequestMirror.BackendRef}, gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), services, serviceImports, grants)
+				if !ok {
+					continue
 				}
+				backend, include := addBackendTLSDetails(logger, backend, svc, btlspMap)
+				if !include {
+					continue
+				}
+				requestMirrors = append(requestMirrors, toHTTPRequestMirror(backend, f.RequestMirror))
 			case gatewayv1.HTTPRouteFilterExternalAuth:
 				if f.ExternalAuth == nil {
 					continue
@@ -809,10 +814,15 @@ func extractGRPCRoutes(log *slog.Logger, hostnames []string, grpcr gatewayv1.GRP
 					continue
 				}
 
-				backend, _, ok := resolveBackendRef(grpcr.GetNamespace(), gatewayv1.BackendRef{BackendObjectReference: f.RequestMirror.BackendRef}, gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute"), services, serviceImports, grants)
-				if ok {
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(backend, f.RequestMirror))
+				backend, svc, ok := resolveBackendRef(grpcr.GetNamespace(), gatewayv1.BackendRef{BackendObjectReference: f.RequestMirror.BackendRef}, gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute"), services, serviceImports, grants)
+				if !ok {
+					continue
 				}
+				backend, include := addBackendTLSDetails(log, backend, svc, btlspMap)
+				if !include {
+					continue
+				}
+				requestMirrors = append(requestMirrors, toHTTPRequestMirror(backend, f.RequestMirror))
 			}
 		}
 

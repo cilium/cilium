@@ -125,6 +125,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"http route ordering":                                             {},
 		"http skips backends missing port":                                {},
 		"multiple parentRefs":                                             {},
+		"request mirror backend tls":                                      {},
 	}
 
 	for name := range tests {

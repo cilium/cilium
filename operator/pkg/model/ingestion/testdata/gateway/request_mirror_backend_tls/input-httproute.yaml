@@ -1,0 +1,61 @@
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: mirror-route
+    namespace: default
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - matches:
+          - path:
+              type: Exact
+              value: /valid-all
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-valid-all
+                port: 8443
+      - matches:
+          - path:
+              type: Exact
+              value: /valid-port
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-valid-port
+                port: 8443
+      - matches:
+          - path:
+              type: Exact
+              value: /invalid-all
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-invalid-all
+                port: 8443
+      - matches:
+          - path:
+              type: Exact
+              value: /invalid-port
+        backendRefs:
+          - name: backend
+            port: 8080
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: mirror-invalid-port
+                port: 8443
