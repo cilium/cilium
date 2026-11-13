@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -39,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -133,16 +133,20 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 		return nil
 	case <-podsInitialized:
 	}
-	txn := p.Writer.WriteTxn()
-	initComplete(txn)
-	txn.Commit()
+
+	wtxn := p.DB.WriteTxn(p.Pods)
+	podChanges, err := p.Pods.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return err
+	}
 
 	health.OK("Running")
 
 	rh := newReflectorHealth(health, p.Log)
 
-	processBuffer := func(txn writer.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[k8sTables.LocalPod]]) {
-		for _, change := range buf {
+	processChanges := func(txn writer.WriteTxn, changes iter.Seq2[statedb.Change[k8sTables.LocalPod], statedb.Revision]) {
+		for change := range changes {
 			obj := change.Object.Pod
 
 			podName := obj.Namespace + "/" + obj.Name
@@ -178,32 +182,30 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 		}
 	}
 
-	podChanges := stream.ToChannel(
-		ctx,
-		stream.Buffer(
-			statedb.Observable(p.DB, p.Pods),
-			reflectorBufferSize,
-			p.waitTime(),
+	limiter := rate.NewLimiter(p.waitTime(), 1)
+	defer limiter.Stop()
 
-			func(buf *container.InsertOrderedMap[types.NamespacedName, statedb.Change[k8sTables.LocalPod]], change statedb.Change[k8sTables.LocalPod]) *container.InsertOrderedMap[types.NamespacedName, statedb.Change[k8sTables.LocalPod]] {
-				if buf == nil {
-					buf = container.NewInsertOrderedMap[types.NamespacedName, statedb.Change[k8sTables.LocalPod]]()
-				}
-				pod := change.Object
-				buf.Insert(types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, change)
-				return buf
-			},
-		),
-	)
-
-	for buf := range podChanges {
+	for {
 		txn := p.Writer.WriteTxn()
-		processBuffer(txn, buf.All())
+		changes, watch := podChanges.Next(txn)
+		processChanges(txn, changes)
+
+		// Mark the tables initialized (only on first round) together with the HostPort
+		// frontends of the existing pods. Otherwise the restored HostPort entries would
+		// be pruned from the BPF maps and recreated with new IDs, breaking connections.
+		initComplete(txn)
 		txn.Commit()
 		rh.report()
-	}
 
-	return nil
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
+		}
+		if err := limiter.Wait(ctx); err != nil {
+			return nil
+		}
+	}
 }
 
 func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(writer.WriteTxn)) error {
