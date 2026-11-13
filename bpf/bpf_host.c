@@ -1865,8 +1865,8 @@ int cil_to_host(struct __ctx_buff *ctx)
 		 * exists which will mark the packet with 0x200 and trigger a local
 		 * delivery as part of L7 Proxy TPROXY mechanism.
 		 *
-		 * This iptables rule, created by
-		 * iptables.Manager.inboundProxyRedirectRule() is ignored by the mark
+		 * These iptables rules, created by
+		 * iptables.Manager.inboundProxyRedirectRules(), are ignored by the mark
 		 * MARK_MAGIC_SKIP_TPROXY, in the control plane.
 		 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
 		 * this mark breaks further processing as its used in the XFRM subsystem.
