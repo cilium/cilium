@@ -108,6 +108,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 				t.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchIPIP
 			}
 		}),
+		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableSharedPolicy = v }),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFLXC, v bool) { setDebugOptions(&t.Node, v) }),
 	)
@@ -164,6 +165,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchIPIP
 			}
 		}),
+		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableSharedPolicy = v }),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { setDebugOptions(&t.Node, v) }),
 	)
 	return b
