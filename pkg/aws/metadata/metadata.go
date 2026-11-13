@@ -6,6 +6,9 @@ package metadata
 import (
 	"context"
 	"fmt"
+	"net/netip"
+	"slices"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -100,4 +103,57 @@ func (m *metadataClient) GetInstanceMetadata(ctx context.Context) (MetaDataInfo,
 		VPCID:            vpcID,
 		SubnetID:         subnetID,
 	}, nil
+}
+
+// GetVPCIPv4CIDRs returns the IPv4 CIDRs associated with the VPC the instance
+// belongs to, as reported by the IMDS.
+//
+// The returned slice has the VPC's primary CIDR as its first element, followed
+// by the secondary CIDR associations sorted in a deterministic order.
+func (m *metadataClient) GetVPCIPv4CIDRs(ctx context.Context) ([]netip.Prefix, error) {
+	mac, err := getMetadata(ctx, m.client, "mac")
+	if err != nil {
+		return nil, err
+	}
+
+	primaryRaw, err := getMetadata(ctx, m.client, fmt.Sprintf("network/interfaces/macs/%s/vpc-ipv4-cidr-block", mac))
+	if err != nil {
+		return nil, err
+	}
+
+	allRaw, err := getMetadata(ctx, m.client, fmt.Sprintf("network/interfaces/macs/%s/vpc-ipv4-cidr-blocks", mac))
+	if err != nil {
+		return nil, err
+	}
+
+	return parseVPCIPv4CIDRs(primaryRaw, allRaw)
+}
+
+// parseVPCIPv4CIDRs turns the raw vpc-ipv4-cidr-block and vpc-ipv4-cidr-blocks
+// IMDS responses into the ordered prefix list documented on GetVPCIPv4CIDRs.
+func parseVPCIPv4CIDRs(primaryRaw, allRaw string) ([]netip.Prefix, error) {
+	primary, err := netip.ParsePrefix(strings.TrimSpace(primaryRaw))
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse VPC primary IPv4 CIDR %q: %w", primaryRaw, err)
+	}
+	primary = primary.Masked()
+
+	// The response is newline-separated and includes the primary CIDR. It is
+	// dropped here to be prepended after the secondary CIDRs have been sorted.
+	fields := strings.Fields(allRaw)
+	secondary := make([]netip.Prefix, 0, len(fields))
+	for _, field := range fields {
+		prefix, err := netip.ParsePrefix(field)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse VPC IPv4 CIDR %q: %w", field, err)
+		}
+		if prefix := prefix.Masked(); prefix != primary {
+			secondary = append(secondary, prefix)
+		}
+	}
+
+	// Ensure secondary CIDRs are sorted for determinism
+	slices.SortFunc(secondary, netip.Prefix.Compare)
+
+	return append([]netip.Prefix{primary}, secondary...), nil
 }

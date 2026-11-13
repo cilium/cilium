@@ -75,14 +75,6 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 		if !eni.Subnet.CIDR.IsValid() {
 			return fmt.Errorf("subnet CIDR not set for ENI %s", eni.ID)
 		}
-		if !eni.VPC.PrimaryCIDR.IsValid() {
-			return fmt.Errorf("VPC Primary CIDR not set for ENI %s", eni.ID)
-		}
-		for _, c := range eni.VPC.CIDRs {
-			if !c.IsValid() {
-				return fmt.Errorf("VPC CIDR not set for ENI %s", eni.ID)
-			}
-		}
 	}
 
 	// Check if all pool resource IPs are present in the status

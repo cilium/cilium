@@ -162,6 +162,8 @@ type ENI struct {
 
 	// VPC is the VPC information to which the ENI is attached to
 	//
+	// Deprecated: the agent reads the VPC of the node from its IMDS
+	//
 	// +optional
 	VPC AwsVPC `json:"vpc,omitzero"`
 
@@ -265,16 +267,28 @@ type AwsSubnet struct {
 }
 
 // AwsVPC stores information regarding an AWS VPC
+//
+// Deprecated: every field is write-only. The VPC ID is already carried by
+// ENISpec.VpcID, and the agent reads the VPC CIDRs from the EC2 instance
+// metadata service.
 type AwsVPC struct {
-	/// ID is the ID of a VPC
+	// ID is the ID of a VPC
+	//
+	// Deprecated: use ENISpec.VpcID, which the agent populates from IMDS.
 	ID string `json:"id,omitempty"`
 
 	// PrimaryCIDR is the primary CIDR of the VPC
+	//
+	// Deprecated: the agent reads the VPC CIDRs from IMDS
+	// (network/interfaces/macs/<mac>/vpc-ipv4-cidr-block).
 	//
 	// +optional
 	PrimaryCIDR iputil.Prefix `json:"primary-cidr,omitzero"`
 
 	// CIDRs is the list of CIDR ranges associated with the VPC
+	//
+	// Deprecated: the agent reads the VPC CIDRs from IMDS
+	// (network/interfaces/macs/<mac>/vpc-ipv4-cidr-blocks).
 	//
 	// +optional
 	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
