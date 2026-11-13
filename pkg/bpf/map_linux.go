@@ -644,6 +644,8 @@ func (m *Map) openOrCreate(pin bool) error {
 
 	if pin {
 		m.spec.Pinning = ebpf.PinByName
+	} else {
+		m.spec.Pinning = ebpf.PinNone
 	}
 
 	em, err := OpenOrCreateMap(m.Logger, m.spec, path.Dir(m.path))
