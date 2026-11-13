@@ -4,6 +4,10 @@
 package api
 
 import (
+	"errors"
+	"fmt"
+	"iter"
+
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -159,6 +163,68 @@ func (r *Rule) DeepEqual(o *Rule) bool {
 		return true
 	}
 	return r.deepEqual(o)
+}
+
+// TLSContexts returns an iterator over each non-nil terminating and originating TLS
+// context in the allow rules of r.
+func (r *Rule) TLSContexts() iter.Seq[*TLSContext] {
+	return func(yield func(*TLSContext) bool) {
+		visit := func(portRules PortRules) bool {
+			for i := range portRules {
+				for _, tls := range []*TLSContext{portRules[i].TerminatingTLS, portRules[i].OriginatingTLS} {
+					if tls != nil && !yield(tls) {
+						return false
+					}
+				}
+			}
+			return true
+		}
+		for i := range r.Ingress {
+			if !visit(r.Ingress[i].ToPorts) {
+				return
+			}
+		}
+		for i := range r.Egress {
+			if !visit(r.Egress[i].ToPorts) {
+				return
+			}
+		}
+	}
+}
+
+// ValidateTrustBundleNamespace ensures that a TLS context with a trust bundle only
+// references a Secret from the given policy namespace. With a trust bundle, the Secret
+// holds the certificate and private key used as the proxy's identity, which must not be
+// borrowed from namespaces the policy author may have no access to. The namespace of the
+// trust bundle itself must be set.
+func (r *Rule) ValidateTrustBundleNamespace(namespace string) error {
+	for tls := range r.TLSContexts() {
+		if tls.TrustBundle == nil {
+			continue
+		}
+		if tls.TrustBundle.Namespace == "" {
+			return fmt.Errorf("trustBundle %s must have a namespace", tls.TrustBundle.Name)
+		}
+		if tls.Secret == nil {
+			continue
+		}
+		if tls.Secret.Namespace != "" && tls.Secret.Namespace != namespace {
+			return fmt.Errorf("TLS secret %s/%s must be in the policy namespace %s when trustBundle is set",
+				tls.Secret.Namespace, tls.Secret.Name, namespace)
+		}
+	}
+	return nil
+}
+
+// ValidateNoTrustBundle rejects trust bundles in cluster-scoped policies, as there is no
+// policy namespace to restrict the referenced Secrets to.
+func (r *Rule) ValidateNoTrustBundle() error {
+	for tls := range r.TLSContexts() {
+		if tls.TrustBundle != nil {
+			return errors.New("trustBundle is not supported in cluster-scoped policies")
+		}
+	}
+	return nil
 }
 
 // NewRule builds a new rule with no selector and no policy.

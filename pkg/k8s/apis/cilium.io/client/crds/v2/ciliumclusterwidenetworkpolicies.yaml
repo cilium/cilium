@@ -725,6 +725,35 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references a Secret containing the trusted CA certificates
+                                  in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                  the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+
+                                  In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                  policy when TrustBundle is set. TrustBundle is not supported in
+                                  CiliumClusterwideNetworkPolicy.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace is the namespace in which the secret exists. Context of use
+                                      determines the default value if left out (e.g., "default").
+                                    type: string
+                                required:
+                                - name
+                                type: object
                               trustedCA:
                                 description: |-
                                   TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -1015,6 +1044,35 @@ spec:
                                    - 'tls.crt' - Which represents the public key certificate.
                                    - 'tls.key' - Which represents the private key matching the public key
                                                  certificate.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace is the namespace in which the secret exists. Context of use
+                                      determines the default value if left out (e.g., "default").
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references a Secret containing the trusted CA certificates
+                                  in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                  the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+
+                                  In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                  policy when TrustBundle is set. TrustBundle is not supported in
+                                  CiliumClusterwideNetworkPolicy.
                                 properties:
                                   name:
                                     description: Name is the name of the secret.
@@ -2445,6 +2503,35 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references a Secret containing the trusted CA certificates
+                                  in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                  the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+
+                                  In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                  policy when TrustBundle is set. TrustBundle is not supported in
+                                  CiliumClusterwideNetworkPolicy.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace is the namespace in which the secret exists. Context of use
+                                      determines the default value if left out (e.g., "default").
+                                    type: string
+                                required:
+                                - name
+                                type: object
                               trustedCA:
                                 description: |-
                                   TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -2735,6 +2822,35 @@ spec:
                                    - 'tls.crt' - Which represents the public key certificate.
                                    - 'tls.key' - Which represents the private key matching the public key
                                                  certificate.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace is the namespace in which the secret exists. Context of use
+                                      determines the default value if left out (e.g., "default").
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references a Secret containing the trusted CA certificates
+                                  in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                  the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+
+                                  In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                  policy when TrustBundle is set. TrustBundle is not supported in
+                                  CiliumClusterwideNetworkPolicy.
                                 properties:
                                   name:
                                     description: Name is the name of the secret.
@@ -4086,6 +4202,35 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references a Secret containing the trusted CA certificates
+                                    in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                    the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+
+                                    In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                    policy when TrustBundle is set. TrustBundle is not supported in
+                                    CiliumClusterwideNetworkPolicy.
+                                  properties:
+                                    name:
+                                      description: Name is the name of the secret.
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace is the namespace in which the secret exists. Context of use
+                                        determines the default value if left out (e.g., "default").
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
                                 trustedCA:
                                   description: |-
                                     TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -4376,6 +4521,35 @@ spec:
                                      - 'tls.crt' - Which represents the public key certificate.
                                      - 'tls.key' - Which represents the private key matching the public key
                                                    certificate.
+                                  properties:
+                                    name:
+                                      description: Name is the name of the secret.
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace is the namespace in which the secret exists. Context of use
+                                        determines the default value if left out (e.g., "default").
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references a Secret containing the trusted CA certificates
+                                    in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                    the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+
+                                    In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                    policy when TrustBundle is set. TrustBundle is not supported in
+                                    CiliumClusterwideNetworkPolicy.
                                   properties:
                                     name:
                                       description: Name is the name of the secret.
@@ -5808,6 +5982,35 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references a Secret containing the trusted CA certificates
+                                    in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                    the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+
+                                    In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                    policy when TrustBundle is set. TrustBundle is not supported in
+                                    CiliumClusterwideNetworkPolicy.
+                                  properties:
+                                    name:
+                                      description: Name is the name of the secret.
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace is the namespace in which the secret exists. Context of use
+                                        determines the default value if left out (e.g., "default").
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
                                 trustedCA:
                                   description: |-
                                     TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -6098,6 +6301,35 @@ spec:
                                      - 'tls.crt' - Which represents the public key certificate.
                                      - 'tls.key' - Which represents the private key matching the public key
                                                    certificate.
+                                  properties:
+                                    name:
+                                      description: Name is the name of the secret.
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace is the namespace in which the secret exists. Context of use
+                                        determines the default value if left out (e.g., "default").
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references a Secret containing the trusted CA certificates
+                                    in the 'ca.crt' item. Its namespace must be set. It must not refer to
+                                    the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+
+                                    In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+                                    policy when TrustBundle is set. TrustBundle is not supported in
+                                    CiliumClusterwideNetworkPolicy.
                                   properties:
                                     name:
                                       description: Name is the name of the secret.

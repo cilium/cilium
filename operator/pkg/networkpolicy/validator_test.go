@@ -254,3 +254,89 @@ func TestCCNPNodeSelectorStillValid(t *testing.T) {
 	assert.Equal(t, corev1.ConditionTrue, status)
 	assert.Equal(t, "Policy validation succeeded", msg)
 }
+
+func TestValidateTLSTrustBundle(t *testing.T) {
+	tlsSpec := func(secretNamespace string) *api.Rule {
+		return &api.Rule{
+			EndpointSelector: api.NewESFromLabels(),
+			Egress: []api.EgressRule{{ToPorts: api.PortRules{{
+				Ports: []api.PortProtocol{{Port: "443", Protocol: api.ProtoTCP}},
+				OriginatingTLS: &api.TLSContext{
+					Secret:      &api.Secret{Namespace: secretNamespace, Name: "identity"},
+					TrustBundle: &api.Secret{Namespace: "shared", Name: "bundle"},
+				},
+			}}}},
+		}
+	}
+	runCCNPValidation := func(t *testing.T, ccnp *cilium_api_v2.CiliumClusterwideNetworkPolicy) []cilium_api_v2.NetworkPolicyCondition {
+		pv := testValidator(t)
+		ccnps := pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies()
+		created, err := ccnps.Create(t.Context(), ccnp, metav1.CreateOptions{})
+		require.NoError(t, err)
+		err = pv.handleCCNPEvent(t.Context(), resource.Event[*cilium_api_v2.CiliumClusterwideNetworkPolicy]{
+			Kind: resource.Upsert, Object: created, Done: func(error) {},
+		})
+		require.NoError(t, err)
+		updated, err := ccnps.Get(t.Context(), ccnp.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		return updated.Status.Conditions
+	}
+
+	for _, tc := range []struct {
+		name       string
+		conditions func(t *testing.T) []cilium_api_v2.NetworkPolicyCondition
+		wantErr    string
+	}{
+		{
+			name: "CNP same namespace",
+			conditions: func(t *testing.T) []cilium_api_v2.NetworkPolicyCondition {
+				return runCNPValidation(t, &cilium_api_v2.CiliumNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-policy", Namespace: "foo"},
+					Spec:       tlsSpec("foo"),
+				})
+			},
+		},
+		{
+			name:    "CNP cross namespace",
+			wantErr: "TLS secret other/identity must be in the policy namespace foo when trustBundle is set",
+			conditions: func(t *testing.T) []cilium_api_v2.NetworkPolicyCondition {
+				return runCNPValidation(t, &cilium_api_v2.CiliumNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-policy", Namespace: "foo"},
+					Specs:      api.Rules{tlsSpec("other")},
+				})
+			},
+		},
+		{
+			name: "CCNP without trust bundle",
+			conditions: func(t *testing.T) []cilium_api_v2.NetworkPolicyCondition {
+				spec := tlsSpec("foo")
+				spec.Egress[0].ToPorts[0].OriginatingTLS.TrustBundle = nil
+				return runCCNPValidation(t, &cilium_api_v2.CiliumClusterwideNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-policy"},
+					Spec:       spec,
+				})
+			},
+		},
+		{
+			name:    "CCNP trust bundle",
+			wantErr: "trustBundle is not supported in cluster-scoped policies",
+			conditions: func(t *testing.T) []cilium_api_v2.NetworkPolicyCondition {
+				return runCCNPValidation(t, &cilium_api_v2.CiliumClusterwideNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-policy"},
+					Specs:      api.Rules{tlsSpec("foo")},
+				})
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status, msg := validCondition(t, tc.conditions(t))
+			if tc.wantErr != "" {
+				assert.Equal(t, corev1.ConditionFalse, status)
+				assert.Contains(t, msg, tc.wantErr)
+			} else {
+				assert.Equal(t, corev1.ConditionTrue, status)
+				assert.Equal(t, "Policy validation succeeded", msg)
+			}
+		})
+	}
+}

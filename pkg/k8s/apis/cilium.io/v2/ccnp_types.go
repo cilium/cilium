@@ -96,10 +96,16 @@ func (r *CiliumClusterwideNetworkPolicy) Validate() error {
 		if err := r.Spec.Validate(); err != nil {
 			return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
 		}
+		if err := r.Spec.ValidateNoTrustBundle(); err != nil {
+			return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
+		}
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
 			if err := rule.Validate(); err != nil {
+				return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
+			}
+			if err := rule.ValidateNoTrustBundle(); err != nil {
 				return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
 			}
 		}

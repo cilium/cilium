@@ -105,11 +105,13 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		errs = errors.Join(errs, newPol.Spec.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, newPol.Spec))
 		errs = errors.Join(errs, validateCNPNodeSelector(newPol.Spec))
+		errs = errors.Join(errs, newPol.Spec.ValidateTrustBundleNamespace(pol.Namespace))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, r))
 		errs = errors.Join(errs, validateCNPNodeSelector(r))
+		errs = errors.Join(errs, r.ValidateTrustBundleNamespace(pol.Namespace))
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
@@ -158,9 +160,11 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	var errs error
 	if newPol.Spec != nil {
 		errs = errors.Join(errs, newPol.Spec.Validate())
+		errs = errors.Join(errs, newPol.Spec.ValidateNoTrustBundle())
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Validate())
+		errs = errors.Join(errs, r.ValidateNoTrustBundle())
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
