@@ -182,7 +182,7 @@ jobs:
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
 
       - name: Run common post steps
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"

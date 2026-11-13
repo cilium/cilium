@@ -202,7 +202,6 @@ jobs:
 
       # A restore-keys match delivers the tarballs just as an exact key match does.
       - name: Move Go cache into the host mount
-        id: deliver-go-cache
         if: ${{ matrix.focus == 'privileged' }}
         shell: bash
         env:
@@ -219,7 +218,6 @@ jobs:
           done
           # The restored tree, so that a key holding the wrong layout names itself.
           [ "${delivered}" = true ] || find "${RUNNER_TEMP}/.cache/go" -maxdepth 3 | head -50
-          echo "delivered=${delivered}" >> "$GITHUB_OUTPUT"
 
       - name: Login to docker registry for CI image pull
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
@@ -274,6 +272,8 @@ jobs:
             apt-get update
             apt-get install zstd -y
             cd /host
+            # The guest does not inherit the runner's environment.
+            export GOPROXY="${{ env.GOPROXY }}"
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
             go install golang.org/dl/go${{ env.go-version }}@latest
@@ -283,11 +283,11 @@ jobs:
             # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
             go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
             # Use go cache and module cache from the host that is shared with the VM.
-            mkdir -p /go-caches
+            mkdir -p /go-caches/go-build /go-caches/pkg
             tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
             tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
             # An unreported extraction failure here silently costs the whole build cache.
-            if [ -z "$(ls -A /go-caches/go-build 2>/dev/null)" ]; then
+            if [ -z "\$(ls -A /go-caches/go-build 2>/dev/null)" ]; then
               echo "::warning::no Go build cache in the VM, every package compiles cold"
             else
               du -sh /go-caches/go-build /go-caches/pkg
@@ -304,11 +304,10 @@ jobs:
             cd /host
             make TMPDIR=/var/tmp GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
 
-      # Gated on what actually reached the guest, not on the cache-hit boolean: a
-      # key whose content lacks the tarballs must still be refreshed.
+      # actions/cache saves the Go cache at the end of the job unless the primary key matched.
       - name: Copy Go cache to host
         id: copy-go-cache
-        if: ${{ steps.deliver-go-cache.outputs.delivered != 'true' && matrix.focus == 'privileged' }}
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
         timeout-minutes: 10
         uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
@@ -319,7 +318,7 @@ jobs:
             tar --use-compress-program=zstd -cpf /host/go-mod-cache.tar.zst -C /go-caches pkg || true
 
       - name: Move Go cache to local directories
-        if: ${{ steps.deliver-go-cache.outputs.delivered != 'true' && matrix.focus == 'privileged' }}
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
         env:
           GOCACHE: "${{ runner.temp }}/.cache/go/.cache/go-build"
           GOMODCACHE: "${{ runner.temp }}/.cache/go/pkg"
