@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+// This file was not reviewed by a human before submission
+
 package ipam
 
 import (
@@ -30,6 +32,23 @@ import (
 )
 
 const waitForPoolInStateDBTimeout = time.Minute
+
+// ErrPoolNotFound indicates that a pool is absent from the local StateDB table.
+type ErrPoolNotFound struct {
+	Pool Pool
+	// Synced reports whether the table's initial synchronization has completed.
+	Synced bool
+}
+
+func (e *ErrPoolNotFound) Error() string {
+	return fmt.Sprintf("IP pool '%s' not found in stateDB table", e.Pool)
+}
+
+func (e *ErrPoolNotFound) Is(target error) bool {
+	// Before initial sync, the pool may still arrive from Kubernetes. After sync,
+	// a missing pool is unexpected and should log a warning.
+	return target == ErrAllocationPending && !e.Synced
+}
 
 var (
 	MultiPoolAccessor = PoolSpecAccessors{
@@ -168,9 +187,11 @@ func shouldSkipMasqForPool(db *statedb.DB, podIPPools statedb.Table[podippool.Lo
 			return true, nil
 		}
 		// Lookup the IP pool from stateDB and check if it has the explicit annotations
-		podIPPool, _, found := podIPPools.Get(db.ReadTxn(), podippool.ByName(string(pool)))
+		txn := db.ReadTxn()
+		podIPPool, _, found := podIPPools.Get(txn, podippool.ByName(string(pool)))
 		if !found {
-			return false, fmt.Errorf("IP pool '%s' not found in stateDB table", string(pool))
+			synced, _ := podIPPools.Initialized(txn)
+			return false, &ErrPoolNotFound{Pool: pool, Synced: synced}
 		}
 		if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
 			return true, nil
