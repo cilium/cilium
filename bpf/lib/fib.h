@@ -159,6 +159,29 @@ fib_lookup_skip_neigh() {
 	return 0;
 }
 
+static __always_inline __u32
+fib_l3_len(const struct __ctx_buff *ctx, int l3_off)
+{
+	__u64 full_len = ctx_full_len(ctx);
+
+	if (unlikely(l3_off < 0 || (__u64)l3_off > full_len))
+		return 0;
+
+	return (__u32)(full_len - (__u64)l3_off);
+}
+
+/* XDP has no skb for bpf_fib_lookup() to validate, so it needs an explicit
+ * L3 length. A zero tot_len for an skb lookup makes the kernel use
+ * is_skb_forwardable(), which validates each GSO segment rather than rejecting
+ * the aggregate skb.
+ */
+static __always_inline void
+fib_params_set_tot_len(const struct __ctx_buff *ctx __maybe_unused,
+		       struct bpf_fib_lookup *params, __u32 wire_len)
+{
+	params->tot_len = ctx_is_xdp() ? (__u16)wire_len : 0;
+}
+
 static __always_inline int
 fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     struct bpf_fib_lookup_padded *fib_params, bool use_neigh_map,
@@ -166,12 +189,16 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 {
 	int ret;
 
+	fib_params_set_tot_len(ctx, &fib_params->l, fib_l3_len(ctx, ETH_HLEN));
 	ret = (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l),
 			      fib_lookup_skip_neigh());
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		break;
+	case BPF_FIB_LKUP_RET_FRAG_NEEDED:
+		*ext_err = (__s8)ret;
+		return DROP_FRAG_NEEDED;
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
@@ -252,11 +279,15 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
 	}
 
+	fib_params_set_tot_len(ctx, &fib_params.l, ipv6_wire_len(ctx, ip6, l3_off));
 	fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, flags);
 	switch (fib_result) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		break;
+	case BPF_FIB_LKUP_RET_FRAG_NEEDED:
+		*ext_err = (__s8)fib_result;
+		return DROP_FRAG_NEEDED;
 	default:
 		*ext_err = (__s8)fib_result;
 		return DROP_NO_FIB;
@@ -332,11 +363,15 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
 	}
 
+	fib_params_set_tot_len(ctx, &fib_params.l, ipv4_wire_len(ctx, ip4, l3_off));
 	fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, flags);
 	switch (fib_result) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		break;
+	case BPF_FIB_LKUP_RET_FRAG_NEEDED:
+		*ext_err = (__s8)fib_result;
+		return DROP_FRAG_NEEDED;
 	default:
 		*ext_err = (__s8)fib_result;
 		return DROP_NO_FIB;

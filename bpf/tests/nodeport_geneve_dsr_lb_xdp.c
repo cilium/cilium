@@ -18,6 +18,7 @@
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
+#define FRONTEND_IP_OVERSIZED	v4_svc_three
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
@@ -39,6 +40,9 @@ static volatile const __u8 *backend_node_mac = mac_six;
 
 static bool fail_fib;
 
+#define MOCK_FIB_MTU		150
+static __u16 fib_tot_len;
+
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
@@ -55,6 +59,10 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 {
 	if (fail_fib)
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
+
+	fib_tot_len = params->tot_len;
+	if (params->tot_len > MOCK_FIB_MTU)
+		return BPF_FIB_LKUP_RET_FRAG_NEEDED;
 
 	params->ifindex = DIRECT_ROUTING_IFINDEX;
 
@@ -242,6 +250,8 @@ int nodeport_geneve_dsr_lb_xdp2_fwd_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, BACKEND_NODE_IP, 0);
 
+	fib_tot_len = 0;
+
 	return xdp_receive_packet(ctx);
 }
 
@@ -323,6 +333,10 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (l3->check != bpf_htons(0x5371))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
+	if (fib_tot_len != bpf_ntohs(l3->tot_len))
+		test_fatal("FIB lookup tot_len %u is not the encapsulated length %u",
+			   fib_tot_len, bpf_ntohs(l3->tot_len));
+
 	if (udp->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port");
 
@@ -369,6 +383,75 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 
 	if (tcp_inner->check != bpf_htons(0x3770))
 		test_fatal("L4 checksum is invalid: %x != %x", tcp_inner->check, bpf_htons(0x3770));
+
+	test_finish();
+}
+
+#define OVERSIZED_PAYLOAD_LEN	80
+
+PKTGEN(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp3_oversized")
+int nodeport_geneve_dsr_lb_xdp3_oversized_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_OVERSIZED,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data_room(&builder, OVERSIZED_PAYLOAD_LEN);
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp3_oversized")
+int nodeport_geneve_dsr_lb_xdp3_oversized_setup(struct __ctx_buff *ctx)
+{
+	__u32 backend_id = 126;
+	__u16 revnat_id = 3;
+
+	lb_v4_add_service(FRONTEND_IP_OVERSIZED, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_OVERSIZED, FRONTEND_PORT, 1, backend_id,
+			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, BACKEND_NODE_IP, 0);
+
+	fib_tot_len = 0;
+
+	return xdp_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp3_oversized")
+int nodeport_geneve_dsr_lb_xdp3_oversized_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_DROP);
+
+	if (fib_tot_len <= MOCK_FIB_MTU)
+		test_fatal("FIB lookup tot_len %u does not exceed the mocked MTU",
+			   fib_tot_len);
 
 	test_finish();
 }

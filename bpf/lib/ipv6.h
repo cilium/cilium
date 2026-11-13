@@ -202,6 +202,48 @@ static __always_inline int ipv6_hdrlen(const struct __ctx_buff *ctx, __u8 *nexth
 	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, NULL);
 }
 
+/* BIG TCP can leave the IPv6 payload length at zero. Fall back to the
+ * context length in that case, but report the per-segment length for GSO.
+ */
+static __always_inline __u32
+ipv6_wire_len(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int l3_off)
+{
+	__u64 full_len = ctx_full_len(ctx);
+	__u32 gso_size = ctx_gso_size(ctx);
+	__u32 total_len, l4_len;
+	__u8 nexthdr = ip6->nexthdr;
+	int l3_len;
+
+	if (unlikely(l3_off < 0 || (__u64)l3_off > full_len))
+		return 0;
+
+	total_len = bpf_ntohs(ip6->payload_len);
+	if (total_len)
+		total_len += sizeof(*ip6);
+	else
+		total_len = (__u32)(full_len - (__u64)l3_off);
+	if (!gso_size)
+		return total_len;
+
+	l3_len = ipv6_hdrlen_offset(ctx, l3_off, &nexthdr, NULL);
+	if (l3_len < 0)
+		return total_len;
+
+	switch (nexthdr) {
+	case IPPROTO_TCP:
+		if (l4_load_tcp_hdrlen(ctx, l3_off + l3_len, &l4_len) < 0)
+			return total_len;
+		break;
+	case IPPROTO_UDP:
+		l4_len = sizeof(struct udphdr);
+		break;
+	default:
+		return total_len;
+	}
+
+	return l3_len + l4_len + gso_size;
+}
+
 static __always_inline
 void ipv6_sol_mc_mac_set(const union v6addr *addr, union macaddr *mac)
 {

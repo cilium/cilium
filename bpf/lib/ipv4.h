@@ -102,6 +102,43 @@ static __always_inline int ipv4_hdrlen(const struct iphdr *ip4)
 	return ip4->ihl * 4;
 }
 
+/* BIG TCP can leave the IP total length at zero. Fall back to the context
+ * length in that case, but report the per-segment length for GSO packets.
+ */
+static __always_inline __u32
+ipv4_wire_len(const struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
+{
+	__u64 full_len = ctx_full_len(ctx);
+	__u32 gso_size = ctx_gso_size(ctx);
+	__u32 total_len, l3_len, l4_len;
+	int l4_off;
+
+	if (unlikely(l3_off < 0 || (__u64)l3_off > full_len))
+		return 0;
+
+	total_len = bpf_ntohs(ip4->tot_len);
+	if (!total_len)
+		total_len = (__u32)(full_len - (__u64)l3_off);
+	if (!gso_size)
+		return total_len;
+
+	l3_len = ipv4_hdrlen(ip4);
+	l4_off = l3_off + l3_len;
+	switch (ip4->protocol) {
+	case IPPROTO_TCP:
+		if (l4_load_tcp_hdrlen(ctx, l4_off, &l4_len) < 0)
+			return total_len;
+		break;
+	case IPPROTO_UDP:
+		l4_len = sizeof(struct udphdr);
+		break;
+	default:
+		return total_len;
+	}
+
+	return l3_len + l4_len + gso_size;
+}
+
 static __always_inline bool ipv4_is_in_subnet(__be32 addr,
 					      __be32 subnet, int prefixlen)
 {
