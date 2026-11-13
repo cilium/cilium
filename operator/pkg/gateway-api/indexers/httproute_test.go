@@ -13,12 +13,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 )
 
 func TestIndexHTTPRouteByGateway(t *testing.T) {
@@ -271,8 +269,8 @@ func TestIndexHTTPRouteByBackendServiceImport(t *testing.T) {
 
 func TestGenerateIndexerHTTPRouteByBackendServiceIncludesFilterBackends(t *testing.T) {
 	indexer := GenerateIndexerHTTPRouteByBackendService(
-		fake.NewClientBuilder().WithScheme(testhelpers.TestScheme(nil, helpers.RegisterGatewayAPITypesToScheme)).Build(),
 		slog.New(slog.DiscardHandler),
+		helpers.ResourceConfig{},
 	)
 
 	route := &gatewayv1.HTTPRoute{

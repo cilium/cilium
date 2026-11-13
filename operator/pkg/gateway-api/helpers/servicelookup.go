@@ -4,41 +4,35 @@
 package helpers
 
 import (
-	"context"
+	"crypto/sha256"
+	"encoding/base32"
 	"fmt"
+	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
-func GetBackendServiceName(k8sclient ClientReader, namespace string, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
-	backendServiceName := ""
+func GetBackendServiceName(namespace string, backendObjectReference gatewayv1.BackendObjectReference, resourceConfig ResourceConfig) (string, error) {
 	switch {
 	case IsService(backendObjectReference):
 		return string(backendObjectReference.Name), nil
 
-	case HasServiceImportSupport(k8sclient.Scheme()) && IsServiceImport(backendObjectReference):
-		svcImport := &mcsapiv1beta1.ServiceImport{}
-		if err := k8sclient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
-			Name:      string(backendObjectReference.Name),
-		}, svcImport); err != nil {
-			return "", err
-		}
+	case resourceConfig.IncludeServiceImports && IsServiceImport(backendObjectReference):
+		return derivedName(types.NamespacedName{Name: string(backendObjectReference.Name), Namespace: namespace}), nil
 
-		var err error
-		backendServiceName, err = GetServiceName(svcImport)
-		if err != nil {
-			return "", err
-		}
-
-	case HasInferencePoolSupport(k8sclient.Scheme()) && IsInferencePool(backendObjectReference):
+	case resourceConfig.IncludeInferencePools && IsInferencePool(backendObjectReference):
 		return ShadowServiceName(string(backendObjectReference.Name)), nil
 
 	default:
 		return "", fmt.Errorf("unsupported backend kind %s", *backendObjectReference.Kind)
 	}
+}
 
-	return backendServiceName, nil
+// derivedName derive the original name in the format "derived-$hash".
+// This function was taken from the mcs-api repo: https://github.com/kubernetes-sigs/mcs-api/blob/4231f56e5ff985676b8ac99034b05609cf4a9e0d/pkg/controllers/common.go#L39
+func derivedName(name types.NamespacedName) string {
+	hash := sha256.New()
+	hash.Write([]byte(name.String()))
+	return "derived-" + strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hash.Sum(nil)))[:10]
 }

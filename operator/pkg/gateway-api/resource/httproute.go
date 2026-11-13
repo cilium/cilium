@@ -18,10 +18,10 @@ import (
 
 type HTTPRouteResource struct {
 	ResourceType   *gatewayv1.HTTPRoute
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewHTTPRouteResource(r RegistryConfig) *HTTPRouteResource {
+func NewHTTPRouteResource(r helpers.ResourceConfig) *HTTPRouteResource {
 	return &HTTPRouteResource{
 		ResourceType:   &gatewayv1.HTTPRoute{},
 		registryConfig: r,
@@ -33,14 +33,14 @@ func (hr *HTTPRouteResource) ShouldIndex() bool {
 	return true
 }
 
-func (hr *HTTPRouteResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (hr *HTTPRouteResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	// First, set up the simple indexers
 	returnMap[indexers.GatewayHTTPRouteIndex] = indexers.IndexHTTPRouteByGateway
 
 	// Next, the complex indexers
-	returnMap[indexers.BackendServiceHTTPRouteIndex] = indexers.GenerateIndexerHTTPRouteByBackendService(c, logger)
+	returnMap[indexers.BackendServiceHTTPRouteIndex] = indexers.GenerateIndexerHTTPRouteByBackendService(logger, hr.registryConfig)
 
 	// Lastly, conditional indexers
 	if hr.registryConfig.IncludeListenerSets {
@@ -67,4 +67,8 @@ func (hr *HTTPRouteResource) ShouldWatch() bool {
 
 func (hr *HTTPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningHTTPRoute(c, logger, controllerName)}
+}
+
+func (hr *HTTPRouteResource) HandleStatus() bool {
+	return true
 }

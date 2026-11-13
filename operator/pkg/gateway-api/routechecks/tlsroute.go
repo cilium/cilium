@@ -19,11 +19,14 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
+var _ Input = (*TLSRouteInput)(nil)
+
 // TLSRouteInput is used to implement the Input interface for TLSRoute
 type TLSRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
+	ResourceConfig helpers.ResourceConfig
 	Grants         []gatewayv1.ReferenceGrant
 	TLSRoute       *gatewayv1.TLSRoute
 	ControllerName string
@@ -82,6 +85,10 @@ func (t *TLSRouteInput) GetRules() []GenericRule {
 
 func (t *TLSRouteInput) GetClient() client.Client {
 	return t.Client
+}
+
+func (t *TLSRouteInput) GetResourceConfig() helpers.ResourceConfig {
+	return t.ResourceConfig
 }
 
 func (t *TLSRouteInput) GetContext() context.Context {

@@ -18,10 +18,10 @@ import (
 
 type ListenerSetResource struct {
 	ResourceType   *gatewayv1.ListenerSet
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewListenerSetResource(r RegistryConfig) *ListenerSetResource {
+func NewListenerSetResource(r helpers.ResourceConfig) *ListenerSetResource {
 	return &ListenerSetResource{
 		ResourceType:   &gatewayv1.ListenerSet{},
 		registryConfig: r,
@@ -33,7 +33,7 @@ func (lsr *ListenerSetResource) ShouldIndex() bool {
 	return lsr.registryConfig.IncludeListenerSets
 }
 
-func (lsr *ListenerSetResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (lsr *ListenerSetResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	if lsr.registryConfig.IncludeListenerSets {
@@ -56,4 +56,8 @@ func (lsr *ListenerSetResource) ShouldWatch() bool {
 
 func (lsr *ListenerSetResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForListenerSetOwner(c, logger, controllerName)}
+}
+
+func (lsr *ListenerSetResource) HandleStatus() bool {
+	return true
 }

@@ -37,14 +37,11 @@ func pruneRouteParentStatuses(parents []gatewayv1.RouteParentStatus, currentPare
 }
 
 type RouteStatusManager struct {
-	client                  client.Client
-	logger                  *slog.Logger
-	controllerName          string
-	includeTCPRoutes        bool
-	includeUDPRoutes        bool
-	tcpUDPRouteSupport      bool
-	tcpUDPUnsupportedReason string
-	backendValidator        routechecks.BackendValidator
+	client           client.Client
+	logger           *slog.Logger
+	controllerName   string
+	resourceConfig   helpers.ResourceConfig
+	backendValidator routechecks.BackendValidator
 }
 
 type RouteStatusInputs struct {
@@ -64,16 +61,13 @@ type RouteStatusManagerConfig struct {
 	TCPUDPUnsupportedReason string
 }
 
-func NewRouteStatusManager(client client.Client, logger *slog.Logger, controllerName string, cfg RouteStatusManagerConfig) *RouteStatusManager {
+func NewRouteStatusManager(client client.Client, logger *slog.Logger, controllerName string, cfg helpers.ResourceConfig, backendValidator routechecks.BackendValidator) *RouteStatusManager {
 	return &RouteStatusManager{
-		client:                  client,
-		logger:                  logger,
-		controllerName:          controllerName,
-		includeTCPRoutes:        cfg.IncludeTCPRoutes,
-		includeUDPRoutes:        cfg.IncludeUDPRoutes,
-		tcpUDPRouteSupport:      cfg.TCPUDPRouteSupport,
-		tcpUDPUnsupportedReason: cfg.TCPUDPUnsupportedReason,
-		backendValidator:        cfg.BackendValidator,
+		client:           client,
+		logger:           logger,
+		controllerName:   controllerName,
+		resourceConfig:   cfg,
+		backendValidator: backendValidator,
 	}
 }
 
@@ -84,12 +78,12 @@ func (m *RouteStatusManager) SetRouteStatuses(ctx context.Context, scopedLog *sl
 	if err := m.setTLSRouteStatuses(ctx, scopedLog, inputs.TLSRoutes, inputs.ReferenceGrants); err != nil {
 		return err
 	}
-	if m.includeTCPRoutes {
+	if m.resourceConfig.IncludeTCPRoutes {
 		if err := m.setTCPRouteStatuses(ctx, scopedLog, inputs.TCPRoutes, inputs.ReferenceGrants); err != nil {
 			return err
 		}
 	}
-	if m.includeUDPRoutes {
+	if m.resourceConfig.IncludeUDPRoutes {
 		if err := m.setUDPRouteStatuses(ctx, scopedLog, inputs.UDPRoutes, inputs.ReferenceGrants); err != nil {
 			return err
 		}
@@ -127,18 +121,18 @@ func (m *RouteStatusManager) runCommonRouteChecks(ctx context.Context, input rou
 func (m *RouteStatusManager) checkRouteSupported(input routechecks.Input, parent gatewayv1.ParentReference) bool {
 	switch k := input.GetGVK().Kind; gatewayv1.Kind(k) {
 	case helpers.KindTCPRoute, helpers.KindUDPRoute:
-		if !m.tcpUDPRouteSupport {
+		if !m.resourceConfig.TCPRouteUDPRouteSupport {
 			input.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionFalse,
 				Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
-				Message: fmt.Sprintf("%s is not supported: %s", k, m.tcpUDPUnsupportedReason),
+				Message: fmt.Sprintf("%s is not supported: %s", k, m.resourceConfig.TCPUDPUnsupportedReason),
 			})
 			input.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionResolvedRefs),
 				Status:  metav1.ConditionUnknown,
 				Reason:  string(gatewayv1.RouteReasonPending),
-				Message: fmt.Sprintf("Backend references were not evaluated because this route type is not supported: %s", m.tcpUDPUnsupportedReason),
+				Message: fmt.Sprintf("Backend references were not evaluated because this route type is not supported: %s", m.resourceConfig.TCPUDPUnsupportedReason),
 			})
 			return false
 		}
@@ -277,6 +271,7 @@ func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog
 			Grants:         grants,
 			HTTPRoute:      hr,
 			ControllerName: m.controllerName,
+			ResourceConfig: m.resourceConfig,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
@@ -317,6 +312,7 @@ func (m *RouteStatusManager) setTLSRouteStatuses(ctx context.Context, scopedLog 
 			Grants:         grants,
 			TLSRoute:       tlsr,
 			ControllerName: m.controllerName,
+			ResourceConfig: m.resourceConfig,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, tlsr.Spec.ParentRefs, tlsr.Namespace); err != nil {
@@ -346,6 +342,7 @@ func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog
 			Grants:         grants,
 			GRPCRoute:      grpcr,
 			ControllerName: m.controllerName,
+			ResourceConfig: m.resourceConfig,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {
@@ -386,6 +383,7 @@ func (m *RouteStatusManager) setTCPRouteStatuses(ctx context.Context, scopedLog 
 			Grants:         grants,
 			TCPRoute:       tcpr,
 			ControllerName: m.controllerName,
+			ResourceConfig: m.resourceConfig,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, tcpr.Spec.ParentRefs, tcpr.Namespace); err != nil {
@@ -415,6 +413,7 @@ func (m *RouteStatusManager) setUDPRouteStatuses(ctx context.Context, scopedLog 
 			Grants:         grants,
 			UDPRoute:       udpr,
 			ControllerName: m.controllerName,
+			ResourceConfig: m.resourceConfig,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, udpr.Spec.ParentRefs, udpr.Namespace); err != nil {

@@ -18,10 +18,10 @@ import (
 
 type GRPCRouteResource struct {
 	ResourceType   *gatewayv1.GRPCRoute
-	registryConfig RegistryConfig
+	registryConfig helpers.ResourceConfig
 }
 
-func NewGRPCRouteResource(r RegistryConfig) *GRPCRouteResource {
+func NewGRPCRouteResource(r helpers.ResourceConfig) *GRPCRouteResource {
 	return &GRPCRouteResource{
 		ResourceType:   &gatewayv1.GRPCRoute{},
 		registryConfig: r,
@@ -33,14 +33,14 @@ func (grpcr *GRPCRouteResource) ShouldIndex() bool {
 	return true
 }
 
-func (grpcr *GRPCRouteResource) GetIndexers(c helpers.ClientReader, logger *slog.Logger) IndexerFuncMap {
+func (grpcr *GRPCRouteResource) GetIndexers(logger *slog.Logger) IndexerFuncMap {
 	returnMap := make(IndexerFuncMap)
 
 	// First, set up the simple indexers
 	returnMap[indexers.GatewayGRPCRouteIndex] = indexers.IndexGRPCRouteByGateway
 
 	// Next, the complex indexers
-	returnMap[indexers.BackendServiceGRPCRouteIndex] = indexers.GenerateIndexerGRPCRoutebyBackendService(c, logger)
+	returnMap[indexers.BackendServiceGRPCRouteIndex] = indexers.GenerateIndexerGRPCRoutebyBackendService(logger, grpcr.registryConfig)
 
 	// Lastly, conditional indexers
 	if grpcr.registryConfig.IncludeListenerSets {
@@ -64,4 +64,8 @@ func (grpcr *GRPCRouteResource) ShouldWatch() bool {
 
 func (grpcr *GRPCRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logger, scheme *runtime.Scheme, controllerName string) []handler.EventHandler {
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningGRPCRoute(c, logger, controllerName)}
+}
+
+func (grpcr *GRPCRouteResource) HandleStatus() bool {
+	return true
 }

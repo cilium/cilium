@@ -78,7 +78,7 @@ func IndexGRPCRouteByGammaService(rawObj client.Object) []string {
 
 // GenerateIndexerGRPCRoutebyBackendService takes a single GRPCRoute and  returns all referenced backend service full names (`namespace/name`)
 // to add to the relevant index.
-func GenerateIndexerGRPCRoutebyBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerGRPCRoutebyBackendService(logger *slog.Logger, resourceConfig helpers.ResourceConfig) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route := rawObj.(*gatewayv1.GRPCRoute)
 		var backendServices []string
@@ -86,7 +86,7 @@ func GenerateIndexerGRPCRoutebyBackendService(c helpers.ClientReader, logger *sl
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
+				backendServiceName, err := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
 				if err != nil {
 					logger.Error("Failed to get backend service name",
 						logfields.LogSubsys, logfields.GRPCRoute,
@@ -106,7 +106,7 @@ func GenerateIndexerGRPCRoutebyBackendService(c helpers.ClientReader, logger *sl
 					continue
 				}
 				namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, f.RequestMirror.BackendRef)
+				backendServiceName, err := helpers.GetBackendServiceName(namespace, f.RequestMirror.BackendRef, resourceConfig)
 				if err != nil {
 					logger.Error("Failed to get request mirror backend service name",
 						logfields.LogSubsys, logfields.GRPCRoute,

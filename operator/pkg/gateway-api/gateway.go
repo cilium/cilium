@@ -53,67 +53,47 @@ type gatewayReconciler struct {
 	inferencePoolStatusManager          *InferencePoolStatusManager
 	logger                              *slog.Logger
 	controllerName                      string
-	tcpUDPRouteSupport                  bool
-	tcpUDPUnsupportedReason             string
-	hostNetworkEnabled                  bool
-	hostNetworkLabel                    metav1.LabelSelector
 	gatewayAPIInferenceExtensionEnabled bool
 	resourceRegistry                    resource.Registry
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
-	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
-	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
-	tcpUDPRouteSupport := !hostNetworkEnabled
+
+	resourceConfig := helpers.ResourceConfig{
+		IncludeTCPRoutes:        helpers.HasTCPRouteSupport(mgr.GetScheme()),
+		IncludeUDPRoutes:        helpers.HasUDPRouteSupport(mgr.GetScheme()),
+		IncludeServiceImports:   helpers.HasServiceImportSupport(mgr.GetScheme()),
+		IncludeListenerSets:     helpers.HasListenerSetSupport(mgr.GetScheme()),
+		IncludeInferencePools:   helpers.HasInferencePoolSupport(mgr.GetScheme()),
+		TCPRouteUDPRouteSupport: !hostNetworkEnabled,
+		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+	}
 
 	return &gatewayReconciler{
-		client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		translator: translator,
-		inputLoader: loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, loading.TranslationInputLoaderConfig{
-			IncludeTCPRoutes:      includeTCPRoutes,
-			IncludeUDPRoutes:      includeUDPRoutes,
-			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
-			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
-			IncludeInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
-		}),
+		client:               mgr.GetClient(),
+		scheme:               mgr.GetScheme(),
+		translator:           translator,
+		inputLoader:          loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, resourceConfig),
 		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
 			mgr.GetClient(),
 			scopedLog,
-			ListenerStatusManagerConfig{
-				TCPUDPRouteSupport:      tcpUDPRouteSupport,
-				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-			},
+			resourceConfig,
 		),
 		routeStatusManager: NewRouteStatusManager(
 			mgr.GetClient(),
 			scopedLog,
 			controllerName,
-			RouteStatusManagerConfig{
-				IncludeTCPRoutes:        includeTCPRoutes,
-				IncludeUDPRoutes:        includeUDPRoutes,
-				TCPUDPRouteSupport:      tcpUDPRouteSupport,
-				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-			},
+			resourceConfig,
+			nil,
 		),
 		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
 		inferencePoolStatusManager:          NewInferencePoolStatusManager(mgr.GetClient(), controllerName),
 		logger:                              scopedLog,
 		controllerName:                      controllerName,
-		tcpUDPRouteSupport:                  tcpUDPRouteSupport,
-		tcpUDPUnsupportedReason:             hostNetworkTCPUDPRouteUnsupportedReason,
-		hostNetworkEnabled:                  hostNetworkEnabled,
-		hostNetworkLabel:                    hostNetworkLabel,
 		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
-		resourceRegistry: resource.NewGatewayRegistry(resource.RegistryConfig{
-			IncludeTCPRoutes:      includeTCPRoutes,
-			IncludeUDPRoutes:      includeUDPRoutes,
-			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
-			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
-			IncludeInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
-		}),
+		resourceRegistry:                    resource.NewGatewayRegistry(resourceConfig),
 	}
 }
 
@@ -132,7 +112,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	for _, resource := range r.resourceRegistry.GetResources() {
 		if resource.ShouldIndex() {
-			for indexName, indexer := range resource.GetIndexers(r.client, r.logger) {
+			for indexName, indexer := range resource.GetIndexers(r.logger) {
 				if err := mgr.GetFieldIndexer().IndexField(context.Background(), resource.GetResource(), indexName, indexer); err != nil {
 					return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
 				}
@@ -175,7 +155,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
-		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.client, *r.logger, r.controllerName))
+		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.client, r.logger, r.controllerName))
 	}
 
 	if inferencePoolEnabled {
