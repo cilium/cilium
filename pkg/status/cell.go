@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -102,6 +103,7 @@ type statusParams struct {
 	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 
 	PolicyMapFactory policymap.Factory
+	MapRegistry      *mapregistry.MapRegistry
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.Agent
 	ZtunnelConfig    zconfig.Config

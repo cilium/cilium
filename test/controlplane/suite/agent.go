@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -83,6 +84,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			},
 			k8sSynced.RejectedCRDSyncPromise,
 		),
+		mapregistry.Cell,
 		kvstore.Cell(kvstore.DisabledBackendName),
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	datapathMaps "github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -31,8 +32,8 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -407,6 +408,17 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 	}
 }
 
+// getBPFMapMaxEntriesFromRegistry returns the map's configured max entries, or 0 if an error is
+// encountered.
+func getBPFMapMaxEntriesFromRegistry(mapRegistry *mapregistry.MapRegistry, mapName string) int64 {
+	spec, err := mapRegistry.Get(mapName)
+	if err != nil {
+		return 0
+	}
+
+	return int64(spec.MaxEntries)
+}
+
 func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 	policyMaxEntries := int64(0)
 	policyStatsMaxEntries := int64(0)
@@ -414,6 +426,8 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 		policyMaxEntries = int64(d.statusParams.PolicyMapFactory.PolicyMaxEntries())
 		policyStatsMaxEntries = int64(d.statusParams.PolicyMapFactory.StatsMaxEntries())
 	}
+
+	mapRegistry := d.statusParams.MapRegistry
 
 	return &models.BPFMapStatus{
 		DynamicSizeRatio: d.statusParams.DaemonConfig.BPFMapsDynamicSizeRatio,
@@ -472,7 +486,7 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "Metrics",
-				Size: int64(metricsmap.MaxEntries),
+				Size: getBPFMapMaxEntriesFromRegistry(mapRegistry, datapathMaps.CiliumMetrics),
 			},
 			{
 				Name: "Ratelimit metrics",
