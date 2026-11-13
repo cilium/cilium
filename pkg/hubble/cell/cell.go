@@ -25,6 +25,7 @@ import (
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
+	"github.com/cilium/cilium/pkg/hubble/resolver"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -56,6 +57,9 @@ var Cell = cell.Module(
 
 	// Parser for Hubble flows
 	parsercell.Cell,
+
+	// Resolver for Hubble flows
+	resolver.Cell,
 
 	// Hubble flows k8s namespaces monitor
 	namespace.Cell,
