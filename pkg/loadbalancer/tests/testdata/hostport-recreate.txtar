@@ -1,0 +1,184 @@
+#! --lb-test-fault-probability=0.0
+# A pod recreated under the same name gets a new UID. The UID is part of the
+# synthesized HostPort service name, so the replacement asks for a frontend the
+# previous pod's service still owns.
+
+# Add a node address that we'll use as the host port frontend.
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs.table
+
+# Start the test application
+hive start
+
+# Add a pod with 'hostPort'.
+k8s/add pod.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# The pod is recreated under the same name with a new UID and the same
+# hostPort. The delete and the add land in the same reflector buffer, which
+# coalesces them into the add, so the replacement is processed while the
+# previous pod's service still owns the frontend.
+k8s/delete pod.yaml
+k8s/add pod-recreated.yaml
+db/cmp services services2.table
+db/cmp frontends frontends2.table
+db/cmp backends backends2.table
+
+# The host port is still programmed for the new service, with the frontend and
+# backend IDs unchanged: only the service that was holding the frontend went
+# away, so nothing in the datapath had to be renumbered.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps2.expected lbmaps.actual
+
+# Cleanup
+k8s/delete pod-recreated.yaml
+
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+
+-- services.table --
+Name                                                               Source
+default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8 k8s
+
+-- services2.table --
+Name                                                               Source
+default/my-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 k8s
+
+-- frontends.table --
+Address           Type      Status  ServiceName                                                        Backends
+0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8 10.244.1.113:80/TCP
+
+-- frontends2.table --
+Address           Type      Status  ServiceName                                                        Backends
+0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.113:80/TCP
+
+-- backends.table --
+Service                                                            Address
+default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8 10.244.1.113:80/TCP
+
+-- backends2.table --
+Service                                                            Address
+default/my-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.113:80/TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.113:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:4444
+REV: ID=2 ADDR=1.1.1.1:4444
+SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort
+-- lbmaps2.expected --
+BE: ID=1 ADDR=10.244.1.113:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:4444
+REV: ID=2 ADDR=1.1.1.1:4444
+SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:20:42Z"
+  labels:
+    run: my-app
+  name: my-app
+  namespace: default
+  resourceVersion: "100491"
+  uid: 11111111-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: my-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: testnode
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.113
+  podIPs:
+  - ip: 10.244.1.113
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+-- pod-recreated.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:25:11Z"
+  labels:
+    run: my-app
+  name: my-app
+  namespace: default
+  resourceVersion: "100492"
+  uid: 22222222-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: my-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: testnode
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.113
+  podIPs:
+  - ip: 10.244.1.113
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:25:11Z"
