@@ -231,7 +231,7 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 						Port: 80,
 					},
 				},
-				TLSPassthrough: []model.TLSPassthroughListener{
+				TLS: []model.TLSListener{
 					{
 						Port: 443,
 					},
@@ -277,6 +277,28 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 			},
 		},
 		{
+			name: "HTTPS and terminating TLS share one port in a multiport Gateway",
+			fields: fields{
+				name:      "cilium-ingress",
+				namespace: "default",
+			},
+			model: &model.Model{
+				HTTP: []model.HTTPListener{
+					{Port: 443, Hostname: "web.example.test", TLS: []model.TLSSecret{{Name: "web-cert", Namespace: "default"}}},
+					{Port: 8443, Hostname: "web.example.test", TLS: []model.TLSSecret{{Name: "web-cert", Namespace: "default"}}},
+				},
+				TLS: []model.TLSListener{{
+					Port:   443,
+					Mode:   model.TLSModeTerminate,
+					Routes: []model.TLSRoute{{Hostnames: []string{"tcp.example.test"}}},
+				}},
+			},
+			want: []*ciliumv2.ServiceListener{
+				{Name: "cilium-ingress", Namespace: "default", Ports: []uint16{443}, Listener: "listener-443"},
+				{Name: "cilium-ingress", Namespace: "default", Ports: []uint16{8443}, Listener: "listener-8443"},
+			},
+		},
+		{
 			name: "catch-all HTTPS with multi-port TLS passthrough",
 			fields: fields{
 				name:      "cilium-ingress",
@@ -292,16 +314,16 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 						},
 					},
 				},
-				TLSPassthrough: []model.TLSPassthroughListener{
+				TLS: []model.TLSListener{
 					{
 						Port: 50051,
-						Routes: []model.TLSPassthroughRoute{
+						Routes: []model.TLSRoute{
 							{Hostnames: []string{"api.example.test"}},
 						},
 					},
 					{
 						Port: 9443,
-						Routes: []model.TLSPassthroughRoute{
+						Routes: []model.TLSRoute{
 							{Hostnames: []string{"api.example.test"}},
 						},
 					},

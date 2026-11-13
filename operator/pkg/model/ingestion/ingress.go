@@ -247,7 +247,7 @@ func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace,
 // * must have a host set
 // * rules with paths other than '/' are ignored
 // * default backends are ignored
-func IngressPassthrough(log *slog.Logger, ing networkingv1.Ingress, listenerPort uint32) []model.TLSPassthroughListener {
+func IngressPassthrough(log *slog.Logger, ing networkingv1.Ingress, listenerPort uint32) []model.TLSListener {
 	// First, we make a map of TLSListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -256,7 +256,7 @@ func IngressPassthrough(log *slog.Logger, ing networkingv1.Ingress, listenerPort
 	// Coalescing the config from multiple Ingress resources is left for
 	// the transform component that takes a model and outputs CiliumEnvoyConfig
 	// or other resources.
-	tlsListenerMap := make(map[string]model.TLSPassthroughListener)
+	tlsListenerMap := make(map[string]model.TLSListener)
 
 	sourceResource := model.FullyQualifiedResource{
 		Name:      ing.Name,
@@ -321,7 +321,7 @@ func IngressPassthrough(log *slog.Logger, ing networkingv1.Ingress, listenerPort
 				continue
 			}
 
-			route := model.TLSPassthroughRoute{
+			route := model.TLSRoute{
 				Hostnames: []string{
 					host,
 				},
@@ -358,7 +358,7 @@ func IngressPassthrough(log *slog.Logger, ing networkingv1.Ingress, listenerPort
 		tlsListenerMap[host] = l
 	}
 
-	listenerSlice := make([]model.TLSPassthroughListener, 0, len(tlsListenerMap))
+	listenerSlice := make([]model.TLSListener, 0, len(tlsListenerMap))
 	listenerSlice = appendValuesInKeyOrder(tlsListenerMap, listenerSlice)
 
 	return listenerSlice
@@ -399,7 +399,7 @@ func getService(log *slog.Logger, ing networkingv1.Ingress) *model.Service {
 
 // appendValuesInKeyOrder ensures that the slice of listeners is stably sorted by
 // appending the values of the map in order of the keys to the appendSlice.
-func appendValuesInKeyOrder[T model.HTTPListener | model.TLSPassthroughListener](listenerMap map[string]T, appendSlice []T) []T {
+func appendValuesInKeyOrder[T model.HTTPListener | model.TLSListener](listenerMap map[string]T, appendSlice []T) []T {
 	for _, key := range slices.Sorted(maps.Keys(listenerMap)) {
 		appendSlice = append(appendSlice, listenerMap[key])
 	}

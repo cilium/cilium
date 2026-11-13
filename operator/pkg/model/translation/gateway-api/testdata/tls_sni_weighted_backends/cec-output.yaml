@@ -36,9 +36,9 @@ spec:
           statPrefix: tls-passthrough:test.example.com
           weightedClusters:
             clusters:
-            - name: default:backend-v1:443
+            - name: tcp:default:backend-v1:443
               weight: 70
-            - name: default:backend-v2:443
+            - name: tcp:default:backend-v2:443
               weight: 30
     listenerFilters:
     - name: envoy.filters.listener.tls_inspector
@@ -65,14 +65,14 @@ spec:
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     edsClusterConfig:
       serviceName: default/backend-v1:443
-    name: default:backend-v1:443
+    name: tcp:default:backend-v1:443
     outlierDetection:
       splitExternalLocalOriginErrors: true
     type: EDS
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     edsClusterConfig:
       serviceName: default/backend-v2:443
-    name: default:backend-v2:443
+    name: tcp:default:backend-v2:443
     outlierDetection:
       splitExternalLocalOriginErrors: true
     type: EDS

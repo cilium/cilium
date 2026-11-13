@@ -29,7 +29,7 @@ spec:
       - name: envoy.filters.network.tcp_proxy
         typedConfig:
           '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-          cluster: default:my-service:8080
+          cluster: tcp:default:my-service:8080
           statPrefix: tls-passthrough:foo.com
     listenerFilters:
     - name: envoy.filters.listener.tls_inspector
@@ -56,7 +56,7 @@ spec:
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     edsClusterConfig:
       serviceName: default/my-service:8080
-    name: default:my-service:8080
+    name: tcp:default:my-service:8080
     outlierDetection:
       splitExternalLocalOriginErrors: true
     type: EDS

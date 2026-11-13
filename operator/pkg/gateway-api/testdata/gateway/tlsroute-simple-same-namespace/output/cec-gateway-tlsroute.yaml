@@ -23,34 +23,6 @@ spec:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       filterChains:
         - filterChainMatch:
-            transportProtocol: raw_buffer
-          filters:
-            - name: envoy.filters.network.http_connection_manager
-              typedConfig:
-                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                commonHttpProtocolOptions:
-                  maxStreamDuration: 0s
-                httpFilters:
-                  - name: envoy.filters.http.grpc_web
-                    typedConfig:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
-                  - name: envoy.filters.http.grpc_stats
-                    typedConfig:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
-                      emitFilterState: true
-                      enableUpstreamStats: true
-                  - name: envoy.filters.http.router
-                    typedConfig:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-                internalAddressConfig: {}
-                rds:
-                  routeConfigName: listener-insecure
-                statPrefix: listener-insecure
-                streamIdleTimeout: 300s
-                upgradeConfigs:
-                  - upgradeType: websocket
-                useRemoteAddress: true
-        - filterChainMatch:
             serverNames:
               - abc.example.com
             transportProtocol: tls
@@ -58,7 +30,7 @@ spec:
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tls-backend:443
+                cluster: tcp:gateway-conformance-infra:tls-backend:443
                 statPrefix: tls-passthrough:abc.example.com
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
@@ -82,12 +54,10 @@ spec:
           intValue: "10"
           level: "6"
           name: "6"
-    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
-      name: listener-insecure
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tls-backend:443
-      name: gateway-conformance-infra:tls-backend:443
+      name: tcp:gateway-conformance-infra:tls-backend:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS

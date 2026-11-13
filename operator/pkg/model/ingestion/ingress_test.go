@@ -101,7 +101,7 @@ func TestIngressPassthrough(t *testing.T) {
 			logger := hivetest.Logger(t)
 			input := networkingv1.Ingress{}
 			readInput(t, fmt.Sprintf("%s/%s/input-ingress.yaml", baseIngressTestDataDir, rewriteTestName(name)), &input)
-			expected := []model.TLSPassthroughListener{}
+			expected := []model.TLSListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/output-listeners.yaml", baseIngressTestDataDir, rewriteTestName(name)), &expected)
 
 			listeners := IngressPassthrough(logger, input, 443)

@@ -46,6 +46,12 @@ func tlsPassthroughListener(
 	return l
 }
 
+func tlsTerminateListener(name string, port gatewayv1.PortNumber, hostname string) *gatewayv1.Listener {
+	l := muxedListener(name, gatewayv1.TLSProtocolType, port, hostname)
+	l.TLS = &gatewayv1.ListenerTLSConfig{Mode: ptr.To(gatewayv1.TLSModeTerminate)}
+	return l
+}
+
 func l4Listener(
 	name string,
 	protocol gatewayv1.ProtocolType,
@@ -127,6 +133,25 @@ func Test_listenerPairConflict(t *testing.T) {
 			name:   "https and tls passthrough disjoint hostnames coexist",
 			first:  muxedListener("a", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
 			second: tlsPassthroughListener("b", 443, "bar.example.com"),
+		},
+		{
+			name:       "https and tls terminate identical hostname conflict",
+			first:      muxedListener("a", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
+			second:     tlsTerminateListener("b", 443, "foo.example.com"),
+			wantReason: gatewayv1.ListenerReasonProtocolConflict,
+			wantOK:     true,
+		},
+		{
+			name:       "https and tls terminate wildcard overlap conflict",
+			first:      muxedListener("a", gatewayv1.HTTPSProtocolType, 443, "*.example.com"),
+			second:     tlsTerminateListener("b", 443, "foo.example.com"),
+			wantReason: gatewayv1.ListenerReasonProtocolConflict,
+			wantOK:     true,
+		},
+		{
+			name:   "https and tls terminate disjoint hostnames coexist",
+			first:  muxedListener("a", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
+			second: tlsTerminateListener("b", 443, "bar.example.com"),
 		},
 		{
 			name:       "tcp and muxed same port conflict",
