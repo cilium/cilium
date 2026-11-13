@@ -7,10 +7,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"net/netip"
+	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -42,7 +45,9 @@ import (
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -86,7 +91,7 @@ func testScript(t *testing.T) {
 	// Set the node name
 	nodeTypes.SetName("testnode")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 
 	scripttest.Test(t,
@@ -158,6 +163,12 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 		nodeipamconfig.Cell,
 		node.LocalNodeStoreTestCell,
 		cell.Provide(
+			func() redirectpolicy.TestSkipLBMap {
+				if testutils.IsPrivileged() {
+					return nil
+				}
+				return &lbmaps.FakeSkipLBMap{}
+			},
 			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 			tables.NewNodeAddressTable,
@@ -247,6 +258,9 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 	// instances rather than the per-Hive client hidden by the decorator.
 	maps.Insert(cmds, maps.All(k8sClient.FakeClientCommands(rt.client)))
 	maps.Insert(cmds, maps.All(script.DefaultCmds()))
+	cmds["test/add-services"] = rt.addServices()
+	cmds["test/watch-restart-preservation"] = rt.watchRestartPreservation()
+	cmds["test/check-restart-preservation"] = rt.checkRestartPreservation()
 	cmds["hive/recreate"] = script.Command(
 		script.CmdUsage{
 			Summary: "recreate the test Hive while retaining Kubernetes and BPF map state",
@@ -295,6 +309,7 @@ func (tc testCommands) cmds() map[string]script.Cmd {
 		"test/set-node-ip":                  tc.setNodeIP(),
 		"test/set-is-service-healthchecked": tc.setIsServiceHealthChecked(),
 		"test/init-wait":                    tc.initWait(),
+		"test/assert-restart-observer":      tc.assertRestartObserver(),
 	}
 }
 
@@ -433,4 +448,147 @@ func (tc testCommands) initWait() script.Cmd {
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			return nil, tc.waitFn(s.Context())
 		})
+}
+
+// restartPreservationMaps observes successful deletions of pre-existing masters.
+// It does not intercept Update, dumps, startup gates, or the reconciler scheduler.
+type restartPreservationMaps struct {
+	lbmaps.LBMaps
+	mu       lock.Mutex
+	masters  map[string]loadbalancer.ServiceFlags
+	deleted  []string
+	baseline []string
+}
+
+func (m *restartPreservationMaps) DeleteService(k lbmaps.ServiceKey) error {
+	err := m.LBMaps.DeleteService(k)
+	if err != nil || k.ToHost().GetBackendSlot() != 0 {
+		return err
+	}
+	key := k.String()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if flags, exists := m.masters[key]; exists {
+		m.deleted = append(m.deleted, fmt.Sprintf("%s flags=%s", key, flags))
+		delete(m.masters, key)
+	}
+	return nil
+}
+
+func (tc testCommands) assertRestartObserver() script.Cmd {
+	return script.Command(script.CmdUsage{Summary: "Verify BPFOps uses the restart observer"},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			m, ok := tc.ops.LBMaps.(*restartPreservationMaps)
+			if !ok {
+				return nil, fmt.Errorf("BPFOps map implementation is %T, expected restartPreservationMaps", tc.ops.LBMaps)
+			}
+			matched := 0
+			if err := m.LBMaps.DumpService(func(k lbmaps.ServiceKey, _ lbmaps.ServiceValue) {
+				if k.ToHost().GetBackendSlot() == 0 {
+					if _, exists := m.masters[k.String()]; exists {
+						matched++
+					}
+				}
+			}); err != nil {
+				return nil, err
+			}
+			if matched != len(m.masters) || matched <= 1000 {
+				return nil, fmt.Errorf("observer matched %d/%d live master keys", matched, len(m.masters))
+			}
+			return nil, nil
+		})
+}
+
+func (rt *scriptRuntime) addServices() script.Cmd {
+	copyFile, replace := script.Cp(), script.Replace()
+	return script.Command(script.CmdUsage{
+		Summary: "Load generated Services and EndpointSlices through k8s/add",
+		Args:    "count service-template endpointslice-template",
+		Detail: []string{
+			"Templates use $INDEX for the zero-based index and $IP_HEX for the one-based hexadecimal index.",
+		},
+	}, func(s *script.State, args ...string) (script.WaitFunc, error) {
+		if len(args) != 3 {
+			return nil, script.ErrUsage
+		}
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n < 1 || n > 10000 {
+			return nil, fmt.Errorf("expected a count between 1 and 10000")
+		}
+		var files []string
+		for i := range n {
+			for _, template := range args[1:] {
+				file := fmt.Sprintf("service-%d.yaml", len(files))
+				if _, err := copyFile.Run(s, template, file); err != nil {
+					return nil, err
+				}
+				if _, err := replace.Run(s, "$INDEX", strconv.Itoa(i), "$IP_HEX", strconv.FormatInt(int64(i+1), 16), file); err != nil {
+					return nil, err
+				}
+				files = append(files, file)
+			}
+		}
+		return nil, rt.engine.ExecuteLine(s, "k8s/add "+strings.Join(files, " "), io.Discard)
+	})
+}
+
+func (rt *scriptRuntime) watchRestartPreservation() script.Cmd {
+	return script.Command(script.CmdUsage{
+		Summary: "Observe deletions of desired masters across Hive recreation; call after hive/stop",
+		Args:    "desired-map-dump stale-service-ip",
+	}, func(s *script.State, args ...string) (script.WaitFunc, error) {
+		if len(args) != 2 {
+			return nil, script.ErrUsage
+		}
+		staleIP, err := netip.ParseAddr(args[1])
+		if err != nil {
+			return nil, err
+		}
+		baseline, err := os.ReadFile(s.Path(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		// Match the existing restart fixture's non-privileged mode. The
+		// persistent maps must be the repository's explicit in-memory fake.
+		if _, ok := rt.lbMaps.(*lbmaps.FakeLBMaps); !ok {
+			return nil, fmt.Errorf("requires FakeLBMaps and fault probability 0")
+		}
+		m := &restartPreservationMaps{LBMaps: rt.lbMaps, masters: map[string]loadbalancer.ServiceFlags{}}
+		if err := m.LBMaps.DumpService(func(k lbmaps.ServiceKey, v lbmaps.ServiceValue) {
+			hostKey, hostValue := k.ToHost(), v.ToHost()
+			if hostKey.GetBackendSlot() == 0 && hostKey.GetPort() != 0 && hostKey.GetAddress() != staleIP {
+				m.masters[k.String()] = loadbalancer.ServiceFlags(hostValue.GetFlags())
+			}
+		}); err != nil {
+			return nil, err
+		}
+		if len(m.masters) <= 1000 {
+			return nil, fmt.Errorf("expected more than 1000 programmed masters, got %d", len(m.masters))
+		}
+		m.baseline = strings.Split(strings.TrimSuffix(string(baseline), "\n"), "\n")
+		rt.lbMaps = m
+		return nil, nil
+	})
+}
+
+func (rt *scriptRuntime) checkRestartPreservation() script.Cmd {
+	return script.Command(script.CmdUsage{
+		Summary: "Check eventual map contents and absence of transient master deletion; call after hive/stop",
+	}, func(s *script.State, args ...string) (script.WaitFunc, error) {
+		m, ok := rt.lbMaps.(*restartPreservationMaps)
+		if !ok {
+			return nil, fmt.Errorf("restart preservation observation is not enabled")
+		}
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		// Final equality alone misses an interruption followed by recovery.
+		if len(m.deleted) > 0 {
+			return nil, fmt.Errorf("%d desired masters deleted during restart (up to 5 shown):\n%s",
+				len(m.deleted), strings.Join(m.deleted[:min(5, len(m.deleted))], "\n"))
+		}
+		if !slices.Equal(m.baseline, lbmaps.DumpLBMaps(m.LBMaps, false, nil)) {
+			return nil, fmt.Errorf("load-balancing maps differ from the pre-restart desired state")
+		}
+		return nil, nil
+	})
 }

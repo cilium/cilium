@@ -1,0 +1,209 @@
+#! --lb-test-fault-probability=0.0 --enable-local-redirect-policy=true
+
+# Like prune-deleted-on-restart, this scenario needs maps retained across Hive
+# recreation, which the suite supports in non-privileged mode.
+[privileged] stop
+
+# Span several reconciliation batches to exercise premature startup pruning.
+test/add-services 5001 service.yaml.tmpl endpointslice.yaml.tmpl
+k8s/add dns.yaml endpointslice.yaml redirect.yaml pod.yaml
+hive/start
+test/init-wait
+
+# Wait for the local redirect to be reconciled before recording the desired maps.
+lrp/list lrp.before
+* cmp lrp.expected lrp.before
+db/get frontends '[fd00::a]:53/UDP' --columns=RedirectTo,Status
+* stdout 'test/node-local-dns:local-redirect[[:space:]]+Done'
+lb/maps-dump maps.before
+grep 'ADDR=\[fd00::a\]:53/UDP SLOT=0 .*COUNT=1 .*FLAGS=LocalRedirect' maps.before
+
+# Add state that must be removed after the restart.
+k8s/add stale.yaml stale-endpointslice.yaml
+
+# Wait for the stale service's backend slot before stopping.
+lb/maps-dump maps.with-stale
+* grep 'ADDR=\[fd00::dead\]:80/TCP SLOT=1' maps.with-stale
+hive/stop
+
+# Capture the retained maps after all in-flight Updates have completed.
+lb/maps-dump maps.with-stale
+
+# Desired Services and the local redirect stay unchanged. Only this extra
+# Service disappears while the agent is stopped; there is no deletion to replay.
+k8s/delete stale.yaml
+test/watch-restart-preservation maps.before fd00::dead
+hive/recreate
+test/assert-restart-observer
+db/empty services frontends backends
+lb/maps-dump maps.retained
+cmp maps.with-stale maps.retained
+hive/start
+test/init-wait
+
+# Wait for the unchanged local redirect to be reconciled.
+lrp/list lrp.after
+* cmp lrp.expected lrp.after
+db/get frontends '[fd00::a]:53/UDP' --columns=RedirectTo,Status
+* stdout 'test/node-local-dns:local-redirect[[:space:]]+Done'
+
+# Startup must also remove stale entries, without an explicit lb/prune request.
+lb/maps-dump maps.after
+!* grep 'ADDR=\[(fd00::dead|2001:db8::dead)\]:' maps.after
+hive/stop
+
+# Check deletions before comparing maps: recreated entries may have different IDs.
+test/check-restart-preservation
+
+-- service.yaml.tmpl --
+apiVersion: v1
+kind: Service
+metadata:
+  name: scale-$INDEX
+  namespace: test
+spec:
+  type: ClusterIP
+  clusterIP: fd00:2::$IP_HEX
+  clusterIPs: [fd00:2::$IP_HEX]
+  ipFamilies: [IPv6]
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+-- endpointslice.yaml.tmpl --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: scale-$INDEX
+  namespace: test
+  labels:
+    kubernetes.io/service-name: scale-$INDEX
+addressType: IPv6
+endpoints:
+- addresses: ["2001:db8:2::1"]
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+-- stale.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: stale
+  namespace: test
+spec:
+  type: ClusterIP
+  clusterIP: fd00::dead
+  clusterIPs: ["fd00::dead"]
+  ipFamilies: [IPv6]
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+-- stale-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: stale
+  namespace: test
+  labels:
+    kubernetes.io/service-name: stale
+addressType: IPv6
+endpoints:
+- addresses: ["2001:db8::dead"]
+  conditions:
+    ready: true
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+-- lrp.expected --
+test/node-local-dns type=svc frontend-type="clusterIP + all svc ports" service=test/dns
+  fd00::a:53/UDP => 2001:db8::53:53/UDP (test/local-dns, active)
+-- dns.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns
+  namespace: test
+spec:
+  type: ClusterIP
+  clusterIP: fd00::a
+  clusterIPs: ["fd00::a"]
+  ipFamilies: [IPv6]
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: dns
+  namespace: test
+  labels:
+    kubernetes.io/service-name: dns
+addressType: IPv6
+endpoints:
+- addresses: ["2001:db8::54"]
+  conditions:
+    ready: true
+  nodeName: testnode
+ports:
+- name: dns
+  port: 53
+  protocol: UDP
+-- redirect.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: node-local-dns
+  namespace: test
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      namespace: test
+      serviceName: dns
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: local-dns
+    toPorts:
+    - name: dns
+      port: "53"
+      protocol: UDP
+  skipRedirectFromBackend: false
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: local-dns
+  namespace: test
+  labels:
+    app: local-dns
+spec:
+  nodeName: testnode
+  containers:
+  - name: dns
+    image: example.invalid/dns:test
+    ports:
+    - name: dns
+      containerPort: 53
+      protocol: UDP
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "True"
+  podIP: 2001:db8::53
+  podIPs:
+  - ip: 2001:db8::53
