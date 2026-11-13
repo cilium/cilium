@@ -205,7 +205,7 @@ jobs:
             --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Wait for images to be available
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ steps.vars.outputs.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci
@@ -290,7 +290,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"

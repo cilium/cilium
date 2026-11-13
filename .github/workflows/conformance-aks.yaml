@@ -208,7 +208,7 @@ jobs:
           persist-credentials: false
 
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-azure-ci hubble-relay-ci cilium-cli-ci
@@ -342,7 +342,7 @@ jobs:
       - name: Create AKS cluster
         id: create-cluster
         timeout-minutes: ${{ fromJSON(env.create_timeout_minutes) }}
-        uses: ./.github/actions/setup-aks-cluster
+        uses: $/.github/actions/setup-aks-cluster
         with:
           cluster_name: ${{ env.name }}
           timeout_minutes: ${{ env.create_timeout_minutes }}
@@ -609,7 +609,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "aks-${{ env.job_name }} (${{ join(matrix.*, ', ') }})-${{ inputs.UID }}"
           job_status: "${{ job.status }}"

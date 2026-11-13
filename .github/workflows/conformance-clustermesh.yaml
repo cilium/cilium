@@ -98,7 +98,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci cilium-cli-ci
@@ -801,7 +801,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium-cluster1.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
           job_status: "${{ job.status }}"

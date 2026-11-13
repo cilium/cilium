@@ -278,7 +278,7 @@ jobs:
           persist-credentials: false
 
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci
@@ -426,7 +426,7 @@ jobs:
 
       - name: Create GKE cluster
         id: create-cluster
-        uses: ./.github/actions/setup-gke-cluster
+        uses: $/.github/actions/setup-gke-cluster
         with:
           cluster-name: ${{ env.clusterName }}-${{ matrix.config.index }}
           zone: ${{ matrix.k8s.zone }}
@@ -477,7 +477,6 @@ jobs:
           mkdir -p ../cilium-base-branch/.github/actions
           cp -a .github/actions/generic-external-targets ../cilium-base-branch/.github/actions/
           cp -a .github/actions/cli-test-config ../cilium-base-branch/.github/actions/
-          cp -a .github/actions/post-logic ../cilium-base-branch/.github/actions/
           cp -a .github/actions/gke-clean-esp-rule ../cilium-base-branch/.github/actions/
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -567,7 +566,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./../cilium-base-branch/.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})"
           job_status: "${{ job.status }}"

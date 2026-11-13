@@ -384,7 +384,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           # The export step below uploads cilium-sysdump-final.zip to GCS on
           # every run, so the sysdump has to be captured regardless of status

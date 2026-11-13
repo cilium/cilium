@@ -296,7 +296,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           job_status: "${{ job.status }}"
           junits-directory: 'perf-tests/clusterloader2/report'

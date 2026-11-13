@@ -197,7 +197,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           login-host: ${{ vars.DOCKER_READ_HOST }}
@@ -427,7 +427,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         timeout-minutes: 10
         id: lvh-kind
-        uses: ./.github/actions/lvh-kind
+        uses: $/.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           dependency-list-sha: ${{ needs.lvh-cache-key.outputs.dependency-list-sha }}
@@ -600,7 +600,7 @@ jobs:
 
       - name: Start unencrypted packets check for upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
@@ -627,7 +627,7 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked during upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Test Cilium ${{ steps.vars.outputs.skip_upgrade != 'true' && 'after upgrade' }}
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -638,7 +638,7 @@ jobs:
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           # Enable the check for proxy traffic only if IPv4 is enabled.
           # Otherwise we will be skipping proxy tests and won't have DNS proxy traffic.
@@ -667,7 +667,7 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Features tested before cilium-agent restart
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -715,7 +715,7 @@ jobs:
 
       - name: Start unencrypted packets check for downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
@@ -749,7 +749,7 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked during downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -760,7 +760,7 @@ jobs:
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
@@ -787,7 +787,7 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -806,7 +806,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}-${{ matrix.mode }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"

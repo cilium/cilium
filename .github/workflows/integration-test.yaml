@@ -247,7 +247,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-junits
           pattern: cilium-junits-*

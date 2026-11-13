@@ -518,7 +518,7 @@ jobs:
       - name: Setup EKS cluster
         id: setup-cluster
         if: ${{ steps.check-pool.outputs.should_create == 'true' }}
-        uses: ./.github/actions/setup-eks-cluster
+        uses: $/.github/actions/setup-eks-cluster
         with:
           create-cluster: 'true'
           cluster_name: ${{ steps.cluster-name.outputs.cluster_name }}

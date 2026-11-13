@@ -1,0 +1,96 @@
+name: Actions Lockfile Checks
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+  merge_group:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+  cancel-in-progress: ${{ !github.event.merge_group }}
+
+jobs:
+  verify:
+    name: Verify actions.lock
+    runs-on: ubuntu-26.04
+    env:
+      # renovate: datasource=github-releases depName=github/gh-actions-lock
+      GH_ACTIONS_LOCK_VERSION: v0.4.1
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install gh actions-lock
+        run: gh extension install github/gh-actions-lock --pin "${GH_ACTIONS_LOCK_VERSION}"
+
+      - name: Check that actions.lock lists every workflow
+        run: |
+          # These load their stable branch's cosign action, whose remote actions main's lockfile cannot record.
+          unlisted=" .github/workflows/build-images-base-v1.19.yaml .github/workflows/build-images-base-v1.20.yaml .github/workflows/build-images-ci-v1.19.yaml .github/workflows/build-images-ci-v1.20.yaml "
+          listed=" $(yq '.workflows | keys | .[]' .github/workflows/actions.lock | tr '\n' ' ') "
+          status=0
+          for wf in .github/workflows/*.yaml .github/workflows/*.yml; do
+            [ -f "${wf}" ] || continue
+            case "${unlisted}" in
+              *" ${wf} "*)
+                case "${listed}" in *" ${wf} "*)
+                  echo "::error file=${wf}::${wf} must stay out of actions.lock. Relock with explicit workflow paths or with --no-onboard."
+                  status=1 ;;
+                esac ;;
+              *)
+                case "${listed}" in *" ${wf} "*) ;; *)
+                  echo "::error file=${wf}::${wf} is missing from actions.lock. Run: gh actions-lock --no-narrow ${wf}"
+                  status=1 ;;
+                esac ;;
+            esac
+          done
+          for wf in ${listed}; do
+            if [ ! -f "${wf}" ]; then
+              echo "::error::actions.lock lists ${wf}, which does not exist. Run: gh actions-lock --no-narrow --no-onboard"
+              status=1
+            fi
+          done
+          exit ${status}
+
+      - name: Verify the workflows listed in actions.lock
+        if: ${{ !cancelled() }}
+        run: |
+          mapfile -t workflows < <(yq '.workflows | keys | .[]' .github/workflows/actions.lock)
+          gh actions-lock --verify "${workflows[@]}"
+
+      - name: Check that local actions loaded through ./ call no remote action
+        if: ${{ !cancelled() }}
+        run: |
+          mapfile -t workflows < <(yq '.workflows | keys | .[]' .github/workflows/actions.lock)
+          mapfile -t actions < <(find .github/actions -name 'action.y*ml')
+          status=0
+          while read -r ref; do
+            case "${ref}" in
+              *.github/actions/*) dir=".github/actions/${ref##*.github/actions/}" ;;
+              *) dir=".github/actions/${ref##*/}" ;;
+            esac
+            file=""
+            for f in "${dir}/action.yml" "${dir}/action.yaml"; do
+              if [ -f "${f}" ]; then file="${f}"; fi
+            done
+            if [ -z "${file}" ]; then
+              echo "::error::${ref}: no action.yml in ${dir}"
+              status=1
+              continue
+            fi
+            remote=$(yq '(.runs.steps // [])[] | select(.uses != null) | .uses | select(test("^(\./|docker://)") | not)' "${file}")
+            if [ -n "${remote}" ]; then
+              echo "::error file=${file}::${ref} is loaded through ./, which gh actions-lock cannot follow, but it calls ${remote//$'\n'/, }. Load it through \$/ instead."
+              status=1
+            fi
+          done < <(yq -N '.. | select(tag == "!!map") | select(has("uses")) | .uses | select(test("^\./"))' "${workflows[@]}" "${actions[@]}" | grep -v '\.github/workflows/' | sort -u)
+          exit ${status}
