@@ -729,7 +729,7 @@ support is a good reference.
    provider.
 
 2. Add a unique `CI Integration constant <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L66-L67>`_.
-   This value is passed in when invoking ginkgo via the ``CNI_INTEGRATON``
+   This value is passed in when invoking ginkgo via the ``CNI_INTEGRATION``
    environment variable.
 
 3. Update the `helm overrides <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L138-L147>`_
