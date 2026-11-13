@@ -14,6 +14,7 @@
 #include <lib/ipv4_core.h>
 #include <lib/ipv6_core.h>
 #include <lib/static_data.h>
+#include <lib/export_type.h>
 
 /* Legacy node config rendered at agent runtime. */
 #include <node_config.h>
@@ -211,6 +212,15 @@ NODE_CONFIG(bool, debug, "Enable debugging trace statements")
 
 NODE_CONFIG(bool, debug_tagged, "Enable debugging trace statements for tagged packets")
 
+enum dsr_dispatch_mode {
+	DSR_DISPATCH_INVALID = 0,
+	DSR_DISPATCH_OPT = 1,
+	DSR_DISPATCH_IPIP = 2,
+	DSR_DISPATCH_GENEVE = 3,
+};
+
+EXPORT_TYPE(enum dsr_dispatch_mode);
+
 struct dsr_config {
 	/* Enable DSR load balancing. */
 	bool enable;
@@ -218,6 +228,8 @@ struct dsr_config {
 	bool enable_icmp_errors;
 	/* Enable the common datapath for Hybrid-DSR+SNAT and Annotation-based+DSR+SNAT modes. */
 	bool enable_by_user;
+	/* Mode of dispatching DSR traffic. */
+	enum dsr_dispatch_mode dispatch_mode;
 };
 
 NODE_CONFIG(struct dsr_config, dsr_cfg, "DSR-specific configuration")

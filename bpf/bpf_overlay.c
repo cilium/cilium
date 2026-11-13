@@ -134,18 +134,18 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		}
 	}
 
-#if defined(DSR_ENCAP_MODE) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
-	/* Pass incoming packets which will be returned using Geneve DSR
-	 * to host-stack for conntrack entry insertion.
-	 * Geneve DSR reply packets are processed by the host-stack,
-	 * so this logic is needed to prevent the packets from being handled
-	 * by netfilter in an unintended way.
-	 */
-	if (!CONFIG(enable_bpf_host_routing) && is_dsr) {
-		ctx_change_type(ctx, PACKET_HOST);
-		return CTX_ACT_OK;
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
+		/* Pass incoming packets which will be returned using Geneve DSR
+		 * to host-stack for conntrack entry insertion.
+		 * Geneve DSR reply packets are processed by the host-stack,
+		 * so this logic is needed to prevent the packets from being handled
+		 * by netfilter in an unintended way.
+		 */
+		if (!CONFIG(enable_bpf_host_routing) && is_dsr) {
+			ctx_change_type(ctx, PACKET_HOST);
+			return CTX_ACT_OK;
+		}
 	}
-#endif
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
@@ -372,18 +372,18 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		}
 	}
 
-#if defined(DSR_ENCAP_MODE) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
-	/* Pass incoming packets which will be returned using Geneve DSR
-	 * to host-stack for conntrack entry insertion.
-	 * Geneve DSR reply packets are processed by the host-stack,
-	 * so this logic is needed to prevent the packets from being handled
-	 * by netfilter in an unintended way.
-	 */
-	if (!CONFIG(enable_bpf_host_routing) && is_dsr) {
-		ctx_change_type(ctx, PACKET_HOST);
-		return CTX_ACT_OK;
+	if (CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE) {
+		/* Pass incoming packets which will be returned using Geneve DSR
+		 * to host-stack for conntrack entry insertion.
+		 * Geneve DSR reply packets are processed by the host-stack,
+		 * so this logic is needed to prevent the packets from being handled
+		 * by netfilter in an unintended way.
+		 */
+		if (!CONFIG(enable_bpf_host_routing) && is_dsr) {
+			ctx_change_type(ctx, PACKET_HOST);
+			return CTX_ACT_OK;
+		}
 	}
-#endif
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);

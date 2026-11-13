@@ -12,7 +12,7 @@
  *  * Local Pod backend on a DSR-IPIP service. Per
  *      "bpf: DNAT local backends under DSR IPIP dispatch"
  *    nodeport_skip_xlate4() must NOT skip DNAT for a local backend even
- *    though DSR_ENCAP_MODE == DSR_ENCAP_IPIP. We expect plain DNAT to the
+ *    though CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_IPIP. We expect plain DNAT to the
  *    Pod and ctx_redirect_peer() delivery (no IPIP encap to ourselves).
  *
  *  * Local L7-punt-proxy backend on a DSR-IPIP service. Same as above but
@@ -28,7 +28,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
-#define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -154,7 +153,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
-/* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). The
+/* nodeport_lb4 references this for DSR_DISPATCH_IPIP egress (TX side). The
  * remote-encap test exercises it; here we only ever pick local backends
  * so it shouldn't get used, but the dummy runtime-config value is required.
  */
@@ -165,8 +164,8 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_NODE_IP })
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_IPIP })
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
@@ -210,7 +209,7 @@ pktgen_client_to_svc(struct __ctx_buff *ctx, __be32 svc_addr, __be16 svc_port)
 /* Test 1: client -> DSR-IPIP svc, backend picked is a LOCAL Pod.             */
 /*                                                                            */
 /* Pre-"bpf: DNAT local backends under DSR IPIP dispatch", nodeport_skip_     */
-/* xlate4() returned true unconditionally under DSR_ENCAP_IPIP, so the DNAT   */
+/* xlate4() returned true unconditionally under DSR_DISPATCH_IPIP, so the DNAT   */
 /* to the Pod was skipped and the Pod saw the LB VIP as its dst. With the     */
 /* fix, DNAT runs for local backends and ctx_redirect_peer delivers into the  */
 /* Pod netns (netkit). No IPIP encap happens.                                 */

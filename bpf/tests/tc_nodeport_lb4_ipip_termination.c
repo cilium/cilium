@@ -27,7 +27,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
-#define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -191,7 +190,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
-/* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). We only
+/* nodeport_lb4 references this for DSR_DISPATCH_IPIP egress (TX side). We only
  * exercise the RX/decap side here, but the dummy runtime-config value is required.
  */
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
@@ -202,7 +201,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_IPIP })
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true) /* exercise the XFER_PKT_NO_SVC handoff */
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

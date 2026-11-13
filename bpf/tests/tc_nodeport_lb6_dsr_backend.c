@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV6 1
-#define DSR_ENCAP_MODE DSR_ENCAP_NONE
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define CLIENT_PORT	__bpf_htons(111)
@@ -67,7 +66,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_OPT })
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
