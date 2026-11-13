@@ -53,7 +53,7 @@
 #include "lib/subnet.h"
 #include "lib/socket_lb.h"
 
-static __always_inline __maybe_unused int
+static __always_inline int
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 {
 	int ret __maybe_unused;
@@ -70,7 +70,7 @@ lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 	return DROP_HOST_NOT_READY;
 }
 
-static __always_inline __maybe_unused int
+static __always_inline int
 lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		     __be16 proto, struct trace_ctx *trace)
 {
@@ -269,7 +269,6 @@ skip_service_lookup:
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
 
-#ifdef ENABLE_IPV6
 /* lb6_ctx_restore_state() restores per packet load balancing state from the
  * previous tail call.
  * tuple->flags does not need to be restored, as it will be reinitialized from
@@ -424,7 +423,6 @@ skip_service_lookup:
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
 }
-#endif /* ENABLE_IPV6 */
 
 static __always_inline void *
 select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
@@ -450,8 +448,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 	__u32 src_label = 0;
 	__u32 sec_label = SECLABEL;
 
-#ifdef ENABLE_IPV6
-	if (is_defined(ENABLE_IPV4)) {
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
 		switch (ctx_get_protocol(ctx)) {
 		case bpf_htons(ETH_P_IP):
 			sec_label = SECLABEL_IPV4;
@@ -461,7 +458,6 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 			break;
 		}
 	}
-#endif
 
 	switch (dir) {
 	case CT_EGRESS:
@@ -625,7 +621,7 @@ DEFINE_AUX(struct ct_buffer6, cilium_tail_call_buffer6);
  * forwarded rather than delivered to the host, and the stack decrements the
  * TTL when it does so.
  */
-static __always_inline __maybe_unused int
+static __always_inline int
 l7lb_redirect_to_stack(struct __ctx_buff *ctx)
 {
 	union macaddr host_mac = CONFIG(cilium_host_mac);
@@ -640,7 +636,6 @@ l7lb_redirect_to_stack(struct __ctx_buff *ctx)
 	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			    struct ipv6_ct_tuple *tuple,
@@ -1092,7 +1087,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 						  METRIC_EGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV6 */
 
 DEFINE_AUX(struct ct_buffer4, cilium_tail_call_buffer4);
 
@@ -1766,12 +1760,15 @@ int cil_from_container(struct __ctx_buff *ctx)
 		goto out;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
 		break;
-#endif /* ENABLE_IPV6 */
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4)) {
 			ret = DROP_UNKNOWN_L3;
@@ -1804,7 +1801,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
@@ -2094,7 +2090,6 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint)
-#endif /* ENABLE_IPV6 */
 
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
@@ -2437,8 +2432,12 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 		goto out;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 						 &ext_err);
@@ -2446,7 +2445,6 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 			ret = tail_ipv6_ct_ingress_policy_only(ctx);
 		sec_label = SECLABEL_IPV6;
 		break;
-#endif /* ENABLE_IPV6 */
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4)) {
 			ret = DROP_UNKNOWN_L3;
@@ -2508,12 +2506,15 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx)
 		goto out;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
 		break;
-#endif /* ENABLE_IPV6 */
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4)) {
 			ret = DROP_UNKNOWN_L3;
@@ -2618,13 +2619,16 @@ int cil_to_container(struct __ctx_buff *ctx)
 		goto out;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		sec_label = SECLABEL_IPV6;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS, &ext_err);
 		break;
-#endif /* ENABLE_IPV6 */
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4)) {
 			ret = DROP_UNKNOWN_L3;
@@ -2680,7 +2684,6 @@ int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 	return send_drop_notify_error(ctx, SECLABEL_IPV4, verdict, METRIC_EGRESS);
 }
 
-#ifdef ENABLE_IPV6
 __declare_tail(CILIUM_CALL_IPV6_POLICY_DENIED)
 int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
 {
@@ -2718,6 +2721,5 @@ int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
 drop_err:
 	return send_drop_notify_error(ctx, SECLABEL_IPV6, verdict, METRIC_EGRESS);
 }
-#endif /* ENABLE_IPV6 */
 
 BPF_LICENSE("Dual BSD/GPL");
