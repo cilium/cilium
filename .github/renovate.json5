@@ -44,6 +44,7 @@
     ".github/actions/post-logic/**",
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
+    ".github/actions/prepare-lvh-images/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/actions/ipsec/configs.yaml",
     ".github/workflows/**",
