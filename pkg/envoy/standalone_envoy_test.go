@@ -365,21 +365,21 @@ func TestEnvoyAds(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -399,9 +399,7 @@ func TestEnvoyAds(t *testing.T) {
 
 	// Add listener3 again
 	t.Log("adding listener 3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
-		func(err error) {
-		})
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -495,7 +493,6 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("completed adding metrics listener")
 
-	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("Upserting Envoy resources")
 	endpoints := []*testableEndpointUpdater{
 		{id: 40, ipv4: "10.0.0.4"},
@@ -504,11 +501,9 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	for _, endpoint := range endpoints {
 		seedADSNetworkPolicy(t, xdsServer, endpoint)
 	}
-	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), resources)
 	require.NoError(t, err)
-
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
+	requireEnvoyActiveListener(t, envoyProxy.GetAdminClient(), "listener1", "")
 
 	t.Log("updating an ADS listener additional address with SO_REUSEPORT disabled")
 	oldListener := proto.Clone(ADS_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
@@ -519,9 +514,8 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	oldListener.EnableReusePort = wrapperspb.Bool(false)
 	oldListenerResources := xds.NewResources()
 	oldListenerResources.Listeners[oldListener.Name] = oldListener
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldListenerResources, s.waitGroup))
-	require.NoError(t, s.waitForProxyCompletion())
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), oldListenerResources))
+	requireEnvoyActiveListener(t, envoyProxy.GetAdminClient(), oldListener.Name, "")
 
 	newListener := proto.Clone(oldListener).(*envoy_config_listener.Listener)
 	newAddresses := testListenerWithPorts(18080, 18444)
@@ -529,31 +523,23 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	newListener.AdditionalAddresses = newAddresses.AdditionalAddresses
 	newListenerResources := xds.NewResources()
 	newListenerResources.Listeners[newListener.Name] = newListener
-	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldListenerResources, newListenerResources, nil))
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newListenerResources, s.waitGroup))
-	require.NoError(t, s.waitForProxyCompletion())
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldListenerResources, newListenerResources))
+	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newListenerResources))
 	t.Log("completed updating an ADS listener additional address")
 
 	t.Log("Updating Envoy resources")
-	s.waitGroup = completion.NewWaitGroup(ctx)
 	updatedResources := resources
 	updatedResources.Secrets = maps.Clone(resources.Secrets)
 	for k := range updatedResources.Secrets {
 		delete(updatedResources.Secrets, k)
 	}
 	endpoints[0].ipv4 = "10.0.0.9"
-	err = xdsServer.UpdateEnvoyResources(ctx, resources, updatedResources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, resources, updatedResources)
 	require.NoError(t, err)
 	seedADSNetworkPolicy(t, xdsServer, endpoints[0])
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
 
 	t.Log("Deleting Envoy resources")
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	err = xdsServer.DeleteEnvoyResources(ctx, resources, s.waitGroup)
-	require.NoError(t, err)
-	err = s.waitForProxyCompletion()
+	err = xdsServer.DeleteEnvoyResources(ctx, resources)
 	require.NoError(t, err)
 
 	t.Log("stopping Envoy")
@@ -561,11 +547,8 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 }
 
 func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
-	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-
-	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
@@ -632,11 +615,9 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	for _, ep := range endpoints {
 		seedADSNetworkPolicy(t, xdsServer, ep)
 	}
-	err = xdsServer.UpsertEnvoyResources(ctx, validADSTestResources(t), s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), validADSTestResources(t))
 	require.NoError(t, err)
 
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
 	t.Log("completed upserting base resources")
 
 	// Step 2: Read each policy by endpoint ID and verify its IP addresses.
@@ -653,7 +634,6 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 	// Step 4: Remove endpoint 40's policy without affecting endpoint 30.
 	t.Log("removing network policy for endpoint 40")
-	s.waitGroup = completion.NewWaitGroup(ctx)
 	xdsServer.RemoveNetworkPolicy(ctx, endpoints[0])
 
 	// Verify removal
@@ -678,11 +658,8 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 // Regression test for https://github.com/cilium/cilium/issues/47624.
 func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
-	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-
-	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
@@ -746,23 +723,24 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	seedADSNetworkPolicy(t, xdsServer, ep)
 
 	t.Log("upserting a listener and its network policy")
-	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), resources)
 	require.NoError(t, err)
-	require.NoError(t, s.waitForProxyCompletion())
+	requireEnvoyActiveListener(t, envoyProxy.GetAdminClient(), "listener1", "")
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", "10.0.0.1")
 
 	// Keep the NetworkPolicy resource in the server snapshot while removing the
 	// final listener. In ADS mode, the NPDS watch must remain active for the
 	// lifetime of the stream.
-	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("removing the final network-policy listener")
 	err = xdsServer.UpdateEnvoyResources(ctx,
 		xds.Resources{Listeners: resources.Listeners},
 		xds.Resources{},
-		s.waitGroup,
 	)
 	require.NoError(t, err)
-	require.NoError(t, s.waitForProxyCompletion())
+	require.Eventually(t, func() bool {
+		dump, err := envoyProxy.GetAdminClient().Get("config_dump")
+		return err == nil && !configDumpContains(dump, "ListenersConfigDump", "listener1")
+	}, 5*time.Second, 10*time.Millisecond, "Envoy still retains the removed listener")
 
 	// Wait past listener drain to ensure the policy map is not destroyed with
 	// the final listener.
@@ -993,13 +971,13 @@ func TestEnvoyDelta(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1017,22 +995,13 @@ func TestEnvoyDelta(t *testing.T) {
 
 	// Add listener3 again
 	t.Log("adding listener 3")
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
-	require.True(t, cbCalled)
-	require.NoError(t, cbErr)
 	t.Log("completed adding listener 3")
 
-	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{
-		standaloneHeaderMatchSDSSecretName(): standaloneHeaderMatchSecret()}}, nil)
+	err = xdsServer.UpsertSecret(ctx, standaloneHeaderMatchSecret())
 	require.NoError(t, err)
 	t.Log("completed adding HeaderMatch SDS Secret")
 
@@ -1150,13 +1119,13 @@ func TestEnvoy(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1171,7 +1140,7 @@ func TestEnvoy(t *testing.T) {
 	oldListener.EnableReusePort = wrapperspb.Bool(false)
 	oldResources := xds.NewResources()
 	oldResources.Listeners[oldListener.Name] = oldListener
-	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldResources, nil))
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), oldResources))
 
 	newListener := xdsServer.getListenerConf("listener-address-update", policy.ParserTypeHTTP, 18080, true, false)
 	newAddresses := testListenerWithPorts(18080, 18444)
@@ -1180,8 +1149,8 @@ func TestEnvoy(t *testing.T) {
 	newListener.EnableReusePort = wrapperspb.Bool(false)
 	newResources := xds.NewResources()
 	newResources.Listeners[newListener.Name] = newListener
-	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldResources, newResources, nil))
-	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newResources, nil))
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldResources, newResources))
+	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newResources))
 	t.Log("completed updating a listener additional address")
 
 	// Remove listener3
@@ -1195,22 +1164,13 @@ func TestEnvoy(t *testing.T) {
 
 	// Add listener3 again
 	t.Log("adding listener 3")
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
-	require.True(t, cbCalled)
-	require.NoError(t, cbErr)
 	t.Log("completed adding listener 3")
 
-	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{
-		standaloneHeaderMatchSDSSecretName(): standaloneHeaderMatchSecret()}}, nil)
+	err = xdsServer.UpsertSecret(ctx, standaloneHeaderMatchSecret())
 	require.NoError(t, err)
 	t.Log("completed adding HeaderMatch SDS Secret")
 
@@ -1316,18 +1276,10 @@ func TestEnvoyNACK(t *testing.T) {
 	rName := "listener:22"
 
 	t.Log("adding ", rName)
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(ctx, rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(ctx, rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
-	require.True(t, cbCalled)
-	require.ErrorIs(t, err, cbErr)
 	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '127.0.0.1:22': Address already in use\n"}, err)
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
@@ -1406,7 +1358,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 
 	// Step 1: Add a valid listener so Envoy has a known-good baseline.
 	t.Log("adding valid listener on port 8081")
-	xdsServer.AddListener(ctx, "good-listener", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "good-listener", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1417,30 +1369,20 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	require.Contains(t, listeners, "good-listener")
 
 	// Step 2: Add a listener on port 22 which Envoy cannot bind (privileged port) — should NACK.
-	// Wire the cb callback to verify it is invoked with the NACK error.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding listener on port 22 (expect NACK)")
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(ctx, "bad-listener", policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	// Opt into recovery for this intentionally rejected listener.
+	rollback, err := xdsServer.cache.ApplyResourceWithRollback(ctx, localNodeID, typeurl.Listener, "bad-listener",
+		xdsServer.getListenerConf("bad-listener", policy.ParserTypeHTTP, 22, true, false), s.waitGroup)
+	require.NoError(t, err)
+	t.Cleanup(rollback.Finalize)
 
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
 	t.Logf("NACK received as expected: %s", err)
 
-	// Verify the cb callback was invoked with a non-nil error.
-	require.True(t, cbCalled, "cb callback should have been called on NACK")
-	require.Error(t, cbErr, "cb callback should have received the NACK error")
-	t.Logf("cb callback received error: %s", cbErr)
-
-	// Step 3: Wait briefly for revert to complete (revert runs asynchronously via the callback).
-	time.Sleep(3 * time.Second)
-
-	// Step 4: Verify the bad listener was reverted out of the snapshot.
+	// Response recovery commits before the NACK completes the caller wait.
+	// Verify it removed the rejected listener without caller recovery.
 	listeners = cachedListeners(xdsServer.cache, localNodeID)
 	require.NotContains(t, listeners, "bad-listener",
 		"bad-listener should have been reverted from the snapshot after NACK")
@@ -1452,7 +1394,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	// Step 5: Verify we can still add new valid listeners after the revert.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding another valid listener on port 8082 after NACK revert")
-	xdsServer.AddListener(ctx, "post-revert-listener", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "post-revert-listener", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1529,7 +1471,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	// Step 1: Add a first listener so Envoy connects and we have a baseline.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding baseline listener")
-	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("baseline listener added")
@@ -1541,7 +1483,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	listenerNames := []string{"rapid-1", "rapid-2", "rapid-3"}
 	for i, name := range listenerNames {
 		t.Logf("adding listener %s (port %d)", name, 8090+i)
-		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup, nil)
+		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup)
 	}
 
 	// Wait for all completions — this will only succeed if the generation-aware
@@ -1610,12 +1552,12 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	defer waitCancel()
 	trackedWaitGroup := completion.NewWaitGroup(waitCtx)
 	defer trackedWaitGroup.Cancel()
-	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil))
+	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
 	// Stage a newer generation without a waiter before Envoy connects. The first
 	// LDS watch must finalize one snapshot containing both generations.
-	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
+	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 	_, err = xdsServer.cache.GetSnapshotCache().GetSnapshot(localNodeID)
 	require.Error(t, err, "snapshot generation must remain lazy until Envoy opens a watch")
@@ -1709,30 +1651,34 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	// Step 1: Add a valid baseline listener.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding baseline listener")
-	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("baseline listener added")
 
 	// Step 2: Rapidly add multiple listeners where the last one will cause a NACK.
 	// Port 22 is privileged and Envoy cannot bind it, triggering a NACK.
-	// All completions (including earlier valid ones) should complete with error
-	// via completeUpTo, which completes the NACKed version and all earlier versions.
+	// Earlier waits resolve from the response covering their changes. Opt into
+	// response recovery for these intentionally rejectable resources.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("rapidly adding listeners: valid-1 (8090), valid-2 (8091), bad (22)")
-	xdsServer.AddListener(ctx, "valid-1", policy.ParserTypeHTTP, 8090, true, false, s.waitGroup, nil)
-	xdsServer.AddListener(ctx, "valid-2", policy.ParserTypeHTTP, 8091, true, false, s.waitGroup, nil)
-	xdsServer.AddListener(ctx, "bad", policy.ParserTypeHTTP, 22, true, false, s.waitGroup, nil)
+	for _, listener := range []struct {
+		name string
+		port uint16
+	}{{"valid-1", 8090}, {"valid-2", 8091}, {"bad", 22}} {
+		rollback, err := xdsServer.cache.ApplyResourceWithRollback(ctx, localNodeID, typeurl.Listener, listener.name,
+			xdsServer.getListenerConf(listener.name, policy.ParserTypeHTTP, listener.port, true, false), s.waitGroup)
+		require.NoError(t, err)
+		t.Cleanup(rollback.Finalize)
+	}
 
 	// All completions should resolve (with error) — none should be stuck.
 	err = s.waitForProxyCompletion()
 	require.Error(t, err, "expected NACK error from Envoy")
 	t.Logf("NACK received as expected: %s", err)
 
-	// Step 3: Wait for revert to complete.
-	time.Sleep(3 * time.Second)
-
-	// Step 4: Verify no pending completions remain.
+	// Response recovery commits before completing the waits. No sleep is needed.
+	// Verify no pending completions remain.
 	pendingCount := xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount()
 	require.Equal(t, 0, pendingCount, "expected no pending completions after NACK")
 
@@ -1846,12 +1792,11 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	}
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
+	// UpdateEnvoyResources intentionally does not wait for endpoint ACKs. This
 	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
-	var callbacks xdsnew.TypeURLCallbacks
-	callbacks.Set(typeurl.Endpoint, nil)
+	waitTypeURLs := typeurl.NewSet(typeurl.Endpoint)
 	xdsServer.mutex.Lock()
-	err = xdsServer.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, callbacks)
+	err = xdsServer.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, waitTypeURLs)
 	xdsServer.mutex.Unlock()
 	require.NoError(t, err)
 
@@ -2001,11 +1946,11 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 				}},
 			}
 			initialClusterBaseline := traffic.mark()
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Clusters:  map[string]*envoy_config_cluster.Cluster{cluster.Name: cluster},
 				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
 				Secrets:   map[string]*envoy_config_tls.Secret{upstreamSecret.Name: upstreamSecret},
-			}, nil))
+			}))
 			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), cluster.Name, "")
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "EndpointsConfigDump", endpoint.ClusterName)
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", upstreamSecret.Name)
@@ -2058,11 +2003,11 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 				}}},
 			}
 			initialListenerBaseline := traffic.mark()
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
 				Routes:    map[string]*envoy_config_route.RouteConfiguration{route.Name: route},
 				Secrets:   map[string]*envoy_config_tls.Secret{listenerSecret.Name: listenerSecret},
-			}, nil))
+			}))
 			requireEnvoyActiveListener(t, proxy.GetAdminClient(), listener.Name, "warming-http-before")
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", route.Name)
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", listenerSecret.Name)
@@ -2075,9 +2020,9 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			sharedCluster.Name = "warming-cluster-sharing-eds"
 			sharedCluster.AltStatName = "warming-shared-eds"
 			sharedEndpointBaseline := traffic.mark()
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Clusters: map[string]*envoy_config_cluster.Cluster{sharedCluster.Name: sharedCluster},
-			}, nil))
+			}))
 			// Both clusters use the same already-delivered CLA. Activation must
 			// precede the ten-second EDS initial-fetch-timeout fallback.
 			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), sharedCluster.Name, sharedCluster.AltStatName)
@@ -2097,9 +2042,9 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			updatedCluster := proto.Clone(cluster).(*envoy_config_cluster.Cluster)
 			updatedCluster.AltStatName = "warming-cluster-updated"
 			updatedCluster.ConnectTimeout = durationpb.New(2 * time.Second)
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Clusters: map[string]*envoy_config_cluster.Cluster{cluster.Name: updatedCluster},
-			}, nil))
+			}))
 			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), cluster.Name, updatedCluster.AltStatName)
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "EndpointsConfigDump", endpoint.ClusterName)
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", upstreamSecret.Name)
@@ -2113,9 +2058,9 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			require.NoError(t, updatedListener.FilterChains[0].Filters[0].GetTypedConfig().UnmarshalTo(hcm))
 			hcm.StatPrefix = "warming-http-after"
 			updatedListener.FilterChains[0].Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{TypedConfig: ToAny(hcm)}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: updatedListener},
-			}, nil))
+			}))
 			requireEnvoyActiveListener(t, proxy.GetAdminClient(), listener.Name, hcm.StatPrefix)
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", route.Name)
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", listenerSecret.Name)
@@ -2126,9 +2071,9 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			secondListener := proto.Clone(updatedListener).(*envoy_config_listener.Listener)
 			secondListener.Name = "warming-listener-second"
 			secondListener.Address.GetSocketAddress().PortSpecifier = &envoy_config_core.SocketAddress_PortValue{PortValue: 18089}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{secondListener.Name: secondListener},
-			}, nil))
+			}))
 			requireEnvoyActiveListener(t, proxy.GetAdminClient(), secondListener.Name, hcm.StatPrefix)
 			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18089/", trustedRoots)
 			traffic.settle()
@@ -2139,9 +2084,9 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			sharedRoute := proto.Clone(route).(*envoy_config_route.RouteConfiguration)
 			sharedRoute.VirtualHosts[0].Routes[0].GetRoute().ClusterSpecifier =
 				&envoy_config_route.RouteAction_Cluster{Cluster: sharedCluster.Name}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Routes: map[string]*envoy_config_route.RouteConfiguration{route.Name: sharedRoute},
-			}, nil))
+			}))
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", sharedCluster.Name)
 			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18089/", trustedRoots)
 		})

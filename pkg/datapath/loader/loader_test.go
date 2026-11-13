@@ -5,6 +5,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -98,8 +100,54 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	_, err := l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
+	_, err := l.ReloadDatapath(ctx, ep, &localNodeConfig, stats, nil)
 	require.NoError(t, err)
+
+	mapNames := []string{policymap.PolicyCallMapName}
+	if !ep.IsHost() {
+		mapNames = append(mapNames, policymap.PolicyEgressCallMapName)
+	}
+	programs := func(t *testing.T) []ebpf.ProgramID {
+		t.Helper()
+		var ids []ebpf.ProgramID
+		for _, name := range mapNames {
+			m, err := ebpf.LoadPinnedMap(filepath.Join(bpf.TCGlobalsPath(), name), nil)
+			require.NoError(t, err)
+			var id ebpf.ProgramID
+			err = m.Lookup(uint32(ep.GetID()), &id)
+			m.Close()
+			require.NoError(t, err)
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{name: "rejected", err: errors.New("proxy rejected update")},
+		{name: "accepted"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := programs(t)
+			calls := 0
+			_, err := l.ReloadDatapath(ctx, ep, &localNodeConfig, stats, func() error {
+				calls++
+				require.Equal(t, before, programs(t), "new policy programs must not be reachable before the hook succeeds")
+				return tc.err
+			})
+			require.Equal(t, 1, calls)
+			if tc.err != nil {
+				require.ErrorIs(t, err, tc.err)
+				require.Equal(t, before, programs(t), "a rejected update must retain the old programs")
+			} else {
+				require.NoError(t, err)
+				for i, id := range programs(t) {
+					require.NotEqual(t, before[i], id)
+				}
+			}
+		})
+	}
 }
 
 // TestPrivilegedCompileOrLoadDefaultEndpoint checks that the datapath can be compiled
@@ -178,7 +226,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		_, err = l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
+		_, err = l.ReloadDatapath(ctx, ep, &localNodeConfig, stats, nil)
 	}
 	require.Error(t, err)
 }

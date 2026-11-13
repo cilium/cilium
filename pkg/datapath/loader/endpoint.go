@@ -80,7 +80,7 @@ func endpointMapRenames(ep endpoint.Config, lnc *config.Config) (renames []map[s
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *config.Config, stats *metrics.SpanStat) (string, error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *config.Config, stats *metrics.SpanStat, beforeExpose func() error) (string, error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -96,7 +96,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(ctx, l.logger, l.registry, l.bpfCollectionLoader, ep, lnc, spec)
+		err = reloadHostEndpoint(ctx, l.logger, l.registry, l.bpfCollectionLoader, ep, lnc, spec, beforeExpose)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
@@ -109,7 +109,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(ctx, l.logger, l.registry, l.bpfCollectionLoader, l.db, l.devices, l.routeManager, ep, lnc, spec)
+	err = reloadEndpoint(ctx, l.logger, l.registry, l.bpfCollectionLoader, l.db, l.devices, l.routeManager, ep, lnc, spec, beforeExpose)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -219,7 +219,7 @@ func defaultEndpointMapRenames(ep endpoint.Config, lnc *config.Config) map[strin
 // it if necessary.
 func reloadEndpoint(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry, collLoader *bpfCollectionLoader,
 	db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
-	ep endpoint.Endpoint, lnc *config.Config, spec *ebpf.CollectionSpec) error {
+	ep endpoint.Endpoint, lnc *config.Config, spec *ebpf.CollectionSpec, beforeExpose func() error) error {
 
 	var obj lxcObjects
 	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
@@ -236,6 +236,12 @@ func reloadEndpoint(ctx context.Context, logger *slog.Logger, reg *registry.MapR
 	}
 	defer cleanup()
 	defer obj.Close()
+
+	if beforeExpose != nil {
+		if err := beforeExpose(); err != nil {
+			return err
+		}
+	}
 
 	// Insert policy programs before attaching entrypoints to tc hooks.
 	// Inserting a policy program is considered an attachment, since it makes

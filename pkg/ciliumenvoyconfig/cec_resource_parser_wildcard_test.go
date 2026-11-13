@@ -59,7 +59,7 @@ func TestParseResourcesNormalizesWildcardPortNames(t *testing.T) {
 					}
 					endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: tt.clusterName}
 					for _, newResources := range []bool{true, false} {
-						resources, err := parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
+						resources, _, err := parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
 							{Any: toAny(cluster)}, {Any: toAny(endpoint)},
 						}, false, false, false, newResources)
 						require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestParseResourcesNormalizesWildcardPortReferences(t *testing.T) {
 					ConfigType: &envoy_config_listener.Filter_TypedConfig{TypedConfig: toAny(tt.config)},
 				}}}},
 			}
-			resources, err := parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
+			resources, _, err := parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
 				{Any: toAny(listener)}, {Any: toAny(route)},
 			}, false, false, false, true)
 			require.NoError(t, err)
@@ -264,12 +264,12 @@ func TestParseResourcesRejectsNormalizedWildcardPortNames(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, newResources := range []bool{true, false} {
-				_, err := parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
+				_, _, err := parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
 					{Any: toAny(tt.resource("backends/service:*"))},
 					{Any: toAny(tt.resource("backends/service"))},
 				}, false, false, false, newResources)
 				require.ErrorContains(t, err, "duplicate")
-				_, err = parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
+				_, _, err = parser.ParseResources("namespace", "cec", []cilium_v2.XDSResource{
 					{Any: toAny(tt.resource(":*"))},
 				}, false, false, false, newResources)
 				require.ErrorContains(t, err, "unspecified")
@@ -332,7 +332,7 @@ func TestParseResourcesRejectsNormalizedHealthCheckNameCollisions(t *testing.T) 
 							}
 							allocator := NewMockPortAllocator()
 							parser := CECResourceParser{logger: hivetest.Logger(t), xdsMode: mode, portAllocator: allocator}
-							resources, err := parser.ParseResources(namespace, "cec", []cilium_v2.XDSResource{
+							resources, _, err := parser.ParseResources(namespace, "cec", []cilium_v2.XDSResource{
 								{Any: toAny(listener)},
 							}, false, false, false, true)
 							if tt.wantNames == nil {

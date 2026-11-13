@@ -122,16 +122,16 @@ func (blockingCompletionOwner) CleanupAfterWait(*completion.Completion) {}
 func TestWaitForProxyCompletions(t *testing.T) {
 	nackErr := errors.New("proxy rejected update")
 	tests := []struct {
-		name            string
-		completionErr   error
-		cancel          bool
-		empty           bool
-		wantErr         error
-		wantCallbackErr error
+		name           string
+		completionErr  error
+		cancel         bool
+		empty          bool
+		wantErr        error
+		wantPendingErr error
 	}{
-		{name: "timeout", wantErr: context.DeadlineExceeded, wantCallbackErr: context.DeadlineExceeded},
-		{name: "already-canceled", cancel: true, wantErr: context.Canceled, wantCallbackErr: context.Canceled},
-		{name: "already-rejected", completionErr: nackErr, wantErr: nackErr, wantCallbackErr: context.Canceled},
+		{name: "timeout", wantErr: context.DeadlineExceeded, wantPendingErr: context.DeadlineExceeded},
+		{name: "already-canceled", cancel: true, wantErr: context.Canceled, wantPendingErr: context.Canceled},
+		{name: "already-rejected", completionErr: nackErr, wantErr: nackErr, wantPendingErr: context.Canceled},
 		{name: "canceled-empty", cancel: true, empty: true, wantErr: context.Canceled},
 		{name: "empty", empty: true},
 	}
@@ -142,12 +142,12 @@ func TestWaitForProxyCompletions(t *testing.T) {
 			defer cancel()
 			wg := completion.NewWaitGroup(ctx)
 			const blockingID = "blocking-proxy-policy-update"
-			var callbackErr error
+			var pending *completion.Completion
 			if !tt.empty {
-				wg.AddCompletionWithCallback(blockingCompletionOwner(blockingID), func(err error) { callbackErr = err })
+				pending = wg.AddCompletion(blockingCompletionOwner(blockingID))
 			}
 			if tt.completionErr != nil {
-				wg.AddCompletionWithCallback(nil, nil).Complete(tt.completionErr)
+				wg.AddCompletion(nil).Complete(tt.completionErr)
 			}
 			if tt.cancel {
 				cancel()
@@ -156,7 +156,7 @@ func TestWaitForProxyCompletions(t *testing.T) {
 			err := mgr.waitForProxyCompletions(wg)
 			require.ErrorIs(t, err, tt.wantErr)
 			if !tt.empty {
-				require.ErrorIs(t, callbackErr, tt.wantCallbackErr)
+				require.ErrorIs(t, pending.Err(), tt.wantPendingErr)
 			}
 			if errors.Is(tt.wantErr, context.DeadlineExceeded) {
 				require.ErrorContains(t, err, "Waiting on "+blockingID)

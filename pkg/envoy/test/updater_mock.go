@@ -38,8 +38,6 @@ func (m *ProxyUpdaterMock) GetIngressNamedPort(string, u8proto.U8proto) uint16 {
 	return m.NamedPort
 }
 
-func (m *ProxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
-
 func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyType, l4Protocol string, port, proxyPort uint16, ingress, request bool,
 	verdict accesslog.FlowVerdict) {
 }

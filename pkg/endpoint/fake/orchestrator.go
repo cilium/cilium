@@ -23,7 +23,10 @@ func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
 }
 
-func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep types.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep types.Endpoint, stats *metrics.SpanStat, beforeExpose func() error) (string, error) {
+	if beforeExpose != nil {
+		return "", beforeExpose()
+	}
 	return "", nil
 }
 

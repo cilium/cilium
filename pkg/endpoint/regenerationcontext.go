@@ -114,6 +114,10 @@ type regenerationContext struct {
 	// the regeneration is done
 	DoneFunc func()
 
+	// beforeExpose is used to wait for proxy updates before publishing the new programs.
+	// It clears itself before waiting and is also used when no reload is needed.
+	beforeExpose func() error
+
 	datapathRegenerationContext *datapathRegenerationContext
 
 	parentContext context.Context
@@ -159,6 +163,12 @@ type datapathRegenerationContext struct {
 	// policyRevisionToWaitFor is the policy revision being requested to
 	// update the endpoint to.
 	policyRevisionToWaitFor uint64
+
+	// proxyPolicyRevision is the desired policy revision recorded while the
+	// endpoint is locked, zero for none.
+	// After successful Wait this is the revision realized by the Envoy proxy
+	// for this endpoint.
+	proxyPolicyRevision uint64
 
 	revertibles revert.Revertibles
 }

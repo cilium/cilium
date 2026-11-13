@@ -209,11 +209,13 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
 	eps := mgr.GetEndpoints()
+	proxyPolicyRevisions := make([]uint64, len(eps))
 	wg.Add(len(eps))
 
-	for _, ep := range eps {
+	for i, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			err, revertible := ep.ApplyPolicyMapChanges(proxyWaitGroup)
+			err, revertible, revision := ep.ApplyPolicyMapChanges(proxyWaitGroup)
+			proxyPolicyRevisions[i] = revision
 			guard.Lock()
 			revertibles.Add(revertible)
 			guard.Unlock()
@@ -247,6 +249,12 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	}
 	if err != nil {
 		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
+	} else {
+		for i, revision := range proxyPolicyRevisions {
+			if revision != 0 {
+				eps[i].OnProxyPolicyUpdate(revision)
+			}
+		}
 	}
 
 	// Perform policy update call if required.

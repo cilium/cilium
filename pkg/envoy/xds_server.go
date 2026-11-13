@@ -367,20 +367,7 @@ func (s *xdsServer) AddAdminListener(ctx context.Context, port uint16, wg *compl
 		}
 
 		return listenerConf
-	}, wg, func(err error) {
-		if err != nil {
-			s.logger.Debug("Envoy: Adding admin listener failed",
-				logfields.Port, port,
-				logfields.Error, err,
-			)
-			// Remove the added listener in case of a failure
-			s.removeListener(adminListenerName, nil, false)
-		} else {
-			s.logger.Info("Envoy: Listening for Admin API",
-				logfields.Port, port,
-			)
-		}
-	}, false)
+	}, wg, false)
 }
 
 func (s *xdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup) {
@@ -446,25 +433,12 @@ func (s *xdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *com
 		}
 
 		return listenerConf
-	}, wg, func(err error) {
-		if err != nil {
-			s.logger.Debug("Envoy: Adding metrics listener failed",
-				logfields.Port, port,
-				logfields.Error, err,
-			)
-			// Remove the added listener in case of a failure
-			s.removeListener(metricsListenerName, nil, false)
-		} else {
-			s.logger.Info("Envoy: Listening for prometheus metrics",
-				logfields.Port, port,
-			)
-		}
-	}, false)
+	}, wg, false)
 }
 
-// addListener either reuses an existing listener with 'name', or creates a new one.
-// 'listenerConf()' is only called if a new listener is being created.
-func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) error {
+// addListener validates and publishes a listener. Redirect listeners additionally
+// retain a reference for each proxy redirect using their name.
+func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, isProxyListener bool) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -479,28 +453,29 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 		return fmt.Errorf("Envoy: Could not validate Listener %s: %w", listenerConfig.String(), err)
 	}
 
+	if !isProxyListener {
+		// Diagnostic listeners have no redirect references or port allocations.
+		// Keep NACK recovery even when restoration or caller cancellation skips ACK waits.
+		s.listenerMutator.UpsertWithNACKRemoval(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg)
+		s.logger.Info("Envoy: Configured diagnostic listener", logfields.Listener, name)
+		return nil
+	}
+
 	count := s.listenerCount[name]
 	if count == 0 {
-		if isProxyListener {
-			_ = s.npdsListeners.Add(name)
-		}
+		_ = s.npdsListeners.Add(name)
 		s.logger.Info("Envoy: Upserting new listener",
 			logfields.Listener, name,
 		)
 	}
 	count++
 	s.listenerCount[name] = count
-	_ = s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
-		func(err error) {
-			if cb != nil {
-				cb(err)
-			}
-		})
+	_ = s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg)
 	return nil
 }
 
 // upsertListener either updates an existing LDS listener with 'name', or creates a new one.
-func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_listener.Listener, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -516,8 +491,7 @@ func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_liste
 		}
 	}
 
-	// 'callback' is not called if there is no change and this configuration has already been acked.
-	revertFunc := s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
+	revertFunc := s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg)
 	return func() {
 		s.mutex.Lock()
 		revertFunc()
@@ -527,7 +501,7 @@ func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_liste
 }
 
 // deleteListener deletes an LDS Envoy Listener.
-func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -536,8 +510,7 @@ func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callba
 		s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
 	}
 
-	// 'callback' is not called if there is no change and this configuration has already been acked.
-	revertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	revertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg)
 	return func() {
 		s.mutex.Lock()
 		revertNPDSTracking()
@@ -550,56 +523,56 @@ func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callba
 func (s *xdsServer) upsertRoute(name string, conf *envoy_config_route.RouteConfiguration, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.routeMutator.Upsert(RouteTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
+	return s.routeMutator.Upsert(RouteTypeURL, name, conf, []string{"127.0.0.1"}, wg)
 }
 
 // deleteRoute deletes an RDS Route.
 func (s *xdsServer) deleteRoute(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.routeMutator.Delete(RouteTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+	return s.routeMutator.Delete(RouteTypeURL, name, []string{"127.0.0.1"}, wg)
 }
 
 // upsertCluster either updates an existing CDS cluster with 'name', or creates a new one.
 func (s *xdsServer) upsertCluster(name string, conf *envoy_config_cluster.Cluster, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.clusterMutator.Upsert(ClusterTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
+	return s.clusterMutator.Upsert(ClusterTypeURL, name, conf, []string{"127.0.0.1"}, wg)
 }
 
 // deleteCluster deletes an CDS cluster.
 func (s *xdsServer) deleteCluster(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.clusterMutator.Delete(ClusterTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+	return s.clusterMutator.Delete(ClusterTypeURL, name, []string{"127.0.0.1"}, wg)
 }
 
 // upsertEndpoint either updates an existing EDS endpoint with 'name', or creates a new one.
 func (s *xdsServer) upsertEndpoint(name string, conf *envoy_config_endpoint.ClusterLoadAssignment, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.endpointMutator.Upsert(EndpointTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
+	return s.endpointMutator.Upsert(EndpointTypeURL, name, conf, []string{"127.0.0.1"}, wg)
 }
 
 // deleteEndpoint deletes an EDS endpoint.
 func (s *xdsServer) deleteEndpoint(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg)
 }
 
 // upsertSecret either updates an existing SDS secret with 'name', or creates a new one.
 func (s *xdsServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
+	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg)
 }
 
 // deleteSecret deletes an SDS secret.
 func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg)
 }
 
 func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
@@ -647,7 +620,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	return listenerConf
 }
 
-func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	s.logger.Debug("Envoy: AddListener",
 		logfields.L7ParserType, kind,
 		logfields.Listener, name,
@@ -656,15 +629,10 @@ func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7
 
 	return s.addListener(name, func() *envoy_config_listener.Listener {
 		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
-	}, wg, cb, true)
+	}, wg, true)
 }
 
 func (s *xdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
-	s.removeListener(name, wg, true)
-}
-
-// removeListener removes an existing Envoy Listener.
-func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProxyListener bool) {
 	s.logger.Debug("Envoy: RemoveListener",
 		logfields.Listener, name,
 	)
@@ -674,14 +642,12 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	if count > 0 {
 		count--
 		if count == 0 {
-			if isProxyListener {
-				s.npdsListeners.Delete(name)
-			}
+			s.npdsListeners.Delete(name)
 			delete(s.listenerCount, name)
 			s.logger.Info("Envoy: Deleting listener",
 				logfields.Listener, name,
 			)
-			s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+			s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg)
 
 			// cancel all pending network policy completions if this was the last
 			// listener with bpf metadata listener filter with bpf path configured.
@@ -749,7 +715,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		for _, dup := range conflicts {
 			// We use the string form of the Endpoint's ID as the xDS resource name.
 			dupName := strconv.FormatUint(dup.ep.GetID(), 10)
-			s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, dupName, nil, nil, nil)
+			s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, dupName, nil, nil)
 		}
 	}
 
@@ -768,17 +734,10 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		wg = nil
 	}
 
-	// When successful, push policy into the cache.
-	policyRevision := l4policy.Revision
-	callback := func(err error) {
-		if err == nil {
-			go ep.OnProxyPolicyUpdate(policyRevision)
-		}
-	}
 	epID := ep.GetID()
 	nodeIDs := []string{LegacyFormatLocalNodeID}
 	resourceName := strconv.FormatUint(epID, 10)
-	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
+	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg)
 
 	return nil, revert.RevertFunc(func() error {
 		s.mutex.Lock()
@@ -809,128 +768,23 @@ func (s *xdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 
 	// Safe to pass nodeIPs as nil when wg is also nil and the returned revert function is
 	// ignored.
-	s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil, nil)
+	s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil)
 
 	s.localEndpointStore.removeLocalEndpoint(ep)
 }
 
-func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
-	s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
-		logfields.Resource, resources.DebugInfo())
-
-	var wg *completion.WaitGroup
-	// Listener config may fail if it refers to a cluster that has not been added yet, so we
-	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
-	// config does not fail for this reason.
-	// Enable wait before new Listeners are added if clusters are also added.
-	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
-		wg = completion.NewWaitGroup(ctx)
-	}
-	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	// Do not wait for the addition of routes, clusters, endpoints, routes,
-	// or secrets as there are no guarantees that these additions will be
-	// acked. For example, if the listener referring to was already deleted
-	// earlier, there are no references to the deleted resources anymore,
-	// in which case we could wait forever for the ACKs. This could also
-	// happen if there is no listener referring to these named
-	// resources to begin with.
-	// If both listeners and clusters are added then wait for clusters.
-	for _, r := range resources.Secrets {
-		s.logger.Debug("Envoy upsertSecret",
-			logfields.ResourceName, r.Name,
-		)
-		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil))
-	}
-	for _, r := range resources.Endpoints {
-		s.logger.Debug("Envoy upsertEndpoint",
-			logfields.ResourceName, r.ClusterName,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil))
-	}
-	for _, r := range resources.Clusters {
-		s.logger.Debug("Envoy upsertCluster",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg))
-	}
-	for _, r := range resources.Routes {
-		s.logger.Debug("Envoy upsertRoute",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil))
-	}
-	// Wait before new Listeners are added if clusters were also added above.
-	if wg != nil {
-		start := time.Now()
-		s.logger.Debug("UpsertEnvoyResources: Waiting for cluster updates to complete...")
-		err := wg.Wait()
-		s.logger.Debug("UpsertEnvoyResources: Wait time for cluster updates",
-			logfields.Duration, time.Since(start),
-			logfields.Error, err,
-		)
-
-		// revert all changes in case of failure
-		if err != nil {
-			revertFuncs.Revert()
-			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
-			return err
-		}
-		wg = nil
-	}
-	// Wait only if new Listeners are added, as they will always be acked.
-	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
-	if len(resources.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
-	}
-	for _, r := range resources.Listeners {
-		s.logger.Debug("Envoy upsertListener",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-		listenerName := r.Name
-		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
-			// this callback is not called if there is no change
-			func(err error) {
-				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr,
-						)
-					}
-				}
-			}))
-	}
-	if wg != nil {
-		start := time.Now()
-		s.logger.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
-		err := wg.Wait()
-		s.logger.Debug("UpsertEnvoyResources: Wait time for proxy updates",
-			logfields.Duration, time.Since(start),
-			logfields.Error, err,
-		)
-
-		// revert all changes in case of failure
-		if err != nil {
-			revertFuncs.Revert()
-			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
-		}
-		return err
-	}
+func (s *xdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
+	s.upsertSecret(secret.GetName(), secret, nil)
 	return nil
 }
 
 // UpdateEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is
-// needed due to the possible dependency between listeners and listeners and clusters. If resources
+// needed due to the possible dependency between listeners and clusters. If resources
 // includes listeners the caller MUST pass a context with a timeout to prevent indefinite blocking
 // in case Envoy never responds.
 // Waits for listener deletions and new clusters if 'new' contains any listeners, and for new
 // listeners, if any.
-// 'waitGroup' is intentionally not used as we need to wait to be able to revert even if the caller
-// does not need to wait.
-func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources) error {
 	waitForDelete := false
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Delete old listeners not added in 'new' or whose address configuration changed.
@@ -939,12 +793,6 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		found := false
 		for _, newListener := range new.Listeners {
 			if newListener.Name == oldListener.Name {
-				// Listener recreation and proxy-port allocation are independent:
-				// changing an additional address requires delete-and-recreate, but
-				// the unchanged primary port must retain its existing allocation.
-				if listenerPrimaryPortsEqual(oldListener, newListener) {
-					delete(new.PortAllocationCallbacks, newListener.Name)
-				}
 				if !listenerAddressesEqual(oldListener, newListener) {
 					s.logger.Debug("UpdateEnvoyResources: listener addresses changing",
 						logfields.Listener, newListener.Name)
@@ -970,16 +818,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		dependencyWG = completion.NewWaitGroup(ctx)
 	}
 	for _, listener := range deleteListeners {
-		listenerName := listener.Name
-		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, dependencyWG,
-			func(err error) {
-				if err == nil && old.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := old.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr)
-					}
-				}
-			}))
+		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, dependencyWG))
 	}
 
 	// Do not wait for the deletion of routes, clusters, endpoints, or
@@ -1129,18 +968,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		wg := completion.NewWaitGroup(ctx)
 		var listenerRevertFuncs xds.AckingResourceMutatorRevertFuncList
 		for _, r := range new.Listeners {
-			listenerName := r.Name
-			listenerRevertFuncs = append(listenerRevertFuncs, s.upsertListener(r.Name, r, wg,
-				// this callback is not called if there is no change
-				func(err error) {
-					if err == nil && new.PortAllocationCallbacks[listenerName] != nil {
-						if callbackErr := new.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-							s.logger.Warn("Failure in port allocation callback",
-								logfields.Error, callbackErr,
-							)
-						}
-					}
-				}))
+			listenerRevertFuncs = append(listenerRevertFuncs, s.upsertListener(r.Name, r, wg))
 		}
 
 		start := time.Now()
@@ -1182,7 +1010,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 // DeleteEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. If
 // resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
 // blocking in case Envoy never responds.
-func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
 		logfields.ResourceRoutes, len(resources.Routes),
@@ -1198,17 +1026,7 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		wg = completion.NewWaitGroup(ctx)
 	}
 	for _, r := range resources.Listeners {
-		listenerName := r.Name
-		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg,
-			func(err error) {
-				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr,
-						)
-					}
-				}
-			}))
+		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg))
 	}
 
 	// Do not wait for the deletion of routes, clusters, or endpoints, as

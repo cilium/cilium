@@ -23,7 +23,7 @@ func (f *Loader) CompileOrLoad(ctx context.Context, ep endpoint.Endpoint, stats 
 	panic("implement me")
 }
 
-func (f *Loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *config.Config, stats *metrics.SpanStat) (string, error) {
+func (f *Loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *config.Config, stats *metrics.SpanStat, beforeExpose func() error) (string, error) {
 	panic("implement me")
 }
 

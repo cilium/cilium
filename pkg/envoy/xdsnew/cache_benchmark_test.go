@@ -58,9 +58,10 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 							seed.Upserted.Listeners[name] = proto.Clone(resource).(*listener.Listener)
 						}
 					}
-					if err := c.ApplyResources(b.Context(), nodeID, seed, nil, TypeURLCallbacks{}); err != nil {
+					if err := c.ApplyResources(b.Context(), nodeID, seed, nil, typeurl.EmptySet); err != nil {
 						b.Fatal(err)
 					}
+					waits := typeurl.NewSet(typeurl.Listener)
 					b.ReportAllocs()
 					b.ResetTimer()
 					for i := range b.N {
@@ -72,17 +73,68 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 						if mode != "canonical-noop" {
 							version = (i + 1) % len(inputs)
 						}
-						if err := c.ApplyResources(b.Context(), nodeID, inputs[version], wg, TypeURLCallbacks{}); err != nil {
+						if err := c.ApplyResources(b.Context(), nodeID, inputs[version], wg, waits); err != nil {
 							b.Fatal(err)
 						}
 						if wg != nil {
-							// Cancel each caller wait so registrations do not
-							// accumulate. Cache-owned rollback remains independent of it.
+							// Cancel each caller wait so registrations do not accumulate.
 							wg.Cancel()
 						}
 					}
 				})
 			}
+		}
+	}
+}
+
+// BenchmarkSemanticNoOpCallerRollback includes a fresh caller-owned update and
+// its equal-value reuse while other caller handles remain outstanding.
+func BenchmarkSemanticNoOpCallerRollback(b *testing.B) {
+	for _, pending := range []int{0, 1, 64, 512} {
+		for _, bulk := range []bool{false, true} {
+			b.Run(fmt.Sprintf("pending=%d/bulk=%t", pending, bulk), func(b *testing.B) {
+				const nodeID = "benchmark-node"
+				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
+				for i := range pending {
+					name := fmt.Sprintf("pending-%d", i)
+					rollback, err := c.ApplyResourceWithRollback(b.Context(), nodeID, typeurl.Listener, name,
+						&listener.Listener{Name: name}, nil)
+					if err != nil {
+						b.Fatal(err)
+					}
+					b.Cleanup(rollback.Finalize)
+				}
+				var values [2]*listener.Listener
+				var candidates [2]*listener.Listener
+				var mutations [2]ResourceMutations
+				for i := range values {
+					values[i] = &listener.Listener{Name: "resource", StatPrefix: fmt.Sprint(i)}
+					candidates[i] = proto.Clone(values[i]).(*listener.Listener)
+					mutations[i].Upserted.Listeners = map[string]*listener.Listener{"resource": candidates[i]}
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := range b.N {
+					version := i % len(values)
+					caller, err := c.ApplyResourceWithRollback(b.Context(), nodeID, typeurl.Listener, "resource", values[version], nil)
+					if err != nil {
+						b.Fatal(err)
+					}
+					var reused Rollback
+					if bulk {
+						reused, err = c.ApplyResourcesWithRollback(b.Context(), nodeID, mutations[version], nil, typeurl.EmptySet)
+					} else {
+						reused, err = c.ApplyResourceWithRollback(b.Context(), nodeID, typeurl.Listener, "resource", candidates[version], nil)
+					}
+					if err != nil {
+						b.Fatal(err)
+					}
+					if reused != nil {
+						reused.Finalize()
+					}
+					caller.Finalize()
+				}
+			})
 		}
 	}
 }
@@ -121,16 +173,14 @@ func BenchmarkSnapshotCLAProjection(b *testing.B) {
 				}
 			}
 			if err := c.ApplyResources(b.Context(), nodeID,
-				ResourceMutations{Upserted: upserted}, nil, TypeURLCallbacks{}); err != nil {
+				ResourceMutations{Upserted: upserted}, nil, typeurl.EmptySet); err != nil {
 				b.Fatal(err)
 			}
 			state := c.getNodeState(nodeID)
 			b.ReportAllocs()
 			b.ResetTimer()
 			for range b.N {
-				if _, err := c.generateSnapshotFromState(state); err != nil {
-					b.Fatal(err)
-				}
+				c.generateSnapshotFromState(state)
 			}
 		})
 	}
@@ -156,23 +206,18 @@ func BenchmarkSnapshotCLAProjectionIncrementally(b *testing.B) {
 				}
 				input[version].Upserted.Clusters = clusters
 			}
-			if err := c.ApplyResources(b.Context(), nodeID, input[0], nil, TypeURLCallbacks{}); err != nil {
+			if err := c.ApplyResources(b.Context(), nodeID, input[0], nil, typeurl.EmptySet); err != nil {
 				b.Fatal(err)
 			}
 			state := c.getNodeState(nodeID)
-			previous, err := c.generateSnapshotFromStateIncrementally(state, nil, typeurl.All())
-			if err != nil {
-				b.Fatal(err)
-			}
-			if err := c.ApplyResources(b.Context(), nodeID, input[1], nil, TypeURLCallbacks{}); err != nil {
+			previous := c.generateSnapshotFromStateIncrementally(state, nil, typeurl.All())
+			if err := c.ApplyResources(b.Context(), nodeID, input[1], nil, typeurl.EmptySet); err != nil {
 				b.Fatal(err)
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
 			for range b.N {
-				if _, err := c.generateSnapshotFromStateIncrementally(state, previous, typeurl.NewSet(typeurl.Cluster)); err != nil {
-					b.Fatal(err)
-				}
+				c.generateSnapshotFromStateIncrementally(state, previous, typeurl.NewSet(typeurl.Cluster))
 			}
 		})
 	}

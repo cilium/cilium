@@ -150,7 +150,7 @@ func registerCECK8sReflector(
 			selectsLocalNode = selector.Matches(labels.Set(localNodeLabels))
 		}
 
-		resources, err := p.ParseResources(
+		resources, allocatedListeners, err := p.ParseResources(
 			objMeta.GetNamespace(),
 			objMeta.GetName(),
 			spec.Resources,
@@ -205,13 +205,14 @@ func registerCECK8sReflector(
 				Name:      objMeta.GetName(),
 				Namespace: objMeta.GetNamespace(),
 			},
-			Labels:           objMeta.Labels,
-			Selector:         selector,
-			SelectsLocalNode: selectsLocalNode,
-			ServicePorts:     servicePorts,
-			Spec:             spec,
-			Resources:        resources,
-			Listeners:        listeners,
+			Labels:             objMeta.Labels,
+			Selector:           selector,
+			SelectsLocalNode:   selectsLocalNode,
+			ServicePorts:       servicePorts,
+			Spec:               spec,
+			Resources:          resources,
+			AllocatedListeners: allocatedListeners,
+			Listeners:          listeners,
 		}
 		return cec, true
 	}
