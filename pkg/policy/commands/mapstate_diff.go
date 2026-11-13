@@ -202,11 +202,10 @@ func newStageCmd(params CmdParams, state *script.State) (*stageCmd, error) {
 		return nil, fmt.Errorf("endpoint is required")
 	}
 
-	eps, _ := lookupEPs(params.EPL, []string{epSpec})
-	if len(eps) != 1 {
-		return nil, fmt.Errorf("endpoint not found!")
+	s.ep, err = LookupEP(params.EPL, epSpec)
+	if err != nil {
+		return nil, err
 	}
-	s.ep = eps[0]
 	s.epID, err = s.ep.GetSecurityIdentity()
 	if err != nil {
 		return nil, err
