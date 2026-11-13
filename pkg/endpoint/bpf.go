@@ -1114,6 +1114,18 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 // revertible, if non-nil, and notify OnProxyPolicyUpdate with the returned revision
 // after a successful wait. Zero means no policy was submitted with a proxy wait.
 func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, revertible revert.Revertible, proxyPolicyRevision uint64) {
+	return e.applyPolicyMapChanges(proxyWaitGroup, nil)
+}
+
+// ApplyPolicyMapChangesBatched is ApplyPolicyMapChanges, except that with the shared policy
+// map, the endpoint's policy is only synced to it by batch.Sync, together with the policies
+// of the other endpoints in the batch. batch.Sync then reports the result for the endpoint
+// instead.
+func (e *Endpoint) ApplyPolicyMapChangesBatched(proxyWaitGroup *completion.WaitGroup, batch *SharedPolicyBatch) (err error, revertible revert.Revertible, proxyPolicyRevision uint64) {
+	return e.applyPolicyMapChanges(proxyWaitGroup, batch)
+}
+
+func (e *Endpoint) applyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup, batch *SharedPolicyBatch) (err error, revertible revert.Revertible, proxyPolicyRevision uint64) {
 	if err = e.lockAlive(); err != nil {
 		return err, nil, 0
 	}
@@ -1133,7 +1145,8 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 
 	regenCtx := regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
-			proxyWaitGroup: proxyWaitGroup,
+			proxyWaitGroup:    proxyWaitGroup,
+			sharedPolicyBatch: batch,
 		},
 	}
 	err = e.applyPolicyMapChangesLocked(&regenCtx, false)
@@ -1147,15 +1160,25 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 		return err, nil, 0
 	}
 
-	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
-
 	// Otherwise the revert/finalize decision is postponed until after
 	// eventual proxyWaitGroup.Wait by the caller
 	if !regenCtx.datapathRegenerationContext.revertibles.Empty() {
 		revertible = &regenCtx.datapathRegenerationContext.revertibles
 	}
 
-	return nil, revertible, regenCtx.datapathRegenerationContext.proxyPolicyRevision
+	proxyPolicyRevision = regenCtx.datapathRegenerationContext.proxyPolicyRevision
+
+	if s := regenCtx.datapathRegenerationContext.sharedPolicySync; s != nil {
+		// The batch reports the result once it synced the endpoint's policy.
+		s.revertible = revertible
+		s.proxyPolicyRevision = proxyPolicyRevision
+		batch.add(s)
+		return nil, nil, 0
+	}
+
+	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
+
+	return nil, revertible, proxyPolicyRevision
 }
 
 // applyPolicyMapChangesLocked applies any incremental policy map changes
@@ -1174,6 +1197,12 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	// returns changes that need to be applied to the Endpoint's bpf policy map.
 	closer, changes := e.desiredPolicy.ConsumeMapChanges()
 	defer closer()
+
+	if len(changes.Adds) > 0 || len(changes.Deletes) > 0 {
+		// The shared policy map no longer has the endpoint's desired policy.
+		e.sharedPolicySynced = nil
+		e.sharedPolicyChanges++
+	}
 
 	e.updatePolicyMapPressureMetric(e.desiredPolicy.Len())
 
@@ -1268,7 +1297,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	}
 
 	if e.sharedPolicyEnabled() {
-		return e.syncSharedPolicyLocked()
+		return e.syncSharedPolicyChangesLocked(datapathRegenCtxt)
 	}
 
 	if e.policyMap == nil {
@@ -1363,20 +1392,54 @@ func (e *Endpoint) stopLockdownLocked() bool {
 	return false
 }
 
-// syncSharedPolicyLocked syncs the endpoint's desired policy to the shared policy map. If the
+// syncSharedPolicyChangesLocked syncs the endpoint's desired policy to the shared policy map
+// after incremental changes. It does nothing if the shared policy map already has the
+// desired policy, e.g. because the changes did not affect the endpoint. With a
+// SharedPolicyBatch, it only prepares the sync for the batch. The Endpoint must be locked.
+func (e *Endpoint) syncSharedPolicyChangesLocked(ctx *datapathRegenerationContext) error {
+	if e.sharedPolicySynced == e.desiredPolicy {
+		return nil
+	}
+	if ctx.sharedPolicyBatch != nil {
+		overlay := e.policyMapFactory.PrepareEndpointOverlay(e.ID, e.desiredPolicy.Entries())
+		e.sharedPolicyPending = overlay
+		ctx.sharedPolicySync = &sharedPolicySync{
+			endpoint: e,
+			overlay:  overlay,
+			policy:   e.desiredPolicy,
+			changes:  e.sharedPolicyChanges,
+		}
+		return nil
+	}
+	return e.syncSharedPolicyLocked()
+}
+
+// syncSharedPolicyLocked syncs the endpoint's desired policy to the shared policy map, see
+// sharedPolicySyncedLocked. The Endpoint must be locked.
+func (e *Endpoint) syncSharedPolicyLocked() error {
+	// This sync supersedes any sync prepared for a batch before.
+	e.sharedPolicyPending = nil
+	err := e.policyMapFactory.SyncEndpointOverlay(e.ID, e.desiredPolicy.Entries())
+	return e.sharedPolicySyncedLocked(err, e.desiredPolicy)
+}
+
+// sharedPolicySyncedLocked handles the result of a sync of the endpoint's policy to the
+// shared policy map. 'synced' is the desired policy that the shared policy map has after a
+// successful sync, or nil if the desired policy changed after the sync was prepared. If the
 // shared policy map is full, the endpoint keeps its current rule set and its regeneration is
 // retried until the policy fits. If lockdown on policy overflow is enabled, the endpoint is
 // locked down until then, so that the datapath denies all of its traffic.
 // The Endpoint must be locked.
-func (e *Endpoint) syncSharedPolicyLocked() error {
-	err := e.policyMapFactory.SyncEndpointOverlay(e.ID, e.desiredPolicy.Entries())
+func (e *Endpoint) sharedPolicySyncedLocked(err error, synced *policy.EndpointPolicy) error {
 	if err == nil {
+		e.sharedPolicySynced = synced
 		if e.lockdown {
 			e.getLogger().Info("The policy fits in the shared policy map again, ending the endpoint lockdown.")
 			e.lockdown = false
 		}
 		return nil
 	}
+	e.sharedPolicySynced = nil
 	e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, err)
 	if !errors.Is(err, policymap.ErrSharedPolicyMapFull) {
 		return err
