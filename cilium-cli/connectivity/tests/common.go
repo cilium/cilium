@@ -63,6 +63,16 @@ func hasAllLabels(labelsContainer labelsContainer, filters map[string]string) bo
 	return true
 }
 
+func podWithName(pods map[string]check.Pod, name string) *check.Pod {
+	for key := range pods {
+		pod := pods[key]
+		if pod.HasLabel("name", name) {
+			return &pod
+		}
+	}
+	return nil
+}
+
 type retryCondition struct {
 	podLabels map[string]string
 	all       bool
