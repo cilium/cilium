@@ -3,6 +3,8 @@
 
 package linux
 
+import "github.com/cilium/cilium/pkg/datapath/tunnel"
+
 // DatapathConfiguration is the static configuration of the datapath. The
 // configuration cannot change throughout the lifetime of a datapath object.
 type DatapathConfiguration struct {
@@ -11,4 +13,8 @@ type DatapathConfiguration struct {
 
 	// TunnelDevice is the name of the tunnel device (if any).
 	TunnelDevice string
+
+	// UnderlayProtocol is the IP family of the tunnel underlay. When
+	// unset, no family is excluded.
+	UnderlayProtocol tunnel.UnderlayProtocol
 }
