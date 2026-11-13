@@ -36,6 +36,6 @@ func (t echoIngressL7NamedPort) build(ct *check.ConnectivityTest, _ map[string]s
 				}
 				return egress, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
+			return check.ResultDrop, check.ResultDefaultDenyIngressDropWithPolicy(ct, "echo-ingress-l7-http-named-port")
 		})
 }

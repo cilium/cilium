@@ -67,6 +67,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 
 	info, ok := epInfo.GetPolicyCorrelationInfoForKey(
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
+		(denied || audited),
 	)
 	if !ok {
 		logger.Debug(

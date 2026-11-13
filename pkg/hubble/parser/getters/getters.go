@@ -80,5 +80,5 @@ type EndpointInfo interface {
 	GetK8sPodUID() string
 	GetLabels() labels.Labels
 	GetPod() *slim_corev1.Pod
-	GetPolicyCorrelationInfoForKey(key policyTypes.Key) (policyTypes.PolicyCorrelationInfo, bool)
+	GetPolicyCorrelationInfoForKey(key policyTypes.Key, deny bool) (policyTypes.PolicyCorrelationInfo, bool)
 }
