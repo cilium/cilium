@@ -249,13 +249,6 @@ spec:
                       kubelet's plugin-watcher inotify, and a new attempt is started.
                     format: int64
                     type: integer
-                  driverName:
-                    default: networkdriver.cilium.io
-                    description: |-
-                      Driver name used to register to DRA and with the container runtime.
-                      Is also the driver that shows up in the ResourceSlice resources advertised by the node.
-                      Format: FQDN
-                    type: string
                   pools:
                     description: |-
                       Definition of device pools to be advertised by the Network Driver.

@@ -60,7 +60,6 @@ spec:
   spec:
     draRegistrationRetryInterval: 1
     draRegistrationTimeout: 600
-    driverName: "dummy.cilium.k8s.io"
     pools:
       - name: "dummy-pool-a"
         filter:
@@ -82,7 +81,6 @@ spec:
   spec:
     draRegistrationRetryInterval: 2
     draRegistrationTimeout: 600
-    driverName: "dummy.cilium.k8s.io"
     pools:
       - name: "dummy-pool-b"
         filter:
@@ -102,13 +100,13 @@ metadata:
   name: kind-worker
 spec: {}
 -- node-config-initial.table --
-Node             ClusterConfig             Config                                                                                                                                                                                                                                           Status  Error
-kind-worker      driver-cluster-config-a   {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-a","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
-kind-worker-2    driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
+Node            ClusterConfig             Config
+kind-worker     driver-cluster-config-a   {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"pools":[{"name":"dummy-pool-a","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}
+kind-worker-2   driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}
 -- node-config-switched.table --
-Node             ClusterConfig             Config                                                                                                                                                                                                                                           Status  Error
-kind-worker      driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
-kind-worker-2    driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
+Node            ClusterConfig             Config
+kind-worker     driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}
+kind-worker-2   driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}
 -- kind-worker-config-expected-a.yaml --
 apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverNodeConfig
@@ -120,7 +118,6 @@ spec:
       enabled: true
   draRegistrationRetryInterval: 1
   draRegistrationTimeout: 600
-  driverName: dummy.cilium.k8s.io
   pools:
   - filter:
       deviceManagers:
@@ -137,7 +134,6 @@ spec:
       enabled: true
   draRegistrationRetryInterval: 2
   draRegistrationTimeout: 600
-  driverName: dummy.cilium.k8s.io
   pools:
   - filter:
       deviceManagers:

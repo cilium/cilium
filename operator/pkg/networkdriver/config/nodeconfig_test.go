@@ -43,7 +43,7 @@ func TestDriverNodeConfigOps_Update(t *testing.T) {
 
 	t.Run("skips update when spec is unchanged", func(t *testing.T) {
 		fcs, cs := k8sTestClient.NewFakeClientset(hivetest.Logger(t))
-		spec := cilium_v2alpha1_api.CiliumNetworkDriverNodeConfigSpec{DriverName: "test-driver"}
+		spec := cilium_v2alpha1_api.CiliumNetworkDriverNodeConfigSpec{}
 		_, err := cs.CiliumV2alpha1().CiliumNetworkDriverNodeConfigs().Create(
 			context.Background(),
 			&cilium_v2alpha1_api.CiliumNetworkDriverNodeConfig{

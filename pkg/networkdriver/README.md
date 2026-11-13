@@ -594,7 +594,6 @@ kind: CiliumNetworkDriverNodeConfig
 metadata:
   name: worker-node-1        # must match CiliumNode name
 spec:
-  driverName: "networkdriver.cilium.io"  # optional; this is the default
   # Optional DRA plugin-registration retry tuning (all have defaults):
   draRegistrationRetryInterval: 1   # seconds between registration retries
   draRegistrationTimeout: 5         # seconds to wait for each attempt
