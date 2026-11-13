@@ -34,7 +34,7 @@ var endpointLabelsCmd = &cobra.Command{
 
 		if len(addLabels) > 0 || len(deleteLabels) > 0 {
 			if err := client.EndpointLabelsPatch(id, addLabels, deleteLabels); err != nil {
-				Fatalf("Cannot modifying labels %s", err)
+				Fatalf("Cannot modify labels: %s", err)
 			}
 		}
 
