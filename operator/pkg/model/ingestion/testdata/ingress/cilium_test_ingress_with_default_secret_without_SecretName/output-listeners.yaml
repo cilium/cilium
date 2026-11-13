@@ -1,5 +1,6 @@
 - hostname: '*'
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: default-backend
@@ -32,6 +33,7 @@
     version: v1
 - hostname: another-very-secure.server.com
   port: 443
+  protocol: HTTPS
   routes:
   - backends:
     - name: default-backend
@@ -67,6 +69,7 @@
     namespace: default-secret-namespace
 - hostname: not-in-use.another-very-secure.server.com
   port: 443
+  protocol: HTTPS
   routes:
   - backends:
     - name: default-backend
@@ -102,6 +105,7 @@
     namespace: default-secret-namespace
 - hostname: very-secure.server.com
   port: 443
+  protocol: HTTPS
   routes:
   - backends:
     - name: default-backend
