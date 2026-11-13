@@ -1,0 +1,101 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: same-priority-gryffindor-slytherin
+spec:
+  tier: Admin
+  priority: 15
+  subject:
+    namespaces:
+      matchLabels:
+        kubernetes.io/metadata.name: network-policy-conformance-gryffindor
+  ingress:
+  - name: "deny-from-slytherin-at-port-80"
+    action: "Deny"
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 80
+  egress:
+  - name: "deny-to-slytherin-at-port-80"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 80
+---
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: same-priority-gryffindor-hufflepuff
+spec:
+  tier: Admin
+  priority: 15
+  subject:
+    namespaces:
+      matchLabels:
+        kubernetes.io/metadata.name: network-policy-conformance-gryffindor
+  ingress:
+  - name: "deny-from-hufflepuff-at-port-80"
+    action: "Deny"
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-hufflepuff
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 80
+  egress:
+  - name: "deny-to-hufflepuff-at-port-80"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-hufflepuff
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 80
+---
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: same-priority-hufflepuff-slytherin
+spec:
+  tier: Admin
+  priority: 15
+  subject:
+    namespaces:
+      matchLabels:
+        kubernetes.io/metadata.name: network-policy-conformance-hufflepuff
+  ingress:
+  - name: "deny-from-slytherin-at-port-8080"
+    action: "Deny"
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 8080
+  egress:
+  - name: "deny-to-slytherin-at-port-8080"
+    action: "Deny"
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: network-policy-conformance-slytherin
+    protocols:
+      - tcp:
+          destinationPort:
+            number: 8080

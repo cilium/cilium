@@ -33,6 +33,8 @@ type ClusterNetworkPolicyProtocolApplyConfiguration struct {
 	// DestinationNamedPort selects a destination port on a pod based on the
 	// ContainerPort name. You can't use this in a rule that targets resources
 	// without named ports (e.g. Nodes or Networks).
+	//
+	// <network-policy-api:experimental>
 	DestinationNamedPort *string `json:"destinationNamedPort,omitempty"`
 }
 

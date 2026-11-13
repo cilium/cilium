@@ -1,0 +1,33 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: default
+spec:
+  tier: Baseline
+  priority: 10
+  subject:
+    namespaces:
+      matchLabels:
+        kubernetes.io/metadata.name: network-policy-conformance-gryffindor
+  egress:
+  - name: "allow-egress-to-{{ index .HostNetworkPorts 0 }}-on-nodes"
+    action: "Accept"
+    to:
+    - nodes:
+        matchLabels:
+          kubernetes.io/os: linux
+    protocols:
+      - tcp:
+          destinationPort:
+            range:
+              start: {{ index .HostNetworkPorts 0 }}
+              end: {{ index .HostNetworkPorts 1 }}
+  - name: "deny-egress-to-nodes-and-internet"
+    action: "Deny"
+    to:
+    - nodes:
+        matchLabels:
+          kubernetes.io/os: linux
+    - networks:
+        - 0.0.0.0/0
+        - ::/0

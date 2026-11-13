@@ -2951,7 +2951,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/controller-tools v0.20.1 => github.com/cilium/controller-tools v0.22.0-1
+# sigs.k8s.io/controller-tools v0.21.0 => github.com/cilium/controller-tools v0.22.0-1
 ## explicit; go 1.26.0
 sigs.k8s.io/controller-tools/cmd/controller-gen
 sigs.k8s.io/controller-tools/pkg/applyconfiguration
@@ -3112,10 +3112,17 @@ sigs.k8s.io/mcs-api/conformance
 # sigs.k8s.io/mcs-api/controllers v0.5.2
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/controllers
-# sigs.k8s.io/network-policy-api v0.2.0
-## explicit; go 1.25.0
+# sigs.k8s.io/network-policy-api v0.2.1
+## explicit; go 1.26.6
 sigs.k8s.io/network-policy-api/apis/v1alpha1
 sigs.k8s.io/network-policy-api/apis/v1alpha2
+sigs.k8s.io/network-policy-api/conformance
+sigs.k8s.io/network-policy-api/conformance/apis/v1alpha1
+sigs.k8s.io/network-policy-api/conformance/tests
+sigs.k8s.io/network-policy-api/conformance/utils/config
+sigs.k8s.io/network-policy-api/conformance/utils/flags
+sigs.k8s.io/network-policy-api/conformance/utils/kubernetes
+sigs.k8s.io/network-policy-api/conformance/utils/suite
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha1
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha2
@@ -3127,6 +3134,7 @@ sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha
 sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
 sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2
 sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2/fake
+sigs.k8s.io/network-policy-api/pkg/consts
 # sigs.k8s.io/randfill v1.0.0
 ## explicit; go 1.18
 sigs.k8s.io/randfill
