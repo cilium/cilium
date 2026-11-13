@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	"github.com/cilium/cilium/pkg/hubble/resolver"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -47,7 +48,7 @@ func noopParser(tb testing.TB) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
-		nil, // localNodeWatcher
+		nil, // localNodeGetter
 	)
 	require.NoError(tb, err)
 	return pp
@@ -683,7 +684,7 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 
 	// Start the LocalNodeWatcher via Run.
 	store := node.NewTestLocalNodeStore(localNode)
-	watcher := &parser.LocalNodeWatcher{}
+	watcher := &resolver.LocalNodeWatcher{}
 	watcherCtx, watcherCancel := context.WithCancel(ctx)
 	defer watcherCancel()
 	go watcher.Run(watcherCtx, store)

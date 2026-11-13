@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package parser
+package resolver
 
 import (
 	"context"
 	"slices"
 
+	"github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 )
 
-// LocalNodeWatcher populates Hubble flows local node related fields such as
-// the node name and labels.
+// LocalNodeWatcher implements types.LocalNodeGetter. It caches the local node
+// related fields of Hubble flows, such as the node name and labels.
 type LocalNodeWatcher struct {
 	mu    lock.Mutex
 	cache struct {
@@ -23,6 +24,8 @@ type LocalNodeWatcher struct {
 		labels []string
 	}
 }
+
+var _ types.LocalNodeGetter = (*LocalNodeWatcher)(nil)
 
 // Run initializes the LocalNodeWatcher and subscribes to local node changes.
 // It blocks until the context is cancelled.
