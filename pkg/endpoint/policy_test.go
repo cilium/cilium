@@ -150,7 +150,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	stats := new(regenerationStatistics)
 	datapathRegenCtxt := new(datapathRegenerationContext)
-	datapathRegenCtxt.policyRevisionToWaitFor = rev
+	datapathRegenCtxt.policyRevision = rev
 	// Continuously compute policy for the pod and ensure we never missed an incremental update.
 	for {
 		t.Log("Calculating policy...")
@@ -284,20 +284,6 @@ func (f *supersedeFetcher) GetIdentityPolicyByIdentity(*identity.Identity) (comp
 	return res, 0, watch, true
 }
 
-type recomputeRecordingFetcher struct {
-	compute.PolicyRecomputer
-	identity *identity.Identity
-	revision uint64
-}
-
-func (f *recomputeRecordingFetcher) RecomputeIdentityPolicy(identity *identity.Identity, revision uint64) (<-chan struct{}, error) {
-	f.identity = identity
-	f.revision = revision
-	done := make(chan struct{})
-	close(done)
-	return done, nil
-}
-
 // waitForPolicyComputationResult must skip a superseded policy and wait for the
 // replacement instead of failing.
 func TestWaitSkipsSupersededPolicy(t *testing.T) {
@@ -322,8 +308,7 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	ep := Endpoint{policyFetcher: fetcher, SecurityIdentity: f.podID}
 	ep.UpdateLogger(nil)
 
-	res, err := ep.waitForPolicyComputationResult(
-		&datapathRegenerationContext{policyRevisionToWaitFor: rev}, f.podID)
+	res, err := ep.waitForPolicyComputationResult(rev, f.podID)
 	require.NoError(t, err)
 	require.Same(t, live, res.NewPolicy)
 
@@ -354,131 +339,80 @@ func TestIsPolicyResultCurrent(t *testing.T) {
 	}
 }
 
-// A duplicate regeneration trigger is skipped, but the queued regeneration must
-// still wait for the highest revision that was skipped.
-func TestSkippedPolicyRevision(t *testing.T) {
-	const (
-		rev1 = 198
-		rev2 = 199
-		rev3 = 200
-	)
-
-	newEP := func() *Endpoint {
-		ep := &Endpoint{status: NewEndpointStatus()}
+// A regeneration trigger while the endpoint waits for its identity is
+// buffered, and surfaced once the endpoint leaves that state.
+func TestDeferredRegeneration(t *testing.T) {
+	newEP := func(state State) *Endpoint {
+		ep := &Endpoint{status: NewEndpointStatus(), state: state}
 		ep.UpdateLogger(nil)
 		return ep
 	}
 
-	// skip triggers a regeneration while one is already queued and reports
-	// whether it was skipped.
-	skip := func(ep *Endpoint, rev uint64) bool {
+	// trigger triggers a regeneration and reports whether it was skipped.
+	trigger := func(ep *Endpoint, level regeneration.DatapathRegenerationLevel) bool {
 		ep.unconditionalLock()
 		defer ep.unlock()
 		return !ep.setRegenerateStateLocked(&regeneration.ExternalRegenerationMetadata{
-			Reason:                  regeneration.ReasonPolicyUpdate,
-			RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
-			PolicyRevisionToWaitFor: rev,
+			Reason:            regeneration.ReasonPolicyUpdate,
+			RegenerationLevel: level,
 		})
 	}
 
-	consume := func(ep *Endpoint, ctx *datapathRegenerationContext) {
-		ep.unconditionalLock()
-		defer ep.unlock()
-		ep.consumeSkippedPolicyRevision(ctx)
-	}
-
-	t.Run("skip captures highest revision and regen consumes it", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateWaitingToRegenerate
-
-		require.True(t, skip(ep, rev2))
-		require.Equal(t, uint64(rev2), ep.skippedPolicyRevision)
-
-		// A lower revision must not lower it. A higher one wins.
-		require.True(t, skip(ep, rev1))
-		require.Equal(t, uint64(rev2), ep.skippedPolicyRevision)
-		require.True(t, skip(ep, rev3))
-		require.Equal(t, uint64(rev3), ep.skippedPolicyRevision)
-
-		ctx := &datapathRegenerationContext{policyRevisionToWaitFor: rev1}
-		consume(ep, ctx)
-		require.Equal(t, uint64(rev3), ctx.policyRevisionToWaitFor)
-		require.Zero(t, ep.skippedPolicyRevision)
-	})
-
-	t.Run("consume does not lower a higher ctx revision", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateWaitingToRegenerate
-		require.True(t, skip(ep, rev2))
-
-		ctx := &datapathRegenerationContext{policyRevisionToWaitFor: rev3}
-		consume(ep, ctx)
-		require.Equal(t, uint64(rev3), ctx.policyRevisionToWaitFor)
-	})
-
-	t.Run("fresh trigger does not set skippedPolicyRevision", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateReady // not already queued, so the trigger is not a duplicate
-		require.False(t, skip(ep, rev2))
-		require.Zero(t, ep.skippedPolicyRevision)
+	t.Run("fresh trigger is not skipped", func(t *testing.T) {
+		ep := newEP(StateReady)
+		require.False(t, trigger(ep, regeneration.RegenerateWithoutDatapath))
+		require.Equal(t, regeneration.Invalid, ep.skippedRegenerationLevel)
 	})
 
 	// waiting-for-identity cannot transition to waiting-to-regenerate, so the
 	// request must be buffered rather than dropped until the next periodic
 	// regeneration.
 	t.Run("waiting-for-identity buffers the regeneration", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateWaitingForIdentity
-
-		require.True(t, skip(ep, rev2))
-		require.Equal(t, uint64(rev2), ep.skippedPolicyRevision)
-		require.Equal(t, regeneration.RegenerateWithoutDatapath, ep.skippedRegenerationLevel)
+		ep := newEP(StateWaitingForIdentity)
+		require.True(t, trigger(ep, regeneration.RegenerateWithoutDatapath))
+		require.True(t, trigger(ep, regeneration.RegenerateWithDatapath))
+		require.Equal(t, regeneration.RegenerateWithDatapath, ep.skippedRegenerationLevel)
 
 		// Leaving waiting-for-identity must surface the buffered request.
 		ep.unconditionalLock()
 		deferred := ep.consumeDeferredRegenerationLocked()
 		ep.unlock()
 		require.NotNil(t, deferred)
-		require.Equal(t, uint64(rev2), deferred.PolicyRevisionToWaitFor)
-		require.Equal(t, regeneration.RegenerateWithoutDatapath, deferred.RegenerationLevel)
-
-		// The buffered revision is still consumed by the regeneration itself.
-		ctx := &datapathRegenerationContext{}
-		consume(ep, ctx)
-		require.Equal(t, uint64(rev2), ctx.policyRevisionToWaitFor)
+		require.Equal(t, regeneration.RegenerateWithDatapath, deferred.RegenerationLevel)
 	})
 
 	t.Run("no deferred regeneration when nothing was buffered", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateWaitingForIdentity
+		ep := newEP(StateWaitingForIdentity)
 		ep.unconditionalLock()
 		defer ep.unlock()
 		require.Nil(t, ep.consumeDeferredRegenerationLocked())
 	})
 
-	t.Run("new unaffected endpoint buffers policy revision", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateWaitingToRegenerate
+	t.Run("new unaffected endpoint", func(t *testing.T) {
+		ep := newEP(StateWaitingToRegenerate)
 		ep.SecurityIdentity = &identity.Identity{ID: 1234}
-		fetcher := &recomputeRecordingFetcher{}
-		ep.policyFetcher = fetcher
+		computer := &compute.IdentityPolicyComputer{}
+		ep.policyFetcher = computer
 		affected := set.NewSet[identity.NumericIdentity]()
 
-		ep.UpdatePolicy(&affected, rev1, rev2)
+		computer.UpdatePolicy(affected, 198, 199)
+		ep.UpdatePolicy(&affected, 198, 199)
 
-		// An initializing endpoint must explicitly request recomputation because
-		// unaffected identities are not normally recomputed at the new revision.
-		require.Same(t, ep.SecurityIdentity, fetcher.identity)
-		require.Equal(t, uint64(rev2), fetcher.revision)
-
-		// The endpoint must not report the revision as realized before regeneration.
+		// The endpoint must not report the revision as realized before
+		// regeneration, but its next regeneration must wait for it.
 		require.Zero(t, ep.policyRevision)
-		require.Equal(t, uint64(rev2), ep.skippedPolicyRevision)
+		require.Equal(t, uint64(199), ep.requestedPolicyRevision.Load())
+	})
 
-		// The queued regeneration must consume and clear the deferred target.
-		ctx := &datapathRegenerationContext{}
-		consume(ep, ctx)
-		require.Equal(t, uint64(rev2), ctx.policyRevisionToWaitFor)
-		require.Zero(t, ep.skippedPolicyRevision)
+	t.Run("requested revision never goes down", func(t *testing.T) {
+		ep := newEP(StateReady)
+		ep.requestedPolicyRevision.Store(5)
+		computer := &compute.IdentityPolicyComputer{}
+		computer.UpdatePolicy(set.Set[identity.NumericIdentity]{}, 2, 3)
+		ep.policyFetcher = computer
+
+		ep.requestPolicyRevision()
+
+		require.Equal(t, uint64(5), ep.requestedPolicyRevision.Load())
 	})
 }

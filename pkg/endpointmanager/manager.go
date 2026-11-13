@@ -638,16 +638,14 @@ func (mgr *endpointManager) TriggerRegenerateAllEndpoints() {
 	mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, false)
 }
 
-// RegenerateAllForPolicy regenerates all endpoints against the given policy
-// revision. Each endpoint's regeneration blocks until the compute cell has
-// published the SelectorPolicy for its identity at waitFor, ensuring
-// endpoints pick up the new policy instead of the stale one.
-func (mgr *endpointManager) RegenerateAllForPolicy(waitFor uint64) {
+// RegenerateAllForPolicy regenerates all endpoints after policy has been
+// recomputed for all identities. Each endpoint's regeneration waits for its
+// identity's policy to be current at the requested revision.
+func (mgr *endpointManager) RegenerateAllForPolicy() {
 	go mgr.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
-		Reason:                  regeneration.ReasonPolicyUpdate,
-		Message:                 "policy rules updated",
-		RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
-		PolicyRevisionToWaitFor: waitFor,
+		Reason:            regeneration.ReasonPolicyUpdate,
+		Message:           "policy rules updated",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	})
 
 	mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, false)

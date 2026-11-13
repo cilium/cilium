@@ -111,10 +111,9 @@ func TestRegenerateRetries(t *testing.T) {
 	}
 
 	_ = ep.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-		Reason:                  "transient cert failure test",
-		RegenerationLevel:       regeneration.RegenerateWithDatapath,
-		ParentContext:           ctx,
-		PolicyRevisionToWaitFor: rev,
+		Reason:            "transient cert failure test",
+		RegenerationLevel: regeneration.RegenerateWithDatapath,
+		ParentContext:     ctx,
 	})
 
 	waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
