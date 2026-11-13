@@ -17,7 +17,9 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -401,4 +403,56 @@ func TestClassifyRemoteCIDRs(t *testing.T) {
 			assert.ElementsMatch(t, tt.wantDirect, direct, "direct partition mismatch")
 		})
 	}
+}
+
+type recordingIPsecAgent struct {
+	fakeipsec.Agent
+	upserted []*ipsecTypes.Parameters
+}
+
+func (r *recordingIPsecAgent) UpsertIPsecEndpoint(params *ipsecTypes.Parameters) (uint8, error) {
+	r.upserted = append(r.upserted, ipsecTypes.NewParameters(params))
+	return 1, nil
+}
+
+func TestEnableIPSecIPv6DoEncryptedOverlay(t *testing.T) {
+	log := hivetest.Logger(t)
+	lns := node.NewTestLocalNodeStore(node.LocalNode{})
+	recAgent := &recordingIPsecAgent{}
+
+	handler := newNodeHandler(log, DatapathConfiguration{}, nil, kpr.KPRConfig{}, recAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	handler.nodeConfig = config.Config{
+		EnableIPv6:          true,
+		EnableIPSec:         true,
+		EnableEncapsulation: true,
+		NodeIPv6:            netip.MustParseAddr("fd00::1"),
+		CiliumInternalIPv6:  netip.MustParseAddr("fd01::1"),
+	}
+
+	remoteNode := &nodeTypes.Node{
+		Name:   "remote-node",
+		BootID: "b892866c-26cb-4018-8a55-c0330551a2be",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("fd00::2"))},
+			{Type: addressing.NodeCiliumInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("fd01::2"))},
+		},
+		IPv6AllocCIDR: nodeTypes.PrefixFrom(netip.MustParsePrefix("fd02::/96")),
+	}
+
+	// Pass remoteNode as both oldNode and newNode so addedCIDRs/removedCIDRs are empty
+	// and no kernel route netlink operations are invoked.
+	updated, err := handler.enableIPSecIPv6Do(remoteNode, remoteNode, 0x1234, false, nil)
+	require.NoError(t, err)
+	require.True(t, updated)
+	require.Len(t, recAgent.upserted, 5)
+
+	overlayOut := recAgent.upserted[3]
+	require.Equal(t, ipsec.IPSecDirOut, overlayOut.Dir)
+	require.Equal(t, "fd00::1/128", overlayOut.SourceSubnet.String())
+	require.Equal(t, "fd00::2/128", overlayOut.DestSubnet.String())
+
+	overlayIn := recAgent.upserted[4]
+	require.Equal(t, ipsec.IPSecDirIn, overlayIn.Dir)
+	require.Equal(t, "::/0", overlayIn.SourceSubnet.String())
+	require.Equal(t, "::/0", overlayIn.DestSubnet.String())
 }
