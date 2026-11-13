@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"iter"
 	"sync"
 	"testing"
 
@@ -31,6 +32,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type RedirectSuite struct {
@@ -130,6 +132,63 @@ func (r *RedirectSuiteProxy) GetListenerProxyPort(listener string) uint16 {
 // IsSDPEnabled returns false for test proxy.
 func (r *RedirectSuiteProxy) IsSDPEnabled() bool {
 	return false
+}
+
+type mixedParserSelectorPolicy struct {
+	policy.SelectorPolicy
+	l4       *policy.L4Filter
+	policies []policy.PerSelectorPolicyTuple
+}
+
+func (sp *mixedParserSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+	return func(yield func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {
+		for _, tuple := range sp.policies {
+			if !yield(sp.l4, tuple) {
+				return
+			}
+		}
+	}
+}
+
+func TestMixedParserRedirects(t *testing.T) {
+	l4 := &policy.L4Filter{Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP}
+	http := policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeHTTP}}
+	tls := policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeTLS}}
+
+	for _, tc := range []struct {
+		name     string
+		policies []policy.PerSelectorPolicyTuple
+	}{
+		{name: "HTTP first", policies: []policy.PerSelectorPolicyTuple{http, tls}},
+		{name: "TLS first", policies: []policy.PerSelectorPolicyTuple{tls, http}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &RedirectSuiteProxy{
+				parserProxyPortMap: map[string]uint16{"http": 19001, "tls": 19003},
+				redirects:          map[string]uint16{},
+			}
+			e := &Endpoint{ID: 123, proxy: proxy}
+			e.UpdateLogger(nil)
+			sp := &mixedParserSelectorPolicy{l4: l4, policies: tc.policies}
+
+			desired, _ := e.addNewRedirects(sp, nil)
+			require.Equal(t, map[string]uint16{
+				policy.ProxyID(123, false, "TCP", 443, policy.ParserTypeHTTP, ""): 19001,
+				policy.ProxyID(123, false, "TCP", 443, policy.ParserTypeTLS, ""):  19003,
+			}, desired)
+			require.Equal(t, desired, proxy.redirects)
+
+			epPolicy := &policy.EndpointPolicy{PolicyOwner: e, Redirects: desired}
+			for parser, want := range map[policy.L7ParserType]uint16{
+				policy.ParserTypeHTTP: 19001,
+				policy.ParserTypeTLS:  19003,
+			} {
+				port, err := epPolicy.LookupRedirectPort(false, "TCP", 443, parser, "")
+				require.NoError(t, err)
+				require.Equal(t, want, port)
+			}
+		})
+	}
 }
 
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
@@ -473,8 +532,8 @@ func TestRedirectWithPriority(t *testing.T) {
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
-	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
-	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
+	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec2/listener2")])
+	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec1/listener1")])
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
 	expected := policy.MapStateMap{
@@ -526,8 +585,8 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
-	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
-	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
+	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec2/listener2")])
+	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec1/listener1")])
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
 	expected := policy.MapStateMap{
