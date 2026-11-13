@@ -185,7 +185,7 @@ originating from the standalone DNS proxy.
 <a name="standalonednsproxy-PolicyState"></a>
 
 ### PolicyState
-L7 DNS policy snapshot of all local endpoints and identity to ip mapping of source 
+L7 DNS policy snapshot of all local endpoints and identity to ip mapping of source
 and destinatione egress endpoints enforcing fqdn rules.
 
 

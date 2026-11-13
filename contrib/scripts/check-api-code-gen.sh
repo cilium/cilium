@@ -52,6 +52,9 @@ make generate-sdp-api
 # Generate all datapath plugin api files
 make generate-datapathplugins-api
 
+# Ensure all proto files are formatted consistently
+make -C api/v1 format
+
 # Ensure new files are also considered in the diff
 git add --intent-to-add .
 

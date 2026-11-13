@@ -23,10 +23,10 @@ message Flow {
     Verdict verdict = 2;
     // only applicable to Verdict = DROPPED.
     // deprecated in favor of drop_reason_desc.
-    uint32 drop_reason = 3 [deprecated=true];
+    uint32 drop_reason = 3 [deprecated = true];
 
     // auth_type is deprecated and no longer set.
-    AuthType auth_type = 35 [deprecated=true];
+    AuthType auth_type = 35 [deprecated = true];
 
     // l2
     Ethernet ethernet = 4;
@@ -62,7 +62,7 @@ message Flow {
     // Deprecated. This suffers from false negatives due to protobuf not being
     // able to distinguish between the value being false or it being absent.
     // Please use is_reply instead.
-    bool reply = 16 [deprecated=true];
+    bool reply = 16 [deprecated = true];
 
     reserved 17, 18; // removed, do not use
 
@@ -141,7 +141,7 @@ message Flow {
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
-    string Summary = 100000 [deprecated=true];
+    string Summary = 100000 [deprecated = true];
 
     // extensions can be used to add arbitrary additional metadata to flows.
     // This can be used to extend functionality for other Hubble compatible
@@ -240,7 +240,6 @@ enum TraceObservationPoint {
     // TO_CRYPTO indicates network packets are transmitted towards the crypto
     // process for encryption.
     TO_CRYPTO = 13;
-
 }
 
 enum TraceReason {
@@ -249,10 +248,10 @@ enum TraceReason {
     ESTABLISHED = 2;
     REPLY = 3;
     RELATED = 4;
-    REOPENED = 5 [deprecated=true];
+    REOPENED = 5 [deprecated = true];
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
-    ENCRYPT_OVERLAY = 8 [deprecated=true];
+    ENCRYPT_OVERLAY = 8 [deprecated = true];
 }
 
 message FileInfo {
@@ -273,7 +272,8 @@ message Layer4 {
     }
 }
 
-// This enum corresponds to Cilium's L7 accesslog [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
+// This enum corresponds to Cilium's L7 accesslog
+// [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
 enum L7FlowType {
     UNKNOWN_L7_TYPE = 0;
     REQUEST = 1;
@@ -281,7 +281,8 @@ enum L7FlowType {
     SAMPLE = 3;
 }
 
-// Message for L7 flow, which roughly corresponds to Cilium's accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
+// Message for L7 flow, which roughly corresponds to Cilium's accesslog
+// [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 message Layer7 {
     L7FlowType type = 1;
     // Latency of the response
@@ -296,7 +297,8 @@ message Layer7 {
 
 // TraceContext contains trace context propagation data, i.e. information about a
 // distributed trace.
-// For more information about trace context, check the [W3C Trace Context specification](https://www.w3.org/TR/trace-context/).
+// For more information about trace context, check the [W3C Trace Context
+// specification](https://www.w3.org/TR/trace-context/).
 message TraceContext {
     // parent identifies the incoming request in a tracing system.
     TraceParent parent = 1;
@@ -566,26 +568,26 @@ enum DebugCapturePoint {
 }
 
 message Policy {
-	string name = 1;
-	string namespace = 2;
-	repeated string labels = 3;
-	uint64 revision = 4;
-	string kind = 5;
+    string name = 1;
+    string namespace = 2;
+    repeated string labels = 3;
+    uint64 revision = 4;
+    string kind = 5;
 }
 
 // EventTypeFilter is a filter describing a particular event type.
 message EventTypeFilter {
-	// type is the primary flow type as defined by:
-	// github.com/cilium/cilium/pkg/monitor/api.MessageType*
-	int32 type = 1;
+    // type is the primary flow type as defined by:
+    // github.com/cilium/cilium/pkg/monitor/api.MessageType*
+    int32 type = 1;
 
-	// match_sub_type is set to true when matching on the sub_type should
-	// be done. This flag is required as 0 is a valid sub_type.
-	bool match_sub_type = 2;
+    // match_sub_type is set to true when matching on the sub_type should
+    // be done. This flag is required as 0 is a valid sub_type.
+    bool match_sub_type = 2;
 
-	// sub_type is the secondary type, e.g.
-	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
-	int32 sub_type = 3;
+    // sub_type is the secondary type, e.g.
+    // - github.com/cilium/cilium/pkg/monitor/api.Trace*
+    int32 sub_type = 3;
 }
 
 // CiliumEventType from which the flow originated.
@@ -594,7 +596,7 @@ message CiliumEventType {
     // github.com/cilium/cilium/pkg/monitor/api.MessageType*
     int32 type = 1;
     // sub_type may indicate more details depending on type, e.g.
-	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
+    // - github.com/cilium/cilium/pkg/monitor/api.Trace*
     // - github.com/cilium/cilium/pkg/monitor/api.Drop*
     // - github.com/cilium/cilium/pkg/monitor/api.DbgCapture*
     int32 sub_type = 2;
@@ -716,16 +718,16 @@ message FlowFilter {
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
     message Experimental {
-      // cel_expression takes a common expression language (CEL) expression
-      // returning a boolean to determine if the filter matched or not.
-      // You can use the `_flow` variable to access fields on the flow using
-      // the flow.Flow protobuf field names.
-      // See https://github.com/google/cel-spec/blob/v0.14.0/doc/intro.md#introduction
-      // for more details on CEL and accessing the protobuf fields in CEL.
-      // Using CEL has performance cost compared to other filters, so prefer
-      // using non-CEL filters when possible, and try to specify CEL filters
-      // last in the list of FlowFilters.
-      repeated string cel_expression = 1;
+        // cel_expression takes a common expression language (CEL) expression
+        // returning a boolean to determine if the filter matched or not.
+        // You can use the `_flow` variable to access fields on the flow using
+        // the flow.Flow protobuf field names.
+        // See https://github.com/google/cel-spec/blob/v0.14.0/doc/intro.md#introduction
+        // for more details on CEL and accessing the protobuf fields in CEL.
+        // Using CEL has performance cost compared to other filters, so prefer
+        // using non-CEL filters when possible, and try to specify CEL filters
+        // last in the list of FlowFilters.
+        repeated string cel_expression = 1;
     }
     // experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
@@ -741,7 +743,8 @@ enum EventType {
     RecordLost = 2;
 }
 
-// DNS flow. This is basically directly mapped from Cilium's [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
+// DNS flow. This is basically directly mapped from Cilium's
+// [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 message DNS {
     // DNS name that's being looked up: e.g. "isovalent.com."
     string query = 1;
@@ -770,7 +773,9 @@ message HTTPHeader {
     string value = 2;
 }
 
-// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
+// L7 information for HTTP flows. It corresponds to Cilium's
+// [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206)
+// type.
 message HTTP {
     uint32 code = 1;
     string method = 2;
@@ -779,7 +784,9 @@ message HTTP {
     repeated HTTPHeader headers = 5;
 }
 
-// L7 information for Kafka flows. It corresponds to Cilium's [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
+// L7 information for Kafka flows. It corresponds to Cilium's
+// [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229)
+// type.
 message Kafka {
     option deprecated = true;
     int32 error_code = 1;
@@ -944,9 +951,9 @@ message NetworkInterface {
 // This mirrors enum xlate_point in bpf/lib/trace_sock.h
 enum SocketTranslationPoint {
     SOCK_XLATE_POINT_UNKNOWN = 0;
-    SOCK_XLATE_POINT_PRE_DIRECTION_FWD = 1; // Pre service translation
+    SOCK_XLATE_POINT_PRE_DIRECTION_FWD = 1;  // Pre service translation
     SOCK_XLATE_POINT_POST_DIRECTION_FWD = 2; // Post service translation
-    SOCK_XLATE_POINT_PRE_DIRECTION_REV = 3;   // Pre reverse service translation
+    SOCK_XLATE_POINT_PRE_DIRECTION_REV = 3;  // Pre reverse service translation
     SOCK_XLATE_POINT_POST_DIRECTION_REV = 4; // Post reverse service translation
 }
 
@@ -1039,7 +1046,7 @@ message Aggregate {
     // ingress_flow_count is the count of flows in the ingress direction
     uint32 ingress_flow_count = 1;
 
-    // egress_flow_count is the count of flows in the egress direction  
+    // egress_flow_count is the count of flows in the egress direction
     uint32 egress_flow_count = 2;
 
     // unknown_direction_flow_count is the count of flows with unknown traffic direction

@@ -89,6 +89,9 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/b
 # contrib/scripts/extract-llvm.sh), not from this image.
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin/
 
+# used to auto-format protoc files in api/v1
+COPY --from=llvm-dist /usr/local/bin/clang-format /bin/
+
 # Create a cache directory with 777 so that we can run the builder image and
 # compile golang code from any UID.
 RUN mkdir -p /.cache && chmod 777 /.cache && \

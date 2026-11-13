@@ -1,0 +1,7 @@
+BasedOnStyle: Google
+Language: Proto
+ColumnLimit: 120
+IndentWidth: 4
+DerivePointerAlignment: false
+PointerAlignment: Left
+SpacesBeforeTrailingComments: 1
