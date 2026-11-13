@@ -104,7 +104,6 @@ spec:
               exact: https
               ignoreCase: true
         redirect:
-          portRedirect: 443
           responseCode: FOUND
           schemeRedirect: https
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster

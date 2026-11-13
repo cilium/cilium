@@ -875,7 +875,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 		require.Len(t, res, 2)
 		// Redirect Route
 		require.NotNil(t, res[0])
@@ -886,7 +886,8 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.Equal(t, "https", res[0].Match.GetHeaders()[0].GetStringMatch().GetExact())
 		require.NotNil(t, res[0].GetRedirect())
 		require.Equal(t, "https", res[0].GetRedirect().GetSchemeRedirect())
-		require.Equal(t, uint32(443), res[0].GetRedirect().PortRedirect)
+		// https on its well-known port from a well-known listener port: no port in Location.
+		require.Zero(t, res[0].GetRedirect().PortRedirect)
 		require.Equal(t, envoy_config_route_v3.RedirectAction_FOUND, res[0].GetRedirect().ResponseCode)
 		// Backend Route
 		require.NotNil(t, res[1])
@@ -918,7 +919,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 		require.Len(t, res, 2)
 		sort.Stable(SortableRoute(res))
 		// Backend Route
@@ -936,7 +937,8 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.Equal(t, "https", res[1].Match.GetHeaders()[0].GetStringMatch().GetExact())
 		require.NotNil(t, res[1].GetRedirect())
 		require.Equal(t, "https", res[1].GetRedirect().GetSchemeRedirect())
-		require.Equal(t, uint32(443), res[1].GetRedirect().PortRedirect)
+		// https on its well-known port from a well-known listener port: no port in Location.
+		require.Zero(t, res[1].GetRedirect().PortRedirect)
 		require.Equal(t, envoy_config_route_v3.RedirectAction_FOUND, res[1].GetRedirect().ResponseCode)
 	})
 	t.Run("user x-forwarded-proto header contributes to route precedence", func(t *testing.T) {
@@ -969,7 +971,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 		require.Len(t, res, 2)
 
 		sort.Stable(SortableRoute(res))
@@ -1026,7 +1028,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0])
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1049,7 +1051,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 
 		require.Len(t, res, 1)
 		weightedClusters := res[0].GetRoute().GetWeightedClusters()
@@ -1076,7 +1078,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 
 		require.Len(t, res, 2)
 		require.Equal(t, "default:backend-v1:8080", res[0].GetRoute().GetCluster())
@@ -1100,7 +1102,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 
 		require.Len(t, res, 2)
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1120,7 +1122,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, true, nil, nil, false)
 
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1144,7 +1146,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, nil, nil, true)
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
 		require.True(t, ok)
@@ -1169,7 +1171,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, nil, nil, true)
 
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1188,7 +1190,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, nil, nil, true)
 
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1218,7 +1220,7 @@ func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, []*model.HTTPExternalAuthFilter{auth}, nil, false)
 		require.Len(t, res, 1)
 		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
 
@@ -1239,7 +1241,7 @@ func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, []*model.HTTPExternalAuthFilter{auth}, nil, false)
 		require.Len(t, res, 1)
 		require.Contains(t, res[0].TypedPerFilterConfig, "envoy.filters.http.cors")
 	})
@@ -1253,7 +1255,7 @@ func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, []*model.HTTPExternalAuthFilter{auth}, nil, false)
 		require.Len(t, res, 1)
 		require.NotContains(t, res[0].TypedPerFilterConfig, filterName,
 			"auth filter must stay enabled on a route that reaches a backend")
@@ -1316,7 +1318,7 @@ func Test_envoyHTTPRoutes_differentAuthFilters(t *testing.T) {
 		},
 	}
 
-	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters, nil, false)
+	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, allAuthFilters, nil, false)
 	require.Len(t, res, 2, "routes with different auth filters must not be merged")
 
 	filterNameA := ExtAuthzFilterName(extAuthzFilterKey(authA))
@@ -1511,7 +1513,7 @@ func Test_envoyHTTPRoutes_extProcPerRoute(t *testing.T) {
 				EndpointPicker: epp,
 			}},
 		}}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, allEPPs, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, nil, allEPPs, false)
 		require.Len(t, res, 1)
 		require.NotContains(t, res[0].TypedPerFilterConfig, filterName,
 			"ext_proc must stay enabled on a route that targets the pool")
@@ -1522,7 +1524,7 @@ func Test_envoyHTTPRoutes_extProcPerRoute(t *testing.T) {
 			PathMatch: model.StringMatch{Prefix: "/"},
 			Backends:  []model.Backend{{Name: "plain-svc", Namespace: "ns", Port: &model.BackendPort{Port: 8080}}},
 		}}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, allEPPs, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, nil, allEPPs, false)
 		require.Len(t, res, 1)
 
 		entry, ok := res[0].TypedPerFilterConfig[filterName]
@@ -1542,7 +1544,7 @@ func Test_envoyHTTPRoutes_extProcPerRoute(t *testing.T) {
 			}},
 			DirectResponse: &model.DirectResponse{StatusCode: 500},
 		}}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, allEPPs, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, true, nil, allEPPs, false)
 		require.Len(t, res, 1)
 		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
 
@@ -1575,4 +1577,33 @@ func Test_getRouteAction_inferencePool(t *testing.T) {
 		action := getRouteAction(route, route.Backends, nil, nil, nil)
 		require.Equal(t, getClusterName("default", "svc", "8080"), action.Route.GetCluster())
 	})
+}
+
+func Test_getRouteRedirectPort(t *testing.T) {
+	tests := []struct {
+		name            string
+		scheme          *string
+		port            *int32
+		listenerPort    uint32
+		defaultPortOnly bool
+		want            uint32
+	}{
+		{name: "https from default ports omits 443", scheme: ptr.To("https"), listenerPort: 80, defaultPortOnly: true, want: 0},
+		{name: "explicit 443 with https from default ports is omitted", scheme: ptr.To("https"), port: ptr.To(int32(443)), listenerPort: 80, defaultPortOnly: true, want: 0},
+		{name: "http from default ports omits 80", scheme: ptr.To("http"), listenerPort: 443, defaultPortOnly: true, want: 0},
+		{name: "https with a non-default listener port keeps 443", scheme: ptr.To("https"), listenerPort: 80, want: 443},
+		{name: "http with a non-default listener port keeps 80", scheme: ptr.To("http"), listenerPort: 8443, want: 80},
+		{name: "https to a non-default port", scheme: ptr.To("https"), port: ptr.To(int32(8443)), listenerPort: 80, defaultPortOnly: true, want: 8443},
+		{name: "explicit port without scheme", port: ptr.To(int32(8080)), listenerPort: 80, defaultPortOnly: true, want: 8080},
+		{name: "no scheme, no port: listener port", listenerPort: 8080, want: 8080},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := getRouteRedirect(&model.HTTPRequestRedirectFilter{Scheme: tt.scheme, Port: tt.port}, tt.listenerPort, tt.defaultPortOnly)
+			require.Equal(t, tt.want, res.Redirect.GetPortRedirect())
+			if tt.scheme != nil {
+				require.Equal(t, *tt.scheme, res.Redirect.GetSchemeRedirect())
+			}
+		})
+	}
 }
