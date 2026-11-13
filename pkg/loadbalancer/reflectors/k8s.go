@@ -296,7 +296,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 					p.Log.Error("BUG: Unexpected failure to delete backends", logfields.Error, err)
 				}
 			}
-			clear(currentEndpoints)
+			currentEndpoints.Clear()
 
 			// Insert the replacements
 			for _, eps := range val.endpointsReplace {
