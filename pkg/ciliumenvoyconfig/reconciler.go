@@ -90,6 +90,10 @@ func (ops *envoyOps) Initializer(config CECConfig, params reconciler.Params) job
 // initializeResources seeds the xDS cache with the currently known EnvoyResources so that Envoy
 // can be started with an up-to-date snapshot before the reconciler starts processing changes.
 func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTxn) error {
+	if ops.resourceTable.NumObjects(txn) == 0 {
+		return nil
+	}
+
 	initCtx, cancel := context.WithTimeout(ctx, maxSyncWaitTime)
 	defer cancel()
 
