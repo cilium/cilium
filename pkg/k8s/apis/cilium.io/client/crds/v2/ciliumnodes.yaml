@@ -289,6 +289,9 @@ spec:
                       allocate IPs, e.g. when a new ENI is allocated, as many secondary
                       IPs as possible are allocated. Limiting the amount can help reduce
                       waste of IPs.
+
+                      Deprecated: This field is deprecated and no longer has any effect.
+                      It will be removed in v1.22.
                     minimum: 0
                     type: integer
                   max-allocate:
@@ -304,8 +307,7 @@ spec:
                       MinAllocate is the minimum number of IPs that must be allocated when
                       the node is first bootstrapped. It defines the minimum base socket
                       of addresses that must be available. After reaching this watermark,
-                      the PreAllocate and MaxAboveWatermark logic takes over to continue
-                      allocating IPs.
+                      the PreAllocate logic takes over to continue allocating IPs.
                     minimum: 0
                     type: integer
                   podCIDRs:

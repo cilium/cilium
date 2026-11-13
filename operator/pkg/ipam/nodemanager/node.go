@@ -147,6 +147,10 @@ type Node struct {
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
 
+	// maxAboveWatermarkWarned ensures the deprecation warning for
+	// spec.ipam.max-above-watermark is only logged once per node.
+	maxAboveWatermarkWarned bool
+
 	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
 	excessIPReleaseDelay time.Duration
 
@@ -222,7 +226,7 @@ type IPStatistics struct {
 	// Used for IPv6 prefixes
 	NeededPrefixes int
 
-	// ExcessIPs is the number of free IPs exceeding MaxAboveWatermark
+	// ExcessIPs is the number of free IPs exceeding InUse + PreAllocate
 	ExcessIPs int
 
 	// RemainingInterfaces is the number of interfaces that can either be
@@ -280,13 +284,6 @@ func (n *Node) updateLogger() {
 			logfields.InstanceID, n.resource.InstanceID(),
 		))
 	}
-}
-
-// getMaxAboveWatermark returns the max-above-watermark setting for a node
-//
-// n.mutex must be held when calling this function
-func (n *Node) getMaxAboveWatermark() int {
-	return n.resource.Spec.IPAM.MaxAboveWatermark
 }
 
 // getPreAllocate returns the pre-allocation setting for a node
@@ -384,33 +381,8 @@ func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllo
 	return max(neededIPs, 0)
 }
 
-func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAboveWatermark int) (excessIPs int) {
-	// keep availableIPs above minAllocate + maxAboveWatermark as long as
-	// the initial socket of min-allocate + max-above-watermark has not
-	// been used up yet. This is the maximum potential allocation that will
-	// happen on initial bootstrap.  Depending on interface restrictions,
-	// the actual allocation may be below this but we always want to avoid
-	// releasing IPs that have just been allocated.
-	if usedIPs <= (minAllocate + maxAboveWatermark) {
-		if availableIPs <= (minAllocate + maxAboveWatermark) {
-			return 0
-		}
-
-		// if usedIPs+preAllocate not over minAllocate + maxAboveWatermark, only care
-		// the ips out of minAllocate + maxAboveWatermark
-		if (usedIPs + preAllocate) <= (minAllocate + maxAboveWatermark) {
-			return availableIPs - minAllocate - maxAboveWatermark
-		}
-	}
-
-	// Once above the minimum allocation level, calculate based on
-	// pre-allocation limit with the max-above-watermark limit calculated
-	// in. This is again a best-effort calculation, depending on the
-	// interface restrictions, less than max-above-watermark may have been
-	// allocated but we never want to release IPs that have been allocated
-	// because of max-above-watermark.
-	excessIPs = max(availableIPs-usedIPs-preAllocate-maxAboveWatermark, 0)
-	return
+func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate int) int {
+	return max(availableIPs-max(minAllocate, usedIPs+preAllocate), 0)
 }
 
 // poolRequestedIPs returns the total IPv4 and IPv6 address demand from the
@@ -685,9 +657,18 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	// instance is alive
 	n.instanceRunning = true
 	n.resource = resource
+	warnMaxAboveWatermark := resource.Spec.IPAM.MaxAboveWatermark > 0 && !n.maxAboveWatermarkWarned
+	if warnMaxAboveWatermark {
+		n.maxAboveWatermarkWarned = true
+	}
 	n.trackMultiPoolAllocatedLocked()
 	n.mutex.Unlock()
 	n.updateLogger()
+
+	if warnMaxAboveWatermark {
+		n.logger.Load().Warn(
+			"Ignoring spec.ipam.max-above-watermark: the field is deprecated, no longer has any effect, and will be removed in v1.22")
+	}
 
 	n.ops.UpdatedNode(resource)
 
@@ -786,7 +767,7 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.ExcessIPs = 0
 	} else {
 		n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
-		n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+		n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate())
 	}
 
 	scopedLog.Debug(
@@ -941,8 +922,7 @@ type IPAllocationAction struct {
 	// MaxIPsToAllocate is set by the core IPAM layer before
 	// NodeOperations.AllocateIPs() is called and defines the maximum
 	// number of IPs to allocate in order to stay within the boundaries as
-	// defined by NodeOperations.{ MinAllocate() | PreAllocate() |
-	// getMaxAboveWatermark() }.
+	// defined by NodeOperations.{ MinAllocate() | PreAllocate() }.
 	MaxIPsToAllocate int
 
 	// MaxPrefixesToAllocate is set by the core IPAM layer before
@@ -1046,7 +1026,6 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	}
 
 	if !ipv6Only {
-		surgeAllocate := 0
 		numPendingPods, err := getPendingPodCount(n.name)
 		if err != nil {
 			if n.logLimiter.Allow() {
@@ -1055,13 +1034,12 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 					logfields.Error, err,
 				)
 			}
-		} else if numPendingPods > stats.IPv4.NeededIPs {
-			surgeAllocate = numPendingPods - stats.IPv4.NeededIPs
 		}
+		surgeAllocate := max(numPendingPods-stats.IPv4.NeededIPs, 0)
 		n.mutex.RLock()
 		// handleIPAllocation() takes a min of MaxIPsToAllocate and IPs available for allocation on the interface.
 		// This makes sure we don't try to allocate more than what's available.
-		a.allocation.IPv4.MaxIPsToAllocate = stats.IPv4.NeededIPs + n.getMaxAboveWatermark() + surgeAllocate
+		a.allocation.IPv4.MaxIPsToAllocate = stats.IPv4.NeededIPs + surgeAllocate
 		n.mutex.RUnlock()
 	}
 

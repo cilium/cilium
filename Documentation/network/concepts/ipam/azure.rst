@@ -224,8 +224,8 @@ The following parameters are available to control the IP allocation:
 ``spec.ipam.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
   bootstrapped. It defines the minimum base socket of addresses that must be
-  available. After reaching this watermark, the PreAllocate and
-  MaxAboveWatermark logic takes over to continue allocating IPs.
+  available. After reaching this watermark, the PreAllocate logic takes over
+  to continue allocating IPs.
 
   If unspecified, no minimum number of IPs is required.
 
@@ -332,7 +332,7 @@ interface:
 
 .. code-block:: go
 
-      min(AvailableOnSubnet, min(AvailableOnInterface, NeededAddresses + spec.ipam.max-above-watermark))
+      min(AvailableOnSubnet, min(AvailableOnInterface, NeededAddresses))
 
 This means that the number of IPs allocated in a single allocation cycle can be
 less than what is required to fulfill ``spec.ipam.pre-allocate``.
