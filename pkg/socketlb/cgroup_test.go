@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -130,6 +131,57 @@ func TestPrivilegedAttachCgroupWithExistingLink(t *testing.T) {
 	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Replace an existing bpf_link that targets a different cgroup.
+func TestPrivilegedAttachCgroupWithLinkOnDifferentCgroup(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	prog := mustCgroupProgram(t)
+	coll := &ebpf.Collection{
+		Programs: map[string]*ebpf.Program{"test": prog},
+	}
+
+	linkPath := testutils.TempBPFFS(t)
+	cgroupPath := testutils.TempCgroup(t)
+	oldCgroupPath := testutils.TempCgroup(t)
+	f, err := os.Open(oldCgroupPath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	l, err := link.AttachRawLink(link.RawLinkOptions{
+		Target:  int(f.Fd()),
+		Program: prog,
+		// Dummy attach type, must match the conclusion made by attachCgroup.
+		Attach: ebpf.AttachCGroupInetIngress,
+	})
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		t.Skip("bpf_link is not supported")
+	}
+	require.NoError(t, err)
+
+	pin := filepath.Join(linkPath, "test")
+	require.NoError(t, l.Pin(pin))
+	oldInfo, err := l.Info()
+	require.NoError(t, err)
+	require.NoError(t, l.Close())
+
+	require.NoError(t, attachCgroup(logger, coll, "test", cgroupPath, linkPath))
+
+	pinnedLink, err := link.LoadPinnedLink(pin, &ebpf.LoadPinOptions{})
+	require.NoError(t, err)
+	defer pinnedLink.Close()
+	info, err := pinnedLink.Info()
+	require.NoError(t, err)
+	cgroupInfo := info.Cgroup()
+	require.NotNil(t, cgroupInfo)
+	cgroupID, err := cgroups.GetCgroupID(cgroupPath)
+	require.NoError(t, err)
+	require.Equal(t, cgroupID, cgroupInfo.CgroupId)
+	require.NotEqual(t, oldInfo.ID, info.ID)
+
+	require.NoError(t, detachCgroup(logger, "test", cgroupPath, linkPath))
 }
 
 // Detach an existing PROG_ATTACH.

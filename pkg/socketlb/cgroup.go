@@ -33,6 +33,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -69,27 +70,31 @@ func attachCgroup(logger *slog.Logger, spec *ebpf.Collection, name, cgroupRoot, 
 
 	// Attempt to open and update an existing link.
 	pin := filepath.Join(pinPath, name)
-	err := bpf.UpdateLink(pin, prog)
+	targetMatches, err := cgroupLinkTargetMatches(pin, cgroupRoot)
+	if err == nil && targetMatches {
+		err = bpf.UpdateLink(pin, prog)
+	}
 	switch {
 	// Update successful, nothing left to do.
-	case err == nil:
+	case err == nil && targetMatches:
 		scopedLog.Info("Updated link for program",
 			logfields.Pin, pin,
 		)
 
 		return nil
 
-	// Link exists, but is defunct, and needs to be recreated against a new
-	// cgroup. This can happen in environments like dind where we're attaching
-	// to a sub-cgroup that goes away if the container is destroyed, but the
-	// link persists in the host's /sys/fs/bpf. The program no longer gets
-	// triggered at this point and the link needs to be removed to proceed.
-	case errors.Is(err, unix.ENOLINK):
+	// Link exists, but is defunct or targets a different cgroup, and needs to
+	// be recreated against the current cgroup. This can happen in environments
+	// like dind where we're attaching to a sub-cgroup that goes away if the
+	// container is destroyed, but the link persists in the host's /sys/fs/bpf.
+	// The program is no longer effective on the current cgroup and the link
+	// needs to be removed to proceed.
+	case err == nil || errors.Is(err, unix.ENOLINK):
 		if err := os.Remove(pin); err != nil {
-			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
+			return fmt.Errorf("unpinning stale link %s: %w", pin, err)
 		}
 
-		scopedLog.Info("Unpinned defunct link for program",
+		scopedLog.Info("Unpinned stale link for program",
 			logfields.Pin, pin,
 		)
 
@@ -166,6 +171,30 @@ func attachCgroup(logger *slog.Logger, spec *ebpf.Collection, name, cgroupRoot, 
 
 	return nil
 
+}
+
+func cgroupLinkTargetMatches(pin, cgroupRoot string) (bool, error) {
+	l, err := link.LoadPinnedLink(pin, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return false, fmt.Errorf("opening pinned link %s: %w", pin, err)
+	}
+	defer l.Close()
+
+	info, err := l.Info()
+	if err != nil {
+		return false, fmt.Errorf("getting info for link %s: %w", pin, err)
+	}
+	cgroupInfo := info.Cgroup()
+	if cgroupInfo == nil {
+		return false, fmt.Errorf("link %s is not a cgroup link", pin)
+	}
+
+	cgroupID, err := cgroups.GetCgroupID(cgroupRoot)
+	if err != nil {
+		return false, fmt.Errorf("getting id for cgroup %s: %w", cgroupRoot, err)
+	}
+
+	return cgroupInfo.CgroupId == cgroupID, nil
 }
 
 // detachCgroup detaches a program with the given name from cgroupRoot. Attempts
