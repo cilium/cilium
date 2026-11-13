@@ -909,10 +909,10 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the policy tail call entry for the endpoint. This will disable
 	// policy evaluation for the endpoint and will result in missing tail calls if
 	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
-	if e.policyMapFactory != nil {
-		if err := e.policyMapFactory.RemoveGlobalMapping(uint32(e.ID)); err != nil {
-			errors = append(errors, fmt.Errorf("removing endpoint program from global policymap: %w", err))
-		}
+	// This also removes the endpoint's policy map pin, or with the shared policy
+	// map, the endpoint's overlay entry and its reference to its rule set.
+	if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
+		errors = append(errors, fmt.Errorf("removing policy maps for endpoint %s: %w", e.StringID(), err))
 	}
 
 	// Remove rate limit from bandwidth manager map.
@@ -928,11 +928,6 @@ func (e *Endpoint) deleteMaps() []error {
 	// removes the map's entries even if the map is still referenced by any live
 	// bpf programs, potentially resulting in missed tail calls if any packets are
 	// still in flight.
-	if e.policyMapFactory != nil {
-		if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
-			errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
-		}
-	}
 	if err := os.RemoveAll(e.callsMapPath()); err != nil {
 		errors = append(errors, fmt.Errorf("removing calls map pin for endpoint %s: %w", e.StringID(), err))
 	}
