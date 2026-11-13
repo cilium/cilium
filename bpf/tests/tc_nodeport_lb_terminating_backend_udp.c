@@ -4,6 +4,9 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4		1
 
+/* Make sure we always pick backend slot 1 if we end up in backend selection. */
+#define LB_DEFAULT_ALG		LB_SELECTION_FIRST
+
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -400,6 +403,119 @@ int tc_nodeport_lb_terminating_backend_udp_2_check(const struct __ctx_buff *ctx)
 	/* Must be redirected to the active backend (BACKEND_IP_LOCAL_2), not the terminating one */
 	if (l3->daddr != BACKEND_IP_LOCAL_2)
 		test_fatal("dst IP was not redirected to active backend IP");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port hasn't been NATed to backend port");
+
+	test_finish();
+}
+
+/* Test that a subsequent UDP request stays on its terminating backend when
+ * all backends of the service are terminating.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_3")
+int tc_nodeport_lb_terminating_backend_udp_3_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_udp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_3")
+int tc_nodeport_lb_terminating_backend_udp_3_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = SVC_REV_NAT_ID;
+
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL_2, BACKEND_IFACE_2, BACKEND_EP_ID_2, 0, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+
+	/* Service has no active backend, so both terminating backends are in
+	 * its slots. The connection is on backend 126, selection picks 125.
+	 */
+	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 2, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
+	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 2, 126,
+			  BACKEND_IP_LOCAL_2, BACKEND_PORT, IPPROTO_UDP, 0);
+	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP,
+			     BE_STATE_TERMINATING, 0);
+	lb_v4_upsert_backend(126, BACKEND_IP_LOCAL_2, BACKEND_PORT, IPPROTO_UDP,
+			     BE_STATE_TERMINATING, 0);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_3")
+int tc_nodeport_lb_terminating_backend_udp_3_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct udphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL_2);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(*l4) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the node MAC")
+	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the endpoint MAC")
+
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP has changed");
+
+	/* Must stay on the connection's backend (BACKEND_IP_LOCAL_2) */
+	if (l3->daddr != BACKEND_IP_LOCAL_2)
+		test_fatal("dst IP was moved to another terminating backend");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
