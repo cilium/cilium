@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -800,6 +801,10 @@ func (m *ListenerStatusManager) validateTLSSecret(ctx context.Context, namespace
 
 	if !helpers.IsValidPemFormat(secret.Data[corev1.TLSPrivateKeyKey]) {
 		return fmt.Errorf("PEM format error in TLS Key")
+	}
+
+	if _, err := tls.X509KeyPair(secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey]); err != nil {
+		return fmt.Errorf("invalid TLS certificate and key pair: %w", err)
 	}
 	return nil
 }
