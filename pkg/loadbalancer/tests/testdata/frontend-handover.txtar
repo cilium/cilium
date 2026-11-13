@@ -1,0 +1,100 @@
+#! --lb-test-fault-probability=0.0
+# A replacement Service may request an IP before its previous owner releases it.
+# The failed upsert must be retried without another update to the replacement.
+
+hive start
+k8s/add old.yaml
+db/cmp frontends old.table
+
+# Allow the conflicting upsert to be processed in a separate batch.
+k8s/add new.yaml
+# The frontend table already matches before the conflicting upsert is processed.
+# Wait for the health error to prove that the reflector observed the conflict.
+db/cmp --grep=reflect-services-endpoints health conflict.table
+db/cmp frontends old.table
+k8s/delete old.yaml
+db/cmp frontends new.table
+
+# Updating the owner to release its IP must also unblock the replacement.
+k8s/add old.yaml
+# Wait for the conflicting upsert before releasing its frontend.
+db/cmp --grep=reflect-services-endpoints health reverse-conflict.table
+k8s/update moved.yaml
+db/cmp frontends moved.table
+
+# Deleting a blocked Service must prevent a later retry from resurrecting it.
+# new.yaml now conflicts with old at 10.96.50.104.
+k8s/update new.yaml
+# Ensure the Service is blocked before testing deletion of its pending retry.
+db/cmp --grep=reflect-services-endpoints health conflict.table
+k8s/delete new.yaml
+# Wait for the blocked Service deletion to be processed before releasing the IP.
+db/cmp --grep=reflect-services-endpoints health recovered.table
+k8s/delete old.yaml
+
+# Wait for the deletions to be reflected.
+* db/empty services frontends
+
+-- reverse-conflict.table --
+Component                            Error
+job-reflect-services-endpoints       frontend already owned by another service: 10.96.50.104:80/TCP is owned by test/new
+
+-- recovered.table --
+Component                            Level
+job-reflect-services-endpoints       OK
+
+-- conflict.table --
+Component                            Error
+job-reflect-services-endpoints       frontend already owned by another service: 10.96.50.104:80/TCP is owned by test/old
+
+-- old.table --
+Address              ServiceName
+10.96.50.104:80/TCP  test/old
+
+-- new.table --
+Address              ServiceName
+10.96.50.104:80/TCP  test/new
+
+-- moved.table --
+Address              ServiceName
+10.96.50.104:80/TCP  test/old
+10.96.50.105:80/TCP  test/new
+
+-- old.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: old
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  ports:
+  - port: 80
+    protocol: TCP
+  type: ClusterIP
+
+-- new.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: new
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  ports:
+  - port: 80
+    protocol: TCP
+  type: ClusterIP
+
+-- moved.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: new
+  namespace: test
+spec:
+  clusterIP: 10.96.50.105
+  ports:
+  - port: 80
+    protocol: TCP
+  type: ClusterIP

@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -209,7 +210,19 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(writer.WriteTxn)) error {
 	rh := newReflectorHealth(health, p.Log)
 
+	// A conflicting Service is not inserted into the tables. Watch its first
+	// blocking frontend so it can be retried when that frontend is released,
+	// including by writers other than the Kubernetes Service reflector.
+	type frontendConflict struct {
+		service *slim_corev1.Service
+		address loadbalancer.L3n4Addr
+		owner   loadbalancer.ServiceName
+		watch   <-chan struct{}
+	}
+	conflictingServices := map[loadbalancer.ServiceName]frontendConflict{}
 	upsertService := func(txn writer.WriteTxn, obj *slim_corev1.Service) {
+		name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
+		delete(conflictingServices, name)
 		localNode, _, _ := p.Nodes.Get(txn, node.LocalNodeQuery)
 		svc, fes := convertService(p.Config, p.ExtConfig, p.Log, localNode, obj, source.Kubernetes)
 		if svc == nil {
@@ -235,12 +248,32 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		})
 
 		err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...)
+		if errors.Is(err, loadbalancer.ErrFrontendConflict) {
+			for _, params := range fes {
+				fe, _, watch, found := p.Writer.Frontends().GetWatch(txn, loadbalancer.FrontendByAddress(params.Address))
+				if found && !fe.ServiceName.Equal(name) {
+					conflictingServices[name] = frontendConflict{
+						service: obj,
+						address: params.Address,
+						owner:   fe.ServiceName,
+						watch:   watch,
+					}
+					break
+				}
+			}
+		}
 		rh.update("svc:"+svc.Name.String(), err)
 	}
 
 	processServiceEvent := func(txn writer.WriteTxn, val bufferValue) {
 		switch val.kind {
 		case resource.Sync:
+			// A replacement is authoritative, including for failed upserts that
+			// never made it into the service table.
+			for name := range conflictingServices {
+				rh.update("svc:"+name.String(), nil)
+			}
+			clear(conflictingServices)
 			orphans := sets.New[loadbalancer.ServiceName]()
 			for svc := range p.Writer.Services().All(txn) {
 				if svc.Source == source.Kubernetes && !strings.Contains(svc.Name.Name(), hostPortServiceNameInfix) {
@@ -266,6 +299,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		case resource.Delete:
 			obj := val.svc
 			name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
+			delete(conflictingServices, name)
 			rh.update("svc:"+name.String(), nil)
 
 			svc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
@@ -392,13 +426,49 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		}
 	}
 
-	for buf := range events {
-		processBuffer(buf)
-		buf.Clear()
-		bufferPool.Put(buf)
+	for {
+		// Wait on the event stream and the specific blocking frontends without
+		// spawning a goroutine per conflict. All retry state remains local to
+		// this goroutine, and watches are replaced on Service updates/deletions.
+		// Cancellation closes events through the stream subscription.
+		cases := []reflect.SelectCase{
+			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(events)},
+		}
+		names := make([]loadbalancer.ServiceName, 0, len(conflictingServices))
+		for name, conflict := range conflictingServices {
+			names = append(names, name)
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(conflict.watch)})
+		}
+
+		chosen, value, ok := reflect.Select(cases)
+		switch chosen {
+		case 0:
+			if !ok {
+				return nil
+			}
+			buf := value.Interface().(buffer)
+			processBuffer(buf)
+			buf.Clear()
+			bufferPool.Put(buf)
+		default:
+			name := names[chosen-1]
+			conflict := conflictingServices[name]
+			txn := p.Writer.WriteTxn()
+			fe, _, watch, found := p.Writer.Frontends().GetWatch(txn, loadbalancer.FrontendByAddress(conflict.address))
+			if found && fe.ServiceName.Equal(conflict.owner) {
+				// Status/backend changes also close the watch. Do not retry
+				// unless ownership changed; just watch the latest frontend.
+				conflict.watch = watch
+				conflictingServices[name] = conflict
+			} else {
+				// A retry may discover another blocking frontend, in which
+				// case upsertService installs a new watch for it.
+				upsertService(txn, conflict.service)
+			}
+			txn.Commit()
+		}
 		rh.report()
 	}
-	return nil
 }
 
 type bufferKey struct {
