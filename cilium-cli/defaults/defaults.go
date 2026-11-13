@@ -163,9 +163,7 @@ var (
 	}
 
 	ExpectedXFRMErrors = []string{
-		"inbound_forward_header", // XfrmFwdHdrError
-		"inbound_other",          // XfrmInError
-		"inbound_state_invalid",  // XfrmInStateInvalid
+		"inbound_state_invalid", // XfrmInStateInvalid
 	}
 
 	LogCodeOwners  = false
