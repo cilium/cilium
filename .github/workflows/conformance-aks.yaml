@@ -153,14 +153,17 @@ jobs:
       - name: Generate Matrix
         env:
           PR_NUMBER: ${{ inputs.PR-number }}
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
           cd /tmp/generated/azure
+          FULL=$(jq -Rsr '. as $raw | (try fromjson catch $raw) | if type == "object" then (.full == true or .full == "true") else false end | tostring' <<< "${EXTRA_ARGS}")
 
           # Use complete matrix in case of scheduled run
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
+          # full extra-arg -> /test all dispatchers
           # shellcheck disable=SC2193
-          if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* ]];then
+          if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* || "${FULL}" == "true" ]];then
             jq '{ "include": [ .include[] | select(.disabled==null) ] }' azure.json > /tmp/matrix.json
           else
             jq '{ "include": [ .include[] | select(.default) ] }' azure.json > /tmp/matrix.json

@@ -56,11 +56,10 @@ jobs:
           SHA=$(git rev-parse ${REF})
           # /test for 1.18 branch and lower
           # /test\s* for 1.19 branch and higher
-          readarray workflows < <((
-            yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
-            yq '.triggers["/test\s*"].workflows[]' .github/ariane-config.yaml
-            yq '.schedule.nightly.workflows[]' .github/ariane-config.yaml
-          ) | sort -u)
+          # jq looks the keys up literally, yq would glob on the '*' of '/test\s*'.
+          readarray workflows < <(yq -o=json '.' .github/ariane-config.yaml | \
+            jq -r '(.triggers["/test"].workflows // [])[], (.triggers["/test\\s*"].workflows // [])[], (.schedule.nightly.workflows // [])[]' | \
+            sort -u)
 
           for workflow in "${workflows[@]}"; do
             echo triggering ${workflow}

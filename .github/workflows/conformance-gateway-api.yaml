@@ -117,9 +117,12 @@ jobs:
     steps:
       - name: Generate Matrix
         id: set-matrix
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
           event_name='${{ github.event_name }}'
           pr_number='${{ inputs.PR-number }}'
+          full=$(jq -Rsr '. as $raw | (try fromjson catch $raw) | if type == "object" then (.full == true or .full == "true") else false end | tostring' <<< "${EXTRA_ARGS}")
           MATRIX='{
             "include": [
               {
@@ -142,8 +145,9 @@ jobs:
           }'
 
           # Use the complete matrix for nightly runs and stable branch scheduled
-          # workflow_dispatch invocations from Ariane. Use the default entry for PRs.
-          if [[ "$event_name" == "push" || "$event_name" == "schedule" || "$pr_number" == v* ]]; then
+          # workflow_dispatch invocations from Ariane, and for a full extra-arg.
+          # Use the default entry for PRs.
+          if [[ "$event_name" == "push" || "$event_name" == "schedule" || "$pr_number" == v* || "$full" == "true" ]]; then
             RESULT=$(jq -c . <<< "$MATRIX")
           else
             RESULT=$(jq -c '{include: [.include[] | select(.default)]}' <<< "$MATRIX")
