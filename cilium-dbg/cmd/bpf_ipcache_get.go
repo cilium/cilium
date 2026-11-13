@@ -65,9 +65,13 @@ func init() {
 }
 
 func dumpIPCache() map[string][]string {
-	bpfIPCache := make(map[string][]string)
+	ipCacheMap, err := ipcache.OpenMap(log)
+	if err != nil {
+		Fatalf("Unable to open IPCache map: %s\n", err)
+	}
 
-	if err := ipcache.NewMap(nil, ipcache.Name).Dump(bpfIPCache); err != nil {
+	bpfIPCache := make(map[string][]string)
+	if err := ipCacheMap.Dump(bpfIPCache); err != nil {
 		Fatalf("unable to dump IPCache: %s\n", err)
 	}
 

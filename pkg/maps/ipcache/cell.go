@@ -11,10 +11,13 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -26,6 +29,7 @@ var Cell = cell.Module(
 	"eBPF map which maps IP prefixes to security identities",
 
 	cell.Provide(newIPCacheMapCell),
+	cell.Invoke(configureIPCacheMap),
 )
 
 type ipcacheMapParams struct {
@@ -34,6 +38,7 @@ type ipcacheMapParams struct {
 	Logger          *slog.Logger
 	Lifecycle       cell.Lifecycle
 	DaemonConfig    *option.DaemonConfig
+	MapRegistry     *mapregistry.MapRegistry
 	MetricsRegistry *metrics.Registry
 }
 
@@ -49,18 +54,24 @@ type ipcacheMapOut struct {
 }
 
 func newIPCacheMapCell(params ipcacheMapParams) ipcacheMapOut {
-	m := NewMap(params.MetricsRegistry, Name)
+	ipCacheMap := &Map{}
 	resolver, restored := promise.New[map[netip.Prefix]identity.NumericIdentity]()
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			var localPrefixes map[netip.Prefix]identity.NumericIdentity
 			if !params.DaemonConfig.DryMode {
+				var err error
+				if ipCacheMap.Map, err = bpf.NewMapFromRegistry(params.MapRegistry, Name, &Key{},
+					&RemoteEndpointInfo{}); err != nil {
+					return fmt.Errorf("pull map from registry: %w", err)
+				}
+				configureBPFMap(ipCacheMap.Map, params.MetricsRegistry)
+
 				if params.DaemonConfig.RestoreState {
 					// Read the old map before it is recreated below, so the
 					// ipcache cell can restore its local identities.
-					var err error
-					if localPrefixes, err = dumpLocalPrefixes(m); err != nil {
+					if localPrefixes, err = dumpLocalPrefixes(ipCacheMap); err != nil {
 						params.Logger.Warn("Failed to dump existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
 						// continue; we may have a partial dump
 					}
@@ -77,7 +88,7 @@ func newIPCacheMapCell(params ipcacheMapParams) ipcacheMapOut {
 				// the first time and its bpf programs have been replaced. Existing endpoints
 				// are using a policy map which is potentially out of sync as local identities
 				// are re-allocated on startup.
-				if err := m.Recreate(); err != nil {
+				if err := ipCacheMap.Recreate(); err != nil {
 					return fmt.Errorf("initializing ipcache map: %w", err)
 				}
 			}
@@ -86,12 +97,15 @@ func newIPCacheMapCell(params ipcacheMapParams) ipcacheMapOut {
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
-			return m.Close()
+			if m := ipCacheMap.Map; m != nil {
+				return m.Close()
+			}
+			return nil
 		},
 	})
 
 	return ipcacheMapOut{
-		MapOut:           bpf.NewMapOut(m),
+		MapOut:           bpf.NewMapOut(ipCacheMap),
 		RestoredPrefixes: restored,
 	}
 }
@@ -122,4 +136,11 @@ func dumpLocalPrefixes(m *Map) (map[netip.Prefix]identity.NumericIdentity, error
 		return localPrefixes, nil
 	}
 	return localPrefixes, err
+}
+
+func configureIPCacheMap(reg *mapregistry.MapRegistry) error {
+	flags := bpf.GetMapMemoryFlags(ebpf.LPMTrie) | unix.BPF_F_RDONLY_PROG
+	return reg.Modify(Name, func(m *mapregistry.MapSpecPatch) {
+		m.Flags = flags
+	})
 }
