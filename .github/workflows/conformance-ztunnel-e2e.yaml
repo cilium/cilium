@@ -91,7 +91,7 @@ jobs:
   setup-and-test:
     needs: [wait-for-images]
     name: 'Setup & Test'
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_NV_4CPU_16GB || 'ubuntu-26.04' }}
     env:
       job_name: 'Setup & Test'
     strategy:
