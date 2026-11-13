@@ -23,5 +23,14 @@ var Cell = cell.Module(
 		func(agent monitorAgent.Agent) monitorNotify { return agent },
 	),
 
-	cell.Invoke(func(listener *BPFListener, ipc *ipcache.IPCache) { ipc.AddListener(listener) }),
+	cell.Invoke(func(lifecycle cell.Lifecycle, listener *BPFListener, ipc *ipcache.IPCache) {
+		// AddListener synchronously replays the existing IPCache entries to the listener, which
+		// writes them to the BPF map. The dependency on the listener, and thus on the map, and the
+		// registration happening in the OnStart hook, guarantee that the replay runs after the
+		// inner BPF map is initialized.
+		lifecycle.Append(cell.Hook{OnStart: func(cell.HookContext) error {
+			ipc.AddListener(listener)
+			return nil
+		}})
+	}),
 )

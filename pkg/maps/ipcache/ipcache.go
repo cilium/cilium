@@ -5,28 +5,21 @@ package ipcache
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"unsafe"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const (
-	// MaxEntries is the maximum number of keys that can be present in the
-	// RemoteEndpointMap.
-	MaxEntries = 512000
-
-	// Name is the canonical name for the IPCache map on the filesystem.
-	Name = "cilium_ipcache_v2"
-)
+// Name is the canonical name for the IPCache map on the filesystem.
+const Name = maps.CiliumIPCacheV2
 
 // Key implements the bpf.MapKey interface.
 //
@@ -198,23 +191,22 @@ func NewValue(secID uint32, tunnelEndpoint netip.Addr, key uint8, flags RemoteEn
 
 // Map represents an IPCache BPF map.
 type Map struct {
-	bpf.Map
+	*bpf.Map
 }
 
-func newIPCacheMap(name string) *bpf.Map {
-	return bpf.NewMap(
-		name,
-		ebpf.LPMTrie,
-		&Key{},
-		&RemoteEndpointInfo{},
-		MaxEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG)
-}
-
-// NewMap instantiates a Map.
-func NewMap(registry *metrics.Registry, name string) *Map {
-	return &Map{
-		Map: *newIPCacheMap(name).WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(name)),
+// OpenMap opens the pre-initialized ipcache map for access.
+// This should only be used from components which aren't capable of using hive - mainly the
+// cilium-dbg.
+// It needs to be initialized beforehand via the Cilium Agent.
+func OpenMap(logger *slog.Logger) (*Map, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, Name), &Key{}, &RemoteEndpointInfo{})
+	if err != nil {
+		return nil, err
 	}
+	configureBPFMap(m, nil)
+	return &Map{Map: m}, nil
+}
+
+func configureBPFMap(m *bpf.Map, registry *metrics.Registry) {
+	m.WithCache().WithPressureMetric(registry).WithEvents(option.Config.GetEventBufferConfig(Name))
 }
