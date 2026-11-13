@@ -161,7 +161,18 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	// namespace to default namespace if the field is empty in the object.
 	namespace := k8sUtils.ExtractNamespaceOrDefault(&np.ObjectMeta)
 
-	for _, iRule := range np.Spec.Ingress {
+	ingressPolicyEnabled := len(np.Spec.PolicyTypes) == 0 ||
+		hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeIngress)
+
+	egressPolicyEnabled := len(np.Spec.PolicyTypes) == 0 ||
+		hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress)
+
+	ingressRules := np.Spec.Ingress
+	if !ingressPolicyEnabled {
+		ingressRules = nil
+	}
+
+	for _, iRule := range ingressRules {
 		fromRules := types.PolicyEntries{}
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
@@ -199,7 +210,12 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 		ingresses = append(ingresses, fromRules...)
 	}
 
-	for _, eRule := range np.Spec.Egress {
+	egressRules := np.Spec.Egress
+	if !egressPolicyEnabled {
+		egressRules = nil
+	}
+
+	for _, eRule := range egressRules {
 		toRules := types.PolicyEntries{}
 
 		if len(eRule.To) > 0 {
