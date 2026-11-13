@@ -210,7 +210,8 @@ Services based
 --------------
 
 Traffic from endpoints to services running in your cluster can be allowed via
-``toServices`` statements in Egress rules. Policies can reference
+``toServices`` statements in Egress rules, or denied via ``toServices``
+statements in Egress Deny rules. Policies can reference
 `Kubernetes Services <https://kubernetes.io/docs/concepts/services-networking/service>`_
 by name or label selector.
 
