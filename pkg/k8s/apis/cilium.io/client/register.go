@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	networkDriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -221,11 +222,11 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
-func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig) (
+func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) (
 	needsMigration []*apiextensionsv1.CustomResourceDefinition, err error) {
 	crds := CustomResourceDefinitionList()
 
-	for _, resourceName := range synced.AllCiliumCRDResourceNames(bgpCfg) {
+	for _, resourceName := range synced.AllCiliumCRDResourceNames(bgpCfg, ndCfg) {
 		obj, err := createCRDByResourceName(ctx, logger, clientset, crds, resourceName)
 		if err != nil {
 			return nil, err

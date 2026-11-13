@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	networkDriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -41,7 +42,7 @@ func CRDResourceName(crd string) string {
 	return "crd:" + crd
 }
 
-func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
+func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) []string {
 	result := []string{
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2alpha1.CPIPName),
@@ -89,12 +90,17 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 		result = append(result, CRDResourceName(v2alpha1.CDPPName))
 	}
 
+	if ndCfg.Enabled {
+		result = append(result,
+			CRDResourceName(v2alpha1.CiliumNetworkDriverNodeConfigName),
+			CRDResourceName(v2alpha1.CiliumNetworkDriverClusterConfigName),
+			CRDResourceName(v2alpha1.CRIPName),
+		)
+	}
+
 	result = append(result,
 		CRDResourceName(v2.LBIPPoolName),
 		CRDResourceName(v2alpha1.L2AnnouncementName),
-		CRDResourceName(v2alpha1.CiliumNetworkDriverNodeConfigName),
-		CRDResourceName(v2alpha1.CiliumNetworkDriverClusterConfigName),
-		CRDResourceName(v2alpha1.CRIPName),
 	)
 
 	return result
@@ -102,8 +108,8 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 
 // AgentCRDResourceNames returns a list of all CRD resource names the Cilium
 // agent needs to wait to be registered before initializing any k8s watchers.
-func AgentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
-	return agentCRDResourceNames(bgpCfg)
+func AgentCRDResourceNames(bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) []string {
+	return agentCRDResourceNames(bgpCfg, ndCfg)
 }
 
 // ClusterMeshAPIServerResourceNames returns a list of all CRD resource names the
@@ -128,8 +134,8 @@ func GatewayAPIResourceNames() []string {
 
 // AllCiliumCRDResourceNames returns a list of all Cilium CRD resource names
 // that the cilium operator or testsuite may register.
-func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
-	res := append(AgentCRDResourceNames(bgpCfg), GatewayAPIResourceNames()...)
+func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) []string {
+	res := append(AgentCRDResourceNames(bgpCfg, ndCfg), GatewayAPIResourceNames()...)
 	res = append(res,
 		CRDResourceName(v2.CNCName),
 	)

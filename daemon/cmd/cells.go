@@ -81,6 +81,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/networkdriver"
+	networkDriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
 	nodePolicy "github.com/cilium/cilium/pkg/node/policy"
@@ -178,8 +179,8 @@ var (
 		store.Cell,
 
 		// Provide CRD resource names for 'k8sSynced.CRDSyncCell' below.
-		cell.Provide(func(bgpCfg bgpConfig.BGPConfig) k8sSynced.CRDSyncResourceNamesOut {
-			return k8sSynced.NewCRDSyncResourceNamesOut(k8sSynced.AgentCRDResourceNames(bgpCfg)...)
+		cell.Provide(func(bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) k8sSynced.CRDSyncResourceNamesOut {
+			return k8sSynced.NewCRDSyncResourceNamesOut(k8sSynced.AgentCRDResourceNames(bgpCfg, ndCfg)...)
 		}),
 
 		// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
@@ -380,9 +381,9 @@ var (
 		natStats.Cell,
 
 		// Provide resource groups to watch.
-		cell.Provide(func(bgpCfg bgpConfig.BGPConfig) watchers.ResourceGroupFunc {
+		cell.Provide(func(bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) watchers.ResourceGroupFunc {
 			return func(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
-				return allResourceGroups(logger, cfg, bgpCfg)
+				return allResourceGroups(logger, cfg, bgpCfg, ndCfg)
 			}
 		}),
 
@@ -481,7 +482,7 @@ var pprofConfig = pprof.Config{
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration, bgpCfg bgpConfig.BGPConfig) (resourceGroups, waitForCachesOnly []string) {
+func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration, bgpCfg bgpConfig.BGPConfig, ndCfg networkDriverConfig.Config) (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
@@ -496,7 +497,7 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration, b
 		waitForCachesOnly = append(waitForCachesOnly, resources.K8sAPIGroupNetworkingV1Core)
 	}
 
-	ciliumGroups, waitOnlyList := watchers.GetGroupsForCiliumResources(logger, k8sSynced.AgentCRDResourceNames(bgpCfg))
+	ciliumGroups, waitOnlyList := watchers.GetGroupsForCiliumResources(logger, k8sSynced.AgentCRDResourceNames(bgpCfg, ndCfg))
 	waitForCachesOnly = append(waitForCachesOnly, waitOnlyList...)
 
 	return append(k8sGroups, ciliumGroups...), waitForCachesOnly
