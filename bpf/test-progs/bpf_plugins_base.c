@@ -3,9 +3,36 @@
 
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
+#include <bpf/tailcall.h>
+#include <lib/static_data.h>
 
 #include "bpf_plugins.h"
 
+DECLARE_CONFIG(int, tail_call_enabled, "enable tail call in caller program")
+DECLARE_CONFIG(int, policy_caller_enabled, "enable tail call in policy caller program")
+DECLARE_CONFIG(int, policy_outbound_enabled, "enable outbound tail call in policy program")
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(max_entries, 100);
+} cilium_calls __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(max_entries, 1024);
+} cilium_call_policy __section_maps_btf;
+
+MULTI_TAIL_PROGRAM_CALLER("tc/entry", tc_caller, cilium_calls, 13, 14,
+			  struct __sk_buff *, tail_call_enabled)
+TAIL_PROGRAM("tc/tail", tail_tc, struct __sk_buff *, 13)
+TAIL_PROGRAM("tc/tail", tail_tc_b, struct __sk_buff *, 14)
+TAIL_PROGRAM_CALLER("tc/entry", policy_caller, cilium_call_policy, 42,
+		    struct __sk_buff *, policy_caller_enabled)
+POLICY_PROGRAM("tc/entry", cil_lxc_policy, struct __sk_buff *)
 PROGRAM("tc/entry", tc, struct __sk_buff *)
 
 PROGRAM("xdp/entry", xdp, struct xdp_md *)
