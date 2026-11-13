@@ -40,7 +40,7 @@ type TranslationInputs struct {
 	TCPRoutes              []gatewayv1.TCPRoute
 	UDPRoutes              []gatewayv1.UDPRoute
 	ReferenceGrants        []gatewayv1.ReferenceGrant
-	Namespaces             []corev1.Namespace
+	NamespaceLabels        helpers.NamespaceLabelIndex
 	BackendTLSPolicies     []gatewayv1.BackendTLSPolicy
 	Services               []corev1.Service
 	ServiceImports         []mcsapiv1beta1.ServiceImport
@@ -330,6 +330,10 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		}
 		namespaces = namespaceList.Items
 	}
+	namespaceLabels := helpers.NewNamespaceLabelIndex(namespaces)
+	for i := range mergedListeners {
+		mergedListeners[i].NamespaceLabels = namespaceLabels
+	}
 
 	services, serviceImports, err := l.loadReferencedBackendResources(
 		ctx,
@@ -367,7 +371,7 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		TCPRoutes:              routeCollections.tcpRoutes,
 		UDPRoutes:              routeCollections.udpRoutes,
 		ReferenceGrants:        grants.Items,
-		Namespaces:             namespaces,
+		NamespaceLabels:        namespaceLabels,
 		BackendTLSPolicies:     btlspList.Items,
 		Services:               services,
 		ServiceImports:         serviceImports,
@@ -638,10 +642,9 @@ func (l *TranslationInputLoader) resolveAllowedListenersFromGateway(ctx context.
 	var listeners []ingestion.ListenerWithContext
 	for _, listener := range gw.Spec.Listeners {
 		listeners = append(listeners, ingestion.ListenerWithContext{
-			Listener:          listener,
-			Source:            gwSource,
-			SourceGeneration:  gw.Generation,
-			AllowedNamespaces: resolveAllowedNamespaces(ctx, l.client, gw.GetNamespace(), listener, scopedLog),
+			Listener:         listener,
+			Source:           gwSource,
+			SourceGeneration: gw.Generation,
 		})
 	}
 
@@ -703,10 +706,9 @@ func (l *TranslationInputLoader) resolveAllowedListenersFromListenerSets(
 		for _, entry := range ls.Spec.Listeners {
 			listener := helpers.ListenerEntryToListener(entry)
 			listeners = append(listeners, ingestion.ListenerWithContext{
-				Listener:          listener,
-				Source:            lsSource,
-				SourceGeneration:  ls.Generation,
-				AllowedNamespaces: resolveAllowedNamespaces(ctx, l.client, ls.GetNamespace(), listener, scopedLog),
+				Listener:         listener,
+				Source:           lsSource,
+				SourceGeneration: ls.Generation,
 			})
 		}
 	}
@@ -810,31 +812,6 @@ func hasAllowedRoutesNamespaceSelector(gw *gatewayv1.Gateway, attachedListenerSe
 		}
 	}
 	return false
-}
-
-func resolveAllowedNamespaces(ctx context.Context, c helpers.ClientReader, listenerNamespace string, listener gatewayv1.Listener, logger *slog.Logger) map[string]struct{} {
-	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
-		return map[string]struct{}{listenerNamespace: {}}
-	}
-	switch *listener.AllowedRoutes.Namespaces.From {
-	case gatewayv1.NamespacesFromAll:
-		return nil
-	case gatewayv1.NamespacesFromSame:
-		return map[string]struct{}{listenerNamespace: {}}
-	case gatewayv1.NamespacesFromSelector:
-		nsList := &corev1.NamespaceList{}
-		selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
-		if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
-			logger.ErrorContext(ctx, "Unable to list namespaces for listener", logfields.Error, err)
-			return map[string]struct{}{listenerNamespace: {}}
-		}
-		allowed := make(map[string]struct{})
-		for _, ns := range nsList.Items {
-			allowed[ns.Name] = struct{}{}
-		}
-		return allowed
-	}
-	return map[string]struct{}{listenerNamespace: {}}
 }
 
 type routeCollections struct {

@@ -6,11 +6,174 @@ package helpers
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+func TestIsRouteKindAllowedForListener(t *testing.T) {
+	tests := []struct {
+		name            string
+		routes          []metav1.Object
+		protocol        gatewayv1.ProtocolType
+		allowedKinds    []gatewayv1.RouteGroupKind
+		noAllowedRoutes bool
+		expected        bool
+	}{
+		{
+			name:            "Supported kinds for protocol are allowed without allowedRoutes",
+			protocol:        gatewayv1.HTTPProtocolType,
+			routes:          []metav1.Object{new(gatewayv1.HTTPRoute), new(gatewayv1.GRPCRoute)},
+			noAllowedRoutes: true,
+			expected:        true,
+		},
+		{
+			name:            "Unsupported kinds for protocol are disallowed without allowedRoutes",
+			protocol:        gatewayv1.HTTPProtocolType,
+			routes:          []metav1.Object{new(gatewayv1.TLSRoute), new(gatewayv1.TCPRoute), new(gatewayv1.UDPRoute)},
+			noAllowedRoutes: true,
+			expected:        false,
+		},
+		{
+			name:         "Unsupported kinds for protocol are disallowed regardless of allowed kinds",
+			protocol:     gatewayv1.HTTPProtocolType,
+			routes:       []metav1.Object{new(gatewayv1.HTTPRoute)},
+			allowedKinds: GatewayRouteGroupKinds(KindTCPRoute),
+			expected:     false,
+		},
+		{
+			name:         "Disallows supported kinds not explicitly allowed",
+			protocol:     gatewayv1.HTTPProtocolType,
+			routes:       []metav1.Object{new(gatewayv1.HTTPRoute)},
+			allowedKinds: GatewayRouteGroupKinds(KindGRPCRoute),
+			expected:     false,
+		},
+		{
+			name:     "HTTP/GRPCRoutes are allowed for HTTP protocol",
+			protocol: gatewayv1.HTTPProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.HTTPRoute), new(gatewayv1.GRPCRoute)},
+			expected: true,
+		},
+		{
+			name:     "Non-HTTP/GRPCRoutes are disallowed for HTTP protocol",
+			protocol: gatewayv1.HTTPProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.TLSRoute), new(gatewayv1.TCPRoute), new(gatewayv1.UDPRoute)},
+			expected: false,
+		},
+		{
+			name:     "TLSRoutes are allowed for TLS protocol",
+			protocol: gatewayv1.TLSProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.TLSRoute)},
+			expected: true,
+		},
+		{
+			name:     "Non-TLSRoutes are disallowed for TLS protocol",
+			protocol: gatewayv1.TLSProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.HTTPRoute), new(gatewayv1.GRPCRoute), new(gatewayv1.TCPRoute), new(gatewayv1.UDPRoute)},
+			expected: false,
+		},
+		{
+			name:     "TCPRoutes are allowed for TCP protocol",
+			protocol: gatewayv1.TCPProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.TCPRoute)},
+			expected: true,
+		},
+		{
+			name:     "Non-TCPRoutes are disallowed for TCP protocol",
+			protocol: gatewayv1.TCPProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.HTTPRoute), new(gatewayv1.GRPCRoute), new(gatewayv1.TLSRoute), new(gatewayv1.UDPRoute)},
+			expected: false,
+		},
+		{
+			name:     "UDPRoutes are allowed for UDP protocol",
+			protocol: gatewayv1.UDPProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.UDPRoute)},
+			expected: true,
+		},
+		{
+			name:     "Non-UDPRoutes are disallowed for UDP protocol",
+			protocol: gatewayv1.UDPProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.HTTPRoute), new(gatewayv1.GRPCRoute), new(gatewayv1.TLSRoute), new(gatewayv1.TCPRoute)},
+			expected: false,
+		},
+		{
+			name:     "TLSRoutes are allowed for TLS protocol",
+			protocol: gatewayv1.TLSProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.TLSRoute)},
+			expected: true,
+		},
+		{
+			name:     "Non-TLSRoutes are disallowed for TLS protocol",
+			protocol: gatewayv1.TLSProtocolType,
+			routes:   []metav1.Object{new(gatewayv1.HTTPRoute), new(gatewayv1.GRPCRoute), new(gatewayv1.TCPRoute), new(gatewayv1.UDPRoute)},
+			expected: false,
+		},
+		{
+			name:     "Non-Route kinds are disallowed regardless of allowed kinds",
+			protocol: gatewayv1.HTTPProtocolType,
+			routes:   []metav1.Object{new(corev1.Secret)},
+			allowedKinds: []gatewayv1.RouteGroupKind{
+				{Group: new(gatewayv1.Group(corev1.GroupName)), Kind: "Secret"},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ln := gatewayv1.Listener{Protocol: tt.protocol}
+			if !tt.noAllowedRoutes {
+				ln.AllowedRoutes = &gatewayv1.AllowedRoutes{Kinds: tt.allowedKinds}
+			}
+
+			for _, route := range tt.routes {
+				assert.Equal(t, tt.expected, IsRouteKindAllowedForListener(ln, route))
+			}
+		})
+	}
+}
+
+func TestNormalizeAllowedGroupKinds(t *testing.T) {
+	tests := []struct {
+		name         string
+		protocol     gatewayv1.ProtocolType
+		allowedKinds []gatewayv1.RouteGroupKind
+		expected     []gatewayv1.RouteGroupKind
+	}{
+		{
+			name:     "Non-Gateway kinds are removed",
+			protocol: gatewayv1.HTTPProtocolType,
+			allowedKinds: []gatewayv1.RouteGroupKind{
+				GatewayRouteGroupKind(KindHTTPRoute),
+				{Group: new(gatewayv1.Group(corev1.GroupName)), Kind: "Secret"},
+			},
+			expected: GatewayRouteGroupKinds(KindHTTPRoute),
+		}, {
+			name:         "Kinds unsupported by protocol are removed",
+			protocol:     gatewayv1.TCPProtocolType,
+			allowedKinds: GatewayRouteGroupKinds(KindHTTPRoute, KindTCPRoute),
+			expected:     GatewayRouteGroupKinds(KindTCPRoute),
+		}, {
+			name:     "Defaults group to gateway",
+			protocol: gatewayv1.TLSProtocolType,
+			allowedKinds: []gatewayv1.RouteGroupKind{
+				{Kind: KindTLSRoute},
+			},
+			expected: []gatewayv1.RouteGroupKind{
+				{Group: new(gatewayv1.Group(gatewayv1.GroupName)), Kind: KindTLSRoute},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := NormalizeAllowedGroupKinds(tt.protocol, tt.allowedKinds)
+			assert.Equal(t, tt.expected, res)
+		})
+	}
+}
 
 func TestIsParentAttachable(t *testing.T) {
 	tests := []struct {

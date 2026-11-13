@@ -41,8 +41,7 @@ type ListenerWithContext struct {
 	SourceGeneration int64
 	TLSOptions       *model.TLSOptions
 
-	// AllowedNamespaces is the set of namespaces allowed for Route attachment
-	AllowedNamespaces map[string]struct{}
+	NamespaceLabels helpers.NamespaceLabelIndex
 }
 
 func parentRefMatchesSource(parent gatewayv1.ParentReference, source model.FullyQualifiedResource, routeNamespace string) bool {
@@ -63,15 +62,13 @@ func parentRefMatchesSource(parent gatewayv1.ParentReference, source model.Fully
 	return parentNS == source.Namespace
 }
 
-func (l *ListenerWithContext) routeAllowedByParent(parentRefs []gatewayv1.ParentReference, routeNamespace string) bool {
-	if l.AllowedNamespaces != nil {
-		if _, ok := l.AllowedNamespaces[routeNamespace]; !ok {
-			return false
-		}
+func (l *ListenerWithContext) routeAllowedByParent(route metav1.Object, parentRefs []gatewayv1.ParentReference) bool {
+	if !helpers.IsRouteAllowedByListener(l.Source.Namespace, &l.Listener, route, l.NamespaceLabels) {
+		return false
 	}
 
 	for _, parent := range parentRefs {
-		if parentRefMatchesSource(parent, l.Source, routeNamespace) {
+		if parentRefMatchesSource(parent, l.Source, route.GetNamespace()) {
 			if parent.SectionName != nil && string(*parent.SectionName) != string(l.Listener.Name) {
 				// We didn't find a listener yet that matches the section name
 				continue
@@ -86,7 +83,7 @@ func (l *ListenerWithContext) routeAllowedByParent(parentRefs []gatewayv1.Parent
 func (l *ListenerWithContext) FilterHTTPRoutes(routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	for _, r := range routes {
-		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
+		if l.routeAllowedByParent(&r, r.Spec.ParentRefs) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -96,7 +93,7 @@ func (l *ListenerWithContext) FilterHTTPRoutes(routes []gatewayv1.HTTPRoute) []g
 func (l *ListenerWithContext) FilterGRPCRoutes(routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	for _, r := range routes {
-		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
+		if l.routeAllowedByParent(&r, r.Spec.ParentRefs) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -106,7 +103,7 @@ func (l *ListenerWithContext) FilterGRPCRoutes(routes []gatewayv1.GRPCRoute) []g
 func (l *ListenerWithContext) FilterTLSRoutes(routes []gatewayv1.TLSRoute) []gatewayv1.TLSRoute {
 	var filtered []gatewayv1.TLSRoute
 	for _, r := range routes {
-		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
+		if l.routeAllowedByParent(&r, r.Spec.ParentRefs) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -116,7 +113,7 @@ func (l *ListenerWithContext) FilterTLSRoutes(routes []gatewayv1.TLSRoute) []gat
 func (l *ListenerWithContext) FilterTCPRoutes(routes []gatewayv1.TCPRoute) []gatewayv1.TCPRoute {
 	var filtered []gatewayv1.TCPRoute
 	for _, r := range routes {
-		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
+		if l.routeAllowedByParent(&r, r.Spec.ParentRefs) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -126,7 +123,7 @@ func (l *ListenerWithContext) FilterTCPRoutes(routes []gatewayv1.TCPRoute) []gat
 func (l *ListenerWithContext) FilterUDPRoutes(routes []gatewayv1.UDPRoute) []gatewayv1.UDPRoute {
 	var filtered []gatewayv1.UDPRoute
 	for _, r := range routes {
-		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
+		if l.routeAllowedByParent(&r, r.Spec.ParentRefs) {
 			filtered = append(filtered, r)
 		}
 	}

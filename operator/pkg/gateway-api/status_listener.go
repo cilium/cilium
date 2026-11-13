@@ -62,7 +62,7 @@ type listenerValidationResult struct {
 
 type ListenerStatusInputs struct {
 	MergedListeners        []ingestion.ListenerWithContext
-	Namespaces             []corev1.Namespace
+	NamespaceLabels        helpers.NamespaceLabelIndex
 	AttachedListenerSets   []gatewayv1.ListenerSet
 	DisallowedListenerSets []gatewayv1.ListenerSet
 	HTTPRoutes             []gatewayv1.HTTPRoute
@@ -97,8 +97,6 @@ func NewListenerStatusManager(client client.Client, logger *slog.Logger, cfg Lis
 }
 
 func (m *ListenerStatusManager) SetListenerStatuses(ctx context.Context, gw *gatewayv1.Gateway, inputs ListenerStatusInputs) (*ListenerStatusResult, error) {
-	namespaceLabels := helpers.NewNamespaceLabelIndex(inputs.Namespaces)
-
 	conflictedListeners := m.conflictsAcrossSources(inputs.MergedListeners)
 	conflictFreeListeners := m.filterOutConflictedListeners(inputs.MergedListeners, conflictedListeners)
 	mergedAndValidListeners, _ := m.filterOutInvalidListeners(ctx, gw, conflictFreeListeners, inputs.ReferenceGrants)
@@ -113,7 +111,7 @@ func (m *ListenerStatusManager) SetListenerStatuses(ctx context.Context, gw *gat
 		inputs.TCPRoutes,
 		inputs.UDPRoutes,
 		inputs.ReferenceGrants,
-		namespaceLabels,
+		inputs.NamespaceLabels,
 	)
 	if err != nil {
 		return nil, err
@@ -132,7 +130,7 @@ func (m *ListenerStatusManager) SetListenerStatuses(ctx context.Context, gw *gat
 			inputs.TCPRoutes,
 			inputs.UDPRoutes,
 			inputs.ReferenceGrants,
-			namespaceLabels,
+			inputs.NamespaceLabels,
 		); err != nil {
 			return nil, err
 		}
@@ -562,8 +560,8 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 		invalidReason: gatewayv1.ListenerReasonInvalid,
 	}
 
-	allSupported := getSupportedRouteKinds(l.Protocol)
-	if allSupported == nil {
+	allSupported := helpers.GetSupportedRouteKindsForProtocol(l.Protocol)
+	if allSupported.Empty() {
 		res.invalidMessages = append(res.invalidMessages, "Unsupported Listener Protocol.")
 		res.invalidReason = gatewayv1.ListenerReasonUnsupportedProtocol
 		res.isValid = false
@@ -578,16 +576,7 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 	}
 
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
-		res.supportedKinds = []gatewayv1.RouteGroupKind{}
-		for _, supported := range allSupported {
-			for _, allowed := range l.AllowedRoutes.Kinds {
-				if supported.Kind == allowed.Kind &&
-					groupDerefOr(allowed.Group, gatewayv1.GroupName) == string(*supported.Group) {
-					res.supportedKinds = append(res.supportedKinds, supported)
-					break
-				}
-			}
-		}
+		res.supportedKinds = helpers.NormalizeAllowedGroupKinds(l.Protocol, l.AllowedRoutes.Kinds)
 
 		if len(res.supportedKinds) != len(l.AllowedRoutes.Kinds) {
 			res.conds = helpers.MergeConditions(res.conds, listenerInvalidRouteKinds(params.generation, "Unsupported Route Kinds in allowedRoutes.kinds"))
@@ -598,7 +587,7 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 			}
 		}
 	} else {
-		res.supportedKinds = allSupported
+		res.supportedKinds = helpers.GetSupportedRouteGroupKindsForProtocol(l.Protocol)
 	}
 
 	if l.TLS != nil {
@@ -915,7 +904,7 @@ func (m *ListenerStatusManager) filterHTTPRoutesByListener(gw *gatewayv1.Gateway
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
-			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			helpers.IsRouteAllowedByListener(lsNS, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -929,7 +918,7 @@ func (m *ListenerStatusManager) filterGRPCRoutesByListener(gw *gatewayv1.Gateway
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
-			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			helpers.IsRouteAllowedByListener(lsNS, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -943,7 +932,7 @@ func (m *ListenerStatusManager) filterTLSRoutesByListener(gw *gatewayv1.Gateway,
 	var filtered []gatewayv1.TLSRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
-			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			helpers.IsRouteAllowedByListener(lsNS, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -957,7 +946,7 @@ func (m *ListenerStatusManager) filterTCPRoutesByListener(gw *gatewayv1.Gateway,
 	var filtered []gatewayv1.TCPRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
-			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			helpers.IsRouteAllowedByListener(lsNS, listener, &route, namespaceLabels) &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
@@ -970,7 +959,7 @@ func (m *ListenerStatusManager) filterUDPRoutesByListener(gw *gatewayv1.Gateway,
 	var filtered []gatewayv1.UDPRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
-			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			helpers.IsRouteAllowedByListener(lsNS, listener, &route, namespaceLabels) &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}

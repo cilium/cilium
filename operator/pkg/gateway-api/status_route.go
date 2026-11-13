@@ -119,8 +119,8 @@ func (m *RouteStatusManager) runCommonRouteChecks(ctx context.Context, input rou
 
 // checkRouteSupported returns false when route validation should stop for this input.
 func (m *RouteStatusManager) checkRouteSupported(input routechecks.Input, parent gatewayv1.ParentReference) bool {
-	switch k := input.GetGVK().Kind; k {
-	case kindTCPRoute, kindUDPRoute:
+	switch k := input.GetGVK().Kind; gatewayv1.Kind(k) {
+	case helpers.KindTCPRoute, helpers.KindUDPRoute:
 		if !m.tcpUDPRouteSupport {
 			input.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionAccepted),
