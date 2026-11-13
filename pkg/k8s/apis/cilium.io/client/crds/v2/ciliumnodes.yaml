@@ -85,6 +85,7 @@ spec:
                   cidr-block:
                     description: CIDRBlock is vpc ipv4 CIDR
                     format: cidr
+                    maxLength: 43
                     type: string
                   instance-type:
                     description: InstanceType is the ECS instance type, e.g. "ecs.g6.2xlarge"
@@ -314,6 +315,7 @@ spec:
                       When an IP is used, the IP will be added to Status.IPAM.Used
                     items:
                       format: cidr
+                      maxLength: 43
                       type: string
                     type: array
                   pool:
@@ -370,6 +372,7 @@ spec:
                                 from this pool.
                               items:
                                 format: cidr
+                                maxLength: 43
                                 type: string
                               type: array
                             pool:
@@ -452,6 +455,7 @@ spec:
                                 from this pool.
                               items:
                                 format: cidr
+                                maxLength: 43
                                 type: string
                               type: array
                             pool:
@@ -567,16 +571,19 @@ spec:
                             cidr:
                               description: CIDRBlock is the VPC IPv4 CIDR
                               format: cidr
+                              maxLength: 43
                               type: string
                             ipv6-cidr:
                               description: IPv6CIDRBlock is the VPC IPv6 CIDR
                               format: cidr
+                              maxLength: 43
                               type: string
                             secondary-cidrs:
                               description: SecondaryCIDRs is the list of Secondary
                                 CIDRs associated with the VPC
                               items:
                                 format: cidr
+                                maxLength: 43
                                 type: string
                               type: array
                             vpc-id:
@@ -589,10 +596,12 @@ spec:
                             cidr:
                               description: CIDRBlock is the vSwitch IPv4 CIDR
                               format: cidr
+                              maxLength: 43
                               type: string
                             ipv6-cidr:
                               description: IPv6CIDRBlock is the vSwitch IPv6 CIDR
                               format: cidr
+                              maxLength: 43
                               type: string
                             vswitch-id:
                               description: VSwitchID is the vSwitch to which the ENI
@@ -665,6 +674,7 @@ spec:
                               description: CIDR is the CIDR range associated with
                                 the subnet
                               format: cidr
+                              maxLength: 43
                               type: string
                             id:
                               description: ID is the resource ID of the subnet
@@ -713,6 +723,7 @@ spec:
                             prefixes associated with the ENI
                           items:
                             format: cidr
+                            maxLength: 43
                             type: string
                           type: array
                         mac:
@@ -729,6 +740,7 @@ spec:
                             prefixes associated with the ENI
                           items:
                             format: cidr
+                            maxLength: 43
                             type: string
                           type: array
                         public-ip:
@@ -749,6 +761,7 @@ spec:
                               description: CIDR is the CIDR range associated with
                                 the subnet
                               format: cidr
+                              maxLength: 43
                               type: string
                             id:
                               description: ID is the ID of the subnet
@@ -770,6 +783,7 @@ spec:
                                 with the VPC
                               items:
                                 format: cidr
+                                maxLength: 43
                                 type: string
                               type: array
                             id:
@@ -779,6 +793,7 @@ spec:
                               description: PrimaryCIDR is the primary CIDR of the
                                 VPC
                               format: cidr
+                              maxLength: 43
                               type: string
                           type: object
                       type: object
