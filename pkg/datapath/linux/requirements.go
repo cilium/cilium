@@ -148,6 +148,12 @@ func CheckRequirements(log *slog.Logger) error {
 			}
 			log.Info("BPF_FIB_LOOKUP_SRC is not supported; it will not be used")
 		}
+
+		if err := probes.HaveGlobalFunc(); err != nil {
+			log.Warn("BPF global functions might not be supported / kernel configuration CONFIG_DEBUG_INFO_BTF is not set. BPF programs may fail to load",
+				logfields.Error, err,
+			)
+		}
 	}
 	return nil
 }
