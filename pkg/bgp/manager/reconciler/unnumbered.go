@@ -222,7 +222,8 @@ func (r *UnnumberedReconciler) getUnnumberedPeerAddress(ifname string) (string, 
 	case 0:
 		return "", dev.Index, fmt.Errorf("no IPv6 link-local neighbor discovered on interface %s", ifname)
 	case 1:
-		return candidates[0].WithZone(ifname).String(), dev.Index, nil
+		// Use the primary device name because Go does not resolve alternate names as IPv6 zones.
+		return candidates[0].WithZone(dev.Name).String(), dev.Index, nil
 	default:
 		// An unnumbered session is point-to-point, so several candidates leave no way to
 		// tell which one the peer is. Guessing would peer with an arbitrary neighbor.
