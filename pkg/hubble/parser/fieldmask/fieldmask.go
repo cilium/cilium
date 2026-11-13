@@ -77,8 +77,10 @@ func (f FieldMask) Copy(dst, src protoreflect.Message) {
 					} else {
 						next.Copy(dst.Mutable(fd).Message(), src.Get(fd).Message())
 					}
+				} else {
+					// Clear a previously copied variant when reusing dst to remove stale entries.
+					dst.Clear(fd)
 				}
-				// If not the active variant, skip it (don't create spurious structures).
 			} else {
 				// Not a oneof field - copy normally.
 				if sub := dst.Get(fd); sub.Message().IsValid() {
