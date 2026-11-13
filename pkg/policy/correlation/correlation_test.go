@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -76,7 +76,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -417,7 +417,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -517,7 +517,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -588,7 +588,7 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -648,7 +648,7 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -733,7 +733,7 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -793,7 +793,7 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		PolicyRevision: 1,
 	}
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -879,7 +879,7 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (getters.EndpointInfo, bool) {
+		OnGetEndpointInfoByID: func(id uint16) (resolverTypes.EndpointInfo, bool) {
 			if uint64(id) == ep.ID {
 				return ep, true
 			}
@@ -946,7 +946,7 @@ func TestCorrelatePolicy_NotifyEndpointID(t *testing.T) {
 	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (getters.EndpointInfo, bool) {
+		OnGetEndpointInfoByID: func(id uint16) (resolverTypes.EndpointInfo, bool) {
 			if id == hostEPID {
 				return ep, true
 			}
