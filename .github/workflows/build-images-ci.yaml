@@ -550,7 +550,7 @@ jobs:
     # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
     name: Pre-Comment
     needs: build-and-push-prs
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     if: ${{
          github.event_name == 'pull_request_target' &&
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
@@ -563,7 +563,7 @@ jobs:
 
   comment:
     name: Post test comment for Renovate PRs after images built
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     needs: pre-comment
     environment:
       name: "Trigger CI from renovate PRs"
