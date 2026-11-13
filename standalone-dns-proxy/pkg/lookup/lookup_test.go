@@ -22,11 +22,7 @@ import (
 )
 
 func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
-	table, err := statedb.NewTable(
-		db,
-		client.IPtoEndpointTableName,
-		client.IdIPToEndpointIndex,
-	)
+	table, err := client.NewIPtoEndpointTable(db)
 	if err != nil {
 		return nil
 	}
@@ -38,12 +34,7 @@ func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
 }
 
 func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIdentity] {
-	table, err := statedb.NewTable(
-		db,
-		client.PrefixToIdentityTableName,
-		client.IdentityToPrefixIndex,
-		client.PrefixToIdentityIndex,
-	)
+	table, err := client.NewPrefixToIdentityTable(db)
 	if err != nil {
 		return nil
 	}
@@ -69,7 +60,7 @@ func insertPrefixes(db *statedb.DB, table statedb.RWTable[client.PrefixToIdentit
 func insertIP(db *statedb.DB, table statedb.RWTable[client.IPtoEndpointInfo], ip netip.Addr, id uint64, ident identity.NumericIdentity) {
 	w := db.WriteTxn(table)
 	table.Insert(w, client.IPtoEndpointInfo{
-		IP:       []netip.Addr{ip},
+		IPs:      []netip.Addr{ip},
 		ID:       id,
 		Identity: ident,
 	})
