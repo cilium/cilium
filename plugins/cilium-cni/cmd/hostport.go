@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -307,4 +308,32 @@ func socketAddressesConflict(socketIP, requestedIP netip.Addr, ipv6Only bool) bo
 		return socketIP.Is6() && socketIP.IsUnspecified() && requestedIP.Is4() && !ipv6Only
 	}
 	return requestedIP.IsUnspecified() || socketIP.IsUnspecified() || socketIP == requestedIP
+}
+
+func validateHostPortNodePortOverlap(mappings []types.PortMapping, config map[string]any) error {
+	if len(mappings) == 0 {
+		return nil
+	}
+	minValue, haveMin := config["NodePortMin"]
+	maxValue, haveMax := config["NodePortMax"]
+	if !haveMin && !haveMax {
+		// Older agents do not expose their effective NodePort range.
+		return nil
+	}
+	// The API client's JSON consumer preserves numeric values as json.Number.
+	minNumber, minOK := minValue.(json.Number)
+	maxNumber, maxOK := maxValue.(json.Number)
+	min, minErr := minNumber.Int64()
+	max, maxErr := maxNumber.Int64()
+	if !minOK || !maxOK || minErr != nil || maxErr != nil ||
+		min < 1 || max > 65535 || min > max {
+		return fmt.Errorf("invalid NodePort range in agent configuration: %v-%v", minValue, maxValue)
+	}
+	for _, mapping := range mappings {
+		if mapping.HostPort >= int(min) && mapping.HostPort <= int(max) {
+			return fmt.Errorf("hostPort %d overlaps with the configured NodePort range %d-%d",
+				mapping.HostPort, int(min), int(max))
+		}
+	}
+	return nil
 }

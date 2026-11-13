@@ -28,9 +28,10 @@ notes carefully below to understand what to do during upgrade.
   have rules like this, ensure the referenced Services exist and have backends
   before upgrading.
 * During Pod creation, CNI ADD now checks whether a requested HostPort is
-  already in use by a host process and rejects the Pod if it is. If you
-  intentionally use HostPort to redirect a port that is already used by a host
-  process, set the Helm value ``cni.checkHostPortConflict=false``.
+  already in use by a host process or conflicts with the configured NodePort range
+  and rejects the Pod if it is. If you intentionally use HostPort to redirect a port
+  that is already used by a host process, set the Helm value
+  ``cni.checkHostPortConflict=false``.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~

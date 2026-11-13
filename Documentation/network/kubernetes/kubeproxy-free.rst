@@ -1634,7 +1634,9 @@ exposed on the given ``hostIP`` instead. A ``hostIP`` of ``0.0.0.0`` will
 have the same behavior as if a ``hostIP`` was not specified.
 
 The ``hostPort`` must not reside in the configured NodePort port range to
-avoid collisions.
+avoid collisions. CNI ADD rejects Pod sandbox creation if a requested HostPort
+falls within this range. This validation is also controlled by
+``cni.checkHostPortConflict``.
 
 Note that ``hostPort`` support relies on Cilium's eBPF kube-proxy replacement
 and in the background plumbs service entries to direct traffic to the local
