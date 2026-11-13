@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,6 +49,7 @@ func remoteTestEndpointSliceSource(name string) *endpointslicetypes.ClusterEndpo
 		Endpoints: []slimdiscoveryv1.Endpoint{
 			{
 				Addresses: []string{"10.0.0.1"},
+				NodeName:  new("worker"),
 				Conditions: slimdiscoveryv1.EndpointConditions{
 					Ready:       new(true),
 					Serving:     new(true),
@@ -71,7 +73,7 @@ func remoteTestEndpointSliceSource(name string) *endpointslicetypes.ClusterEndpo
 func localTestEndpointSliceDesired(source *endpointslicetypes.ClusterEndpointSlice) *discoveryv1.EndpointSlice {
 	return &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: localEndpointSliceName(source), Namespace: source.Namespace,
+			Name: qualifyNameWithRemoteCluster(source.Name, source.Cluster), Namespace: source.Namespace,
 			Labels: map[string]string{
 				"test-label":                     "copied",
 				discoveryv1.LabelServiceName:     "svc",
@@ -83,6 +85,7 @@ func localTestEndpointSliceDesired(source *endpointslicetypes.ClusterEndpointSli
 		Endpoints: []discoveryv1.Endpoint{
 			{
 				Addresses: []string{"10.0.0.1"},
+				NodeName:  new("worker.cilium-cm.remote.764bhc977t"),
 				Conditions: discoveryv1.EndpointConditions{
 					Ready:       new(true),
 					Serving:     new(true),
@@ -148,6 +151,9 @@ func TestEndpointSliceSyncReconcile(t *testing.T) {
 	}{
 		{name: "create", create: true},
 		{name: "keep"},
+		{name: "update-node-name", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Endpoints[0].NodeName = new("other")
+		}},
 		{name: "update-address-type", mutate: func(ep *discoveryv1.EndpointSlice) {
 			ep.AddressType = discoveryv1.AddressTypeIPv6
 		}},
@@ -203,7 +209,7 @@ func TestEndpointSliceSyncEnsureAbsent(t *testing.T) {
 		{name: "svc-wrong-family-ignore@remote", setupEndpointSlices: func() (*endpointslicetypes.ClusterEndpointSlice, []client.Object, string) {
 			source := remoteTestEndpointSliceSource("svc-wrong-family-ignore")
 			source.AddressType = slimdiscoveryv1.AddressTypeIPv6
-			return source, nil, localEndpointSliceName(source)
+			return source, nil, qualifyNameWithRemoteCluster(source.Name, source.Cluster)
 		}},
 		{name: "svc-without-service-label@remote", setupEndpointSlices: func() (*endpointslicetypes.ClusterEndpointSlice, []client.Object, string) {
 			source := remoteTestEndpointSliceSource("svc-without-service-label")
@@ -212,7 +218,7 @@ func TestEndpointSliceSyncEnsureAbsent(t *testing.T) {
 			return source, []client.Object{local}, local.Name
 		}},
 		{
-			name: malformedEndpointSliceRequest(localEndpointSliceName(remoteTestEndpointSliceSource("svc-missing-source-annotation"))),
+			name: malformedEndpointSliceRequest(qualifyNameWithRemoteCluster("svc-missing-source-annotation", "remote")),
 			setupEndpointSlices: func() (*endpointslicetypes.ClusterEndpointSlice, []client.Object, string) {
 				source := remoteTestEndpointSliceSource("svc-missing-source-annotation")
 				local := localTestEndpointSliceDesired(source)
@@ -282,14 +288,19 @@ func TestShouldSyncEndpointSlice(t *testing.T) {
 	}
 }
 
-func TestLocalEndpointSliceName(t *testing.T) {
-	first := &endpointslicetypes.ClusterEndpointSlice{Name: "svc-a-b", Cluster: "c"}
-	second := &endpointslicetypes.ClusterEndpointSlice{Name: "svc-a", Cluster: "b-c"}
-	require.Equal(t, "svc-a-b.c.mk9fm75fd6", localEndpointSliceName(first))
-	require.Equal(t, "svc-a.b-c.kkbg4kg9b4", localEndpointSliceName(second))
-
-	long := &endpointslicetypes.ClusterEndpointSlice{Name: strings.Repeat("a", 250), Cluster: "remote"}
-	require.Equal(t, strings.Repeat("a", 242)+"-mm8db8fmgb", localEndpointSliceName(long))
-	long.Cluster = "other"
-	require.Equal(t, strings.Repeat("a", 242)+"-574f24m9td", localEndpointSliceName(long))
+func TestQualifyNameWithRemoteCluster(t *testing.T) {
+	for _, tt := range []struct{ name, cluster, want string }{
+		{"svc-a-b", "c", "svc-a-b.cilium-cm.c.mk9fm75fd6"},
+		{"svc-a", "b-c", "svc-a.cilium-cm.b-c.kkbg4kg9b4"},
+		{"worker", "remote", "worker.cilium-cm.remote.764bhc977t"},
+		{"worker", "west", "worker.cilium-cm.west.49d4g468gb"},
+		{"a.b", "c", "a.b.cilium-cm.c.9455477g69"},
+		{"a", "b.c", "a.cilium-cm.b.c.d648b24kmk"},
+		{strings.Repeat("a", 250), "remote", strings.Repeat("a", 242) + "-h6h6d76c29"},
+		{strings.Repeat("a", 250), "other", strings.Repeat("a", 242) + "-4524bg92c2"},
+	} {
+		got := qualifyNameWithRemoteCluster(tt.name, tt.cluster)
+		require.Equal(t, tt.want, got)
+		require.Empty(t, validation.IsDNS1123Subdomain(got))
+	}
 }

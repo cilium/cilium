@@ -175,6 +175,11 @@ func (eps *ClusterEndpointSlice) validate() error {
 	}
 
 	for _, endpoint := range eps.Endpoints {
+		if endpoint.NodeName != nil {
+			if errs := validation.IsDNS1123Subdomain(*endpoint.NodeName); len(errs) != 0 {
+				return fmt.Errorf("invalid endpoint node name %q: %v", *endpoint.NodeName, errs)
+			}
+		}
 		for _, address := range endpoint.Addresses {
 			switch eps.AddressType {
 			case slim_discovery_v1.AddressTypeIPv4:
