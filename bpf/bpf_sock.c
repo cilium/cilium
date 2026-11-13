@@ -57,7 +57,7 @@ ctx_dst_port(const struct bpf_sock_addr *ctx)
 	return (__be16)dport;
 }
 
-static __always_inline __maybe_unused __be16
+static __always_inline __be16
 ctx_src_port(const struct bpf_sock *ctx)
 {
 	volatile __u16 sport = (__u16)ctx->src_port;
@@ -767,7 +767,7 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 	barrier();
 }
 
-static __always_inline __maybe_unused bool
+static __always_inline bool
 sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
@@ -812,7 +812,7 @@ wildcard_lookup:
 	return lb6_lookup_service(key, true);
 }
 
-static __always_inline __maybe_unused const struct lb6_service *
+static __always_inline const struct lb6_service *
 sock6_wildcard_lookup_full(struct lb6_key *key, const bool in_hostns)
 {
 	if (!NODEPORT_ENABLED)
@@ -996,7 +996,7 @@ static __always_inline void sock6_auto_bind(struct bpf_sock_addr *ctx)
 
 static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 {
-	__sock_cookie key __maybe_unused;
+	__sock_cookie key;
 	struct lb6_health val = {
 		.peer = {
 			.port		= ctx_dst_port(ctx),
