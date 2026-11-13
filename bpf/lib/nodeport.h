@@ -1000,7 +1000,7 @@ out:
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
 	 */
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	if (ENABLE_EGRESS_GATEWAY_COMMON &&
 	    (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)) &&
 	    egress_gw_reply_needs_redirect_hook_v6(ip6, &info)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
@@ -1011,7 +1011,7 @@ out:
 	return CTX_ACT_OK;
 
 encap_redirect:
-	if ((is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	if ((ENABLE_EGRESS_GATEWAY_COMMON &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST))) ||
 	    is_defined(TUNNEL_MODE)) {
 		src_port = tunnel_gen_src_port_v6(&tuple);
@@ -1163,7 +1163,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 	if (!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
-	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	    (ENABLE_EGRESS_GATEWAY_COMMON &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		if ((CONFIG(enable_host_firewall) && is_defined(IS_BPF_HOST)) ||
 		    is_defined(IS_BPF_XDP))
@@ -2353,7 +2353,7 @@ skip_revdnat:
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
 	 */
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	if (ENABLE_EGRESS_GATEWAY_COMMON &&
 	    (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)) &&
 	    egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
@@ -2386,7 +2386,7 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-	if (((is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	if (((ENABLE_EGRESS_GATEWAY_COMMON &&
 	      (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST))) ||
 	     is_defined(TUNNEL_MODE)) && tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
@@ -2506,7 +2506,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 	if (!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
-	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	    (ENABLE_EGRESS_GATEWAY_COMMON &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		/* If we're not in full DSR mode, reply traffic from remote backends
 		 * might pass back through the LB node and requires revDNAT.

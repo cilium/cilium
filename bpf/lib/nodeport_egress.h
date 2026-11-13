@@ -86,7 +86,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		goto out;
 
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST) &&
+	if (ENABLE_EGRESS_GATEWAY_COMMON && is_defined(IS_BPF_HOST) &&
 	    args->target.egress_gateway) {
 		if (ctx_egw_done(ctx))
 			goto apply_snat;
@@ -400,7 +400,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		goto out;
 
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST) &&
+	if (ENABLE_EGRESS_GATEWAY_COMMON && is_defined(IS_BPF_HOST) &&
 	    args->target.egress_gateway) {
 		/* from-overlay has already picked the correct egress interface: */
 		if (ctx_egw_done(ctx))
@@ -708,7 +708,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 	bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
 			    (CONFIG(enable_host_firewall) && is_defined(IS_BPF_HOST)) ||
 			    (is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && is_defined(ENABLE_INTER_CLUSTER_SNAT)) ||
-			    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST));
+			    (ENABLE_EGRESS_GATEWAY_COMMON && is_defined(IS_BPF_HOST));
 	int ret = CTX_ACT_OK;
 	__u32 cb_nat_flags = 0;
 

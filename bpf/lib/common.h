@@ -32,8 +32,8 @@
 #define EVENT_SOURCE 0
 #endif
 
-#if defined(ENABLE_EGRESS_GATEWAY)
-#define ENABLE_EGRESS_GATEWAY_COMMON 1
+#ifndef ENABLE_EGRESS_GATEWAY_COMMON
+#define ENABLE_EGRESS_GATEWAY_COMMON (CONFIG(egress_gateway_cfg).enable)
 #endif
 
 #ifndef DSR_ENCAP_MODE
@@ -45,7 +45,7 @@
 #endif
 
 /* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
-#define HAVE_ENCAP ((ENCAP_IFINDEX != 0) || is_defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
+#define HAVE_ENCAP ((ENCAP_IFINDEX != 0) || ENABLE_EGRESS_GATEWAY_COMMON || \
 	is_defined(TUNNEL_MODE) || \
 	(DSR_ENCAP_MODE == DSR_ENCAP_GENEVE))
 

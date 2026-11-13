@@ -205,5 +205,9 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableL7LB = option.Config.EnableEnvoyConfig
 
+	node.EgressGatewayCfg = types.EgressGatewayConfig{
+		Enable: option.Config.EnableEgressGateway,
+	}
+
 	return node
 }
