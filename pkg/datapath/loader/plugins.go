@@ -32,24 +32,19 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/google/uuid"
-	"github.com/vishvananda/netlink"
 )
 
 const (
 	bpfLoaderGCRetryInterval = time.Minute
 )
 
-func linkToInterfaceInfo(l netlink.Link) *datapathplugins.AttachmentContext_InterfaceInfo {
-	return &datapathplugins.AttachmentContext_InterfaceInfo{
-		Name: l.Attrs().Name,
-	}
-}
-
-func attachmentContextHost(ep endpoint.Endpoint, device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextHost(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Host_{
 			Host: &datapathplugins.AttachmentContext_Host{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
@@ -71,31 +66,37 @@ func attachmentContextLXC(ep endpoint.Endpoint) *datapathplugins.AttachmentConte
 	}
 }
 
-func attachmentContextOverlay(device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextOverlay(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Overlay_{
 			Overlay: &datapathplugins.AttachmentContext_Overlay{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
 }
 
-func attachmentContextWireguard(device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextWireguard(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Wireguard_{
 			Wireguard: &datapathplugins.AttachmentContext_Wireguard{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
 }
 
-func attachmentContextXDP(device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextXDP(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Xdp{
 			Xdp: &datapathplugins.AttachmentContext_XDP{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
@@ -114,14 +115,16 @@ type bpfCollectionLoader struct {
 	// and releases it after staging directory GC completes.
 	// Load/LoadAndAssign take a read lock which is released by the cleanup
 	// function they return.
-	gcMu lock.RWMutex
+	gcMu         lock.RWMutex
+	hookStatuses plugin.HooksStatusWriter
 }
 
-func newBPFCollectionLoader(pluginsEnabled bool, pluginOperationsDir string) *bpfCollectionLoader {
+func newBPFCollectionLoader(pluginsEnabled bool, pluginOperationsDir string, hookStatuses plugin.HooksStatusWriter) *bpfCollectionLoader {
 	return &bpfCollectionLoader{
 		pluginOperationsDir: pluginOperationsDir,
 		pluginsEnabled:      pluginsEnabled,
 		gcWakeup:            make(chan struct{}, 1),
+		hookStatuses:        hookStatuses,
 	}
 }
 
@@ -226,7 +229,9 @@ func (l *bpfCollectionLoader) LoadAndAssign(ctx context.Context, logger *slog.Lo
 // created by this load operation. cleanup cleans up up transient state related
 // to the operation such as program pins or map pins. cleanup must be invoked
 // after commit regardless of whether or not commit returns an error.
-func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, pinsDir string) (coll *ebpf.Collection, commit func() error, cleanup func(), err error) {
+func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, pinsDir string) (coll *ebpf.Collection, _ func() error, cleanup func(), err error) {
+	var commit func() error
+
 	if !l.pluginsEnabled {
 		// If plugins were previously enabled, clean up any lingering
 		// pinned links in the plugin link directories.
@@ -241,7 +246,9 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		return coll, commit, func() {}, err
 	}
 
-	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext)
+	collHookStatus := plugin.NewCollectionHookStatus(attachmentContext)
+
+	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext, collHookStatus)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
 	}
@@ -251,19 +258,37 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		return nil, nil, nil, fmt.Errorf("loading collection: %w", err)
 	}
 
-	commit, cleanup, err = l.instrumentCollection(ctx, logger, coll, commit, instrumentCollectionRequests, lnc, attachmentContext, l.pluginOperationsDir, pinsDir)
+	if err := collHookStatus.RecordTargetProgramIDs(coll); err != nil {
+		coll.Close()
+		return nil, nil, nil, fmt.Errorf("recording target program IDs: %w", err)
+	}
+
+	commit, cleanup, err = l.instrumentCollection(ctx, logger, coll, commit, instrumentCollectionRequests, lnc, attachmentContext, l.pluginOperationsDir, pinsDir, collHookStatus)
 	if err != nil {
 		coll.Close()
 		return nil, nil, nil, fmt.Errorf("loading hooks: %w", err)
 	}
 
-	return coll, commit, cleanup, nil
+	return coll, func() error {
+		err := commit()
+		if err != nil {
+			return err
+		}
+
+		l.hookStatuses.Upsert(collHookStatus)
+
+		return nil
+	}, cleanup, nil
+}
+
+func (l *bpfCollectionLoader) Unload(attachmentContext *datapathplugins.AttachmentContext) {
+	l.hookStatuses.Purge(attachmentContext)
 }
 
 // prepareCollection sends a round of PrepareCollection requests to all
 // registered plugins and prepares a set of InstrumentCollection requests for
 // the instrumentation/load phase.
-func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.InstrumentCollectionRequest, err error) {
+func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, collHookStatus *plugin.CollectionHookStatus) (_ map[string]*datapathplugins.InstrumentCollectionRequest, err error) {
 	req := &datapathplugins.PrepareCollectionRequest{
 		AttachmentContext: attachmentContext,
 		Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
@@ -353,6 +378,7 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 			}
 
 			hooksSpec.hook(ps.Name, h.Type).addNode(r.plugin.Name())
+			collHookStatus.RecordHook(h.Target, h.Type, r.plugin.Name(), h.Constraints)
 
 			for _, c := range h.Constraints {
 				otherPlugin := lnc.Plugins[c.Plugin]
@@ -377,7 +403,7 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 		return nil, err
 	}
 
-	instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(spec)
+	instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(spec, collHookStatus)
 	if err != nil {
 		return nil, fmt.Errorf("instrumenting collection: %w", err)
 	}
@@ -445,7 +471,7 @@ func mapID(m *ebpf.Map) (uint32, error) {
 // instrumentCollection sends out the provided set of InstrumentCollection requests
 // and, after hearing back from each plugin, attaches loaded hook programs
 // to hook points inside each dispatcher.
-func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, instrumentCollectionRequests map[string]*datapathplugins.InstrumentCollectionRequest, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, opsDir string, pinsDir string) (_ func() error, _ func(), err error) {
+func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, instrumentCollectionRequests map[string]*datapathplugins.InstrumentCollectionRequest, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, opsDir string, pinsDir string, collHookStatus *plugin.CollectionHookStatus) (_ func() error, _ func(), err error) {
 	// Make sure the GC loop can't run, since we don't want it to delete our
 	// staging directories. Released on error conditions in
 	// cleanupStagingDirs(); if this function returns success, the callers
@@ -585,6 +611,9 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 			if err := os.Remove(hook.PinPath); err != nil {
 				return nil, nil, fmt.Errorf("removing pinned hook program at %s: %w", hook.PinPath, err)
 			}
+			if err := collHookStatus.RecordHookProgramInfo(hook.Target, hook.Type, r.plugin.Name(), prog); err != nil {
+				return nil, nil, fmt.Errorf("recording hook program ID: %w", err)
+			}
 			freplace, err := link.AttachFreplace(coll.Programs[hook.Target], hook.AttachTarget.SubprogName, prog)
 			if err != nil {
 				return nil, nil, fmt.Errorf("creating freplace link for hook: %w", err)
@@ -675,7 +704,7 @@ func (hs *hooksSpec) hook(target string, hookType datapathplugins.HookType) *plu
 // requires instrumentation. It doesn't patch program instructions directly.
 // Patching is instead deferred until after reachability analysis and pruning
 // happen.
-func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*datapathplugins.InstrumentCollectionRequest, map[string]func(asm.Instructions) (asm.Instructions, error), error) {
+func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, collHookStatus *plugin.CollectionHookStatus) (map[string]*datapathplugins.InstrumentCollectionRequest, map[string]func(asm.Instructions) (asm.Instructions, error), error) {
 	var err error
 
 	hooks := make(map[string]*datapathplugins.InstrumentCollectionRequest)
@@ -688,9 +717,21 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 
 			continue
 		}
+		recordErr := collHookStatus.RecordHookOrder(hookTarget, datapathplugins.HookType_PRE, pre)
+		if recordErr != nil {
+			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_PRE, recordErr))
+
+			continue
+		}
 		post, sortErr := hookTypes[datapathplugins.HookType_POST].sort()
 		if sortErr != nil {
 			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_POST, sortErr))
+
+			continue
+		}
+		recordErr = collHookStatus.RecordHookOrder(hookTarget, datapathplugins.HookType_POST, post)
+		if recordErr != nil {
+			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_POST, recordErr))
 
 			continue
 		}

@@ -548,9 +548,11 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			hooksSpec := newHooksSpec()
+			collHookStatus := plugin.NewCollectionHookStatus(nil)
 			for plugin, hooks := range tc.hooks {
 				for _, hook := range hooks {
 					hooksSpec.hook(hook.Target, hook.Type).addNode(plugin)
+					collHookStatus.RecordHook(hook.Target, hook.Type, plugin, hook.Constraints)
 					for _, constraint := range hook.Constraints {
 						switch constraint.Order {
 						case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE:
@@ -563,7 +565,7 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 			}
 			baseSpec, err := testprogs.LoadPluginsBase()
 			require.NoError(t, err)
-			instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(baseSpec)
+			instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(baseSpec, collHookStatus)
 			require.NoError(t, err)
 			for program, patch := range programPatches {
 				baseSpec.Programs[program].Instructions, err = patch(baseSpec.Programs[program].Instructions)
@@ -768,6 +770,15 @@ func (p *fakePlugin) InstrumentCollection(ctx context.Context, in *datapathplugi
 	p.coll = coll
 
 	return p.transaction.loadHooksResp, nil
+}
+
+type fakeHooksStatusWriter struct {
+}
+
+func (w *fakeHooksStatusWriter) Upsert(collHookStatus *plugin.CollectionHookStatus) {
+}
+
+func (w *fakeHooksStatusWriter) Purge(ac *datapathplugins.AttachmentContext) {
 }
 
 func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
@@ -1113,7 +1124,7 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 				}
 			}
 
-			l := newBPFCollectionLoader(true, bpffsPluginsOperationsDir(tmp))
+			l := newBPFCollectionLoader(true, bpffsPluginsOperationsDir(tmp), &fakeHooksStatusWriter{})
 
 			pinsDir := filepath.Join(tmp, "pins_dir")
 			baseColl, commit, cleanup, err := l.Load(
