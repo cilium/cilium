@@ -25,6 +25,11 @@ k8s/update lrp-pod-ready.yaml
 db/cmp backends backends.table
 db/cmp frontends frontends-before.table
 
+# The LRP has backends, but it does not own the Service frontend, so lrp/list
+# must not report a redirect mapping.
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
+
 # Removing the LRP tears down the pseudo-service and its backend, and
 # leaves kube-dns untouched.
 k8s/delete lrp-addr.yaml
@@ -140,6 +145,8 @@ status:
 Name               Type     FrontendType      Frontends
 lrp-test/lrp-addr  address  addr-single-port  10.96.0.10:53/UDP
 
+-- lrp-inactive.expected --
+lrp-test/lrp-addr type=addr frontend-type="IP + port"
 -- services-before.table --
 Name                              Source
 kube-system/kube-dns              k8s

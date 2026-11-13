@@ -84,14 +84,12 @@ func lrpAPI(
 	db *statedb.DB,
 	lrps statedb.Table[*LocalRedirectPolicy],
 	frontends statedb.Table[*lb.Frontend],
-	backends statedb.Table[*lb.Backend],
 	pods statedb.Table[k8sTables.LocalPod],
 ) service.GetLrpHandler {
 	return &getLrpHandler{
 		db:        db,
 		lrps:      lrps,
 		frontends: frontends,
-		backends:  backends,
 		pods:      pods,
 	}
 }

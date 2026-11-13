@@ -1,0 +1,368 @@
+# Verifies Services and HostPorts take precedence over an addressMatcher LRP
+# during LB reconciliation, so that an addressMatcher never hijacks a real
+# Service frontend.
+
+hive start
+
+# Add an addressMatcher LRP first.
+k8s/add lrp-pod.yaml lrp-addr.yaml
+db/cmp frontends frontends-lrp.table
+db/cmp services services-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
+
+# Now add a Service with the same ClusterIP and port. The Service frontend
+# should replace the LRP frontend.
+k8s/add service.yaml endpointslice-clusterip.yaml
+db/cmp services services-clusterip.table
+db/cmp frontends frontends-clusterip.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
+
+# Removing the Service should restore the LRP frontend.
+k8s/delete service.yaml endpointslice-clusterip.yaml
+db/cmp frontends frontends-lrp.table
+db/cmp services services-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
+
+# Now add a HostPort using the same address, which should also replace the
+# LRP frontend.
+k8s/add hostport-pod.yaml
+db/cmp frontends frontends-hostport.table
+db/cmp services services-hostport.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
+
+# Removing the HostPort should restore the LRP frontend.
+k8s/delete hostport-pod.yaml
+db/cmp frontends frontends-lrp.table
+db/cmp services services-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
+
+# Now add a LoadBalancer service should also take precedence over the LRP
+# frontend like the ClusterIP did.
+k8s/add loadbalancer-service.yaml loadbalancer-endpointslice.yaml
+db/cmp services services-loadbalancer.table
+db/cmp frontends frontends-loadbalancer.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
+
+# Removing the LoadBalancer service should restore the LRP frontend once more.
+k8s/delete loadbalancer-service.yaml loadbalancer-endpointslice.yaml
+db/cmp services services-lrp.table
+db/cmp frontends frontends-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
+
+# Now add a Service with an externalIP, which should also take precedence over
+# the LRP frontend.
+k8s/add externalip-service.yaml externalip-endpointslice.yaml
+db/cmp services services-externalip.table
+db/cmp frontends frontends-externalip.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-inactive.expected
+
+# Removing the externalIP Service should restore the LRP frontend once more.
+k8s/delete externalip-service.yaml externalip-endpointslice.yaml
+db/cmp services services-lrp.table
+db/cmp frontends frontends-lrp.table
+lrp/list lrp.actual
+cmp lrp.actual lrp-active.expected
+
+# The LRP should be removed.
+k8s/delete lrp-pod.yaml lrp-addr.yaml
+* db/empty services
+* db/empty frontends
+
+hive/stop
+
+# ---
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "1.1.1.1"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- lrp-pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:24Z"
+    status: "True"
+    type: Ready
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+-- hostport-pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostport-pod
+  namespace: test
+  uid: 00000000-0000-0000-0000-000000000004
+  labels:
+    app: hostport
+spec:
+  containers:
+    - name: hostport
+      image: nginx
+      ports:
+        - containerPort: 8080
+          hostPort: 8080
+          hostIP: 1.1.1.1
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:24Z"
+    status: "True"
+    type: Ready
+  podIP: 10.244.4.1
+  podIPs:
+  - ip: 10.244.4.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 1.1.1.1
+  clusterIPs:
+  - 1.1.1.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: echo
+  sessionAffinity: None
+  type: ClusterIP
+
+-- endpointslice-clusterip.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-abcde
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.3.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- loadbalancer-service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: external
+  namespace: test
+spec:
+  clusterIP: 10.96.0.10
+  clusterIPs:
+  - 10.96.0.10
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.1.1.1
+
+-- loadbalancer-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: external
+  name: external-abcde
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.3.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- externalip-service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: externalip
+  namespace: test
+spec:
+  clusterIP: 10.96.0.11
+  clusterIPs:
+  - 10.96.0.11
+  externalIPs:
+  - 1.1.1.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: echo
+  sessionAffinity: None
+  type: ClusterIP
+
+-- externalip-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: externalip
+  name: externalip-abcde
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.3.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- services-lrp.table --
+Name                          Source
+test/lrp-addr:local-redirect  k8s
+
+-- services-clusterip.table --
+Name                          Source
+test/echo                     k8s
+test/lrp-addr:local-redirect  k8s
+
+-- services-hostport.table --
+Name                                                                   Source
+test/hostport-pod:host-port:8080:00000000-0000-0000-0000-000000000004  k8s
+test/lrp-addr:local-redirect                                           k8s
+
+-- frontends-lrp.table --
+Address           Type           ServiceName                   Backends           Status
+1.1.1.1:8080/TCP  LocalRedirect  test/lrp-addr:local-redirect  10.244.2.1:80/TCP  Done
+
+-- frontends-clusterip.table --
+Address           Type       ServiceName  Backends             Status
+1.1.1.1:8080/TCP  ClusterIP  test/echo    10.244.3.1:8080/TCP  Done
+
+-- frontends-hostport.table --
+Address           Type      ServiceName                                                            Backends             Status
+1.1.1.1:8080/TCP  HostPort  test/hostport-pod:host-port:8080:00000000-0000-0000-0000-000000000004  10.244.4.1:8080/TCP  Done
+
+-- services-loadbalancer.table --
+Name                          Source
+test/external                 k8s
+test/lrp-addr:local-redirect  k8s
+
+-- frontends-loadbalancer.table --
+Address              Type         ServiceName    Backends             Status
+1.1.1.1:8080/TCP     LoadBalancer test/external  10.244.3.1:8080/TCP  Done
+10.96.0.10:8080/TCP  ClusterIP    test/external  10.244.3.1:8080/TCP  Done
+
+-- services-externalip.table --
+Name                          Source
+test/externalip               k8s
+test/lrp-addr:local-redirect  k8s
+
+-- frontends-externalip.table --
+Address              Type          ServiceName      Backends               Status
+1.1.1.1:8080/TCP     ExternalIPs   test/externalip  10.244.3.1:8080/TCP    Done
+10.96.0.11:8080/TCP  ClusterIP     test/externalip  10.244.3.1:8080/TCP    Done
+
+-- lrp-active.expected --
+test/lrp-addr type=addr frontend-type="IP + port"
+  1.1.1.1:8080/TCP => 10.244.2.1:80/TCP (test/lrp-pod, active)
+-- lrp-inactive.expected --
+test/lrp-addr type=addr frontend-type="IP + port"
