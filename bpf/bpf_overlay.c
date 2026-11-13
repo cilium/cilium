@@ -503,6 +503,7 @@ resolve_srcid_from_tunnel(struct __ctx_buff *ctx, __be16 proto,
 __section_entry
 int cil_from_overlay(struct __ctx_buff *ctx)
 {
+	enum trace_reason reason = ctx_is_decrypt(ctx) ? TRACE_REASON_ENCRYPTED : TRACE_REASON_UNKNOWN;
 	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
 	__be16 proto;
@@ -559,7 +560,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
+			  reason, TRACE_PAYLOAD_LEN, proto);
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
