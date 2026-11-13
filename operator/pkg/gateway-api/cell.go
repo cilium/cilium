@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"slices"
 	"syscall"
 
@@ -408,18 +409,38 @@ func isTransientError(err error) bool {
 		return false
 	}
 
+	// If err is a joined error (e.g. from checkCRDs), check whether any constituent error is transient.
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		return slices.ContainsFunc(joined.Unwrap(), isTransientError)
+	}
+
 	// Check for Kubernetes API server errors that are transient
 	if k8serrors.IsServerTimeout(err) ||
 		k8serrors.IsServiceUnavailable(err) ||
 		k8serrors.IsTooManyRequests(err) ||
-		k8serrors.IsTimeout(err) {
+		k8serrors.IsTimeout(err) ||
+		k8serrors.IsInternalError(err) ||
+		k8serrors.IsUnexpectedServerError(err) {
+		return true
+	}
+
+	// Any 5xx server-side error from the API server or reverse proxy is transient
+	var status k8serrors.APIStatus
+	if errors.As(err, &status) {
+		if code := status.Status().Code; code >= 500 && code <= 599 {
+			return true
+		}
+	}
+
+	// Check for net.Error (timeouts, temporary network failures)
+	if netErr, ok := errors.AsType[net.Error](err); ok && netErr.Timeout() {
 		return true
 	}
 
 	// Check for network-level errors (connection refused, reset, host unreachable)
 	if errno, ok := errors.AsType[syscall.Errno](err); ok {
 		switch errno {
-		case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.EHOSTUNREACH, syscall.ENETUNREACH:
+		case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.EHOSTUNREACH, syscall.ENETUNREACH, syscall.ETIMEDOUT:
 			return true
 		}
 	}
