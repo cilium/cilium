@@ -786,7 +786,9 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		return nil
 	}
 
-	if e.policyMap == nil {
+	// Open per-endpoint policy map only when not already open and shared maps are not
+	// configured.
+	if e.policyMap == nil && !e.sharedPolicyEnabled() {
 		if e.policyMapFactory == nil {
 			return newRegenerationError(regenerationFailureReasonPolicyBPFError, errors.New("endpoint has nil policyMapFactory"))
 		}
@@ -797,7 +799,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	// Collect a dump of the bpf policymap if needed for the sync.
-	if e.realizedPolicy != e.desiredPolicy && e.realizedPolicy.Empty() {
+	if !e.sharedPolicyEnabled() && e.realizedPolicy != e.desiredPolicy && e.realizedPolicy.Empty() {
 		datapathRegenCtxt.policyMapDump, err = e.policyMap.DumpToMapStateMap()
 		if err != nil {
 			return newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "policymap dump failed: %w", err)
@@ -840,6 +842,18 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			// ensure that the policy map is in sync with the desired policy.
 			datapathRegenCtxt.policyMapSyncDone = false
 		}
+	}
+
+	// With the shared policy map enabled, the endpoint's policy is realized in the shared
+	// policy map and per-endpoint policy map is not created. As for the per-endpoint map above,
+	// sync the policy before bpf compilation if the policy the datapath would use is empty,
+	// i.e. the endpoint has no overlay entry.
+	if e.sharedPolicyEnabled() && !e.policyMapFactory.HasEndpointOverlay(e.ID) {
+		err = e.policyMapSync(nil, stats)
+		if err != nil {
+			return newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "policymap synchronization failed: %w", err)
+		}
+		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
 	// sync policy map for fake endpoints, bpf compilation will be skipped for them.
@@ -909,10 +923,10 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the policy tail call entry for the endpoint. This will disable
 	// policy evaluation for the endpoint and will result in missing tail calls if
 	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
-	if e.policyMapFactory != nil {
-		if err := e.policyMapFactory.RemoveGlobalMapping(uint32(e.ID)); err != nil {
-			errors = append(errors, fmt.Errorf("removing endpoint program from global policymap: %w", err))
-		}
+	// This also removes the endpoint's policy map pin, or with the shared policy
+	// map, the endpoint's overlay entry and its reference to its rule set.
+	if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
+		errors = append(errors, fmt.Errorf("removing policy maps for endpoint %s: %w", e.StringID(), err))
 	}
 
 	// Remove rate limit from bandwidth manager map.
@@ -928,11 +942,6 @@ func (e *Endpoint) deleteMaps() []error {
 	// removes the map's entries even if the map is still referenced by any live
 	// bpf programs, potentially resulting in missed tail calls if any packets are
 	// still in flight.
-	if e.policyMapFactory != nil {
-		if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
-			errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
-		}
-	}
 	if err := os.RemoveAll(e.callsMapPath()); err != nil {
 		errors = append(errors, fmt.Errorf("removing calls map pin for endpoint %s: %w", e.StringID(), err))
 	}
@@ -1087,6 +1096,18 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 // 'proxyWaitGroup' may not be nil. The caller must revert or finalize the returned
 // revertible, if non-nil.
 func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, revertible revert.Revertible) {
+	return e.applyPolicyMapChanges(proxyWaitGroup, nil)
+}
+
+// ApplyPolicyMapChangesBatched is ApplyPolicyMapChanges, except that with the shared policy
+// map, the endpoint's policy is only synced to it by batch.Sync, together with the policies
+// of the other endpoints in the batch. batch.Sync then reports the result for the endpoint
+// instead.
+func (e *Endpoint) ApplyPolicyMapChangesBatched(proxyWaitGroup *completion.WaitGroup, batch *SharedPolicyBatch) (err error, revertible revert.Revertible) {
+	return e.applyPolicyMapChanges(proxyWaitGroup, batch)
+}
+
+func (e *Endpoint) applyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup, batch *SharedPolicyBatch) (err error, revertible revert.Revertible) {
 	if err = e.lockAlive(); err != nil {
 		return err, nil
 	}
@@ -1106,7 +1127,8 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 
 	regenCtx := regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
-			proxyWaitGroup: proxyWaitGroup,
+			proxyWaitGroup:    proxyWaitGroup,
+			sharedPolicyBatch: batch,
 		},
 	}
 	err = e.applyPolicyMapChangesLocked(&regenCtx, false)
@@ -1120,13 +1142,20 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 		return err, nil
 	}
 
-	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
-
 	// Otherwise the revert/finalize decision is postponed until after
 	// eventual proxyWaitGroup.Wait by the caller
 	if !regenCtx.datapathRegenerationContext.revertibles.Empty() {
 		revertible = &regenCtx.datapathRegenerationContext.revertibles
 	}
+
+	if s := regenCtx.datapathRegenerationContext.sharedPolicySync; s != nil {
+		// The batch reports the result once it synced the endpoint's policy.
+		s.revertible = revertible
+		batch.add(s)
+		return nil, nil
+	}
+
+	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
 
 	return nil, revertible
 }
@@ -1147,6 +1176,12 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	// returns changes that need to be applied to the Endpoint's bpf policy map.
 	closer, changes := e.desiredPolicy.ConsumeMapChanges()
 	defer closer()
+
+	if len(changes.Adds) > 0 || len(changes.Deletes) > 0 {
+		// The shared policy map no longer has the endpoint's desired policy.
+		e.sharedPolicySynced = nil
+		e.sharedPolicyChanges++
+	}
 
 	e.updatePolicyMapPressureMetric(e.desiredPolicy.Len())
 
@@ -1235,6 +1270,10 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		return nil
 	}
 
+	if e.sharedPolicyEnabled() {
+		return e.syncSharedPolicyChangesLocked(datapathRegenCtxt)
+	}
+
 	if e.policyMap == nil {
 		e.getLogger().Debug("Skipping bpf updates due to endpoint not having policy map yet")
 		return nil
@@ -1275,13 +1314,14 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 // shouldLockdownLockdown returns true if the desiredPolicy, after changes,
 // will be larger than policymap.MaxEntries. The Endpoint must be locked.
 func (e *Endpoint) shouldLockdownLocked() bool {
-	if !option.Config.EnableEndpointLockdownOnPolicyOverflow {
+	// With the shared policy map, the endpoint is locked down when its policy does not fit
+	// in the shared policy map, see syncSharedPolicyLocked.
+	if !option.Config.EnableEndpointLockdownOnPolicyOverflow || e.sharedPolicyEnabled() {
 		return false
 	}
 	// The desiredPolicy will be larger than the BPF maximum after
 	// the changes.
-	return e.desiredPolicy != nil && e.policyMap != nil &&
-		e.desiredPolicy.Len() > int(e.policyMap.MaxEntries())
+	return e.policyMap != nil && e.desiredPolicy.Len() > int(e.policyMap.MaxEntries())
 }
 
 // startLockdownLocked initiates an endpoint lockdown, and returns an
@@ -1315,14 +1355,97 @@ func (e *Endpoint) startLockdownLocked() error {
 
 // stopLockdownLocked stops an endpoint lockdown if the endpoint
 // is in lockdown. It returns true if it did stop a lockdown and
-// false if it did not.
+// false if it did not. With the shared policy map, the lockdown
+// stops when the policy is synced again, see syncSharedPolicyLocked.
 func (e *Endpoint) stopLockdownLocked() bool {
-	if e.lockdown {
+	if e.lockdown && !e.sharedPolicyEnabled() {
 		e.forcePolicyCompute = true
 		e.lockdown = false
 		return true
 	}
 	return false
+}
+
+// syncSharedPolicyChangesLocked syncs the endpoint's desired policy to the shared policy map
+// after incremental changes. It does nothing if the shared policy map already has the
+// desired policy, e.g. because the changes did not affect the endpoint. With a
+// SharedPolicyBatch, it only prepares the sync for the batch. The Endpoint must be locked.
+func (e *Endpoint) syncSharedPolicyChangesLocked(ctx *datapathRegenerationContext) error {
+	if e.sharedPolicySynced == e.desiredPolicy {
+		return nil
+	}
+	if ctx.sharedPolicyBatch != nil {
+		overlay := e.policyMapFactory.PrepareEndpointOverlay(e.ID, e.desiredPolicy.Entries())
+		e.sharedPolicyPending = overlay
+		ctx.sharedPolicySync = &sharedPolicySync{
+			endpoint: e,
+			overlay:  overlay,
+			policy:   e.desiredPolicy,
+			changes:  e.sharedPolicyChanges,
+		}
+		return nil
+	}
+	return e.syncSharedPolicyLocked()
+}
+
+// syncSharedPolicyLocked syncs the endpoint's desired policy to the shared policy map, see
+// sharedPolicySyncedLocked. The Endpoint must be locked.
+func (e *Endpoint) syncSharedPolicyLocked() error {
+	// This sync supersedes any sync prepared for a batch before.
+	e.sharedPolicyPending = nil
+	err := e.policyMapFactory.SyncEndpointOverlay(e.ID, e.desiredPolicy.Entries())
+	return e.sharedPolicySyncedLocked(err, e.desiredPolicy)
+}
+
+// sharedPolicySyncedLocked handles the result of a sync of the endpoint's policy to the
+// shared policy map. 'synced' is the desired policy that the shared policy map has after a
+// successful sync, or nil if the desired policy changed after the sync was prepared. If the
+// shared policy map is full, the endpoint keeps its current rule set and its regeneration is
+// retried until the policy fits. If lockdown on policy overflow is enabled, the endpoint is
+// locked down until then, so that the datapath denies all of its traffic.
+// The Endpoint must be locked.
+func (e *Endpoint) sharedPolicySyncedLocked(err error, synced *policy.EndpointPolicy) error {
+	if err == nil {
+		e.sharedPolicySynced = synced
+		if e.lockdown {
+			e.getLogger().Info("The policy fits in the shared policy map again, ending the endpoint lockdown.")
+			e.lockdown = false
+		}
+		return nil
+	}
+	e.sharedPolicySynced = nil
+	e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, err)
+	if !errors.Is(err, policymap.ErrSharedPolicyMapFull) {
+		return err
+	}
+
+	// Other endpoints free space in the shared policy map, so retry the regeneration
+	// until the policy fits.
+	select {
+	case e.regenFailedChan <- struct{}{}:
+	default:
+	}
+
+	if !option.Config.EnableEndpointLockdownOnPolicyOverflow {
+		return err
+	}
+	if !e.lockdown {
+		e.getLogger().Warn(
+			fmt.Sprintf("The shared policy map is full, %s is enabled, locking the endpoint down.",
+				option.EnableEndpointLockdownOnPolicyOverflow),
+			logfields.Error, err,
+		)
+		if err := e.policyMapFactory.LockdownEndpoint(e.ID); err != nil {
+			e.getLogger().Error(
+				"Failed to lockdown endpoint:"+
+					"Consider quarantining or shutting down this node.",
+				logfields.Error, err,
+			)
+			return err
+		}
+		e.lockdown = true
+	}
+	return fmt.Errorf("%w: %w", ErrPolicyEntryMaxExceeded, err)
 }
 
 // endpointPolicyLockdown puts the endpoint policy map into a lockdown
@@ -1399,6 +1522,10 @@ func (e *Endpoint) syncPolicyMap() error {
 		return ErrComingOutOfLockdown
 	}
 
+	if e.sharedPolicyEnabled() {
+		return e.syncSharedPolicyLocked()
+	}
+
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
 		if !e.addPolicyKey(k, v) {
@@ -1446,6 +1573,10 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	if e.stopLockdownLocked() {
 		err = ErrComingOutOfLockdown
 		return
+	}
+
+	if e.sharedPolicyEnabled() {
+		return 0, nil, e.syncSharedPolicyLocked()
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
@@ -1546,9 +1677,6 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 			e.getLogger().Error("unable to close PolicyMap which was not able to be dumped", logfields.Error, err)
 		}
 
-		if e.policyMapFactory == nil {
-			return fmt.Errorf("endpoint has nil policyMapFactory")
-		}
 		e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %w", err)
@@ -1586,16 +1714,26 @@ func (e *Endpoint) DumpPolicyMap() (policymap.PolicyEntriesDump, error) {
 	}
 	defer e.runlock()
 
+	// With the shared policy map enabled the endpoint's entries are realized in the
+	// node-scoped shared map under the endpoint's rule set, not in the per-endpoint map.
+	if e.sharedPolicyEnabled() {
+		return e.policyMapFactory.DumpEndpointSharedEntries(e.ID)
+	}
+
 	if e.policyMap == nil {
 		return nil, nil
 	}
 	return e.policyMap.DumpToSlice()
 }
 
+func (e *Endpoint) sharedPolicyEnabled() bool {
+	return e.policyMapFactory != nil && e.policyMapFactory.SharedPolicyEnabled()
+}
+
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.
 func (e *Endpoint) startSyncPolicyMapController() {
-	// Skip the controller if the endpoint has no policy map
-	if e.isPropertyLocked(endpointtypes.PropertySkipBPFPolicy) {
+	// Skip the controller if the endpoint has no per-endpoint policy map
+	if e.isPropertyLocked(endpointtypes.PropertySkipBPFPolicy) || e.sharedPolicyEnabled() {
 		return
 	}
 
