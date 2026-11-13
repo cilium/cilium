@@ -68,6 +68,9 @@ type RuleSetAllocator struct {
 	// pendingDelete are unused rule sets with entries that could not be deleted yet. Their
 	// IDs are not reused until the entries are deleted.
 	pendingDelete map[uint32]struct{}
+	// epGen is the generation of the latest sync, lockdown or removal of each endpoint.
+	// Syncs of an endpoint prepared before it are skipped, see SyncEndpointOverlays.
+	epGen map[uint16]uint64
 }
 
 // Option is a functional option for configuring RuleSetAllocator.
@@ -91,6 +94,7 @@ func NewRuleSetAllocator(opts ...Option) *RuleSetAllocator {
 		epToRuleSetID: make(map[uint16]uint32),
 		maxRuleSets:   MaxRuleSets,
 		pendingDelete: make(map[uint32]struct{}),
+		epGen:         make(map[uint16]uint64),
 	}
 	for _, opt := range opts {
 		opt(a)

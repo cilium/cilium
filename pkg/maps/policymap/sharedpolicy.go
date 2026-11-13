@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
+	"slices"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -21,6 +23,20 @@ import (
 // policy map.
 var ErrSharedPolicyMapFull = errors.New("shared policy map is full")
 
+// ErrEndpointOverlaySuperseded is returned by SyncEndpointOverlays for an endpoint policy
+// that a later sync, lockdown or removal of the endpoint superseded since it was prepared.
+var ErrEndpointOverlaySuperseded = errors.New("superseded by a later update of the endpoint")
+
+// EndpointOverlay is an endpoint's policy prepared to be synced to the shared policy map, see
+// PrepareEndpointOverlay.
+type EndpointOverlay struct {
+	epID uint16
+	// gen orders the syncs of the endpoint, see RuleSetAllocator.epGen.
+	gen   uint64
+	rules []ruleWithEntry
+	hash  ruleSetKey
+}
+
 func (f *factory) SharedPolicyEnabled() bool {
 	return f != nil && f.allocator != nil
 }
@@ -32,24 +48,84 @@ func (f *factory) SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes
 	if f.allocator == nil {
 		return nil
 	}
+	return f.SyncEndpointOverlays([]*EndpointOverlay{f.PrepareEndpointOverlay(epID, entries)})[0]
+}
 
-	var sharedRules []ruleWithEntry
+// PrepareEndpointOverlay copies the endpoint's policy entries and computes their hash, so
+// that SyncEndpointOverlays can sync them later. Each sync of an endpoint supersedes the
+// ones prepared before it, so this must be called with the endpoint locked.
+func (f *factory) PrepareEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) *EndpointOverlay {
+	var rules []ruleWithEntry
 	for key, entry := range entries {
-		sharedRules = append(sharedRules, ruleWithEntry{
-			Key:   key,
-			Entry: entry,
-		})
+		rules = append(rules, ruleWithEntry{Key: key, Entry: entry})
+	}
+	return &EndpointOverlay{
+		epID:  epID,
+		gen:   f.overlayGen.Add(1),
+		rules: rules,
+		hash:  computeRuleSetHashFromEntries(rules),
+	}
+}
+
+// SyncEndpointOverlays syncs prepared endpoint policies to the shared policy map, and returns
+// an error for each of them. If all endpoints that use a rule set get the same new rules, the
+// rule set is updated in place, so that only the changed entries are written and the
+// endpoints keep using it, instead of each endpoint switching to a copy of it. Endpoint
+// policies superseded since they were prepared are skipped with ErrEndpointOverlaySuperseded.
+// On failure, e.g. when the shared policy map is full, an endpoint keeps its current rule set.
+func (f *factory) SyncEndpointOverlays(overlays []*EndpointOverlay) []error {
+	errs := make([]error, len(overlays))
+	if f.allocator == nil {
+		return errs
 	}
 
-	// Update shared rules and their endpoint references together.
-	_, _, err := f.updateEndpointRules(epID, sharedRules)
+	a := f.allocator
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	f.deletePendingRuleSetsLocked()
+
+	// Only the latest sync of each endpoint is applied.
+	latest := make(map[uint16]int, len(overlays))
+	for i, o := range overlays {
+		if o.gen <= a.epGen[o.epID] {
+			errs[i] = ErrEndpointOverlaySuperseded
+			continue
+		}
+		if j, ok := latest[o.epID]; ok {
+			if overlays[j].gen > o.gen {
+				errs[i] = ErrEndpointOverlaySuperseded
+				continue
+			}
+			errs[j] = ErrEndpointOverlaySuperseded
+		}
+		latest[o.epID] = i
+	}
+	pending := slices.Sorted(maps.Values(latest))
+	for _, i := range pending {
+		a.epGen[overlays[i].epID] = overlays[i].gen
+	}
+
+	synced := f.updateRuleSetsInPlaceLocked(overlays, pending)
+	for _, i := range pending {
+		if synced[i] {
+			continue
+		}
+		o := overlays[i]
+		_, _, err := f.updateEndpointRulesLocked(o.epID, o.rules, o.hash)
+		errs[i] = ruleSetError(err)
+	}
+	return errs
+}
+
+// ruleSetError adds context to an error from updating an endpoint's rule set.
+func ruleSetError(err error) error {
 	if errors.Is(err, unix.ENOSPC) {
 		return fmt.Errorf("failed to update rule set: %w (see --%s): %w", ErrSharedPolicyMapFull, PolicySharedMapMaxName, err)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to update rule set: %w", err)
 	}
-
 	return nil
 }
 
@@ -64,6 +140,9 @@ func (f *factory) LockdownEndpoint(epID uint16) error {
 	a := f.allocator
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	// Syncs prepared before the lockdown must not end it.
+	a.epGen[epID] = f.overlayGen.Add(1)
 
 	// Update the overlay entry first, so that the datapath never uses a rule set that is
 	// being deleted.
@@ -89,6 +168,9 @@ func (f *factory) removeEndpointOverlay(epID uint16) error {
 	a := f.allocator
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	// Syncs prepared before the removal must not add the endpoint back.
+	a.epGen[epID] = f.overlayGen.Add(1)
 
 	f.deletePendingRuleSetsLocked()
 

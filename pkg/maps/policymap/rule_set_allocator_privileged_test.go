@@ -211,3 +211,46 @@ func TestPrivilegedSharedPolicyLockdown(t *testing.T) {
 	require.NoError(t, f.SyncEndpointOverlay(2, entriesOf(rulesForIdentities(200, 201))))
 	require.ElementsMatch(t, []uint32{200, 201}, endpointIdentities(t, f, 2))
 }
+
+// TestPrivilegedSyncEndpointOverlaysInPlace checks with BPF maps that when all endpoints that
+// share a rule set get the same change in one batch, the rule set is updated in place, so
+// that the change fits even if a copy of the rule set would not.
+func TestPrivilegedSyncEndpointOverlaysInPlace(t *testing.T) {
+	setupPrivilegedCommon(t)
+	// Room for the rule set and one more entry.
+	shared := bpf.NewMap(SharedPolicyMapName, ebpf.LPMTrie, &SharedPolicyKey{}, &PolicyEntry{},
+		4, unix.BPF_F_NO_PREALLOC)
+	require.NoError(t, shared.CreateUnpinned())
+	t.Cleanup(func() { shared.Close() })
+	overlay := bpf.NewMap(PolicyOverlayMapName, ebpf.Hash, &OverlayKey{}, &OverlayValue{},
+		16, unix.BPF_F_NO_PREALLOC)
+	require.NoError(t, overlay.CreateUnpinned())
+	t.Cleanup(func() { overlay.Close() })
+	f := &factory{
+		logger:     hivetest.Logger(t),
+		sharedMap:  shared,
+		overlayMap: overlay,
+		allocator:  NewRuleSetAllocator(),
+	}
+
+	epIDs := []uint16{1, 2, 3}
+	for _, epID := range epIDs {
+		require.NoError(t, f.SyncEndpointOverlay(epID, entriesOf(rulesForIdentities(100, 101, 102))))
+	}
+	v, err := overlay.Lookup(&OverlayKey{EndpointID: 1})
+	require.NoError(t, err)
+	ruleSetID := v.(*OverlayValue).RuleSetID
+
+	changed := rulesForIdentities(100, 101, 102, 200)
+	require.Equal(t, []error{nil, nil, nil}, syncBatch(f, sameRules(changed, epIDs...)))
+
+	for _, epID := range epIDs {
+		v, err := overlay.Lookup(&OverlayKey{EndpointID: uint32(epID)})
+		require.NoError(t, err)
+		require.Equal(t, ruleSetID, v.(*OverlayValue).RuleSetID, "the endpoint keeps its rule set")
+		require.ElementsMatch(t, []uint32{100, 101, 102, 200}, endpointIdentities(t, f, epID))
+	}
+	n := 0
+	require.NoError(t, shared.DumpWithCallback(func(bpf.MapKey, bpf.MapValue) { n++ }))
+	require.Equal(t, 4, n)
+}

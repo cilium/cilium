@@ -161,6 +161,12 @@ type datapathRegenerationContext struct {
 	policyRevisionToWaitFor uint64
 
 	revertibles revert.Revertibles
+
+	// sharedPolicyBatch, if set, collects the endpoint's sync to the shared policy map
+	// instead of syncing it right away, see SharedPolicyBatch.
+	sharedPolicyBatch *SharedPolicyBatch
+	// sharedPolicySync is the endpoint's sync to add to sharedPolicyBatch.
+	sharedPolicySync *sharedPolicySync
 }
 
 func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) {

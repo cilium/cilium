@@ -311,6 +311,18 @@ type Endpoint struct {
 	// a policy map overflow.
 	lockdown bool
 
+	// sharedPolicySynced is the desired policy that the shared policy map has, or nil if
+	// that is not known, e.g. because changes were applied to the desired policy since it
+	// was synced. Incremental updates skip the sync while it is the desired policy.
+	sharedPolicySynced *policy.EndpointPolicy
+
+	// sharedPolicyChanges counts the incremental changes applied to the desired policy.
+	sharedPolicyChanges uint64
+
+	// sharedPolicyPending is the endpoint's latest sync to the shared policy map, if it is
+	// in a SharedPolicyBatch that did not sync it yet.
+	sharedPolicyPending *policymap.EndpointOverlay
+
 	// pod
 	pod atomic.Pointer[slim_corev1.Pod]
 
