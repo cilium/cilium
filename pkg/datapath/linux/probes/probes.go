@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/link"
 	"github.com/gopacket/gopacket"
@@ -545,6 +546,45 @@ func HaveDeadCodeElim() error {
 
 	return nil
 }
+
+// HaveGlobalFunc checks whether kernel supports the BPF global function calls.
+// For simple types, global funcs do not depend on the kernel's BTF.
+// However, in the datapath we use such types as sk_buff. Hence, in this check we (implicitly) probe
+// for kernel's BTF support.
+var HaveGlobalFunc = sync.OnceValue(func() error {
+	proto := &btf.FuncProto{
+		Return: &btf.Int{Name: "int", Size: 4, Encoding: btf.Signed},
+		Params: []btf.FuncParam{{
+			Name: "ctx",
+			Type: &btf.Pointer{Target: &btf.Struct{Name: "__sk_buff"}},
+		}},
+	}
+	entry := &btf.Func{Name: "probe_entry", Type: proto, Linkage: btf.GlobalFunc}
+	global := &btf.Func{Name: "probe_global", Type: proto, Linkage: btf.GlobalFunc}
+
+	// int probe_entry(struct __sk_buff *ctx) {
+	//   return probe_global(ctx);
+	// }
+	// int probe_global(struct __sk_buff *ctx) {
+	//   return 0;
+	// }
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type:    ebpf.SchedCLS,
+		License: "Apache-2.0",
+		Instructions: asm.Instructions{
+			btf.WithFuncMetadata(asm.Call.Label(global.Name), entry),
+			asm.Return(),
+			btf.WithFuncMetadata(asm.Mov.Imm(asm.R0, 0), global).WithSymbol(global.Name),
+			asm.Return(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("loading program: %w", err)
+	}
+
+	prog.Close()
+	return nil
+})
 
 // HaveIPv6Support tests whether kernel can open an IPv6 socket. This will
 // also implicitly auto-load IPv6 kernel module if available and not yet
