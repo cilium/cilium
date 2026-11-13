@@ -6,6 +6,7 @@ package policymap
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/cilium/ebpf"
@@ -19,9 +20,7 @@ func (f *factory) updateOverlayPolicyEntryLocked(epID uint16, ruleSetID uint32) 
 	return f.overlayMap.Update(&key, &value)
 }
 
-// updateEndpointRules makes the endpoint use a rule set with the given rules: a rule set with
-// the same rules if there is one, else its current rule set updated in place if no other
-// endpoint uses it, else a new rule set. On error, the endpoint keeps its current rule set.
+// updateEndpointRules is updateEndpointRulesLocked for one endpoint.
 func (f *factory) updateEndpointRules(epID uint16, rules []ruleWithEntry) (uint32, bool, error) {
 	a := f.allocator
 	newHash := computeRuleSetHashFromEntries(rules)
@@ -30,12 +29,20 @@ func (f *factory) updateEndpointRules(epID uint16, rules []ruleWithEntry) (uint3
 	defer a.mu.Unlock()
 
 	f.deletePendingRuleSetsLocked()
+	return f.updateEndpointRulesLocked(epID, rules, newHash)
+}
 
+// updateEndpointRulesLocked makes the endpoint use a rule set with the given rules: a rule set
+// with the same rules if there is one, else its current rule set updated in place if no other
+// endpoint uses it, else a new rule set. On error, the endpoint keeps its current rule set.
+func (f *factory) updateEndpointRulesLocked(epID uint16, rules []ruleWithEntry, newHash ruleSetKey) (uint32, bool, error) {
+	a := f.allocator
 	oldRuleSetID, hadOld := a.epToRuleSetID[epID]
 
 	// Case 1: Exact hash match exists
 	if existingID, ok := a.rulesets[newHash]; ok {
 		if existingID == oldRuleSetID {
+			// Rewriting the overlay entry repairs it if it is missing.
 			return existingID, false, f.updateOverlayPolicyEntryLocked(epID, existingID)
 		}
 		if err := f.updateOverlayPolicyEntryLocked(epID, existingID); err != nil {
@@ -51,14 +58,11 @@ func (f *factory) updateEndpointRules(epID uint16, rules []ruleWithEntry) (uint3
 
 	// Case 2: Update the rule set in place if no other endpoint uses it.
 	if entry := a.byID[oldRuleSetID]; hadOld && entry != nil && entry.refcount == 1 {
-		newSharedRules := convertToSharedRules(oldRuleSetID, rules)
-		entries, err := f.writeRuleSetLocked(entry.rules, newSharedRules)
+		err := f.updateRuleSetInPlaceLocked(oldRuleSetID, entry, rules, newHash)
 		if err == nil {
-			a.setRulesLocked(oldRuleSetID, entry, entries, newHash)
 			return oldRuleSetID, true, f.updateOverlayPolicyEntryLocked(epID, oldRuleSetID)
 		}
-		// Keep track of the entries left in the map, and use a new rule set instead.
-		a.setRulesLocked(oldRuleSetID, entry, entries, computeRuleSetHashFromSharedRules(entries))
+		// Use a new rule set instead.
 		id, allocErr := f.allocateNewRuleSetLocked(epID, rules, newHash, hadOld, oldRuleSetID)
 		if allocErr != nil {
 			return 0, false, errors.Join(err, allocErr)
@@ -69,6 +73,58 @@ func (f *factory) updateEndpointRules(epID uint16, rules []ruleWithEntry) (uint3
 	// Case 3: Fallback - allocate new rule set
 	id, err := f.allocateNewRuleSetLocked(epID, rules, newHash, hadOld, oldRuleSetID)
 	return id, false, err
+}
+
+// updateRuleSetInPlaceLocked changes the entries of a rule set to the given rules, for all the
+// endpoints that use it. On error, the rule set keeps track of the entries left in the map.
+func (f *factory) updateRuleSetInPlaceLocked(id uint32, entry *ruleSetEntry, rules []ruleWithEntry, hash ruleSetKey) error {
+	entries, err := f.writeRuleSetLocked(entry.rules, convertToSharedRules(id, rules))
+	if err != nil {
+		hash = computeRuleSetHashFromSharedRules(entries)
+	}
+	f.allocator.setRulesLocked(id, entry, entries, hash)
+	return err
+}
+
+// updateRuleSetsInPlaceLocked updates in place the rule sets whose endpoints all get the
+// same new rules, so that only the changed entries are written and the endpoints keep using
+// the rule set. Otherwise the first endpoint to get the new rules would switch to a copy of
+// the rule set, and the others would follow. It returns the indices of the overlays it synced.
+func (f *factory) updateRuleSetsInPlaceLocked(overlays []*EndpointOverlay, pending []int) map[int]bool {
+	a := f.allocator
+	byRuleSet := make(map[uint32][]int)
+	for _, i := range pending {
+		if id, ok := a.epToRuleSetID[overlays[i].epID]; ok {
+			byRuleSet[id] = append(byRuleSet[id], i)
+		}
+	}
+
+	synced := make(map[int]bool)
+	for _, id := range slices.Sorted(maps.Keys(byRuleSet)) {
+		idx := byRuleSet[id]
+		entry := a.byID[id]
+		hash := overlays[idx[0]].hash
+		// A rule set with a single endpoint is updated in place by
+		// updateEndpointRulesLocked.
+		if entry == nil || len(idx) < 2 || len(idx) != entry.refcount || hash == entry.hash {
+			continue
+		}
+		if slices.ContainsFunc(idx, func(i int) bool { return overlays[i].hash != hash }) {
+			continue
+		}
+		// If another rule set has the new rules, the endpoints switch to it.
+		if _, ok := a.rulesets[hash]; ok {
+			continue
+		}
+		if err := f.updateRuleSetInPlaceLocked(id, entry, overlays[idx[0]].rules, hash); err != nil {
+			// Sync the endpoints one by one instead.
+			continue
+		}
+		for _, i := range idx {
+			synced[i] = true
+		}
+	}
+	return synced
 }
 
 // allocateNewRuleSetLocked writes the rules to a new rule set and switches the endpoint to it.

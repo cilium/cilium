@@ -9,6 +9,7 @@ import (
 	"iter"
 	"log/slog"
 	"os"
+	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -76,6 +77,13 @@ type Factory interface {
 
 	SharedPolicyEnabled() bool
 	SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) error
+	// PrepareEndpointOverlay prepares the endpoint's policy entries to be synced to the
+	// shared policy map with SyncEndpointOverlays. It must be called with the endpoint
+	// locked, as each sync of an endpoint supersedes the ones prepared before it.
+	PrepareEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) *EndpointOverlay
+	// SyncEndpointOverlays syncs prepared endpoint policies to the shared policy map
+	// together, and returns an error for each of them.
+	SyncEndpointOverlays(overlays []*EndpointOverlay) []error
 	// LockdownEndpoint makes the datapath deny all traffic of the endpoint until its next
 	// successful SyncEndpointOverlay.
 	LockdownEndpoint(epID uint16) error
@@ -98,6 +106,9 @@ type factory struct {
 	sharedMap  policyBPFMap
 	overlayMap policyBPFMap
 	allocator  *RuleSetAllocator
+	// overlayGen orders the syncs of each endpoint to the shared policy map, see
+	// RuleSetAllocator.epGen.
+	overlayGen atomic.Uint64
 }
 
 func newFactory(logger *slog.Logger, mapRegistry *mapregistry.MapRegistry, stats *StatsMap,

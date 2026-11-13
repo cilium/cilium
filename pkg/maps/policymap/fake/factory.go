@@ -24,6 +24,12 @@ func (*Factory) SharedPolicyEnabled() bool      { return false }
 func (*Factory) SyncEndpointOverlay(uint16, iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) error {
 	return nil
 }
+func (*Factory) PrepareEndpointOverlay(uint16, iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) *policymap.EndpointOverlay {
+	return &policymap.EndpointOverlay{}
+}
+func (*Factory) SyncEndpointOverlays(overlays []*policymap.EndpointOverlay) []error {
+	return make([]error, len(overlays))
+}
 func (*Factory) LockdownEndpoint(uint16) error { return nil }
 func (*Factory) DumpEndpointSharedEntries(uint16) (policymap.PolicyEntriesDump, error) {
 	return nil, nil

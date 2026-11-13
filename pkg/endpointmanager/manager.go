@@ -208,19 +208,24 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	var revertibles revert.Revertibles
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
+	applied := func(ep *endpoint.Endpoint, err error, revertible revert.Revertible) {
+		guard.Lock()
+		revertibles.Add(revertible)
+		guard.Unlock()
+
+		if err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
+			ep.Logger("endpointmanager").Warn("Failed to apply policy map changes. These will be re-applied in future updates.", logfields.Error, err)
+		}
+	}
+
+	var sharedPolicyBatch endpoint.SharedPolicyBatch
 	eps := mgr.GetEndpoints()
 	wg.Add(len(eps))
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			err, revertible := ep.ApplyPolicyMapChanges(proxyWaitGroup)
-			guard.Lock()
-			revertibles.Add(revertible)
-			guard.Unlock()
-
-			if err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
-				ep.Logger("endpointmanager").Warn("Failed to apply policy map changes. These will be re-applied in future updates.", logfields.Error, err)
-			}
+			err, revertible := ep.ApplyPolicyMapChangesBatched(proxyWaitGroup, &sharedPolicyBatch)
+			applied(ep, err, revertible)
 			wg.Done()
 		}(ep)
 	}
@@ -228,6 +233,10 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	// Wait for all the eps to have applied policy map
 	// changes before waiting for the changes to be ACKed
 	wg.Wait()
+
+	// With the shared policy map, sync the endpoints' policies to it together, so that
+	// endpoints that share a rule set and get the same change update it in place.
+	sharedPolicyBatch.Sync(applied)
 
 	// Waiting for proxy completions can return with no error immediately without waiting for
 	// anything if all Endpoint updates failed synchronously, but even in that case finalizing
