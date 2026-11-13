@@ -54,6 +54,7 @@ cilium-agent hive dot-graph [flags]
       --clustermesh-sync-timeout duration                         Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
       --cni-chaining-mode string                                  Enable CNI chaining with the specified plugin (default "none")
       --cni-chaining-target string                                CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
+      --cni-check-host-port-conflict[=true|false]                 Whether CNI ADD checks if requested host ports are already in use (default true)
       --cni-exclusive[=true|false]                                Whether to remove other CNI configurations
       --cni-external-routing[=true|false]                         Whether the chained CNI plugin handles routing on the node
       --cni-log-file string                                       Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")

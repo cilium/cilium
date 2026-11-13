@@ -21,6 +21,7 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
+	RuntimeConfig  RuntimeConfig          `json:"runtimeConfig,omitempty"`
 	MTU            int                    `json:"mtu"`
 	Args           Args                   `json:"args"`
 	EnableRouteMTU bool                   `json:"enable-route-mtu"`
@@ -32,6 +33,19 @@ type NetConf struct {
 	LogFormat      string                 `json:"log-format"`
 	LogFile        string                 `json:"log-file"`
 	ChainingMode   string                 `json:"chaining-mode"`
+}
+
+// RuntimeConfig contains per-invocation configuration supplied by the CNI runtime.
+type RuntimeConfig struct {
+	PortMappings []PortMapping `json:"portMappings,omitempty"`
+}
+
+// PortMapping describes a host-to-container port mapping.
+type PortMapping struct {
+	HostPort      int    `json:"hostPort"`
+	ContainerPort int    `json:"containerPort"`
+	Protocol      string `json:"protocol,omitempty"`
+	HostIP        string `json:"hostIP,omitempty"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration

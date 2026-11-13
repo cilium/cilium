@@ -35,10 +35,11 @@ import (
 var legacyConfFile = "05-cilium.conf"
 
 type cniConfigManager struct {
-	config      config.Config
-	debug       bool
-	cniConfDir  string // computed from WriteCNIConfigWhenReady
-	cniConfFile string // computed from WriteCNIConfigWhenReady
+	config               config.Config
+	debug                bool
+	kubeProxyReplacement bool
+	cniConfDir           string // computed from WriteCNIConfigWhenReady
+	cniConfFile          string // computed from WriteCNIConfigWhenReady
 
 	logger     *slog.Logger
 	ctx        context.Context
@@ -108,6 +109,7 @@ var cniConfigs map[string]string = map[string]string{
   "plugins": [
     {
        "type": "cilium-cni",
+       {{if .CNICheckHostPortConflict}}"capabilities": {"portMappings": true},{{end}}
        "enable-debug": {{.Debug | js }},
        "log-file": "{{.LogFile | js }}"
     }
@@ -134,6 +136,7 @@ var cniConfigs map[string]string = map[string]string{
     },
     {
        "type": "cilium-cni",
+       {{if .CNICheckHostPortConflict}}"capabilities": {"portMappings": true},{{end}}
        "chaining-mode": "flannel",
        "enable-debug": {{.Debug | js }},
        "log-file": "{{.LogFile | js }}"
@@ -148,6 +151,7 @@ var cniConfigs map[string]string = map[string]string{
   "plugins": [
     {
        "type": "cilium-cni",
+       {{if .CNICheckHostPortConflict}}"capabilities": {"portMappings": true},{{end}}
        "enable-debug": {{.Debug | js }},
        "log-file": "{{.LogFile | js }}"
     },
@@ -164,6 +168,7 @@ var cniConfigs map[string]string = map[string]string{
 const chainedCNIEntry = `
 {
 	"type": "cilium-cni",
+	{{if .CNICheckHostPortConflict}}"capabilities": {"portMappings": true},{{end}}
 	"chaining-mode": "{{.ChainingMode | js }}",
 	"enable-debug": {{.Debug | js }},
 	"log-file": "{{.LogFile | js }}"
@@ -449,16 +454,18 @@ func (c *cniConfigManager) mergeExistingCNIConfig(pluginConfig []byte) ([]byte, 
 }
 
 // renderCNITemplate applies any cni template replacements
-// currently: Debug, LogFile, and ChainingMode
+// currently: Debug, LogFile, ChainingMode, and HostPortConflictCheck
 func (c *cniConfigManager) renderCNITemplate(in string) []byte {
 	data := struct {
-		Debug        bool
-		LogFile      string
-		ChainingMode string
+		Debug                    bool
+		LogFile                  string
+		ChainingMode             string
+		CNICheckHostPortConflict bool
 	}{
-		Debug:        c.debug,
-		LogFile:      c.config.CNILogFile,
-		ChainingMode: c.config.CNIChainingMode,
+		Debug:                    c.debug,
+		LogFile:                  c.config.CNILogFile,
+		ChainingMode:             c.config.CNIChainingMode,
+		CNICheckHostPortConflict: c.config.CNICheckHostPortConflict && c.kubeProxyReplacement,
 	}
 
 	t := template.Must(template.New("cni").Parse(in))
