@@ -401,6 +401,9 @@ data:
 {{- else if eq $defaultBpfTProxy "true" }}
   enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
 {{- end }}
+{{- if (not (kindIs "invalid" .Values.bpf.sharedPolicy)) }}
+  enable-shared-policy: {{ .Values.bpf.sharedPolicy | quote }}
+{{- end }}
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.
