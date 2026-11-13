@@ -238,6 +238,16 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return err
 	}
 
+	// Look up Services before applying OrigIP. After reverse NAT, the reply
+	// packet carries the Service frontend IP and port, and OrigIP holds the
+	// backend IP.
+	var sourceService, destinationService *pb.Service
+	if p.serviceGetter != nil {
+		proto := l4U8Proto(decoded.L4)
+		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort, proto)
+		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort, proto)
+	}
+
 	ip := decoded.GetIP()
 	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
@@ -266,12 +276,6 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 	srcEndpoint := p.endpointGetter.ResolveEndpoint(srcIP, srcLabelID, datapathContext)
 	dstEndpoint := p.endpointGetter.ResolveEndpoint(dstIP, dstLabelID, datapathContext)
-	var sourceService, destinationService *pb.Service
-	if p.serviceGetter != nil {
-		proto := l4U8Proto(decoded.L4)
-		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort, proto)
-		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort, proto)
-	}
 
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
 	decoded.DropReason = decodeDropReason(dn, pvn)
