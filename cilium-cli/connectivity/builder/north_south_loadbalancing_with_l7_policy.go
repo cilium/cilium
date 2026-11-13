@@ -21,9 +21,7 @@ type northSouthLoadbalancingWithL7Policy struct{}
 
 func (t northSouthLoadbalancingWithL7Policy) build(ct *check.ConnectivityTest, _ map[string]string) {
 	northSouthLoadbalancingWithL7PolicyTest(ct, false)
-	if ct.Features[features.L7PortRanges].Enabled {
-		northSouthLoadbalancingWithL7PolicyTest(ct, true)
-	}
+	northSouthLoadbalancingWithL7PolicyTest(ct, true)
 }
 
 func northSouthLoadbalancingWithL7PolicyTest(ct *check.ConnectivityTest, portRanges bool) {

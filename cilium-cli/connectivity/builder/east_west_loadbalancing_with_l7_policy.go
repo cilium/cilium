@@ -13,9 +13,7 @@ type eastWestLoadbalancingWithL7Policy struct{}
 
 func (t eastWestLoadbalancingWithL7Policy) build(ct *check.ConnectivityTest, _ map[string]string) {
 	eastWestLoadbalancingWithL7PolicyTest(ct, false)
-	if ct.Features[features.L7PortRanges].Enabled {
-		eastWestLoadbalancingWithL7PolicyTest(ct, true)
-	}
+	eastWestLoadbalancingWithL7PolicyTest(ct, true)
 }
 
 func eastWestLoadbalancingWithL7PolicyTest(ct *check.ConnectivityTest, portRanges bool) {

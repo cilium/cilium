@@ -13,9 +13,7 @@ type clientEgressL7 struct{}
 
 func (t clientEgressL7) build(ct *check.ConnectivityTest, templates map[string]string) {
 	clientEgressL7Test(ct, templates, false)
-	if ct.Features[features.L7PortRanges].Enabled {
-		clientEgressL7Test(ct, templates, true)
-	}
+	clientEgressL7Test(ct, templates, true)
 }
 
 func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string, portRanges bool) {

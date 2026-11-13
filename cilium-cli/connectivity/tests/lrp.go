@@ -109,15 +109,11 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 }
 
 func (s lrp) runTestsForIPFamily(ctx context.Context, t *check.Test, policies []*v2.CiliumLocalRedirectPolicy, ipFamily features.IPFamily) {
-	ct := t.Context()
-
 	for _, policy := range policies {
 		spec := policy.Spec
 		frontend := check.NewLRPFrontend(spec.RedirectFrontend)
 		frontendStr := net.JoinHostPort(frontend.Address(ipFamily), fmt.Sprint(frontend.Port()))
-		if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
-			frontendStr += fmt.Sprintf("/%s", frontend.Protocol())
-		}
+		frontendStr += fmt.Sprintf("/%s", frontend.Protocol())
 
 		lrpBackendsMap := make(map[string][]string)
 		// Check for LRP backend pods deployed on nodes in the cluster.
