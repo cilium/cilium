@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"math/bits"
 	"net/netip"
 	"slices"
 	"strings"
@@ -637,6 +638,14 @@ func (u uint128) less(other uint128) bool {
 	return u.hi < other.hi
 }
 
+func (u uint128) more(other uint128) bool {
+	if u.hi == other.hi {
+		return u.lo > other.lo
+	}
+
+	return u.hi > other.hi
+}
+
 func (u uint128) sub(other uint128) uint128 {
 	hi := u.hi - other.hi
 	lo := u.lo - other.lo
@@ -650,6 +659,14 @@ func (u uint128) sub(other uint128) uint128 {
 	}
 }
 
+func (u uint128) add(other uint128) uint128 {
+	var result uint128
+	var carry uint64
+	result.lo, carry = bits.Add64(u.lo, other.lo, 0)
+	result.hi, _ = bits.Add64(u.hi, other.hi, carry)
+	return result
+}
+
 // uint128FromAddr extracts the uint128 value using a reflection hack.
 func uint128FromAddr(addr netip.Addr) uint128 {
 	bytes := addr.As16()
@@ -657,4 +674,13 @@ func uint128FromAddr(addr netip.Addr) uint128 {
 		hi: binary.BigEndian.Uint64(bytes[:8]),
 		lo: binary.BigEndian.Uint64(bytes[8:]),
 	}
+}
+
+// uint128ToAddr creates an IP Addr from raw binary data.
+func uint128ToAddr(addr uint128) netip.Addr {
+	var b [16]byte
+	binary.BigEndian.PutUint64(b[:8], addr.hi)
+	binary.BigEndian.PutUint64(b[8:], addr.lo)
+
+	return netip.AddrFrom16(b).Unmap()
 }
