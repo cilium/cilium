@@ -48,7 +48,7 @@ func (f *fakeLink) Attrs() *netlink.LinkAttrs { return &f.attrs }
 func (f *fakeLink) Type() string              { return "fake" }
 
 // newFakeLink constructs a fakeLink with the given name and optional ParentDev
-// (PCI address). ParentDev is used by linkAttrsByPCIAddr.
+// (PCI address). ParentDev is how the manager finds a PF's PCI address.
 func newFakeLink(name, parentDev string, vfs []netlink.VfInfo) *fakeLink {
 	return &fakeLink{
 		attrs: netlink.LinkAttrs{
@@ -77,6 +77,8 @@ type fakeNetlinkOps struct {
 	linkSetVfVlanErr error
 	// linkByNameErr, if set, is returned by every LinkByName call.
 	linkByNameErr error
+	// linkListErr, if set, is returned by every LinkList call.
+	linkListErr error
 }
 
 // vlanCall records a single LinkSetVfVlan invocation.
@@ -96,6 +98,9 @@ func (f *fakeNetlinkOps) addLink(l netlink.Link) {
 }
 
 func (f *fakeNetlinkOps) LinkList() ([]netlink.Link, error) {
+	if f.linkListErr != nil {
+		return nil, f.linkListErr
+	}
 	return f.links, nil
 }
 
@@ -277,15 +282,13 @@ func TestSriov(t *testing.T) {
 
 	t.Run("device parsing", func(t *testing.T) {
 		fs, nl := setupFakes(t)
-		// No ifaces → setupVfs is a no-op, nothing mutates sysfs.
 		cfg := v2alpha1.SRIOVDeviceManagerConfig{}
 		mgr := fs.newManager(t, &cfg, nl)
 
 		byPCI, err := mgr.linkAttrsByPCIAddr()
 		require.NoError(t, err)
-		require.Contains(t, byPCI, PCIAddr("0000:02:00.1"))
 
-		device, err := mgr.parseDevice("0000:02:00.1", byPCI)
+		device, err := mgr.parseDevice("0000:02:00.1", "mypf", 1, byPCI)
 		require.NoError(t, err)
 		require.NotNil(t, device)
 
@@ -305,6 +308,107 @@ func TestSriov(t *testing.T) {
 			require.Equal(t, v, device.GetAttrs()[k])
 		}
 	})
+}
+
+// TestListDevices checks that discovery only returns VFs of configured PFs.
+func TestListDevices(t *testing.T) {
+	// Two PFs with two VFs each. Only ens1f0 is configured.
+	setup := func(t *testing.T, ifaces ...v2alpha1.SRIOVDeviceConfig) *SRIOVManager {
+		t.Helper()
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+
+		pf0 := fs.addPF("0000:02:00.0", "ens1f0")
+		fs.addVF(pf0, "0000:02:00.2", "", 0)
+		fs.addVF(pf0, "0000:02:00.3", "", 1)
+		pf1 := fs.addPF("0000:03:00.0", "ens1f1")
+		fs.addVF(pf1, "0000:03:00.2", "", 0)
+		fs.addVF(pf1, "0000:03:00.3", "", 1)
+
+		nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+		nl.addLink(newFakeLink("ens1f1", "0000:03:00.0", nil))
+		// 0000:02:00.3 has no netdev, like a VF bound to vfio-pci.
+		nl.addLink(newFakeLink("ens1f0v0", "0000:02:00.2", nil))
+		nl.addLink(newFakeLink("ens1f1v0", "0000:03:00.2", nil))
+		nl.addLink(newFakeLink("ens1f1v1", "0000:03:00.3", nil))
+
+		return fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{Ifaces: ifaces}, nl)
+	}
+
+	addrs := func(devs []types.Device) []string {
+		var out []string
+		for _, d := range devs {
+			out = append(out, d.(*PciDevice).Addr)
+		}
+		return out
+	}
+
+	t.Run("only VFs of configured PFs", func(t *testing.T) {
+		mgr := setup(t, v2alpha1.SRIOVDeviceConfig{IfName: "ens1f0", VFCount: 2})
+		devs, err := mgr.listDevices()
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"0000:02:00.2", "0000:02:00.3"}, addrs(devs))
+		kernelNames := map[string]string{}
+		for _, d := range devs {
+			pd := d.(*PciDevice)
+			require.Equal(t, "ens1f0", pd.PFName)
+			require.NotNil(t, pd.nl)
+			kernelNames[pd.Addr] = pd.KernelIfName()
+		}
+		require.Equal(t, map[string]string{"0000:02:00.2": "ens1f0v0", "0000:02:00.3": ""}, kernelNames,
+			"kernel ifname is resolved by PCI address, empty without a netdev")
+	})
+
+	t.Run("VF IDs come from virtfnN", func(t *testing.T) {
+		mgr := setup(t, v2alpha1.SRIOVDeviceConfig{IfName: "ens1f1", VFCount: 2})
+		devs, err := mgr.listDevices()
+		require.NoError(t, err)
+		ids := map[string]int{}
+		for _, d := range devs {
+			ids[d.(*PciDevice).Addr] = d.(*PciDevice).VFID
+		}
+		require.Equal(t, map[string]int{"0000:03:00.2": 0, "0000:03:00.3": 1}, ids)
+	})
+
+	t.Run("no configured PFs, no devices", func(t *testing.T) {
+		devs, err := setup(t).listDevices()
+		require.NoError(t, err)
+		require.Empty(t, devs)
+	})
+
+	t.Run("missing PF is skipped, others are listed", func(t *testing.T) {
+		mgr := setup(t,
+			v2alpha1.SRIOVDeviceConfig{IfName: "ens9f9", VFCount: 1},
+			v2alpha1.SRIOVDeviceConfig{IfName: "ens1f1", VFCount: 2},
+		)
+		devs, err := mgr.listDevices()
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"0000:03:00.2", "0000:03:00.3"}, addrs(devs))
+	})
+}
+
+// TestNewManagerSkipsBadPFs checks that a PF that is missing, or cannot get
+// its VFs, does not fail the manager: the other PFs are still set up.
+func TestNewManagerSkipsBadPFs(t *testing.T) {
+	fs := newFakeSysfs(t)
+	nl := newFakeNetlink()
+	fs.addPF("0000:02:00.0", "ens1f0") // sriov_totalvfs 4
+	fs.addPF("0000:03:00.0", "ens1f1")
+	nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+	nl.addLink(newFakeLink("ens1f1", "0000:03:00.0", nil))
+
+	cfg := v2alpha1.SRIOVDeviceManagerConfig{Ifaces: []v2alpha1.SRIOVDeviceConfig{
+		{IfName: "ens9f9", VFCount: 1},   // missing
+		{IfName: "ens1f0", VFCount: 100}, // too many VFs
+		{IfName: "ens1f1", VFCount: 2},
+	}}
+	mgr, err := NewManager(hivetest.Logger(t), &cfg, withNetlinkOps(nl), withSysPath(fs.root))
+	require.NoError(t, err)
+	require.NotNil(t, mgr)
+
+	numVfs, err := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:03:00.0", "sriov_numvfs"))
+	require.NoError(t, err)
+	require.Equal(t, "2", strings.TrimSpace(string(numVfs)), "the valid PF is still set up")
 }
 
 // TestPciDevice_Match covers the Match() method across all filter fields,
@@ -632,6 +736,26 @@ func TestPciDevice_SetupFree(t *testing.T) {
 // sysfs net/ entry is gone). This is the unit-testable equivalent of
 // sriov-test.sh's TC-8.
 // ----------------------------------------------------------------------------
+
+func TestPciDevice_FindLink(t *testing.T) {
+	nl := newFakeNetlink()
+	nl.addLink(newFakeLink("mypf", "0000:02:00.0", nil))
+	// The VF is found by PCI address whatever its name.
+	nl.addLink(newFakeLink("net1", "0000:02:00.1", nil))
+	nl.addLink(newFakeLink("lo", "", nil))
+
+	l, err := (&PciDevice{Addr: "0000:02:00.1", KernelIfaceName: "myvf", nl: nl}).FindLink()
+	require.NoError(t, err)
+	require.Equal(t, "net1", l.Attrs().Name)
+
+	_, err = (&PciDevice{Addr: "0000:02:00.2", nl: nl}).FindLink()
+	require.ErrorIs(t, err, types.ErrLinkNotFound)
+	require.ErrorContains(t, err, "0000:02:00.2")
+
+	nl.linkListErr = fmt.Errorf("boom")
+	_, err = (&PciDevice{Addr: "0000:02:00.1", nl: nl}).FindLink()
+	require.ErrorContains(t, err, "boom")
+}
 
 func TestPciDevice_Merge(t *testing.T) {
 	t.Run("carries KernelIfName forward when fresh scan found none", func(t *testing.T) {

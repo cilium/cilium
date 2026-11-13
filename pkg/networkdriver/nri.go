@@ -193,7 +193,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 				// The RX queue was leased to the existing interface created by CNI.
 				continue
 			}
-			l, err := safenetlink.LinkByName(a.Device.KernelIfName())
+			l, err := deviceLink(a.Device)
 			if err != nil {
 				// A node reboot removes the pod netns and any on-demand link moved
 				// into it, while restore reconstructs the allocation from the
@@ -213,7 +213,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 					return err
 				}
 
-				l, err = safenetlink.LinkByName(a.Device.KernelIfName())
+				l, err = deviceLink(a.Device)
 				if err != nil {
 					return fmt.Errorf("device %s still not found after re-creating it on demand: %w", a.Device.KernelIfName(), err)
 				}
@@ -336,13 +336,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 					continue
 				}
 
-				// Determine the interface name in the pod namespace
-				ifName := a.Device.KernelIfName()
-				if a.Config.PodIfName != "" {
-					ifName = a.Config.PodIfName
-				}
-
-				l, err := safenetlink.LinkByName(ifName)
+				l, err := podLink(a)
 				if err != nil {
 					return err
 				}
@@ -355,16 +349,16 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 					return err
 				}
 
-				// Rename back to original kernel name before moving to root namespace
-				l, err = configureIfName(l, a.Device.KernelIfName())
-				if err != nil {
+				// Rename back to original kernel name before moving to root
+				// namespace. Move it back even if this fails: the device is
+				// found by other means than its name.
+				if renamed, err := configureIfName(l, a.Device.KernelIfName()); err != nil {
 					driver.logger.ErrorContext(
 						ctx, "failed to restore interface name",
 						logfields.Error, err,
 					)
-
-					// we want to continue here to clean up the remaining, even if this one failed
-					continue
+				} else {
+					l = renamed
 				}
 
 				// Always try to move back to root netns
@@ -385,6 +379,31 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 	})
 
 	return err
+}
+
+// linkFinder is implemented by devices whose netdev cannot be found by name,
+// such as SR-IOV VFs: their name changes once they have been in a pod.
+type linkFinder interface {
+	// FindLink returns the device's netdev in the caller's network namespace.
+	FindLink() (netlink.Link, error)
+}
+
+// deviceLink returns d's netdev in the caller's network namespace.
+func deviceLink(d types.Device) (netlink.Link, error) {
+	if f, ok := d.(linkFinder); ok {
+		return f.FindLink()
+	}
+	return safenetlink.LinkByName(d.KernelIfName())
+}
+
+// podLink returns the allocation's netdev in the pod network namespace (the
+// caller's): by its podIfName, which the driver set, or else as deviceLink
+// finds it.
+func podLink(a allocation) (netlink.Link, error) {
+	if a.Config.PodIfName != "" {
+		return safenetlink.LinkByName(a.Config.PodIfName)
+	}
+	return deviceLink(a.Device)
 }
 
 // getNetworkNamespace resolves the pod's network namespace path.
