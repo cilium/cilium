@@ -330,6 +330,21 @@ Rollout Instructions
    This will make Cilium read and write identities only to CRDs.
 #. You can now decommission the KVStore.
 
+Gateway API TLS session ticket keys
+----------------------------------
+
+Gateway API supports opt-in operator-managed TLS session ticket keys using
+``gatewayAPI.sessionTicketKeyRotationInterval``. The default, ``0s``, preserves
+the existing per-instance behavior. A positive interval enables sharing across
+Envoy instances serving the same Gateway; different Gateways use independent
+keys. The managed Secrets are stored in ``gatewayAPI.secretsNamespace.name``.
+
+Restart the operator after changing the interval if ``operator.rollOutPods`` is
+disabled. Setting the interval back to ``0s`` stops rotation and removes the
+listeners' references to the managed Secrets without deleting them. Recreating
+a Gateway generates new keys and invalidates its previously issued tickets.
+See :ref:`gateway_api_session_ticket_keys` for configuration and security details.
+
 .. _change_policy_default_local_cluster:
 
 Preparing for a ``policy-default-local-cluster`` change

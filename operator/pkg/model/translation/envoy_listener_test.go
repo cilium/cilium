@@ -81,6 +81,48 @@ func TestToTransportSocketTLSOptions(t *testing.T) {
 	}
 }
 
+func TestTLSConfigSessionTicketIsolation(t *testing.T) {
+	translator := &cecTranslator{Config: Config{ListenerConfig: ListenerConfig{
+		UseAlpn: true, SessionTicketKeysNamespace: "gateway-secrets",
+	}}}
+	var secretNames []string
+	for _, uid := range []string{"gateway-a", "gateway-b", "gateway-recreated"} {
+		input := &model.Model{HTTP: []model.HTTPListener{{
+			Port: 443, Hostname: "example.com",
+			TLS: []model.TLSSecret{{Namespace: "tenant", Name: "certificate"}},
+			Sources: []model.FullyQualifiedResource{{
+				Kind: "Gateway", Namespace: "tenant", Name: "gateway", UID: uid,
+			}},
+		}}}
+		listener := &envoy_config_listener.Listener{FilterChains: []*envoy_config_listener.FilterChain{{
+			TransportSocket: toTransportSocket("gateway-secrets", input.HTTP[0].TLS, nil, model.TLSOptions{}),
+		}}}
+		listener, err := translator.applyListenerMutators(listener, input, []uint32{443})
+		require.NoError(t, err)
+		var ticketConfig *envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
+		for _, chain := range listener.FilterChains {
+			if chain.TransportSocket == nil {
+				continue
+			}
+			context := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+			require.NoError(t, chain.TransportSocket.GetTypedConfig().UnmarshalTo(context))
+			require.Equal(t, []string{"h2,http/1.1"}, context.CommonTlsContext.AlpnProtocols)
+			ticketConfig = context.GetSessionTicketKeysSdsSecretConfig()
+		}
+		require.NotNil(t, ticketConfig)
+		require.Equal(t, "gateway-secrets/"+syncnames.GatewaySessionTicketSecretName(types.UID(uid)), ticketConfig.Name)
+		require.NotContains(t, secretNames, ticketConfig.Name)
+		secretNames = append(secretNames, ticketConfig.Name)
+	}
+}
+
+func TestTLSConfigInvalidContext(t *testing.T) {
+	listener := &envoy_config_listener.Listener{FilterChains: []*envoy_config_listener.FilterChain{{
+		TransportSocket: &envoy_config_core_v3.TransportSocket{Name: tlsTransportSocketType},
+	}}}
+	require.Error(t, applyTLSConfig(listener, true, &model.TLSSecret{Namespace: "gateway-secrets", Name: "tickets"}))
+}
+
 func Test_getHostNetworkListenerAddresses(t *testing.T) {
 	testCases := []struct {
 		desc                       string

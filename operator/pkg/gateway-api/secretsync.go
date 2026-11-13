@@ -5,11 +5,17 @@ package gateway_api
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/clock"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -17,7 +23,10 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type SecretSyncHandler struct {
@@ -304,4 +313,101 @@ func (h *SecretSyncHandler) EnqueueFrontendTLSConfigMapsReferenceGrant() handler
 		}
 		return reqs
 	})
+}
+
+const (
+	sessionTicketKey              = "tls.sessionticket.key"
+	sessionTicketRotatedAt        = "gateway.cilium.io/session-ticket-key-rotated-at"
+	sessionTicketGatewayNamespace = "gateway.cilium.io/session-ticket-gateway-namespace"
+	sessionTicketGatewayName      = "gateway.cilium.io/session-ticket-gateway-name"
+)
+
+type sessionTicketReconciler struct {
+	client           client.Client
+	logger           *slog.Logger
+	namespace        string
+	rotationInterval time.Duration
+	clock            clock.PassiveClock
+}
+
+func (r *sessionTicketReconciler) setupWithManager(manager ctrl.Manager) error {
+	r.clock = clock.RealClock{}
+	return ctrl.NewControllerManagedBy(manager).
+		Named("gateway-session-ticket-keys").
+		For(&gatewayv1.Gateway{}).
+		Watches(&gatewayv1.GatewayClass{}, watchhandlers.EnqueueRequestForOwningGatewayClass(r.client, *r.logger)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+			if object.GetNamespace() != r.namespace {
+				return nil
+			}
+			annotations := object.GetAnnotations()
+			if annotations[sessionTicketGatewayNamespace] == "" || annotations[sessionTicketGatewayName] == "" {
+				return nil
+			}
+			return []reconcile.Request{{NamespacedName: types.NamespacedName{
+				Namespace: annotations[sessionTicketGatewayNamespace], Name: annotations[sessionTicketGatewayName],
+			}}}
+		})).
+		Complete(r)
+}
+
+func (r *sessionTicketReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	gateway := &gatewayv1.Gateway{}
+	if err := r.client.Get(ctx, request.NamespacedName, gateway); err != nil {
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+	if gateway.DeletionTimestamp != nil {
+		return reconcile.Result{}, nil
+	}
+	gatewayClass := &gatewayv1.GatewayClass{}
+	if err := r.client.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass); err != nil {
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+	if gatewayClass.Spec.ControllerName != defaultControllerName {
+		return reconcile.Result{}, nil
+	}
+	secretName := syncnames.GatewaySessionTicketSecretName(gateway.UID)
+	secret := &corev1.Secret{}
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: secretName}, secret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return reconcile.Result{}, err
+	}
+	now := r.clock.Now()
+	if err == nil {
+		rotatedAt, err := time.Parse(time.RFC3339Nano, secret.Annotations[sessionTicketRotatedAt])
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("invalid session ticket rotation time: %w", err)
+		}
+		if len(secret.Data[sessionTicketKey]) != 80 {
+			return reconcile.Result{}, errors.New("managed session ticket key must contain exactly 80 bytes")
+		}
+		if remaining := rotatedAt.Add(r.rotationInterval).Sub(now); remaining > 0 {
+			return reconcile.Result{RequeueAfter: remaining}, nil
+		}
+	}
+	key := make([]byte, 80)
+	rand.Read(key)
+	data := map[string][]byte{sessionTicketKey: key}
+	if previous := secret.Data[sessionTicketKey]; len(previous) > 0 {
+		data[sessionTicketKey+".1"] = previous
+	}
+	secret.Data = data
+	secret.Type = corev1.SecretTypeOpaque
+	if secret.Annotations == nil {
+		secret.Annotations = make(map[string]string)
+	}
+	secret.Annotations[sessionTicketRotatedAt] = now.Format(time.RFC3339Nano)
+	secret.Annotations[sessionTicketGatewayNamespace] = gateway.Namespace
+	secret.Annotations[sessionTicketGatewayName] = gateway.Name
+	if k8serrors.IsNotFound(err) {
+		secret.Name = secretName
+		secret.Namespace = r.namespace
+		err = r.client.Create(ctx, secret)
+	} else {
+		err = r.client.Update(ctx, secret)
+	}
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{RequeueAfter: r.rotationInterval}, nil
 }

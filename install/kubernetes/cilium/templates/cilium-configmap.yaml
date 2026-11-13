@@ -330,6 +330,9 @@ data:
   gateway-api-use-remote-address: {{ .Values.gatewayAPI.useRemoteAddress | quote }}
   gateway-api-service-externaltrafficpolicy: {{ .Values.gatewayAPI.externalTrafficPolicy | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  {{- if ne .Values.gatewayAPI.sessionTicketKeyRotationInterval "0s" }}
+  gateway-api-session-ticket-rotation-interval: {{ .Values.gatewayAPI.sessionTicketKeyRotationInterval | quote }}
+  {{- end }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
   gateway-api-inference-extension-enabled: {{ .Values.gatewayAPI.inferenceExtension.enabled | quote}}

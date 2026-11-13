@@ -47,6 +47,10 @@ func SourceSDSSecretName(source types.NamespacedName) string {
 	return fmt.Sprintf("%s/%s", source.Namespace, source.Name)
 }
 
+func GatewaySessionTicketSecretName(uid types.UID) string {
+	return "cilium-gateway-session-tickets-" + string(uid)
+}
+
 // LegacySyncedSecretName returns the pre-hash synced Secret name.
 func LegacySyncedSecretName(source types.NamespacedName) string {
 	return source.Namespace + "-" + source.Name

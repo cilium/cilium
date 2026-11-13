@@ -108,3 +108,54 @@ Make HTTPS Requests
             $ curl https://bookinfo.cilium.rocks/details/1
             $ curl https://hipstershop.cilium.rocks/
 
+.. _gateway_api_session_ticket_keys:
+
+Share TLS Session Ticket Keys
+=============================
+
+By default, each Envoy instance generates its own TLS session ticket keys.
+To allow clients to resume TLS sessions when they connect to a different Envoy
+instance, enable operator-managed shared keys by configuring a positive rotation
+interval when installing or upgrading Cilium:
+
+.. code-block:: yaml
+
+    gatewayAPI:
+      enabled: true
+      sessionTicketKeyRotationInterval: 1h
+
+The operator automatically creates an Opaque Secret named
+``cilium-gateway-session-tickets-<gateway-uid>`` for each Gateway in
+``gatewayAPI.secretsNamespace.name``. Envoy instances serving the same Gateway
+share its keys; different Gateways, including a Gateway recreated with the same
+name, use independent keys to preserve their TLS session isolation. Listeners
+attached to the same Gateway share its trust boundary. The operator
+generates an 80-byte cryptographically secure random key and rotates it at the
+configured interval. No manually created Secret is required. This also works
+when ``gatewayAPI.secretsNamespace.sync`` is disabled.
+
+The current encryption key is stored as ``tls.sessionticket.key``. The previous
+key is retained as ``tls.sessionticket.key.1`` for one additional rotation
+interval, allowing existing tickets to be decrypted during rotation. Older keys
+are discarded. Choose an interval appropriate for your security requirements and
+desired session resumption window.
+
+Updates are propagated through SDS without restarting Envoy. Operator restarts
+reuse the stored keys and rotation timestamp rather than resetting the schedule.
+Changing the rotation interval requires restarting the operator, for example
+with ``kubectl -n kube-system rollout restart deployment/cilium-operator`` if
+``operator.rollOutPods`` is disabled.
+
+The default value, ``0s``, disables managed shared keys and retains Envoy's
+per-instance keys. Setting the interval back to ``0s`` stops management without
+deleting the Secret; Gateway listeners no longer reference it. Negative durations
+are rejected.
+Secrets for deleted Gateways are retained but are no longer rotated or reused.
+
+.. warning::
+
+    Shared session ticket keys affect the confidentiality of resumed sessions.
+    Restrict access to the managed Secret and do not modify it manually. Envoy
+    waits for the SDS Secret when enabling this feature; it does not fall back to
+    per-instance keys if the managed Secret is unavailable.
+

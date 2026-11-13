@@ -190,13 +190,14 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 }
 
 type gatewayApiConfig struct {
-	EnableGatewayAPISecretsSync            bool
-	EnableGatewayAPIProxyProtocol          bool
-	EnableGatewayAPIAppProtocol            bool
-	EnableGatewayAPIAlpn                   bool
-	GatewayAPIServiceExternalTrafficPolicy string
-	GatewayAPISecretsNamespace             string
-	GatewayAPIXffNumTrustedHops            uint32
+	EnableGatewayAPISecretsSync             bool
+	EnableGatewayAPIProxyProtocol           bool
+	EnableGatewayAPIAppProtocol             bool
+	EnableGatewayAPIAlpn                    bool
+	GatewayAPIServiceExternalTrafficPolicy  string
+	GatewayAPISecretsNamespace              string
+	GatewayAPIXffNumTrustedHops             uint32
+	GatewayAPISessionTicketRotationInterval time.Duration
 
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
@@ -212,6 +213,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
+	flags.Duration("gateway-api-session-ticket-rotation-interval", r.GatewayAPISessionTicketRotationInterval, "Rotation interval for operator-managed Gateway API TLS session ticket keys; 0 disables shared keys")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
 	flags.Bool("gateway-api-use-remote-address", r.GatewayAPIUseRemoteAddress, "Use the immediate client's IP address as the origin client's IP address")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
@@ -238,6 +240,9 @@ type gatewayAPIParams struct {
 func initGatewayAPIController(params gatewayAPIParams) error {
 	if !params.Preconditions.Enabled {
 		return nil
+	}
+	if params.GatewayApiConfig.GatewayAPISessionTicketRotationInterval < 0 {
+		return errors.New("gateway-api-session-ticket-rotation-interval must not be negative")
 	}
 
 	installedOptionalKinds := params.Preconditions.InstalledOptionalKinds
@@ -286,6 +291,20 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 			UseRemoteAddress:  params.GatewayApiConfig.GatewayAPIUseRemoteAddress,
 		},
+	}
+	if params.GatewayApiConfig.GatewayAPISessionTicketRotationInterval > 0 {
+		if params.GatewayApiConfig.GatewayAPISecretsNamespace == "" {
+			return errors.New("gateway-api-secrets-namespace must be configured for managed session ticket keys")
+		}
+		cfg.ListenerConfig.SessionTicketKeysNamespace = params.GatewayApiConfig.GatewayAPISecretsNamespace
+		reconciler := &sessionTicketReconciler{
+			client: params.CtrlRuntimeManager.GetClient(), namespace: params.GatewayApiConfig.GatewayAPISecretsNamespace,
+			logger:           params.Logger,
+			rotationInterval: params.GatewayApiConfig.GatewayAPISessionTicketRotationInterval,
+		}
+		if err := reconciler.setupWithManager(params.CtrlRuntimeManager); err != nil {
+			return fmt.Errorf("failed to create session ticket controller: %w", err)
+		}
 	}
 	cecTranslator := translation.NewCECTranslator(cfg)
 
