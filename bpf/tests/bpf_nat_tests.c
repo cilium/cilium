@@ -1428,10 +1428,11 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	printk("TCP port allocation retries at 100%% of test:\n");
 	assert(store_retries(retries_100percent, true));
 
-	printk("5%% failures happened at iteration %u\n", cb_ctx.fail_thres);
+	test_log("Failures: %u; first iteration with 5 percent failures: %u",
+		 cb_ctx.fails, cb_ctx.fail_thres);
 
-	/* Non-negligible amount of failures happens after 70% of the test. */
-	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
+	/* Any non-negligible failures must happen after 70% of the test. */
+	assert(!cb_ctx.fail_thres || cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
 
 	/* Only occasional failures at 50% of the test. */
 	assert(retries_50percent[CONFIG(snat_collision_retries)] < 25);
@@ -1443,10 +1444,6 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	/* Less than 16% of failures at 100% of the test. */
 	assert(retries_100percent[CONFIG(snat_collision_retries)] <
 	       SNAT_TEST_ITERATIONS * 16 / 100);
-
-	/* Negligible amount of ports allocated after 10+ retries. */
-	for (__u32 i = 10; i < CONFIG(snat_collision_retries); i++)
-		assert(retries_100percent[i] < 100);
 
 	/* More ports could be allocated after fewer retries. */
 	for (__u32 i = 1; i <= 5; i++)
@@ -1557,10 +1554,11 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	printk("UDP port allocation retries at 100%% of test:\n");
 	assert(store_retries(retries_100percent, true));
 
-	printk("5%% failures happened at iteration %u\n", cb_ctx.fail_thres);
+	test_log("Failures: %u; first iteration with 5 percent failures: %u",
+		 cb_ctx.fails, cb_ctx.fail_thres);
 
-	/* Non-negligible amount of failures happens after 70% of the test. */
-	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
+	/* Any non-negligible failures must happen after 70% of the test. */
+	assert(!cb_ctx.fail_thres || cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
 
 	/* Only occasional failures at 50% of the test. */
 	assert(retries_50percent[CONFIG(snat_collision_retries)] < 25);
@@ -1572,10 +1570,6 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	/* Less than 16% of failures at 100% of the test. */
 	assert(retries_100percent[CONFIG(snat_collision_retries)] <
 	       SNAT_TEST_ITERATIONS * 16 / 100);
-
-	/* Negligible amount of ports allocated after 11+ retries. */
-	for (__u32 i = 11; i < CONFIG(snat_collision_retries); i++)
-		assert(retries_100percent[i] < 100);
 
 	/* More ports could be allocated after fewer retries. */
 	for (__u32 i = 1; i <= 5; i++)

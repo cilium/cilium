@@ -100,6 +100,21 @@ static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
 	return start + (m >> 16);
 }
 
+/* A prime larger than any 16-bit port range is coprime to every range size. */
+#define SNAT_PORT_PROBE_STEP 104729U
+
+static __always_inline __u16
+__snat_port_at_attempt(__u16 start, __u16 end, __u16 first_port, __u32 attempt)
+{
+	__u32 range = (__u32)(end - start) + 1;
+	/* Triangular offsets visit every port in a power-of-two range. */
+	__u64 offset = range & (range - 1) ? attempt :
+		       (__u64)attempt * (attempt + 1) / 2;
+
+	return (__u16)(start + (((__u64)(first_port - start) +
+				 offset * SNAT_PORT_PROBE_STEP) % range));
+}
+
 /* Retain a port if it is in range [start, end], otherwise generate a random one.
  *
  * The randomly generated port will have a slight bias.
@@ -267,6 +282,7 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 	__u32 retries;
 	int ret;
 	__u16 port;
+	__u16 first_port;
 
 	memset(&rstate, 0, sizeof(rstate));
 	memset(ostate, 0, sizeof(*ostate));
@@ -284,6 +300,7 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 	port = __snat_try_keep_port(target->min_port,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
+	first_port = port;
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
@@ -300,10 +317,13 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 		if (__snat_create(map, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
-		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port,
-					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
+		if (retries == 0)
+			first_port = __snat_clamp_port_range(target->min_port,
+							     target->max_port,
+							     (__u16)get_prandom_u32());
+		port = __snat_port_at_attempt(target->min_port,
+					      target->max_port,
+					      first_port, retries);
 	}
 
 	retries_hist = map_lookup_elem(&cilium_snat_v4_alloc_retries, &(__u32){retries});
@@ -1407,6 +1427,7 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	__u32 retries;
 	int ret;
 	__u16 port;
+	__u16 first_port;
 
 	memset(ostate, 0, sizeof(*ostate));
 
@@ -1422,6 +1443,7 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	port = __snat_try_keep_port(target->min_port,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
+	first_port = port;
 
 	ostate->common.needs_ct = needs_ct;
 	rstate->common.needs_ct = needs_ct;
@@ -1436,10 +1458,13 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 		if (__snat_create(&cilium_snat_v6_external, rtuple, rstate, true) == 0)
 			goto create_nat_entry;
 
-		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port,
-					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
+		if (retries == 0)
+			first_port = __snat_clamp_port_range(target->min_port,
+							     target->max_port,
+							     (__u16)get_prandom_u32());
+		port = __snat_port_at_attempt(target->min_port,
+					      target->max_port,
+					      first_port, retries);
 	}
 
 	retries_hist = map_lookup_elem(&cilium_snat_v6_alloc_retries, &(__u32){retries});
