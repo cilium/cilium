@@ -141,6 +141,8 @@ message PrepareCollectionResponse {
                 UNKNOWN = 0;
                 BEFORE = 1;
                 AFTER = 2;
+                FIRST = 3;
+                LAST = 4;
             }
             Order order = 1;
             string plugin = 2;
