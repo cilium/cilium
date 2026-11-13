@@ -65,9 +65,12 @@ cilium-operator-azure hive [flags]
       --enable-ztunnel[=true|false]                                Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https[=true|false]                         Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --excess-ip-release-delay int                                Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
+      --gateway-api-create-gateway-class[=true|false]              Create the default Cilium GatewayClass if it doesn't exist. An existing GatewayClass is never modified.
+      --gateway-api-gateway-class-helm-release string              Helm release (<namespace>/<name>) set as owner of the default GatewayClass created by the operator, so that Helm can adopt it.
       --gateway-api-hostnetwork-enabled[=true|false]               Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string           Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-inference-extension-enabled[=true|false]       Enables the use Gateway API Inference Extension
+      --gateway-api-install-crds[=true|false]                      Install and upgrade the Gateway API standard channel CRDs bundled with Cilium. Externally managed CRDs are never modified. Only applicable if Gateway API support is enabled.
       --gateway-api-secrets-namespace string                       Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gateway-api-service-externaltrafficpolicy string           Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances. (default "Cluster")
       --gateway-api-use-remote-address[=true|false]                Use the immediate client's IP address as the origin client's IP address (default true)

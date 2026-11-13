@@ -140,6 +140,16 @@ func updateV1CRD(
 				scopedLog.Debug("CRD validation is different, updating it...")
 
 				currentCRD.ObjectMeta.Labels = targetCRD.ObjectMeta.Labels
+				// Annotations of the target CRD are merged rather than replaced,
+				// so that annotations set by other tools are retained while
+				// versioning annotations (e.g. Gateway API bundle version) are
+				// kept in sync with the spec.
+				for k, v := range targetCRD.ObjectMeta.Annotations {
+					if currentCRD.ObjectMeta.Annotations == nil {
+						currentCRD.ObjectMeta.Annotations = make(map[string]string, len(targetCRD.ObjectMeta.Annotations))
+					}
+					currentCRD.ObjectMeta.Annotations[k] = v
+				}
 				currentCRD.Spec = targetCRD.Spec
 
 				// Even though v1 CRDs omit this field by default (which also
