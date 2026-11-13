@@ -237,9 +237,10 @@ spec:
         {{- with .Values.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
-        {{- if .Values.cni.install }}
+        {{- $cniPostStartEni := and .Values.cni.iptablesRemoveAWSRules (ne .Values.cni.chainingMode "aws-cni") }}
+        {{- if and .Values.cni.install (or $cniPostStartEni .Values.cni.uninstall) }}
         lifecycle:
-          {{- if and .Values.cni.iptablesRemoveAWSRules (ne .Values.cni.chainingMode "aws-cni") }}
+          {{- if $cniPostStartEni }}
           postStart:
             exec:
               command:
@@ -248,10 +249,13 @@ spec:
               - |
                 {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
           {{- end }}
+          {{- if .Values.cni.uninstall }}
           preStop:
             exec:
               command:
-              - /cni-uninstall.sh
+              - "cilium-dbg"
+              - "cni-uninstall"
+          {{- end }}
         {{- end }}
         {{- with .Values.resources }}
         resources:
