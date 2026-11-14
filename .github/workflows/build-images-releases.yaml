@@ -191,7 +191,7 @@ jobs:
 
           echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          if [ "${{ env.PUSH_TO_DOCKERHUB }}" == "true" ]; then
+          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
             echo "\`${{ env.BACKUP_REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
             echo "\`${{ env.BACKUP_REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}:stable@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           fi

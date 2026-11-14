@@ -12,8 +12,6 @@ on:
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
-  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
-  id-token: write
   # To be able to check if base images were built
   actions: read
 
@@ -22,29 +20,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  wait-for-base-images:
-    name: Wait for lint checks
-    uses: cilium/actions/.github/workflows/wait-for-status-check.yaml@342436e0898719fabc2337b145b91490f33cec2a
-    with:
-      # Only run this job if the event is pull_request_target and if the PR
-      # is not opened from a fork.
-      # This is to avoid waiting for base images on push to main or merge_group
-      # events as the lint-images-base does not run on those events.
-      if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
-      pr-number: ${{ github.event.pull_request.number }}
-      lint-names: 'Lint image build logic'
-      timeout-minutes: 2
-      poll-interval: 15
+  # GH-46482: Lint checks action is broken, skip dependency for now.
+  #wait-for-base-images:
+  #  name: Wait for lint checks
+  #  uses: cilium/actions/.github/workflows/wait-for-status-check.yaml@342436e0898719fabc2337b145b91490f33cec2a
+  #  with:
+  #    # Only run this job if the event is pull_request_target and if the PR
+  #    # is not opened from a fork.
+  #    # This is to avoid waiting for base images on push to main or merge_group
+  #    # events as the lint-images-base does not run on those events.
+  #    if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
+  #    pr-number: ${{ github.event.pull_request.number }}
+  #    lint-names: 'Lint image build logic'
+  #    timeout-minutes: 2
+  #    poll-interval: 15
 
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    permissions:
+      contents: read
+      actions: read
+      # Required by the Quay OIDC token exchange and keyless cosign signing below.
+      id-token: write
     # Also decides the subject of the OIDC token, see the login step below.
     environment:
       name: publish-ci-images
       deployment: false
-    needs: wait-for-base-images
+    # GH-46482: Lint checks action is broken, skip dependency for now.
+    #needs: wait-for-base-images
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
@@ -463,17 +468,19 @@ jobs:
       - name: CI Image Releases digests
         shell: bash
         if: ${{ steps.check.outputs.build != '' }}
+        env:
+          OUTPUT_FOLDER: ${{ runner.temp }}/image-digest
         run: |
-          mkdir -p image-digest/
+          mkdir -p "$OUTPUT_FOLDER"
           if [ -n "${{ steps.tag.outputs.floating_tag }}" ]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest || steps.float-tag.outputs.digest || steps.check-published.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest || steps.float-tag.outputs.digest || steps.check-published.outputs.digest }}" > "$OUTPUT_FOLDER/${{ matrix.name }}.txt"
           fi
-          echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest || steps.check-published.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest || steps.check-published.outputs.digest }}" >> "$OUTPUT_FOLDER/${{ matrix.name }}.txt"
           if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> "$OUTPUT_FOLDER/${{ matrix.name }}.txt"
           fi
           if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> "$OUTPUT_FOLDER/${{ matrix.name }}.txt"
           fi
 
       # Upload artifact digests
@@ -484,7 +491,7 @@ jobs:
         if: ${{ steps.check.outputs.build != '' }}
         with:
           name: image-digest ${{ matrix.name }}
-          path: image-digest
+          path: ${{ runner.temp }}/image-digest
           retention-days: 1
 
       - name: Check for disk usage
