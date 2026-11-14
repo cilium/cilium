@@ -35,8 +35,8 @@ export BUSYBOX_DIGEST?=sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694b
 
 # renovate: datasource=docker
 export CERTGEN_REPO?=quay.io/cilium/certgen
-export CERTGEN_VERSION?=v0.4.13
-export CERTGEN_DIGEST?=sha256:f0c16ea8abe251d448a7fd04bdd93fe0f85fb1c3a456a455e05f7bb107dc2ff1
+export CERTGEN_VERSION?=v0.4.14
+export CERTGEN_DIGEST?=sha256:2f89929b7474b739d5225d69f44bd70d9e28067ff6dc7fdbe0f6407828fb8395
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO?=quay.io/cilium/startup-script
@@ -45,8 +45,8 @@ export CILIUM_NODEINIT_DIGEST?=sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO?=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION?=v1.38.9-1793238621-939e1eb789342f4703a526ed27fc681c917f16c1
-export CILIUM_ENVOY_DIGEST?=sha256:5682651f686fc172c27dc1684e12498aaaf10b55163f91cafe6c83a843bb1995
+export CILIUM_ENVOY_VERSION?=v1.38.9-1794525428-787f14010d2a4ee23e811891f59b40baf56d04cd
+export CILIUM_ENVOY_DIGEST?=sha256:711f7c0b1653b84dec7dc9fc19333abc93a0283474e40e6cb542bfb0d7a2527b
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO?=quay.io/cilium/hubble-ui-backend
