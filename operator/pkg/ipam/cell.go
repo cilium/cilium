@@ -40,7 +40,7 @@ var defaultConfig = Config{
 	LimitIPAMAPIBurst:    20,
 	LimitIPAMAPIQPS:      4.0,
 	IPAMReleaseExcessIPs: false,
-	ExcessIPReleaseDelay: 180,
+	ExcessIPReleaseDelay: 1800,
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {

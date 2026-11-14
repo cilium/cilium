@@ -67,7 +67,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --enable-wireguard[=true|false]                              Enable WireGuard
       --enable-ztunnel[=true|false]                                Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https[=true|false]                         Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
-      --excess-ip-release-delay int                                Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
+      --excess-ip-release-delay int                                Number of seconds operator would wait before it releases an IP previously marked as excess (default 1800)
       --gateway-api-hostnetwork-enabled[=true|false]               Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string           Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-inference-extension-enabled[=true|false]       Enables the use Gateway API Inference Extension
