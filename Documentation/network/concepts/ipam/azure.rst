@@ -379,7 +379,7 @@ When the operator runs with ``--ipam-release-excess-ips`` (Helm value
 ``ipam.operator.releaseExcessIPs``), it releases addresses that the agent
 removes from ``spec.ipam.pools.allocated`` after the delay configured by
 ``--excess-ip-release-delay`` (Helm value ``ipam.operator.excessIPReleaseDelay``,
-default 180 seconds). Addresses the agent adds back within the delay are kept.
+default 1800 seconds). Addresses the agent adds back within the delay are kept.
 An address is released by removing its IP configuration from the network
 interface of a standalone VM, or from the VM model of a VMSS instance. The
 primary IP configuration is never released, including with

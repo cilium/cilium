@@ -529,7 +529,7 @@ IP release (IPv4 only) is driven by the agent removing CIDRs from
 CIDR from ``spec.ipam.pools.allocated``. The operator tracks CIDRs that
 disappear from this field and, after the delay configured by
 ``--excess-ip-release-delay`` (Helm value ``ipam.operator.excessIPReleaseDelay``,
-default 180 seconds) has elapsed, releases the corresponding resources from AWS:
+default 1800 seconds) has elapsed, releases the corresponding resources from AWS:
 
 * A host-prefix CIDR (a single secondary IP) is released with
   ``UnassignPrivateIpAddresses``.
