@@ -12,9 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/option"
+	qosConfig "github.com/cilium/cilium/pkg/qos/config"
 )
 
 type fakeK8sWatcherConfiguration struct{}
@@ -77,6 +79,19 @@ func TestGetGroupsForCiliumResources(t *testing.T) {
 	option.Config.EnableK8sClusterNetworkPolicy = true
 
 	logger := hivetest.Logger(t)
-	_, waitOnlyList := GetGroupsForCiliumResources(logger, synced.AgentCRDResourceNames(bgpConfig.DefaultConfig))
+	_, waitOnlyList := GetGroupsForCiliumResources(logger, synced.AgentCRDResourceNames(bgpConfig.DefaultConfig, qosConfig.DefaultConfig))
 	require.Contains(t, waitOnlyList, k8sAPIGroupPolicyNetworkingV1Alpha2)
+}
+
+func TestGetGroupsForCiliumResourcesWithQoS(t *testing.T) {
+	qosCfg := qosConfig.Config{EnableQoS: true}
+	resources := synced.AgentCRDResourceNames(bgpConfig.DefaultConfig, qosCfg)
+	require.Contains(t, resources, synced.CRDResourceName(v2alpha1.CQPName))
+
+	// Every resource the agent waits for must be known to the watcher,
+	// otherwise the agent fails to start.
+	logger := hivetest.Logger(t)
+	groups, waitOnlyList := GetGroupsForCiliumResources(logger, resources)
+	require.NotContains(t, groups, "")
+	require.NotContains(t, waitOnlyList, "")
 }
