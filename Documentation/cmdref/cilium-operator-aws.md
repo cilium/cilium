@@ -70,6 +70,7 @@ cilium-operator-aws [flags]
       --enable-node-selector-labels[=true|false]                   Enable use of node label based identity
       --enable-policy string                                       Enable policy enforcement (default "default")
       --enable-policy-secrets-sync[=true|false]                    Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-qos[=true|false]                                    Enable the QoS API and the CiliumQoSMechanism, CiliumQoSClass and CiliumQoSPolicy CRDs
       --enable-wireguard[=true|false]                              Enable WireGuard
       --enable-ztunnel[=true|false]                                Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https[=true|false]                         Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
