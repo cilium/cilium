@@ -22,5 +22,8 @@
 - CiliumNode
 - CiliumNodeConfig
 - CiliumPodIPPool
+- CiliumQoSClass
+- CiliumQoSMechanism
+- CiliumQoSPolicy
 - CiliumResourceIPPool
 - CiliumResourceNetworkConfig

@@ -953,6 +953,9 @@ const (
 
 	// EnableDatapathPlugins is the name of the option to enable datapath plugins.
 	EnableDatapathPlugins = "enable-datapath-plugins"
+
+	// EnableQoS is the name of the option to enable the QoS API.
+	EnableQoS = "enable-qos"
 )
 
 // Default string arguments
@@ -1805,6 +1808,9 @@ type DaemonConfig struct {
 
 	// Enables datapath plugins features.
 	EnableDatapathPlugins bool
+
+	// EnableQoS enables the QoS API and its CRDs.
+	EnableQoS bool
 }
 
 // Config represents the daemon configuration
@@ -1866,6 +1872,8 @@ var Config = &DaemonConfig{
 	PolicyAccounting: defaults.PolicyAccounting,
 
 	EnableDatapathPlugins: defaults.EnableDatapathPlugins,
+
+	EnableQoS: defaults.EnableQoS,
 }
 
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
@@ -2807,6 +2815,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// Enable datapath plugins.
 	c.EnableDatapathPlugins = vp.GetBool(EnableDatapathPlugins)
+
+	// Enable the QoS API.
+	c.EnableQoS = vp.GetBool(EnableQoS)
 }
 
 func (c *DaemonConfig) PopulateEnableCiliumNodeCRD(logger *slog.Logger, vp *viper.Viper) {

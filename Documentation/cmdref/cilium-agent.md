@@ -185,6 +185,7 @@ cilium-agent [flags]
       --enable-pmtu-discovery[=true|false]                                   Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                                 Enable policy enforcement (default "default")
       --enable-policy-secrets-sync[=true|false]                              Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
+      --enable-qos[=true|false]                                              Enable the QoS API and the CiliumQoSMechanism, CiliumQoSClass and CiliumQoSPolicy CRDs
       --enable-remote-node-masquerade[=true|false]                           Masquerade packets from endpoints leaving the host destined to a remote node's ExternalIP when using BPF masquerading mode (default true)
       --enable-route-mtu-for-cni-chaining[=true|false]                       Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp[=true|false]                                             Enable SCTP support (beta)

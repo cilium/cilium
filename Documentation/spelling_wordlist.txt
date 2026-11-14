@@ -116,6 +116,7 @@ Polytechnique
 Portworx
 QCon
 QLogic
+QoS
 RuleParser
 SRv
 Sharma
