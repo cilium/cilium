@@ -1926,6 +1926,11 @@ Both of these features work by setting ``hints`` on EndpointSlices that enable
 Cilium to route to endpoints residing in the same zone. To enable the feature,
 set ``loadBalancer.serviceTopology=true``.
 
+With ``trafficDistribution: PreferSameNode``, Cilium prefers endpoints on the
+local node. If there are none, it falls back to endpoints in the same zone and
+then to all endpoints, as described in `KEP-3015
+<https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/3015-prefer-same-node>`__.
+
 Neighbor Discovery
 ******************
 
