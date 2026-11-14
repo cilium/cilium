@@ -128,6 +128,11 @@ type BPFOps struct {
 
 	serviceIDAlloc     idAllocator[loadbalancer.ServiceID]
 	restoredServiceIDs map[loadbalancer.L3n4Addr]loadbalancer.ServiceID
+
+	// renumberedServiceIDs is the old ID of the restored frontends that do not keep it,
+	// until their socket-LB entries are migrated to the new one.
+	renumberedServiceIDs map[loadbalancer.L3n4Addr]loadbalancer.ServiceID
+
 	backendIDAlloc     idAllocator[loadbalancer.BackendID]
 	restoredBackendIDs map[loadbalancer.L3n4Addr]loadbalancer.BackendID
 
@@ -290,6 +295,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 		newIDAllocatorMetrics(ops.metrics, idAllocTypeService),
 	)
 	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
+	ops.renumberedServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
 	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 
 	ops.backendIDAlloc = newIDAllocator(
@@ -375,6 +381,8 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 			alias := loadbalancer.NewL3n4Addr(proto, addr.AddrCluster(), addr.Port(), addr.Scope())
 			if keep {
 				ops.restoredServiceIDs[alias] = id
+			} else {
+				ops.renumberedServiceIDs[alias] = id
 			}
 			if id != 0 {
 				ops.serviceIDAlloc.reserveID(alias, id)
@@ -404,6 +412,86 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	return nil
 }
 
+// migrateSockRevNat rewrites the socket-LB entries of a renumbered frontend, which have its
+// old ID, with the new one. The datapath deletes an entry whose ID is not the one of the
+// service, so the sockets that connected before the restart would lose the reverse
+// translation. It runs once the master service entry is written, and never fails the update:
+// the frontend is correct, only its old sockets are affected.
+//
+// The entries of a frontend with the zero address, like a NodePort, have the address the
+// socket connected to, such as a loopback or remote node address. They are the ones with
+// its port, except the ones of the frontends that keep the old ID, or are renumbered
+// themselves and migrate theirs. Socket-LB uses the internal scope of a service with two
+// scopes, so the external one leaves the entries to it.
+//
+// Known limits: the datapath can delete an entry between the master entry write and the
+// rewrite, and write one meanwhile that the rewrite overwrites. A rewrite can re-create the
+// entry of a socket that closed after the dump. A failed dump is not retried. The first
+// frontend updated takes the entries of the same IP and port in other protocols.
+func (ops *BPFOps) migrateSockRevNat(addr loadbalancer.L3n4Addr, newID loadbalancer.ServiceID, flags loadbalancer.ServiceFlags) {
+	oldID, found := ops.renumberedServiceIDs[addr]
+	if !found {
+		return
+	}
+	delete(ops.renumberedServiceIDs, addr)
+	if flags.IsTwoScopes() && addr.Scope() == loadbalancer.ScopeExternal {
+		return
+	}
+
+	wildcard := addr.Addr().IsUnspecified()
+	others := set.NewSet[netip.AddrPort]()
+	if wildcard {
+		for restored, id := range ops.restoredServiceIDs {
+			if id == oldID {
+				others.Insert(frontendOf(restored))
+			}
+		}
+		for renumbered := range ops.renumberedServiceIDs {
+			others.Insert(frontendOf(renumbered))
+		}
+		ops.serviceIDAlloc.claimedOwnerMatches(oldID, func(owner loadbalancer.L3n4Addr) bool {
+			others.Insert(frontendOf(owner))
+			return false
+		})
+	}
+
+	// The entries are not written while iterating the map.
+	var entries []maps.SockRevNatEntry
+	err := ops.LBMaps.DumpSockRevNat(addr.IsIPv6(), func(e maps.SockRevNatEntry) {
+		if e.RevNatIndex == uint16(oldID) && (e.Frontend == frontendOf(addr) ||
+			wildcard && e.Frontend.Port() == addr.Port() && !others.Has(e.Frontend)) {
+			entries = append(entries, e)
+		}
+	})
+	if err != nil {
+		// This is logged once for each frontend. It is not rate limited to not hide any.
+		ops.log.log.Warn("Failed to dump socket reverse NAT entries",
+			logfields.Frontend, addr,
+			logfields.Previous, oldID,
+			logfields.Error, err)
+	}
+	failed := 0
+	var firstErr error
+	for _, e := range entries {
+		e.RevNatIndex = uint16(newID)
+		if updateErr := ops.LBMaps.UpdateSockRevNat(e); updateErr != nil {
+			failed++
+			if firstErr == nil {
+				firstErr = updateErr
+			}
+		}
+	}
+	if failed > 0 {
+		ops.log.log.Warn("Failed to migrate socket reverse NAT entries",
+			logfields.Frontend, addr,
+			logfields.Previous, oldID,
+			logfields.ID, newID,
+			logfields.Failed, failed,
+			logfields.Total, len(entries),
+			logfields.Error, firstErr)
+	}
+}
+
 // restoredServiceID is a service ID of an IP family. The reverse NAT map is separate for
 // IPv4 and IPv6, and so is the ID.
 type restoredServiceID struct {
@@ -424,8 +512,9 @@ func frontendOf(addr loadbalancer.L3n4Addr) netip.AddrPort {
 // 'ANY' service and the scopes of an address share an ID, and the wildcard entries have
 // none (0). Nothing is written to the maps, the returned services get a new ID when they
 // are updated. The connections that were established before keep the old ID in their
-// conntrack entries, and the existing sockets of socket-LB lose their reverse translation
-// until they reconnect.
+// conntrack entries. The existing sockets of socket-LB are migrated with the update, those
+// of a frontend that is never updated, or whose migration fails, lose their reverse
+// translation until they reconnect.
 func (ops *BPFOps) findRenumberedFrontends(serviceSlots map[loadbalancer.L3n4Addr][]maps.ServiceValue) (set.Set[loadbalancer.L3n4Addr], error) {
 	owners := map[restoredServiceID][]loadbalancer.L3n4Addr{}
 	for addr, slots := range serviceSlots {
@@ -591,6 +680,7 @@ func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, b
 }
 
 func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
+	delete(ops.renumberedServiceIDs, fe.Address)
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
 		ops.log.Debug("Delete frontend: no ID found", logfields.Address, fe.Address)
@@ -1506,6 +1596,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
+	ops.migrateSockRevNat(fe.Address, feID, masterFlags)
 
 	// Upsert wildcard entries such that the data path will have a service entry for any
 	// traffic for an unknown protocol/port combination.

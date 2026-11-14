@@ -179,8 +179,16 @@ type faultyLBMaps struct {
 	failDeleteAffinity      bool
 	failDumpAffinity        bool
 	failDumpService         bool
+	failDumpSockRevNat      bool
 	failUpdateBackend       bool
 	shouldFailUpdateService func(maps.ServiceKey) bool
+}
+
+func (m *faultyLBMaps) DumpSockRevNat(ipv6 bool, cb func(maps.SockRevNatEntry)) error {
+	if m.failDumpSockRevNat {
+		return errors.New("dump socket reverse nat failed")
+	}
+	return m.LBMaps.DumpSockRevNat(ipv6, cb)
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {

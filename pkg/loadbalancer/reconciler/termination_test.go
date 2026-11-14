@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
+
 package reconciler
 
 import (
@@ -472,7 +473,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	sd, err := sockets.NewSocketDestroyer(log, nil, nil)
 	require.NoError(t, err)
 
-	lbmap.UpdateSockRevNat(uint64(cookie), netip.MustParseAddr("127.0.0.1"), 30000, 0)
+	updateSockRevNat(t, lbmap, uint64(cookie), 30000)
 
 	ip, err := netip.ParseAddr("127.0.0.1")
 	require.NoError(t, err)
@@ -514,7 +515,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		return nil
 	}))
 	cookie3 := getCookie(ns3, 30001)
-	lbmap.UpdateSockRevNat(uint64(cookie3), netip.MustParseAddr("127.0.0.1"), 30001, 0)
+	updateSockRevNat(t, lbmap, uint64(cookie3), 30001)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
 	params.ExtConfig.BPFSocketLBHostnsOnly = true
 	terminateConnectionsToBackend(params, sd, l4a)
@@ -524,7 +525,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	// 	so this one should close.
 	conn3, err = net.Dial("udp", "127.0.0.1:30004")
 	assert.NoError(t, err)
-	lbmap.UpdateSockRevNat(uint64(getCookie(nil, 30004)), netip.MustParseAddr("127.0.0.1"), 30004, 0)
+	updateSockRevNat(t, lbmap, uint64(getCookie(nil, 30004)), 30004)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30004, 0)
 	terminateConnectionsToBackend(params, sd, l4a)
 	assertForceClose(true, conn3)
@@ -537,7 +538,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		return nil
 	}))
 	cookie3 = getCookie(ns3, 30003)
-	lbmap.UpdateSockRevNat(uint64(cookie3), netip.MustParseAddr("127.0.0.1"), 30003, 0)
+	updateSockRevNat(t, lbmap, uint64(cookie3), 30003)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30003, 0)
 
 	params.ExtConfig.BPFSocketLBHostnsOnly = false
@@ -619,4 +620,11 @@ func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
 
 	b.ReportMetric(float64(b.N*numBackends)/b.Elapsed().Seconds(), "backends/sec")
 	b.ReportMetric(float64(b.Elapsed())/float64(b.N*numBackends), "ns/backend")
+}
+
+// updateSockRevNat adds a socket-LB entry whose frontend is its backend.
+func updateSockRevNat(t testing.TB, m lbmaps.LBMaps, cookie uint64, port uint16) {
+	t.Helper()
+	addr := netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port)
+	require.NoError(t, m.UpdateSockRevNat(lbmaps.SockRevNatEntry{Cookie: cookie, Backend: addr, Frontend: addr}))
 }

@@ -313,6 +313,11 @@ func (s ServiceFlags) SVCType() SVCType {
 	}
 }
 
+// IsTwoScopes returns true if the service has an external and an internal scope entry.
+func (s ServiceFlags) IsTwoScopes() bool {
+	return s&serviceFlagTwoScopes != 0
+}
+
 func (s ServiceFlags) IsL7LB() bool {
 	return s&serviceFlagL7LoadBalancer != 0
 }

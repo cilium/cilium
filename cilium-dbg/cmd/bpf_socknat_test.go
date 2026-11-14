@@ -17,11 +17,11 @@ func TestDumpReverseSKEntries(t *testing.T) {
 	t.Log("Created empty FakeLBMaps")
 
 	// Add one IPv4 and one IPv6 entry to test both address families
-	err := mockMap.UpdateSockRevNat(1234, netip.MustParseAddr("10.0.2.100"), 80, 1) // IPv4
+	err := mockMap.UpdateSockRevNat(sockRevNatTestEntry(1234, "10.0.2.100:80", 1)) // IPv4
 	if err != nil {
 		t.Fatalf("Failed to add IPv4 entry: %v", err)
 	}
-	err = mockMap.UpdateSockRevNat(2345, netip.MustParseAddr("2001:db8::1"), 443, 2) // IPv6
+	err = mockMap.UpdateSockRevNat(sockRevNatTestEntry(2345, "[2001:db8::1]:443", 2)) // IPv6
 	if err != nil {
 		t.Fatalf("Failed to add IPv6 entry: %v", err)
 	}
@@ -46,4 +46,10 @@ func TestDumpReverseSKEntries(t *testing.T) {
 			t.Error("Expected non-existent entry to not exist")
 		}
 	})
+}
+
+// sockRevNatTestEntry returns a socket-LB entry whose frontend is its backend.
+func sockRevNatTestEntry(cookie uint64, addr string, revNatIndex uint16) lbmap.SockRevNatEntry {
+	ap := netip.MustParseAddrPort(addr)
+	return lbmap.SockRevNatEntry{Cookie: cookie, Backend: ap, Frontend: ap, RevNatIndex: revNatIndex}
 }
