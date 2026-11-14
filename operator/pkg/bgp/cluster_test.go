@@ -1260,7 +1260,7 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 		})
 	}
 
-	// Setup resourses with status
+	// Setup resources with status
 	req.NoError(upsertBGPCC(ctx, f, clusterConfig))
 
 	// Wait for status to be cleared
