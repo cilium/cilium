@@ -24,6 +24,9 @@ type CiliumV2alpha1Interface interface {
 	CiliumNetworkDriverClusterConfigsGetter
 	CiliumNetworkDriverNodeConfigsGetter
 	CiliumPodIPPoolsGetter
+	CiliumQoSClassesGetter
+	CiliumQoSMechanismsGetter
+	CiliumQoSPoliciesGetter
 	CiliumResourceIPPoolsGetter
 	CiliumResourceNetworkConfigsGetter
 }
@@ -67,6 +70,18 @@ func (c *CiliumV2alpha1Client) CiliumNetworkDriverNodeConfigs() CiliumNetworkDri
 
 func (c *CiliumV2alpha1Client) CiliumPodIPPools() CiliumPodIPPoolInterface {
 	return newCiliumPodIPPools(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumQoSClasses() CiliumQoSClassInterface {
+	return newCiliumQoSClasses(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumQoSMechanisms() CiliumQoSMechanismInterface {
+	return newCiliumQoSMechanisms(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumQoSPolicies(namespace string) CiliumQoSPolicyInterface {
+	return newCiliumQoSPolicies(c, namespace)
 }
 
 func (c *CiliumV2alpha1Client) CiliumResourceIPPools() CiliumResourceIPPoolInterface {
