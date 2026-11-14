@@ -233,6 +233,7 @@ func TestNeighborReconciler_StaticPeer(t *testing.T) {
 					logger:      params.Logger,
 					SecretStore: params.SecretStore,
 					PeerConfig:  params.PeerConfig,
+					BGPConfig:   params.BGPConfig,
 					metadata:    make(map[string]NeighborReconcilerMetadata),
 				},
 			}.Reconciler
