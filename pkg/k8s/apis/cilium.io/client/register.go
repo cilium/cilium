@@ -102,6 +102,14 @@ const (
 
 	// CRNCCRDName is the full name of the CiliumResourceNetworkConfig CRD.
 	CRNCCRDName = k8sconstv2alpha1.CRNCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+	// CQMCRDName is the full name of the CiliumQoSMechanism CRD.
+	CQMCRDName = k8sconstv2alpha1.CQMKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CQCCRDName is the full name of the CiliumQoSClass CRD.
+	CQCCRDName = k8sconstv2alpha1.CQCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CQPCRDName is the full name of the CiliumQoSPolicy CRD.
+	CQPCRDName = k8sconstv2alpha1.CQPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -215,6 +223,18 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv2alpha1.CRNCName): {
 			Name:     CRNCCRDName,
 			FullName: k8sconstv2alpha1.CRNCName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CQMName): {
+			Name:     CQMCRDName,
+			FullName: k8sconstv2alpha1.CQMName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CQCName): {
+			Name:     CQCCRDName,
+			FullName: k8sconstv2alpha1.CQCName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CQPName): {
+			Name:     CQPCRDName,
+			FullName: k8sconstv2alpha1.CQPName,
 		},
 	}
 }
@@ -341,6 +361,14 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumresourcenetworkconfigs.yaml
 	crdsv2Alpha1CiliumResourceNetworkConfigs []byte
+	//go:embed crds/v2alpha1/ciliumqosmechanisms.yaml
+	crdsv2Alpha1CiliumQoSMechanisms []byte
+
+	//go:embed crds/v2alpha1/ciliumqosclasses.yaml
+	crdsv2Alpha1CiliumQoSClasses []byte
+
+	//go:embed crds/v2alpha1/ciliumqospolicies.yaml
+	crdsv2Alpha1CiliumQoSPolicies []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -407,6 +435,12 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Alpha1CiliumResourceIPPools
 	case CRNCCRDName:
 		crdBytes = crdsv2Alpha1CiliumResourceNetworkConfigs
+	case CQMCRDName:
+		crdBytes = crdsv2Alpha1CiliumQoSMechanisms
+	case CQCCRDName:
+		crdBytes = crdsv2Alpha1CiliumQoSClasses
+	case CQPCRDName:
+		crdBytes = crdsv2Alpha1CiliumQoSPolicies
 	default:
 		logging.Fatal(logger, "Pregenerated CRD does not exist", logfields.CRDName, crdName)
 	}
