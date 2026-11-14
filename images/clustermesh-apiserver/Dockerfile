@@ -5,7 +5,7 @@
 
 # distroless images are signed by cosign and can be verified using:
 # $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
-ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 # These SHA256 digests are important for two reasons:
 # 1. They 'pin' the container image to a specific version. Unlike a tag that can be changed at any future point, a
 #    SHA265 hash cannot be modified. This increases the security of the build by protecting against a class of supply

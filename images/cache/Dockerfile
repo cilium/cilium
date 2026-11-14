@@ -3,7 +3,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG ALPINE_IMAGE=docker.io/library/alpine:3.23.7@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63
+ARG ALPINE_IMAGE=docker.io/library/alpine:3.23.8@sha256:469c9ea410b9215eaee7976ba6c0639039b444be8e5d638f7abbada189971eb2
 
 FROM ${ALPINE_IMAGE} AS import-cache
 
