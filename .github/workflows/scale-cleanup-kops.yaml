@@ -24,7 +24,7 @@ concurrency:
 
 env:
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 592.0.0
+  gcloud_version: 593.0.0
 
 jobs:
   cleanup-kops-clusters:
@@ -42,7 +42,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@529d919e01deb35642ba5c6ecdcbf2e2311cd3de # main
+        uses: cilium/scale-tests-action/install-kops@da97301b3cf2f913d476eca7a13a260f72856fa2 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@12060449e87204eca501a11f2f7f1483024afff0 # v3.0.0 + google-github-actions/auth#532
