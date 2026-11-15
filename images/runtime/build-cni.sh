@@ -9,7 +9,7 @@ set -o pipefail
 set -o nounset
 
 # renovate: datasource=github-releases depName=containernetworking/plugins
-cni_version="v1.9.1"
+cni_version="v1.10.0"
 
 mkdir -p /go/src/github.com/containernetworking
 cd /go/src/github.com/containernetworking
