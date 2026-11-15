@@ -19,7 +19,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"

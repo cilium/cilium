@@ -10,7 +10,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )

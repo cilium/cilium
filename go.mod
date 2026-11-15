@@ -111,7 +111,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.28.0
-	go.yaml.in/yaml/v3 v3.0.6
+	go.yaml.in/yaml/v4 v4.0.0
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb
 	golang.org/x/crypto v0.59.0
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e
@@ -308,6 +308,7 @@ require (
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/telemetry v0.0.0-20261009151841-97e8ea77aa2a // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
