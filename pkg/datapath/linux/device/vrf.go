@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/vishvananda/netlink"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 type DesiredVRFDeviceSpec struct {

@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
