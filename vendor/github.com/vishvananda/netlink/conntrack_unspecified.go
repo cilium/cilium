@@ -24,6 +24,12 @@ func ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*Conntra
 	return nil, ErrNotImplemented
 }
 
+// ConntrackTableListByZone returns the flow list of the conntrack table for a
+// specific zone.
+func ConntrackTableListByZone(table ConntrackTableType, zone uint16) ([]*ConntrackFlow, error) {
+	return nil, ErrNotImplemented
+}
+
 // ConntrackTableFlush flushes all the flows of a specified table
 // conntrack -F [table]            Flush table
 // The flush operation applies to all the family types
@@ -48,6 +54,12 @@ func ConntrackDeleteFilters(table ConntrackTableType, family InetFamily, filters
 // ConntrackTableList returns the flow list of a table of a specific family using the netlink handle passed
 // conntrack -L [table] [options]          List conntrack or expectation table
 func (h *Handle) ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*ConntrackFlow, error) {
+	return nil, ErrNotImplemented
+}
+
+// ConntrackTableListByZone returns the flow list of the conntrack table for a
+// specific zone using the netlink handle passed.
+func (h *Handle) ConntrackTableListByZone(table ConntrackTableType, zone uint16) ([]*ConntrackFlow, error) {
 	return nil, ErrNotImplemented
 }
 

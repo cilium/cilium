@@ -52,6 +52,15 @@ func ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*Conntra
 	return pkgHandle().ConntrackTableList(table, family)
 }
 
+// ConntrackTableListByZone returns the flow list of the conntrack table for a
+// specific zone. Zone filtering is only supported for [ConntrackTable].
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
+func ConntrackTableListByZone(table ConntrackTableType, zone uint16) ([]*ConntrackFlow, error) {
+	return pkgHandle().ConntrackTableListByZone(table, zone)
+}
+
 // ConntrackTableFlush flushes all the flows of a specified table
 // conntrack -F [table]            Flush table
 // The flush operation applies to all the family types
@@ -98,6 +107,35 @@ func ConntrackDeleteFilters(table ConntrackTableType, family InetFamily, filters
 // or incomplete.
 func (h *Handle) ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*ConntrackFlow, error) {
 	res, executeErr := h.dumpConntrackTable(table, family)
+	return parseConntrackTableList(res, executeErr)
+}
+
+// ConntrackTableListByZone returns the flow list of the conntrack table for a
+// specific zone using the netlink handle passed. Zone filtering is only
+// supported for [ConntrackTable].
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
+func (h *Handle) ConntrackTableListByZone(table ConntrackTableType, zone uint16) ([]*ConntrackFlow, error) {
+	res, executeErr := h.dumpConntrackTableByZone(table, zone)
+	flows, err := parseConntrackTableList(res, executeErr)
+
+	// Kernel-side filtering of conntrack dumps by CTA_ZONE was added in Linux
+	// 6.8. Older kernels accept the attribute but ignore it and return the
+	// full table. Filter the response in userspace as a compatibility
+	// fallback. On newer kernels this only rechecks the already filtered result.
+	// https://github.com/torvalds/linux/commit/eff3c558bb7e61c41b53e4c8130e514a5a4df9ba
+	var filtered []*ConntrackFlow
+	for _, flow := range flows {
+		if flow.zoneID() == zone {
+			filtered = append(filtered, flow)
+		}
+	}
+
+	return filtered, err
+}
+
+func parseConntrackTableList(res [][]byte, executeErr error) ([]*ConntrackFlow, error) {
 	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
 		return nil, executeErr
 	}
@@ -236,6 +274,24 @@ func (h *Handle) dumpConntrackTable(table ConntrackTableType, family InetFamily)
 	return req.Execute(unix.NETLINK_NETFILTER, 0)
 }
 
+func (h *Handle) dumpConntrackTableByZone(table ConntrackTableType, zone uint16) ([][]byte, error) {
+	if table != ConntrackTable {
+		return nil, fmt.Errorf("conntrack zone filtering is unsupported for table type %d", table)
+	}
+
+	req := h.newConntrackRequest(table, unix.AF_UNSPEC, nl.IPCTNL_MSG_CT_GET, unix.NLM_F_DUMP)
+	req.AddData(nl.NewRtAttr(nl.CTA_ZONE, nl.BEUint16Attr(zone)))
+
+	res, err := req.Execute(unix.NETLINK_NETFILTER, 0)
+	// Kernels built without CONFIG_NF_CONNTRACK_ZONES reject CTA_ZONE in dump
+	// requests. Every flow is in zone 0 there, so fall back to a full dump and
+	// rely on the userspace filter.
+	if errors.Is(err, unix.EOPNOTSUPP) {
+		return h.dumpConntrackTable(table, unix.AF_UNSPEC)
+	}
+	return res, err
+}
+
 // ProtoInfo wraps an L4-protocol structure - roughly corresponds to the
 // __nfct_protoinfo union found in libnetfilter_conntrack/include/internal/object.h.
 // Currently, only protocol names, and TCP state is supported.
@@ -285,6 +341,9 @@ type IPTuple struct {
 	Protocol uint8
 	SrcIP    net.IP
 	SrcPort  uint16
+	// Zone is the conntrack zone of this direction only. It is set instead
+	// of [ConntrackFlow.Zone] when the zone does not apply to both directions.
+	Zone uint16
 }
 
 // toNlData generates the inner fields of a nested tuple netlink datastructure
@@ -315,7 +374,11 @@ func (t *IPTuple) toNlData(family uint8) ([]*nl.RtAttr, error) {
 	ctTupleProtoDstPort := nl.NewRtAttr(nl.CTA_PROTO_DST_PORT, nl.BEUint16Attr(t.DstPort))
 	ctTupleProto.AddChild(ctTupleProtoDstPort)
 
-	return []*nl.RtAttr{ctTupleIP, ctTupleProto}, nil
+	attrs := []*nl.RtAttr{ctTupleIP, ctTupleProto}
+	if t.Zone != 0 {
+		attrs = append(attrs, nl.NewRtAttr(nl.CTA_TUPLE_ZONE, nl.BEUint16Attr(t.Zone)))
+	}
+	return attrs, nil
 }
 
 const (
@@ -349,6 +412,19 @@ type ConntrackFlow struct {
 	Status     uint32
 	Labels     []byte
 	ProtoInfo  ProtoInfo
+}
+
+// zoneID returns the zone of the flow regardless of the direction it applies
+// to. A flow has a single zone, set either for both directions or for one.
+func (s *ConntrackFlow) zoneID() uint16 {
+	switch {
+	case s.Zone != 0:
+		return s.Zone
+	case s.Forward.Zone != 0:
+		return s.Forward.Zone
+	default:
+		return s.Reverse.Zone
+	}
 }
 
 func (s *ConntrackFlow) statusStrings() (s1, s2 string) {
@@ -717,6 +793,25 @@ func parseConnectionZone(r *bytes.Reader) (zone uint16) {
 	return
 }
 
+func readerOffset(r *bytes.Reader) int64 {
+	return r.Size() - int64(r.Len())
+}
+
+// parseTupleZone parses the attributes left in a CTA_TUPLE_ORIG or
+// CTA_TUPLE_REPLY nest ending at offset end. The kernel puts CTA_TUPLE_ZONE
+// there when the zone applies to that direction only.
+func parseTupleZone(r *bytes.Reader, end int64) (zone uint16) {
+	for r.Len() > 0 && readerOffset(r) < end {
+		_, t, l := parseNfAttrTL(r)
+		if t == nl.CTA_TUPLE_ZONE {
+			zone = parseConnectionZone(r)
+		} else {
+			skipNfAttrValue(r, l)
+		}
+	}
+	return zone
+}
+
 func parseRawData(data []byte) *ConntrackFlow {
 	s := &ConntrackFlow{}
 	// First there is the Nfgenmsg header
@@ -737,16 +832,20 @@ func parseRawData(data []byte) *ConntrackFlow {
 		if nested, t, l := parseNfAttrTL(reader); nested {
 			switch t {
 			case nl.CTA_TUPLE_ORIG:
+				end := readerOffset(reader) + int64(l)
 				if nested, t, l = parseNfAttrTL(reader); nested && t == nl.CTA_TUPLE_IP {
 					parseIpTuple(reader, &s.Forward)
 				}
+				s.Forward.Zone = parseTupleZone(reader, end)
 			case nl.CTA_TUPLE_REPLY:
+				end := readerOffset(reader) + int64(l)
 				if nested, t, l = parseNfAttrTL(reader); nested && t == nl.CTA_TUPLE_IP {
 					parseIpTuple(reader, &s.Reverse)
 				} else {
 					// Header not recognized skip it
 					skipNfAttrValue(reader, l)
 				}
+				s.Reverse.Zone = parseTupleZone(reader, end)
 			case nl.CTA_COUNTERS_ORIG:
 				s.Forward.Bytes, s.Forward.Packets = parseByteAndPacketCounters(reader)
 			case nl.CTA_COUNTERS_REPLY:
