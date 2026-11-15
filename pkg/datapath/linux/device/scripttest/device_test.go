@@ -12,7 +12,7 @@ import (
 	"os"
 	"testing"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"

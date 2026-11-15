@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
