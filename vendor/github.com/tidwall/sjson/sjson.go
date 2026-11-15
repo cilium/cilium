@@ -2,13 +2,18 @@
 package sjson
 
 import (
-	jsongo "encoding/json"
+	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"unsafe"
 
+	jsongo "encoding/json"
+
 	"github.com/tidwall/gjson"
 )
+
+const maxpad = 100000 // max array padding
 
 type errorType struct {
 	msg string
@@ -132,9 +137,19 @@ func appendStringify(buf []byte, s string) []byte {
 	return buf
 }
 
+func makePadError(key string, nels int) error {
+	return &errorType{
+		fmt.Sprintf("cannot pad array for key '%s', has %d elements, "+
+			"limit is %d", key, nels, maxpad),
+	}
+
+}
+
 // appendBuild builds a json block from a json path.
 func appendBuild(buf []byte, array bool, paths []pathResult, raw string,
-	stringify bool) []byte {
+	stringify bool,
+) ([]byte, error) {
+	var err error
 	if !array {
 		buf = appendStringify(buf, paths[0].part)
 		buf = append(buf, ':')
@@ -143,12 +158,21 @@ func appendBuild(buf []byte, array bool, paths []pathResult, raw string,
 		n, numeric := atoui(paths[1])
 		if numeric || (!paths[1].force && paths[1].part == "-1") {
 			buf = append(buf, '[')
+			if n > maxpad {
+				return nil, makePadError(paths[1].part, 0)
+			}
 			buf = appendRepeat(buf, "null,", n)
-			buf = appendBuild(buf, true, paths[1:], raw, stringify)
+			buf, err = appendBuild(buf, true, paths[1:], raw, stringify)
+			if err != nil {
+				return nil, err
+			}
 			buf = append(buf, ']')
 		} else {
 			buf = append(buf, '{')
-			buf = appendBuild(buf, false, paths[1:], raw, stringify)
+			buf, err = appendBuild(buf, false, paths[1:], raw, stringify)
+			if err != nil {
+				return nil, err
+			}
 			buf = append(buf, '}')
 		}
 	} else {
@@ -158,13 +182,17 @@ func appendBuild(buf []byte, array bool, paths []pathResult, raw string,
 			buf = append(buf, raw...)
 		}
 	}
-	return buf
+	return buf, nil
 }
 
 // atoui does a rip conversion of string -> unigned int.
 func atoui(r pathResult) (n int, ok bool) {
 	if r.force {
 		return 0, false
+	}
+	if len(r.part) > 8 {
+		n, err := strconv.ParseUint(r.part, 10, 64)
+		return int(n), err == nil && n <= math.MaxInt
 	}
 	for i := 0; i < len(r.part); i++ {
 		if r.part[i] < '0' || r.part[i] > '9' {
@@ -253,7 +281,8 @@ func appendRawPaths(buf []byte, jstr string, paths []pathResult, raw string,
 	var res gjson.Result
 	var found bool
 	if del {
-		if paths[0].part == "-1" && !paths[0].force {
+		if paths[0].part == "-1" && !paths[0].force &&
+			gjson.Parse(jstr).IsArray() {
 			res = gjson.Get(jstr, "#")
 			if res.Int() > 0 {
 				res = gjson.Get(jstr, strconv.FormatInt(int64(res.Int()-1), 10))
@@ -354,7 +383,10 @@ func appendRawPaths(buf []byte, jstr string, paths []pathResult, raw string,
 		if comma {
 			buf = append(buf, ',')
 		}
-		buf = appendBuild(buf, false, paths, raw, stringify)
+		buf, err = appendBuild(buf, false, paths, raw, stringify)
+		if err != nil {
+			return nil, err
+		}
 		buf = append(buf, '}')
 		return buf, nil
 	case '[':
@@ -378,7 +410,10 @@ func appendRawPaths(buf []byte, jstr string, paths []pathResult, raw string,
 				buf = append(buf, ',')
 			}
 
-			buf = appendBuild(buf, true, paths, raw, stringify)
+			buf, err = appendBuild(buf, true, paths, raw, stringify)
+			if err != nil {
+				return nil, err
+			}
 			buf = append(buf, ']')
 			return buf, nil
 		}
@@ -390,15 +425,22 @@ func appendRawPaths(buf []byte, jstr string, paths []pathResult, raw string,
 			}
 			buf = append(buf, ress[i].Raw...)
 		}
+		grow := n - len(ress)
+		if grow > maxpad {
+			return nil, makePadError(paths[0].part, len(ress))
+		}
 		if len(ress) == 0 {
-			buf = appendRepeat(buf, "null,", n-len(ress))
+			buf = appendRepeat(buf, "null,", grow)
 		} else {
-			buf = appendRepeat(buf, ",null", n-len(ress))
+			buf = appendRepeat(buf, ",null", grow)
 			if comma {
 				buf = append(buf, ',')
 			}
 		}
-		buf = appendBuild(buf, true, paths, raw, stringify)
+		buf, err = appendBuild(buf, true, paths, raw, stringify)
+		if err != nil {
+			return nil, err
+		}
 		buf = append(buf, ']')
 		return buf, nil
 	}

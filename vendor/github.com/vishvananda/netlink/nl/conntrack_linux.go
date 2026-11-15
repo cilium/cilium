@@ -138,6 +138,7 @@ const (
 const (
 	CTA_TUPLE_IP    = 1
 	CTA_TUPLE_PROTO = 2
+	CTA_TUPLE_ZONE  = 3
 )
 
 // enum ctattr_ip {
