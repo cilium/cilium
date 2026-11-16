@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -105,7 +104,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Determine which optional CRDs are enabled. The scheme is registered from
 	// the autodetected CRDs, so Recognizes() reflects what is installed.
 	scheme := r.client.Scheme()
-	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
 	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
 
 	// Add Indexes for managed resources.
@@ -156,12 +154,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 		}
 	}
-
-	if serviceImportEnabled {
-		// Watch for changes to Backend Service Imports
-		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.client, r.logger, r.controllerName))
-	}
-
 	if inferencePoolEnabled {
 		// Watch for changes to InferencePool and shadow service
 		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
