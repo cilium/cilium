@@ -121,7 +121,7 @@ get_tunnel_key(struct __ctx_buff *ctx, struct bpf_tunnel_key *key)
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	int ret;
 
-	if (is_defined(ENABLE_IPV4)) {
+	if (CONFIG(enable_ipv4)) {
 		ret = ctx_get_tunnel_key(ctx, key, key_size, 0);
 		if (!ret)
 			return ret;
