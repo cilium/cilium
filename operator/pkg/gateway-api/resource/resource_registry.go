@@ -70,6 +70,7 @@ func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
 	gr.AddResource(NewSecretResource(gr.registryConfig))
 	gr.AddResource(NewNamespaceResource(gr.registryConfig))
 	gr.AddResource(NewServiceResource(gr.registryConfig))
+	gr.AddResource(NewNodeResource(gr.registryConfig))
 
 	if r.IncludeListenerSets {
 		gr.AddResource(NewListenerSetResource(gr.registryConfig))
