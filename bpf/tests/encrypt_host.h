@@ -7,7 +7,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4			1
-#define ENABLE_IPV6			1
 
 #define SRC_POD_V4			v4_pod_one
 #define DST_POD_V4			v4_pod_one_on_node_two

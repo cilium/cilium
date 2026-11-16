@@ -4,7 +4,6 @@
 #undef TUNNEL_MODE
 
 #define ENABLE_IPV4			1
-#define ENABLE_IPV6			1
 
 #include "bpf_nat_icmp.h"
 #include "bpf_nat_icmp6.h"

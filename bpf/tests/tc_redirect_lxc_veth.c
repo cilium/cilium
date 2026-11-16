@@ -3,7 +3,6 @@
 
 #undef __CONFIG_ENABLE_NETKIT
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
 #include "tc_redirect_lxc.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)

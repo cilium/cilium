@@ -2,7 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 #define DSR_ENCAP_MODE DSR_ENCAP_NONE
 
 #define TEST_DSR_OPT_NETWORK_BYTE_ORDER

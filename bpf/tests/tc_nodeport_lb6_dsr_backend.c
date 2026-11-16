@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV6 1
 #define DSR_ENCAP_MODE DSR_ENCAP_NONE
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
