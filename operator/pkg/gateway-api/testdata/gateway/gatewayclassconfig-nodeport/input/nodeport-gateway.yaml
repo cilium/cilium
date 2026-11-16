@@ -98,3 +98,22 @@ status:
   addresses:
   - address: kind-worker3
     type: Hostname
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: kind-worker4
+spec:
+  podCIDR: 10.244.3.0/24
+  podCIDRs:
+  - 10.244.3.0/24
+  - fd00:10:244:3::/64
+status:
+  # Hostname listed first, as e.g. the vSphere cloud provider does.
+  addresses:
+  - address: kind-worker4
+    type: Hostname
+  - address: 172.18.0.5
+    type: InternalIP
+  - address: 172.18.0.5
+    type: ExternalIP
