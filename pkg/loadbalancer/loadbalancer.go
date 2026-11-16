@@ -719,8 +719,8 @@ func (n ServiceName) MarshalYAML() (any, error) {
 	return n.String(), nil
 }
 
-func (n *ServiceName) UnmarshalYAML(value *yaml.Node) error {
-	return n.unmarshalString(value.Value)
+func (n *ServiceName) UnmarshalText(text []byte) error {
+	return n.unmarshalString(string(text))
 }
 
 func (n *ServiceName) Equal(other ServiceName) bool {
