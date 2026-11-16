@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
-	"go.yaml.in/yaml/v4"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
@@ -297,8 +296,8 @@ func (t RoutePolicyMatchType) MarshalYAML() (any, error) {
 	return t.String(), nil
 }
 
-func (t *RoutePolicyMatchType) UnmarshalYAML(value *yaml.Node) error {
-	switch strings.ToLower(value.Value) {
+func (t *RoutePolicyMatchType) UnmarshalText(text []byte) error {
+	switch strings.ToLower(string(text)) {
 	case "any":
 		*t = RoutePolicyMatchAny
 	case "all":
@@ -306,7 +305,7 @@ func (t *RoutePolicyMatchType) UnmarshalYAML(value *yaml.Node) error {
 	case "invert":
 		*t = RoutePolicyMatchInvert
 	default:
-		return fmt.Errorf("unknown route policy match type %q", value.Value)
+		return fmt.Errorf("unknown route policy match type %q", text)
 	}
 	return nil
 }
@@ -456,8 +455,8 @@ func (a RoutePolicyAction) MarshalYAML() (any, error) {
 	return a.String(), nil
 }
 
-func (a *RoutePolicyAction) UnmarshalYAML(value *yaml.Node) error {
-	switch strings.ToLower(value.Value) {
+func (a *RoutePolicyAction) UnmarshalText(text []byte) error {
+	switch strings.ToLower(string(text)) {
 	case "none":
 		*a = RoutePolicyActionNone
 	case "accept":
@@ -465,7 +464,7 @@ func (a *RoutePolicyAction) UnmarshalYAML(value *yaml.Node) error {
 	case "reject":
 		*a = RoutePolicyActionReject
 	default:
-		return fmt.Errorf("unknown route policy action %q", value.Value)
+		return fmt.Errorf("unknown route policy action %q", text)
 	}
 	return nil
 }
@@ -542,14 +541,14 @@ func (t RoutePolicyType) MarshalYAML() (any, error) {
 	return t.String(), nil
 }
 
-func (t *RoutePolicyType) UnmarshalYAML(value *yaml.Node) error {
-	switch strings.ToLower(value.Value) {
+func (t *RoutePolicyType) UnmarshalText(text []byte) error {
+	switch strings.ToLower(string(text)) {
 	case "export":
 		*t = RoutePolicyTypeExport
 	case "import":
 		*t = RoutePolicyTypeImport
 	default:
-		return fmt.Errorf("unknown route policy type %q", value.Value)
+		return fmt.Errorf("unknown route policy type %q", text)
 	}
 	return nil
 }
