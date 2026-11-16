@@ -331,6 +331,9 @@
             "integer"
           ]
         },
+        "netdevTracing": {
+          "type": "boolean"
+        },
         "nodeMapMax": {
           "type": [
             "null",

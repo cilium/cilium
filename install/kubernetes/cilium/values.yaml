@@ -688,6 +688,8 @@ bpf:
   # -- Configure which TCP flags trigger notifications when seen for the
   # first time in a connection.
   monitorFlags: "all"
+  # -- Enables tracing for native devices.
+  netdevTracing: false
   # -- (bool) Allow cluster external access to ClusterIP services.
   # @default -- `false`
   lbExternalClusterIP: false

@@ -260,6 +260,10 @@
      - Configure the maximum number of entries for the neighbor table.
      - int
      - ``524288``
+   * - :spelling:ignore:`bpf.netdevTracing`
+     - Enables tracing for native devices.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.nodeMapMax`
      - Configures the maximum number of entries for the node table.
      - int
