@@ -50,7 +50,7 @@ jobs:
       deployment: false
     outputs:
       tag: ${{ steps.docs-builder-tag.outputs.tag }}
-      digest: ${{ steps.docker-build-docs-builder.outputs.digest }}
+      digest: ${{ steps.docker-build-docs-builder.outputs.digest || steps.docs-builder-existing-digest.outputs.digest }}
     steps:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -91,6 +91,14 @@ jobs:
           else
             echo exists="false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Get digest of the existing docs-builder image
+        if: ${{ steps.docs-builder-tag-in-repositories.outputs.exists == 'true' }}
+        id: docs-builder-existing-digest
+        shell: bash
+        run: |
+          digest="$(docker buildx imagetools inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }} --format '{{json .Manifest}}' | jq -er .digest)"
+          echo digest="${digest}" >> $GITHUB_OUTPUT
 
       # Quay's registry endpoint only accepts credentials or a JWT signed by
       # Quay itself, so the GitHub OIDC token cannot be used as the registry
@@ -155,6 +163,8 @@ jobs:
     if: needs.build-and-push.outputs.digest
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.update-reference.outputs.changed }}
     steps:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -181,18 +191,26 @@ jobs:
           git config user.email "noreply@cilium.io"
 
       - name: Update docs-builder image reference in CI workflow
+        id: update-reference
         run: |
           NEW_IMAGE="${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
           # Run in Docker to prevent the script from accessing the environment.
           docker run --rm -v $PWD:/cilium -w /cilium "${NEW_IMAGE}" \
               bash -c "git config --global --add safe.directory /cilium && \
                        /cilium/Documentation/update-docs-builder-image.sh ${NEW_IMAGE}"
-          git commit -sam "ci: update docs-builder"
+          if git diff --quiet; then
+            echo changed="false" >> $GITHUB_OUTPUT
+          else
+            git commit -sam "ci: update docs-builder"
+            echo changed="true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate patch from update commit
+        if: ${{ steps.update-reference.outputs.changed == 'true' }}
         run: git format-patch HEAD~1 --stdout > /tmp/update.patch
 
       - name: Upload patch artifact
+        if: ${{ steps.update-reference.outputs.changed == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: docs-builder-update-patch
@@ -205,6 +223,7 @@ jobs:
   push-update:
     name: Push docs-builder image reference update
     needs: [build-and-push, prepare-update]
+    if: needs.prepare-update.outputs.changed == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment:
