@@ -5,7 +5,7 @@
  * Packet forwarding notification via perf event ring buffer.
  *
  * API:
- * void send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor)
+ * void send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, proto)
  *
  * @ctx:	socket buffer
  * @obs_point:	observation point (TRACE_*)
@@ -16,6 +16,7 @@
  * @reason:	reason for forwarding the packet (TRACE_REASON_*),
  *		e.g. return value of ct_lookup or TRACE_REASON_ENCRYPTED
  * @monitor:	monitor aggregation value, e.g. the 'monitor' output of ct_lookup
+ * @proto:	L3 protocol
  */
 #pragma once
 
