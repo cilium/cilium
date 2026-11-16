@@ -129,19 +129,12 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.GatewayClass{},
 			watchhandlers.EnqueueRequestForOwningGatewayClass(r.client, *r.logger),
 			builder.WithPredicates(predicates.GatewayClassOwnedByController(r.controllerName))).
-		// Watch related backend Service for status
-		// LB Services are handled by the Owns call later.
-		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.client, r.scheme, *r.logger, r.controllerName)).
-		Watches(&corev1.Secret{},
-			watchhandlers.EnqueueRequestForTLSSecret(r.client, r.controllerName, r.logger)).
-		// Watch related namespace in allowed namespaces
-		Watches(&corev1.Namespace{},
-			watchhandlers.EnqueueRequestForAllowedNamespace(r.client, r.logger)).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForReferenceGrant(r.client, r.logger)).
 		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.client, r.logger, owningGatewayLabel, r.controllerName)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
+		// This handles Services _owned_ by the reconciler, or in other words, LB Services.
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
 

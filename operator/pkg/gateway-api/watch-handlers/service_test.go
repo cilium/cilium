@@ -162,7 +162,7 @@ func TestEnqueueRequestForBackendServiceIncludesGRPCTCPAndUDP(t *testing.T) {
 		}).
 		Build()
 
-	handler := EnqueueRequestForBackendService(fakeClient, scheme, *hivetest.Logger(t), testGatewayControllerName)
+	handler := EnqueueRequestForBackendService(fakeClient, scheme, hivetest.Logger(t), testGatewayControllerName)
 	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	defer queue.ShutDown()
 

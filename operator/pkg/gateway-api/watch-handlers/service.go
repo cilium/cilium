@@ -26,7 +26,7 @@ import (
 // EnqueueRequestForBackendService returns an event handler that, when passed a
 // Service, returns reconcile.Requests for all relevant Gateways where that
 // Service is used as a backend for a Route attached to that Gateway.
-func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, logger slog.Logger, controllerName string) handler.EventHandler {
+func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, logger *slog.Logger, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		_, ok := o.(*corev1.Service)
 		if !ok {
