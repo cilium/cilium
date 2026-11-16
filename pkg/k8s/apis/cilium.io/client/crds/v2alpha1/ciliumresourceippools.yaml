@@ -74,10 +74,12 @@ spec:
                       pool.
                     items:
                       format: cidr
+                      maxLength: 43
                       type: string
-                    maxItems: 32
+                    maxItems: 16384
                     minItems: 1
                     type: array
+                    x-kubernetes-list-type: set
                   maskSize:
                     description: MaskSize is the mask size of the pool.
                     maximum: 32
@@ -96,6 +98,7 @@ spec:
                           description: CIDR references one of the CIDRs listed in
                             the parent pool spec.
                           format: cidr
+                          maxLength: 43
                           type: string
                         reservedRanges:
                           description: ReservedRanges is a list of IP ranges within
@@ -116,7 +119,7 @@ spec:
                       required:
                       - cidr
                       type: object
-                    maxItems: 32
+                    maxItems: 16384
                     type: array
                     x-kubernetes-list-map-keys:
                     - cidr
@@ -126,9 +129,17 @@ spec:
                 - maskSize
                 type: object
                 x-kubernetes-validations:
-                - message: If pool is set, each pool entry must reference a CIDR from
-                    cidrs
-                  rule: '!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)'
+                - message: If pool is set, it must have one entry per CIDR in cidrs
+                  rule: '!has(self.pool) || self.pool.size() == 0 || self.pool.size()
+                    == self.cidrs.size()'
+                - message: If pool is set, each CIDR in cidrs must have a pool entry
+                  rule: '!has(self.pool) || self.pool.size() == 0 || [self.pool.transformMapEntry(i,
+                    p, {p.cidr: true})].all(m, self.cidrs.all(c, c in m))'
+                - message: pool CIDRs must not have host bits set
+                  rule: '!has(self.pool) || self.pool.all(p, string(cidr(p.cidr).masked())
+                    == p.cidr)'
+                - message: cidrs entries must not have host bits set
+                  rule: self.cidrs.all(c, string(cidr(c).masked()) == c)
               ipv6:
                 description: IPv6 specifies the IPv6 CIDRs and mask sizes of the pool
                 properties:
@@ -137,10 +148,12 @@ spec:
                       pool.
                     items:
                       format: cidr
+                      maxLength: 43
                       type: string
-                    maxItems: 32
+                    maxItems: 16384
                     minItems: 1
                     type: array
+                    x-kubernetes-list-type: set
                   maskSize:
                     description: MaskSize is the mask size of the pool.
                     maximum: 128
@@ -159,6 +172,7 @@ spec:
                           description: CIDR references one of the CIDRs listed in
                             the parent pool spec.
                           format: cidr
+                          maxLength: 43
                           type: string
                         reservedRanges:
                           description: ReservedRanges is a list of IP ranges within
@@ -179,7 +193,7 @@ spec:
                       required:
                       - cidr
                       type: object
-                    maxItems: 32
+                    maxItems: 16384
                     type: array
                     x-kubernetes-list-map-keys:
                     - cidr
@@ -189,9 +203,17 @@ spec:
                 - maskSize
                 type: object
                 x-kubernetes-validations:
-                - message: If pool is set, each pool entry must reference a CIDR from
-                    cidrs
-                  rule: '!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)'
+                - message: If pool is set, it must have one entry per CIDR in cidrs
+                  rule: '!has(self.pool) || self.pool.size() == 0 || self.pool.size()
+                    == self.cidrs.size()'
+                - message: If pool is set, each CIDR in cidrs must have a pool entry
+                  rule: '!has(self.pool) || self.pool.size() == 0 || [self.pool.transformMapEntry(i,
+                    p, {p.cidr: true})].all(m, self.cidrs.all(c, c in m))'
+                - message: pool CIDRs must not have host bits set
+                  rule: '!has(self.pool) || self.pool.all(p, string(cidr(p.cidr).masked())
+                    == p.cidr)'
+                - message: cidrs entries must not have host bits set
+                  rule: self.cidrs.all(c, string(cidr(c).masked()) == c)
             type: object
         required:
         - spec
