@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	"github.com/cilium/cilium/pkg/k8s/apis/crdhelpers"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	networkDriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 )
 
 // SkipCRDCreation specifies whether the CustomResourceDefinition will be
@@ -115,10 +116,10 @@ type RegisterCRDsFuncOut struct {
 	Func RegisterCRDsFunc `group:"register-crd-funcs"`
 }
 
-func newCiliumGroupCRDs(bc bgpConfig.BGPConfig) RegisterCRDsFuncOut {
+func newCiliumGroupCRDs(bc bgpConfig.BGPConfig, nc networkDriverConfig.Config) RegisterCRDsFuncOut {
 	return RegisterCRDsFuncOut{
 		Func: func(ctx context.Context, l *slog.Logger, c k8sClient.Clientset) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-			return client.CreateCustomResourceDefinitions(ctx, l, c, bc)
+			return client.CreateCustomResourceDefinitions(ctx, l, c, bc, nc)
 		},
 	}
 }
