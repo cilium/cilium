@@ -248,8 +248,30 @@ func addType(bb *btf.Builder, added *set.Set[string], typ btf.Type) error {
 	// declaration, so it needs to be queryable by name in the resulting BTF blob.
 	if added != nil {
 		added.Insert(name)
+		addEnumMembers(added, typ)
 	}
 	return nil
+}
+
+// addEnumMembers adds the names of all named enums used by typ or any of its
+// members to added.
+func addEnumMembers(added *set.Set[string], typ btf.Type) {
+	switch t := btf.UnderlyingType(typ).(type) {
+	case *btf.Enum:
+		if t.Name != "" {
+			added.Insert(t.Name)
+		}
+	case *btf.Array:
+		addEnumMembers(added, t.Type)
+	case *btf.Struct:
+		for _, m := range t.Members {
+			addEnumMembers(added, m.Type)
+		}
+	case *btf.Union:
+		for _, m := range t.Members {
+			addEnumMembers(added, m.Type)
+		}
+	}
 }
 
 // marshalSorted marshals the BTF types in the builder into a byte slice,

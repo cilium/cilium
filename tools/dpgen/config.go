@@ -257,6 +257,35 @@ func varGoValue(v *ebpf.VariableSpec, typesPkg string) (any, error) {
 			return nil, fmt.Errorf("unsupported encoding %v", t.Encoding)
 		}
 
+	case *btf.Enum:
+		if t.Signed {
+			switch t.Size {
+			case 1:
+				return getEnumValue[int8](t, v, typesPkg)
+			case 2:
+				return getEnumValue[int16](t, v, typesPkg)
+			case 4:
+				return getEnumValue[int32](t, v, typesPkg)
+			case 8:
+				return getEnumValue[int64](t, v, typesPkg)
+			default:
+				return nil, fmt.Errorf("unsupported signed enum size %d", t.Size)
+			}
+		}
+
+		switch t.Size {
+		case 1:
+			return getEnumValue[uint8](t, v, typesPkg)
+		case 2:
+			return getEnumValue[uint16](t, v, typesPkg)
+		case 4:
+			return getEnumValue[uint32](t, v, typesPkg)
+		case 8:
+			return getEnumValue[uint64](t, v, typesPkg)
+		default:
+			return nil, fmt.Errorf("unsupported unsigned enum size %d", t.Size)
+		}
+
 	case *btf.Union:
 		needUtils = true
 		return getCastValue(t.Name, t.Size, v, typesPkg)
@@ -275,6 +304,43 @@ func getValue[T comparable](v *ebpf.VariableSpec) (out T, err error) {
 		return out, fmt.Errorf("getting value: %w", err)
 	}
 	return out, nil
+}
+
+type integer interface {
+	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64
+}
+
+// getEnumValue gets the default value of an enum variable in an ELF and returns
+// a matching constant name rendered by `dpgen type`. For example, if v holds
+// the default value '1' of the following C enum:
+//
+//	enum my_enum {
+//		INVALID = 0,
+//		DEFAULT = 1,
+//	}
+//
+// .. it will return the string `<typesPkg>.MyEnumDefault`.
+//
+// If the value doesn't match any of the enum's members (e.g. the value '2'), it
+// will be emitted as an integer with a type conversion: `<typesPkg>.MyEnum(2)`.
+//
+// T must match the size and signedness of the enum.
+func getEnumValue[T integer](e *btf.Enum, v *ebpf.VariableSpec, typesPkg string) (string, error) {
+	val, err := getValue[T](v)
+	if err != nil {
+		return "", err
+	}
+
+	typ := qualifiedTypeName(e.Name, typesPkg)
+	for _, ev := range e.Values {
+		// btf.EnumValue is always 64 bits wide, truncate it to the enum's size
+		// before comparison.
+		if T(ev.Value) == val {
+			return typ + camelCase(ev.Name), nil
+		}
+	}
+
+	return fmt.Sprintf("%s(%#v)", typ, val), nil
 }
 
 // getCastValue gets the default value of a variable and returns a string of Go
@@ -382,6 +448,15 @@ func btfVarGoTypeName(v *btf.Var, typesPkg string) (string, error) {
 
 	case *btf.Struct:
 		// Reference a struct-equivalent type to be rendered with `dpgen type`.
+		needExternalTypes = true
+		return qualifiedTypeName(t.Name, typesPkg), nil
+
+	case *btf.Enum:
+		if t.Name == "" {
+			return "", fmt.Errorf("anonymous enums are not supported")
+		}
+
+		// Reference an enum-equivalent type to be rendered with `dpgen type`.
 		needExternalTypes = true
 		return qualifiedTypeName(t.Name, typesPkg), nil
 
