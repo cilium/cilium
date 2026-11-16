@@ -7,7 +7,6 @@
 #include "pktgen.h"
 
 #define ENCAP_IFINDEX 1
-#define ENABLE_IPV4 1
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
 #define ENABLE_INTER_CLUSTER_SNAT
 

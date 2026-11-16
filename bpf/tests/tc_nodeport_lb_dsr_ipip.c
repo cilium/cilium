@@ -7,7 +7,6 @@
 #include "lib/ipv6_core.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 
 #define CLIENT_IP		v4_ext_one

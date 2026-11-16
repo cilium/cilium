@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 #define ETH_HLEN 0
-#define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
 #define TEST_IP_NODE_LOCAL	v4_node_one

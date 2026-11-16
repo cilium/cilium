@@ -26,7 +26,6 @@
 #define ENCAP_IFINDEX 1
 
 /* Overlapping PodCIDR is only supported for IPv4 for now */
-#define ENABLE_IPV4 1
 
 /* Cluster-aware addressing is mandatory for overlapping PodCIDR support */
 #define ENABLE_CLUSTER_AWARE_ADDRESSING		1

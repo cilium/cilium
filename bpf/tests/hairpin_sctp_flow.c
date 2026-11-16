@@ -9,7 +9,6 @@
 #include "common.h"
 
 /* Enable code paths under test*/
-#define ENABLE_IPV4 1
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int

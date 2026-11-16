@@ -7,7 +7,6 @@
 
 #define TEST_BPF_SOCK 1
 
-#define ENABLE_IPV4 1
 
 #define SERVICE_PROTO IPPROTO_TCP
 #define DST_PORT 6000
