@@ -35,7 +35,7 @@ func runTypes(cmd *cobra.Command, args []string) error {
 	}
 
 	// Maintain an added set so we only try to render root types appearing
-	// directly in maps and variables.
+	// directly in maps and variables, plus any enums nested in them.
 	added := &set.Set[string]{}
 
 	// One dpgen -types invocation must see all ELFs to be able to merge their BTF
@@ -79,7 +79,8 @@ func runTypes(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("writing header: %w", err)
 	}
 
-	gf := btf.GoFormatter{Identifier: camelCase}
+	var roots []btf.Type
+	enums := make(map[btf.Type]string)
 	for t := range sortedSeq(added.Members()) {
 		// Look up all added root types by name to: 1. avoid emitting type decls for
 		// embedded types, and 2. ensure all types with the same name deduplicated
@@ -94,9 +95,18 @@ func runTypes(cmd *cobra.Command, args []string) error {
 		switch typ.(type) {
 		default:
 			continue
-		case *btf.Struct, *btf.Union, *btf.Typedef, *btf.Enum:
+		case *btf.Struct, *btf.Union, *btf.Typedef:
+		case *btf.Enum:
+			// Collect enum type names out-of-band since GoFormatter renders
+			// types of enum struct members as integers.
+			enums[typ] = camelCase(typ.TypeName())
 		}
 
+		roots = append(roots, typ)
+	}
+
+	gf := btf.GoFormatter{Identifier: camelCase, Names: enums}
+	for _, typ := range roots {
 		cName := typ.TypeName()
 		goName := camelCase(cName)
 		s, err := gf.TypeDeclaration(goName, typ)
