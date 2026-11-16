@@ -35,6 +35,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "lib/bpf_lxc.h"
 
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = SERVER_IP })
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_two_addr })
 
