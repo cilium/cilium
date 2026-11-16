@@ -19,7 +19,6 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
-	"go.yaml.in/yaml/v4"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -1225,8 +1224,8 @@ func (l L3n4Addr) MarshalYAML() (any, error) {
 	return l.StringWithProtocol(), nil
 }
 
-func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
-	return l.ParseFromString(value.Value)
+func (l *L3n4Addr) UnmarshalText(text []byte) error {
+	return l.ParseFromString(string(text))
 }
 
 func (l L3n4Addr) MarshalJSON() ([]byte, error) {
