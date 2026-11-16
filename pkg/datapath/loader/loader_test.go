@@ -6,6 +6,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -32,6 +34,34 @@ var (
 
 	bpfDir = filepath.Join("..", "..", "..", "bpf")
 )
+
+func TestMain(m *testing.M) {
+	if !testutils.IsPrivileged() {
+		os.Exit(m.Run())
+	}
+
+	// initBpffs deletes tc/globals, which other privileged test packages pin into concurrently.
+	root, err := os.MkdirTemp("", "cilium-loader-bpffs-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to create bpffs mount point:", err)
+		os.Exit(1)
+	}
+	if err := unix.Mount(root, root, "bpf", 0, ""); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to mount bpffs:", err)
+		os.Exit(1)
+	}
+	bpf.CheckOrMountFS(slog.New(slog.NewTextHandler(os.Stderr, nil)), root)
+
+	code := m.Run()
+
+	if err := unix.Unmount(root, unix.MNT_DETACH); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to unmount bpffs:", err)
+	}
+	if err := os.Remove(root); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to remove bpffs mount point:", err)
+	}
+	os.Exit(code)
+}
 
 func initEndpoint(tb testing.TB, ep *testutils.TestEndpoint) {
 	testutils.PrivilegedTest(tb)
