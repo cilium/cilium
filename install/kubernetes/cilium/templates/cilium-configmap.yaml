@@ -418,8 +418,9 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: {{ .Values.bpf.monitorFlags }}
 
-
-
+{{- if hasKey .Values.bpf "netdevTracing" }}
+  trace-netdev: {{ .Values.bpf.netdevTracing | quote }}
+{{- end }}
 
 {{- if .Values.bpf.events.default.rateLimit }}
   bpf-events-default-rate-limit: {{ .Values.bpf.events.default.rateLimit | quote }}
