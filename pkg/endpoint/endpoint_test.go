@@ -607,6 +607,68 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 		"Invalid annotation should reset to global default (Enabled)")
 }
 
+// TestApplyExtendedIPProtocolsFromAnnotation tests that the pod annotation only takes
+// effect when the namespace delegates it, and otherwise the global default applies.
+func TestApplyExtendedIPProtocolsFromAnnotation(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	nsAllow := map[string]string{annotation.DelegateExtendedIPProtocols: "true"}
+	podOn := map[string]string{annotation.EnableExtendedIPProtocols: "true"}
+	podOff := map[string]string{annotation.EnableExtendedIPProtocols: "false"}
+
+	tests := []struct {
+		name            string
+		globalValue     option.OptionSetting
+		initialValue    option.OptionSetting
+		podAnnotations  map[string]string
+		nsAnnotations   map[string]string
+		expectedChanged bool
+		expectedValue   option.OptionSetting
+	}{
+		{"ns allows + pod=true enables", option.OptionDisabled, option.OptionDisabled, podOn, nsAllow, true, option.OptionEnabled},
+		{"ns allows + pod=true already enabled", option.OptionDisabled, option.OptionEnabled, podOn, nsAllow, false, option.OptionEnabled},
+		{"ns allows + pod=false overrides global enabled", option.OptionEnabled, option.OptionEnabled, podOff, nsAllow, true, option.OptionDisabled},
+		{"ns allows + no pod annotation uses global", option.OptionDisabled, option.OptionDisabled, nil, nsAllow, false, option.OptionDisabled},
+		{"ns allows + invalid pod value resets to global", option.OptionDisabled, option.OptionEnabled,
+			map[string]string{annotation.EnableExtendedIPProtocols: "bogus"}, nsAllow, true, option.OptionDisabled},
+		{"no ns annotation ignores pod=true", option.OptionDisabled, option.OptionDisabled, podOn, nil, false, option.OptionDisabled},
+		{"ns=false ignores pod=true", option.OptionDisabled, option.OptionDisabled, podOn,
+			map[string]string{annotation.DelegateExtendedIPProtocols: "false"}, false, option.OptionDisabled},
+		{"ns revoked resets previously enabled pod", option.OptionDisabled, option.OptionEnabled, podOn, nil, true, option.OptionDisabled},
+		{"ns SIP delegation does not delegate extended protocols", option.OptionDisabled, option.OptionDisabled, podOn,
+			map[string]string{annotation.DelegateSourceIPVerification: "true"}, false, option.OptionDisabled},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalValue := option.Config.Opts.GetValue(option.ExtendedIPProtocols)
+			defer option.Config.Opts.SetValidated(option.ExtendedIPProtocols, originalValue)
+			option.Config.Opts.SetValidated(option.ExtendedIPProtocols, tt.globalValue)
+
+			model := newTestEndpointModel(100, StateWaitingForIdentity)
+			p := EndpointParams{
+				Logger:          logger,
+				EPBuildQueue:    &MockEndpointBuildQueue{},
+				Orchestrator:    s.orchestrator,
+				IdentityManager: identitymanager.NewIDManager(logger),
+				PolicyRepo:      s.repo,
+				Allocator:       testidentity.NewMockIdentityAllocator(nil),
+				CTMapGC:         ctmap.NewFakeGCRunner(),
+				WgConfig:        fakewireguard.Config{},
+				IPSecConfig:     fakeipsec.Config{},
+			}
+			ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
+			require.NoError(t, err)
+			ep.Options.SetValidated(option.ExtendedIPProtocols, tt.initialValue)
+
+			changed := ep.ApplyDelegatedAnnotation(ExtendedIPProtocolsAnnotation, tt.podAnnotations, tt.nsAnnotations)
+			require.Equal(t, tt.expectedChanged, changed)
+			require.Equal(t, tt.expectedValue, ep.Options.GetValue(option.ExtendedIPProtocols))
+		})
+	}
+}
+
 // TestDelegatedAnnotationsTable checks that every entry of DelegatedAnnotations is
 // well formed, so that adding a new setting to the table cannot silently break
 // the pod watcher, the namespace updater or the metadata resolver that rely on it.

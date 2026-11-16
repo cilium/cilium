@@ -237,6 +237,42 @@ const (
 	// at Warn level for audit purposes.
 	DisableSourceIPVerification = ConfigPrefix + "/disable-source-ip-verification"
 
+	// DelegateExtendedIPProtocols is the namespace annotation that delegates
+	// control of extended IP protocol support (e.g. VRRP, IGMP, GRE, ESP, AH)
+	// to the namespace owner. This is a security gate that must be explicitly
+	// set by cluster administrators before namespace owners can modify
+	// pod-level extended IP protocol settings.
+	//
+	// Annotation: config.cilium.io/delegate-extended-ip-protocols
+	// Valid values: Any value accepted by strconv.ParseBool.
+	//
+	// Behavior:
+	//   - Truthy value: Delegates extended IP protocol control to the namespace
+	//     owner via the enable-extended-ip-protocols pod annotation
+	//   - Falsy or omitted: Pods inherit global daemon configuration,
+	//     pod annotations are ignored
+	//
+	// SECURITY NOTE: This annotation should only be set by cluster administrators.
+	// Use Kubernetes RBAC to restrict namespace annotation modifications.
+	DelegateExtendedIPProtocols = ConfigPrefix + "/delegate-extended-ip-protocols"
+
+	// EnableExtendedIPProtocols controls extended IP protocol support for the pod.
+	//
+	// Annotation: config.cilium.io/enable-extended-ip-protocols
+	// Valid values: Any value accepted by strconv.ParseBool.
+	//
+	// Behavior:
+	//   - Truthy value: Allows traffic with extended IP protocols (protocols
+	//     without transport-layer ports) to and from this pod
+	//   - Falsy value: Explicitly disables extended IP protocols for this pod
+	//     (overrides global config)
+	//   - Omitted or invalid: Inherits global daemon configuration
+	//
+	// IMPORTANT: This annotation is only effective when the namespace has the
+	// delegate-extended-ip-protocols annotation set to true. Without namespace
+	// permission, pod annotations are ignored and global config applies.
+	EnableExtendedIPProtocols = ConfigPrefix + "/enable-extended-ip-protocols"
+
 	// WireguardPubKey / WireguardPubKeyAlias is the annotation name used to store
 	// the WireGuard public key in the CiliumNode CRD that we need to use to encrypt
 	// traffic to that node.

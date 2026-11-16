@@ -40,7 +40,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableExtendedIPProtocols = ep.GetOptions().IsEnabled(option.ExtendedIPProtocols)
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
 	cfg.EnableNAT46X64Gateway = option.Config.EnableNat46X64Gateway && lnc.KPRConfig.KubeProxyReplacement

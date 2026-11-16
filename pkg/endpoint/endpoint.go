@@ -1834,10 +1834,21 @@ var (
 		OnFalsy:      option.OptionEnabled,
 	}
 
+	// ExtendedIPProtocolsAnnotation lets a pod enable extended IP protocols.
+	ExtendedIPProtocolsAnnotation = DelegatedAnnotation{
+		Name:         "extended IP protocols",
+		Option:       option.ExtendedIPProtocols,
+		NamespaceKey: annotation.DelegateExtendedIPProtocols,
+		PodKey:       annotation.EnableExtendedIPProtocols,
+		OnTruthy:     option.OptionEnabled,
+		OnFalsy:      option.OptionDisabled,
+	}
+
 	// DelegatedAnnotations lists all the settings that follow the
 	// namespace delegation model.
 	DelegatedAnnotations = []DelegatedAnnotation{
 		SourceIPVerificationAnnotation,
+		ExtendedIPProtocolsAnnotation,
 	}
 )
 
