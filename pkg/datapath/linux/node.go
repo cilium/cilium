@@ -150,6 +150,8 @@ func NewNodeHandler(
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
+
+		UnderlayProtocol: tunnelConfig.UnderlayProtocol(),
 	}
 
 	handler := newNodeHandler(
