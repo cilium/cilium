@@ -88,6 +88,10 @@ func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
 		gr.AddResource(NewServiceImportResource(gr.registryConfig))
 	}
 
+	if r.IncludeInferencePools {
+		gr.AddResource(NewInferencePoolResource(gr.registryConfig))
+		gr.AddResource(NewEndpointSliceResource(gr.registryConfig))
+	}
 	return gr
 }
 

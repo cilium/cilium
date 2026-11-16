@@ -15,7 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -101,11 +100,6 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 // SetupWithManager sets up the controller with the Manager.
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Determine which optional CRDs are enabled. The scheme is registered from
-	// the autodetected CRDs, so Recognizes() reflects what is installed.
-	scheme := r.client.Scheme()
-	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
-
 	// Add Indexes for managed resources.
 	// Note that ordering is apparently important here, this must happen before the controller setup begins.
 	for _, resource := range r.resourceRegistry.GetResources() {
@@ -153,13 +147,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				gatewayBuilder.Watches(resource.GetResource(), handler)
 			}
 		}
-	}
-	if inferencePoolEnabled {
-		// Watch for changes to InferencePool and shadow service
-		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
-			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName)).
-			// watch shadow service owned by an InferencePool
-			Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForOwningShadowService(r.client, r.logger, r.controllerName))
 	}
 	return gatewayBuilder.Complete(r)
 }
