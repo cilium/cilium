@@ -52,6 +52,10 @@ func (s *ServiceResource) GetWatchHandlers(c client.Client, logger *slog.Logger,
 	handlers := []handler.EventHandler{}
 
 	handlers = append(handlers, watchhandlers.EnqueueRequestForBackendService(c, scheme, logger, controllerName))
+	if s.registryConfig.IncludeInferencePools {
+		handlers = append(handlers, watchhandlers.EnqueueRequestForOwningShadowService(c, logger, controllerName))
+	}
+
 	return handlers
 }
 
