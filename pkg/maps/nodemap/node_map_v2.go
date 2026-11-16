@@ -4,18 +4,14 @@
 package nodemap
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"os"
-	"unsafe"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -48,25 +44,14 @@ type MapV2 interface {
 // nodeMapV2 is an iteration on nodeMap which associates an IPSec SPI with each
 // node in the map.
 type nodeMapV2 struct {
-	logger *slog.Logger
 	conf   Config
-	bpfMap *ebpf.Map
+	bpfMap *bpf.Map
 }
 
-func newMapV2(logger *slog.Logger, mapName string, conf Config) *nodeMapV2 {
-	return &nodeMapV2{
-		logger: logger,
-		conf:   conf,
-		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       mapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
-			ValueSize:  uint32(unsafe.Sizeof(NodeValueV2{})),
-			MaxEntries: conf.NodeMapMax,
-			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-			Pinning:    ebpf.PinByName,
-		}),
-	}
+func newMapV2(mapName string, conf Config) *nodeMapV2 {
+	flags := uint32(unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG)
+	m := bpf.NewMap(mapName, ebpf.Hash, &NodeKey{}, &NodeValueV2{}, int(conf.NodeMapMax), flags)
+	return &nodeMapV2{conf: conf, bpfMap: m}
 }
 
 type NodeKey struct {
@@ -76,6 +61,8 @@ type NodeKey struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP types.IPv6 `align:"$union0"`
 }
+
+func (k *NodeKey) New() bpf.MapKey { return &NodeKey{} }
 
 func (k *NodeKey) String() string {
 	switch k.Family {
@@ -110,13 +97,19 @@ type NodeValueV2 struct {
 	InternalIP uint8
 }
 
+func (n *NodeValueV2) New() bpf.MapValue { return &NodeValueV2{} }
+
+func (n *NodeValueV2) String() string {
+	return fmt.Sprintf("id=%d spi=%d internalip=%d", n.NodeID, n.SPI, n.InternalIP)
+}
+
 func (m *nodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8, internalIP bool) error {
 	key := newNodeKey(ip)
 	val := NodeValueV2{NodeID: nodeID, SPI: SPI}
 	if internalIP {
 		val.InternalIP = 1
 	}
-	if err := m.bpfMap.Update(key, val, 0); err != nil {
+	if err := m.bpfMap.Update(&key, &val); err != nil {
 		return fmt.Errorf("failed to update node map: %w", err)
 	}
 
@@ -129,62 +122,39 @@ func (m *nodeMapV2) Size() uint32 {
 
 func (m *nodeMapV2) Delete(ip netip.Addr) error {
 	key := newNodeKey(ip)
-	if err := m.bpfMap.Delete(key); err != nil {
+	if err := m.bpfMap.Delete(&key); err != nil {
 		return fmt.Errorf("failed to delete node map: %w", err)
 	}
 
 	return nil
 }
 
-// NodeIterateCallback represents the signature of the callback function
+// NodeIterateCallbackV2 represents the signature of the callback function
 // expected by the IterateWithCallback method, which in turn is used to iterate
 // all the keys/values of a node map.
 type NodeIterateCallbackV2 func(*NodeKey, *NodeValueV2)
 
 func (m *nodeMapV2) IterateWithCallback(cb NodeIterateCallbackV2) error {
-	return m.bpfMap.IterateWithCallback(&NodeKey{}, &NodeValueV2{},
-		func(k, v any) {
-			key, ok := k.(*NodeKey)
-			if !ok {
-				m.logger.Error(
-					"failed to cast key to NodeKey",
-					logfields.Key, k,
-				)
-				return
-			}
-			value, ok := v.(*NodeValueV2)
-			if !ok {
-				m.logger.Error(
-					"failed to cast value to NodeValueV2",
-					logfields.Value, k,
-				)
-				return
-			}
-
-			cb(key, value)
-		})
+	return m.bpfMap.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*NodeKey)
+		value := v.(*NodeValueV2)
+		cb(key, value)
+	})
 }
 
-// LoadNodeMap loads the pre-initialized node map for access.
+// LoadNodeMapV2 loads the pre-initialized node map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
 func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(logger, MapNameV2)
+	bpfMap, err := bpf.OpenMap(bpf.MapPath(logger, MapNameV2), &NodeKey{}, &NodeValueV2{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to load bpf map: %w", err)
+		return nil, fmt.Errorf("failed to load %s bpf map: %w", MapNameV2, err)
 	}
 
 	return &nodeMapV2{bpfMap: bpfMap}, nil
 }
 
 func (m *nodeMapV2) init() error {
-	if existing, err := ebpf.LoadRegisterMap(m.logger, MapNameV2); err == nil {
-		m.bpfMap = existing
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		m.logger.Debug("Falling back to recreate node map", logfields.Error, err)
-	}
-
 	if err := m.bpfMap.OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to init bpf map: %w", err)
 	}

@@ -25,10 +25,7 @@ func setupNodeMapV2TestSuite(tb testing.TB) {
 
 func TestPrivilegedNodeMapV2(t *testing.T) {
 	setupNodeMapV2TestSuite(t)
-	logger := hivetest.Logger(t)
-	nodeMap := newMapV2(logger, "test_cilium_node_map_v2", Config{
-		NodeMapMax: 1024,
-	})
+	nodeMap := newMapV2("test_cilium_node_map_v2", Config{NodeMapMax: 1024})
 	err := nodeMap.init()
 	require.NoError(t, err)
 	defer nodeMap.bpfMap.Unpin()

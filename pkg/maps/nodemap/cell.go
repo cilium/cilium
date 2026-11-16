@@ -5,7 +5,6 @@ package nodemap
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -35,12 +34,12 @@ var defaultConfig = Config{
 	NodeMapMax: DefaultMaxEntries,
 }
 
-func newNodeMap(lifecycle cell.Lifecycle, conf Config, logger *slog.Logger) (bpf.MapOut[MapV2], error) {
+func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error) {
 	if conf.NodeMapMax < DefaultMaxEntries {
 		return bpf.MapOut[MapV2]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
 			DefaultMaxEntries, conf.NodeMapMax)
 	}
-	nodeMap := newMapV2(logger, MapNameV2, conf)
+	nodeMap := newMapV2(MapNameV2, conf)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
