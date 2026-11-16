@@ -551,6 +551,24 @@ func (d *statusCollector) dumpIPAM() *models.IPAMStatus {
 	return status
 }
 
+// hasBlockingStaleProbes returns true if any stale probe should degrade the overall Cilium status.
+// When requireK8sConnectivity is false, staleness of the "kubernetes" probe is ignored so that
+// optional control-plane connectivity issues do not fail liveness probes.
+func (d *statusCollector) hasBlockingStaleProbes(stale map[string]strfmt.DateTime, requireK8sConnectivity bool) bool {
+	if len(stale) == 0 {
+		return false
+	}
+	if requireK8sConnectivity {
+		return true
+	}
+	for probe := range stale {
+		if probe != "kubernetes" {
+			return true
+		}
+	}
+	return false
+}
+
 // getStatus returns the daemon status. If brief is provided a minimal version
 // of the StatusResponse is provided.
 func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
@@ -608,7 +626,7 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 			State: models.StatusStateWarning,
 			Msg:   "Not all probes executed at least once",
 		}
-	case len(sr.Stale) > 0:
+	case d.hasBlockingStaleProbes(stale, requireK8sConnectivity):
 		msg := "Stale status data"
 		sr.Cilium = &models.Status{
 			State: models.StatusStateWarning,
