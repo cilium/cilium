@@ -290,6 +290,10 @@ Troubleshooting
    example, in a 3-nodes cluster, if both IPv4 and IPv6 are enabled and no key
    rotation is ongoing, there should be 8 keys in use on each node.
 
+   When tunneling is enabled, encrypted overlay traffic requires one more set of
+   keys, for the IP family of the tunnel underlay only. In the same example with
+   tunneling enabled, there should be 12 keys in use on each node.
+
    The list of decryption interfaces should have all native devices that may
    receive pod traffic (for example, ENI interfaces).
 
