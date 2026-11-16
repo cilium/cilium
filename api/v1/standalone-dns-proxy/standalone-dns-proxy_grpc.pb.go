@@ -40,10 +40,10 @@ type FQDNDataClient interface {
 	// In case of any client side error, cilium agent will cancel the stream and SDP will have to re-subscribe.
 	// In case of any server side error, cilium agent will send an error response and SDP will have to re-subscribe.
 	StreamPolicyState(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PolicyStateResponse, PolicyState], error)
-	// UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in turn update L3/L4 policy maps.
-	// In case of any error, SDP will either retry the connection if the error is server side or will error out.
-	// Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg) from the DNS server it follows the same behavior as
-	// the inbuilt dns proxy in cilium.
+	// UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in
+	// turn update L3/L4 policy maps. In case of any error, SDP will either retry the connection if the error is server
+	// side or will error out. Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg)
+	// from the DNS server it follows the same behavior as the inbuilt dns proxy in cilium.
 	UpdateMappingRequest(ctx context.Context, in *FQDNMapping, opts ...grpc.CallOption) (*UpdateMappingResponse, error)
 }
 
@@ -92,10 +92,10 @@ type FQDNDataServer interface {
 	// In case of any client side error, cilium agent will cancel the stream and SDP will have to re-subscribe.
 	// In case of any server side error, cilium agent will send an error response and SDP will have to re-subscribe.
 	StreamPolicyState(grpc.BidiStreamingServer[PolicyStateResponse, PolicyState]) error
-	// UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in turn update L3/L4 policy maps.
-	// In case of any error, SDP will either retry the connection if the error is server side or will error out.
-	// Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg) from the DNS server it follows the same behavior as
-	// the inbuilt dns proxy in cilium.
+	// UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in
+	// turn update L3/L4 policy maps. In case of any error, SDP will either retry the connection if the error is server
+	// side or will error out. Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg)
+	// from the DNS server it follows the same behavior as the inbuilt dns proxy in cilium.
 	UpdateMappingRequest(context.Context, *FQDNMapping) (*UpdateMappingResponse, error)
 }
 
