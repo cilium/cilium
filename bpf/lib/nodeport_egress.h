@@ -664,7 +664,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		struct lb6_health *val;
 		int flags = 0;
 
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			return CTX_ACT_OK;
 
 		key = get_socket_cookie(ctx);
@@ -704,7 +704,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 	       __be16 proto, bool revdnat_only, struct trace_ctx *trace __maybe_unused,
 		   __s8 *ext_err __maybe_unused)
 {
-	bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
+	bool use_tailcall = (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) ||
 			    (CONFIG(enable_host_firewall) && is_defined(IS_BPF_HOST)) ||
 			    (is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && is_defined(ENABLE_INTER_CLUSTER_SNAT)) ||
 			    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST));
@@ -732,7 +732,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 		}
 		break;
 	case bpf_htons(ETH_P_IPV6):
-		if (is_defined(ENABLE_IPV6)) {
+		if (CONFIG(enable_ipv6)) {
 			if (use_tailcall)
 				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
 							 ext_err);

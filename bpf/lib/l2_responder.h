@@ -81,7 +81,7 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 			return CTX_ACT_OK;
 
 		ret = arp_respond(ctx, &mac, key.ip4.be32, &smac, sip);
-	} else if (is_defined(ENABLE_IPV6)) {
+	} else if (CONFIG(enable_ipv6)) {
 		struct l2_responder_v6_key key6;
 		union v6addr tip6;
 		int l3_off;

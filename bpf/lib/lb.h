@@ -970,7 +970,7 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 static __always_inline bool
 lb6_to_lb4_service(const struct lb6_service *svc)
 {
-	if (!is_defined(ENABLE_IPV6) || !CONFIG(enable_nat_46x64))
+	if (!CONFIG(enable_ipv6) || !CONFIG(enable_nat_46x64))
 		return false;
 
 	return svc->flags2 & SVC_FLAG_NAT_46X64;
@@ -1013,7 +1013,7 @@ lb6_lookup_service(struct lb6_key *key, const bool east_west)
 	__u16 dport;
 	__u8 proto;
 
-	if (!is_defined(ENABLE_IPV6))
+	if (!CONFIG(enable_ipv6))
 		return NULL;
 
 	key->backend_slot = 0;
@@ -1100,7 +1100,7 @@ lb6_lookup_wildcard_service(struct lb6_key *key)
 static __always_inline const struct lb6_backend *
 __lb6_lookup_backend(__u32 backend_id)
 {
-	if (!is_defined(ENABLE_IPV6))
+	if (!CONFIG(enable_ipv6))
 		return NULL;
 
 	return map_lookup_elem(&cilium_lb6_backends_v3, &backend_id);
@@ -1121,7 +1121,7 @@ lb6_lookup_backend(const struct __ctx_buff *ctx __maybe_unused, __u32 backend_id
 static __always_inline const struct lb6_service *
 __lb6_lookup_backend_slot(struct lb6_key *key)
 {
-	if (!is_defined(ENABLE_IPV6))
+	if (!CONFIG(enable_ipv6))
 		return NULL;
 
 	return __lb6_lookup_service(key);

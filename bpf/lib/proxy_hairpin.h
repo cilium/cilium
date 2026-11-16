@@ -36,7 +36,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 	bpf_barrier(); /* verifier workaround */
 
 	if (!ip4) {
-		if (is_defined(ENABLE_IPV6))
+		if (CONFIG(enable_ipv6))
 			ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac, (__u8 *)&host_mac,
 				      METRIC_EGRESS);
 	} else if (is_defined(ENABLE_IPV4)) {

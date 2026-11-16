@@ -128,7 +128,7 @@ get_tunnel_key(struct __ctx_buff *ctx, struct bpf_tunnel_key *key)
 		if (!ret)
 			return ret;
 	}
-	if (is_defined(ENABLE_IPV6)) {
+	if (CONFIG(enable_ipv6)) {
 		ret = ctx_get_tunnel_key(ctx, key, key_size, BPF_F_TUNINFO_IPV6);
 		if (!ret)
 			return ret;

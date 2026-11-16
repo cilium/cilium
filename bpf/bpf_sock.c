@@ -1008,7 +1008,7 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 	ctx_get_v6_address(ctx, &val.peer.address);
 	if (is_v4_in_v6(&val.peer.address))
 		return sock6_pre_bind_v4_in_v6(ctx);
-	if (!is_defined(ENABLE_IPV6))
+	if (!CONFIG(enable_ipv6))
 		return ret;
 
 	key = get_socket_cookie(ctx);
@@ -1038,7 +1038,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 					     const bool udp_only,
 					     const bool is_connect)
 {
-	if (!is_defined(ENABLE_IPV6))
+	if (!CONFIG(enable_ipv6))
 		return sock6_xlate_v4_in_v6(ctx, udp_only, is_connect);
 
 	union lb6_affinity_client_id id;
@@ -1211,7 +1211,7 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx)
 
 static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 {
-	if (!is_defined(ENABLE_IPV6))
+	if (!CONFIG(enable_ipv6))
 		return sock6_xlate_rev_v4_in_v6(ctx);
 
 	struct ipv6_revnat_tuple key = {};
@@ -1293,7 +1293,7 @@ int cil_sock_release(struct bpf_sock *ctx)
 			update_metrics(0, METRIC_EGRESS,
 				       REASON_LB_REVNAT_DELETE);
 	}
-	if (is_defined(ENABLE_IPV6) && ctx->family == AF_INET6) {
+	if (CONFIG(enable_ipv6) && ctx->family == AF_INET6) {
 		union v6addr addr6;
 
 		ctx_get_v6_dst_address(ctx, &addr6);

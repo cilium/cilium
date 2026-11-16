@@ -120,7 +120,7 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			return CTX_ACT_OK;
 
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
@@ -237,7 +237,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		break;
 
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			return CTX_ACT_OK;
 
 		/* handle native routing ipv6 */

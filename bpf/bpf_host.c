@@ -1026,7 +1026,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			goto unknown_l3;
 
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
@@ -1481,7 +1481,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 		switch (proto) {
 		case bpf_htons(ETH_P_IPV6):
-			if (!is_defined(ENABLE_IPV6)) {
+			if (!CONFIG(enable_ipv6)) {
 				ret = DROP_UNKNOWN_L3;
 				break;
 			}
@@ -1735,7 +1735,7 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}
@@ -1937,7 +1937,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}
@@ -2033,7 +2033,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 					 true, false, 0);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
 	} else {
-		bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
+		bool use_tailcall = (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) ||
 				    CONFIG(debug);
 
 		ret = host_ingress_policy(ctx, proto, src_sec_identity,

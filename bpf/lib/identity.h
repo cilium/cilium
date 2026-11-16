@@ -37,12 +37,12 @@ EXPORT_TYPE(enum identity);
 
 static __always_inline __u32 world_ipv4_id(void)
 {
-	return is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6) ? WORLD_IPV4_ID : WORLD_ID;
+	return is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6) ? WORLD_IPV4_ID : WORLD_ID;
 }
 
 static __always_inline __u32 world_ipv6_id(void)
 {
-	return is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6) ? WORLD_IPV6_ID : WORLD_ID;
+	return is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6) ? WORLD_IPV6_ID : WORLD_ID;
 }
 
 /**
@@ -195,7 +195,7 @@ static __always_inline bool identity_is_ingress(__u32 identity)
  */
 static __always_inline bool identity_is_reserved(__u32 identity)
 {
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6))
 		return identity < UNMANAGED_ID || identity_is_remote_node(identity) ||
 			identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID;
 
@@ -212,7 +212,7 @@ static __always_inline bool identity_is_reserved(__u32 identity)
  */
 static __always_inline bool identity_is_world_ipv4(__u32 identity)
 {
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6))
 		return identity == WORLD_ID || identity == WORLD_IPV4_ID;
 
 	return identity == WORLD_ID;
@@ -228,7 +228,7 @@ static __always_inline bool identity_is_world_ipv4(__u32 identity)
  */
 static __always_inline bool identity_is_world_ipv6(__u32 identity)
 {
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6))
 		return identity == WORLD_ID || identity == WORLD_IPV6_ID;
 
 	return identity == WORLD_ID;
@@ -249,7 +249,7 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
  */
 static __always_inline bool identity_is_world(__u32 identity)
 {
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) {
 		if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
 			return true;
 	} else {
@@ -308,7 +308,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
-	} else if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+	} else if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) {
 		__be16 proto = ctx_get_protocol(ctx);
 
 		if (proto == bpf_htons(ETH_P_IP))
@@ -341,7 +341,7 @@ static __always_inline bool identity_is_local(__u32 identity)
 
 static __always_inline __u32 get_tunnel_id(__u32 identity)
 {
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) {
 		if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
 			return WORLD_ID;
 	}
@@ -350,7 +350,7 @@ static __always_inline __u32 get_tunnel_id(__u32 identity)
 
 static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto)
 {
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) {
 		if (tunnel_id == WORLD_ID) {
 			switch (proto) {
 			case bpf_htons(ETH_P_IP):

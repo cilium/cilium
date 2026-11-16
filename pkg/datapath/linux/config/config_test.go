@@ -322,8 +322,9 @@ func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
 }
 
 // TestPrivilegedWriteNodeConfigIPv4Only verifies that when IPv4 is enabled
-// and IPv6 is disabled, only ENABLE_IPV4 is present (not ENABLE_IPV6).
-// This covers the IPv4Only scenario previously tested by K8sDatapathConfig.
+// and IPv6 is disabled, only ENABLE_IPV4 is present (ENABLE_IPV6 is a runtime
+// config now). This covers the IPv4Only scenario previously tested by K8sDatapathConfig.
+// todo: remove this once both ENABLE_IPV4 and ENABLE_IPV6 are turned into runtime configs.
 func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	ns := netns.NewNetNS(t)
@@ -354,8 +355,8 @@ func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.Contains(t, output, "define ENABLE_IPV4 1\n",
 				"Expected ENABLE_IPV4 define for dual stack")
-			require.Contains(t, output, "define ENABLE_IPV6 1\n",
-				"Expected ENABLE_IPV6 define for dual stack")
+			require.NotContains(t, output, "define ENABLE_IPV6",
+				"Expected no ENABLE_IPV6 define for dual stack")
 		})
 
 		return nil

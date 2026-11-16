@@ -2737,7 +2737,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					       punt_to_stack);
 
 	if (lb4_to_lb6_service(svc)) {
-		if (!is_defined(ENABLE_IPV6) || !is_defined(NODEPORT_USE_NAT_46x64))
+		if (!CONFIG(enable_ipv6) || !is_defined(NODEPORT_USE_NAT_46x64))
 			return DROP_NO_SERVICE;
 
 		ret = lb4_to_lb6(ctx, ip4, l3_off);
@@ -2976,7 +2976,7 @@ skip_service_lookup:
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
 					  ext_err);
-	} else if (is_defined(ENABLE_IPV6) &&
+	} else if (CONFIG(enable_ipv6) &&
 		   CONFIG(enable_nat_46x64_gateway) && is_svc_proto &&
 		   snat_v6_has_v4_match_rfc6052(&tuple)) {
 		ret = snat_remap_rfc6052(ctx, ip4, l3_off);

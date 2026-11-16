@@ -108,7 +108,7 @@ is_internal_node_ip6(const union v6addr *ip6)
 static __always_inline const struct node_value *
 lookup_node(const struct remote_endpoint_info *info)
 {
-	if (is_defined(ENABLE_IPV6) && info->flag_ipv6_tunnel_ep)
+	if (CONFIG(enable_ipv6) && info->flag_ipv6_tunnel_ep)
 		return lookup_ip6_node(&info->tunnel_endpoint.ip6);
 	return lookup_ip4_node(info->tunnel_endpoint.ip4.be32);
 }
