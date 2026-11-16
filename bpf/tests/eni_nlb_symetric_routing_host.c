@@ -11,7 +11,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test*/
-#define ENABLE_IPV4		1
 
 #define PRIMARY_IFACE 1
 #define SECONDARY_IFACE 2

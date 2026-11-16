@@ -3,7 +3,6 @@
 
 #define ATTACHMENT_XDP
 
-#define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 
 #define TEST_DSR_OPT_NETWORK_BYTE_ORDER

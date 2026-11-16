@@ -7,7 +7,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 
 #define NODE_ONE6 { .addr = v6_node_one_addr }

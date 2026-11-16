@@ -5,7 +5,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 
 /* A new connection reuses the tuple of an ingress CT entry that still has

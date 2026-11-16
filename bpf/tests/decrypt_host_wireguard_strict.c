@@ -6,7 +6,6 @@
  * arrives from a netdev and resolves to a local pod endpoint must be dropped.
  */
 
-#define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
 #define DEST_LXC_ID	0

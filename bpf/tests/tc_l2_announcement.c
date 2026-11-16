@@ -12,7 +12,6 @@
 #include "scapy.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4 1
 
 #include "lib/bpf_host.h"
 

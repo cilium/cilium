@@ -4,7 +4,6 @@
 #include <bpf/ctx/xdp.h>
 #include "common.h"
 
-#define ENABLE_IPV4 1
 
 #define fib_lookup mock_fib_lookup
 
