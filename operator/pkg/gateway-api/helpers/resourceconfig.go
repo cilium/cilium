@@ -14,4 +14,5 @@ type ResourceConfig struct {
 	IncludeInferencePools   bool
 	TCPRouteUDPRouteSupport bool
 	TCPUDPUnsupportedReason string
+	OwningGatewayLabel      string
 }

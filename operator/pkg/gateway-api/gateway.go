@@ -68,6 +68,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		IncludeInferencePools:   helpers.HasInferencePoolSupport(mgr.GetScheme()),
 		TCPRouteUDPRouteSupport: !hostNetworkEnabled,
 		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		OwningGatewayLabel:      owningGatewayLabel,
 	}
 
 	return &gatewayReconciler{
@@ -129,9 +130,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.GatewayClass{},
 			watchhandlers.EnqueueRequestForOwningGatewayClass(r.client, *r.logger),
 			builder.WithPredicates(predicates.GatewayClassOwnedByController(r.controllerName))).
-		// Watch for changes to Reference Grants
-		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForReferenceGrant(r.client, r.logger)).
-		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.client, r.logger, owningGatewayLabel, r.controllerName)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		// This handles Services _owned_ by the reconciler, or in other words, LB Services.
