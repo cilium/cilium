@@ -20,6 +20,7 @@ import (
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/loading"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/predicates"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
@@ -107,10 +108,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
 	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
 
-	if err := r.inputLoader.SetupIndexes(mgr); err != nil {
-		return err
-	}
-
+	// Add Indexes for managed resources.
+	// Note that ordering is apparently important here, this must happen before the controller setup begins.
 	for _, resource := range r.resourceRegistry.GetResources() {
 		if resource.ShouldIndex() {
 			for indexName, indexer := range resource.GetIndexers(r.logger) {
@@ -136,6 +135,20 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
 
+	// Gateways don't fit in the current Resource Registry
+	// TODO(youngnick): Decide if we will change things to make them fit.
+	// Note that this _must_ happen after controller setup begins.
+	gatewayIndexFuncs := resource.IndexerFuncMap{
+		indexers.ImplementationGatewayIndex: indexers.GenerateIndexerGatewayByImplementation(r.client, gatewayv1.GatewayController(r.controllerName)),
+		helpers.GatewaySecretIndex:          indexers.IndexGatewayBySecret,
+	}
+	for indexName, indexFunc := range gatewayIndexFuncs {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, indexName, indexFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
+	}
+
+	// For all non-Gateway resources, add Watches per the Resource.
 	for _, resource := range r.resourceRegistry.GetResources() {
 		if resource.ShouldWatch() {
 			for _, handler := range resource.GetWatchHandlers(r.client, r.logger, r.scheme, r.controllerName) {

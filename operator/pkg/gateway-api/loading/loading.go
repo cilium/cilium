@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrl "sigs.k8s.io/controller-runtime/pkg/manager"
 	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
@@ -116,18 +115,6 @@ func NewTranslationInputLoader(client helpers.ClientReader, logger *slog.Logger,
 		controllerName: controllerName,
 		config:         config,
 	}
-}
-
-func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, indexers.ImplementationGatewayIndex, indexers.GenerateIndexerGatewayByImplementation(l.client, gatewayv1.GatewayController(l.controllerName))); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ImplementationGatewayIndex, err)
-	}
-
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", helpers.GatewaySecretIndex, err)
-	}
-
-	return nil
 }
 
 func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logger, gw *gatewayv1.Gateway, gatewayClass *gatewayv1.GatewayClass) (TranslationInputs, error) {
