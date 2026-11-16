@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-	"go.yaml.in/yaml/v4"
 )
 
 var _ statedb.TableWritable = &ForwardableIP{}
@@ -35,8 +34,8 @@ func (fip ForwardableIPOwnerType) String() string {
 	}
 }
 
-func (fip *ForwardableIPOwnerType) UnmarshalYAML(unmarshal *yaml.Node) (err error) {
-	*fip, err = forwardableIPOwnerTypeFromString(unmarshal.Value)
+func (fip *ForwardableIPOwnerType) UnmarshalText(text []byte) (err error) {
+	*fip, err = forwardableIPOwnerTypeFromString(string(text))
 	return err
 }
 
