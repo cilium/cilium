@@ -517,7 +517,7 @@ func TestApplySourceIPVerificationFromAnnotation(t *testing.T) {
 			ep.Options.SetValidated(option.SourceIPVerification, tt.initialOptionValue)
 
 			// Apply the annotation with namespace permission check
-			changed := ep.ApplySourceIPVerificationFromAnnotation(tt.podAnnotations, tt.nsAnnotations)
+			changed := ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation, tt.podAnnotations, tt.nsAnnotations)
 
 			// Verify the return value (whether value changed)
 			require.Equal(t, tt.expectedChanged, changed,
@@ -569,7 +569,7 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 	nsNoAllowAnno := map[string]string{}
 
 	// Step 1: With namespace permission, apply annotation to disable SIP verification
-	changed := ep.ApplySourceIPVerificationFromAnnotation(
+	changed := ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{annotation.DisableSourceIPVerification: "true"},
 		nsAllowAnno,
 	)
@@ -578,7 +578,7 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 		"Annotation should have disabled SIP verification")
 
 	// Step 2: Remove pod annotation - should reset to global default
-	changed = ep.ApplySourceIPVerificationFromAnnotation(
+	changed = ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{},
 		nsAllowAnno,
 	)
@@ -588,7 +588,7 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 
 	// Step 3: Set to disabled, then remove namespace permission - pod annotation should be ignored
 	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
-	changed = ep.ApplySourceIPVerificationFromAnnotation(
+	changed = ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{annotation.DisableSourceIPVerification: "true"},
 		nsNoAllowAnno, // No namespace permission
 	)
@@ -598,13 +598,42 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 
 	// Step 4: With invalid pod annotation value, should reset to global default
 	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
-	changed = ep.ApplySourceIPVerificationFromAnnotation(
+	changed = ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{annotation.DisableSourceIPVerification: "invalid-value"},
 		nsAllowAnno,
 	)
 	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (global default)")
 	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
 		"Invalid annotation should reset to global default (Enabled)")
+}
+
+// TestDelegatedAnnotationsTable checks that every entry of DelegatedAnnotations is
+// well formed, so that adding a new setting to the table cannot silently break
+// the pod watcher, the namespace updater or the metadata resolver that rely on it.
+func TestDelegatedAnnotationsTable(t *testing.T) {
+	endpointOptions := option.GetEndpointMutableOptionLibrary()
+	keys := map[string]struct{}{}
+	for _, da := range DelegatedAnnotations {
+		require.NotEmpty(t, da.Name)
+		require.Contains(t, endpointOptions, da.Option, "%s: option is not an endpoint option", da.Name)
+		require.NotEqual(t, da.OnTruthy, da.OnFalsy, "%s: truthy and falsy values must differ", da.Name)
+		for _, k := range []string{da.NamespaceKey, da.PodKey} {
+			require.NotEmpty(t, k, da.Name)
+			require.NotContains(t, keys, k, "%s: annotation key used twice", da.Name)
+			keys[k] = struct{}{}
+		}
+	}
+
+	// The filter must return a copy and keep the shared table untouched.
+	n := len(DelegatedAnnotations)
+	none := FilterDelegatedAnnotations(func(DelegatedAnnotation) bool { return false })
+	require.Empty(t, none)
+	require.Len(t, DelegatedAnnotations, n)
+	all := FilterDelegatedAnnotations(func(DelegatedAnnotation) bool { return true })
+	require.Equal(t, DelegatedAnnotations, all)
+	only := FilterDelegatedAnnotations(func(da DelegatedAnnotation) bool { return da.Option == option.SourceIPVerification })
+	require.Equal(t, []DelegatedAnnotation{SourceIPVerificationAnnotation}, only)
+	require.Len(t, DelegatedAnnotations, n)
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {
