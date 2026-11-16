@@ -19,6 +19,8 @@ status:
       value: 172.18.0.3
     - type: IPAddress
       value: 172.18.0.4
+    - type: IPAddress
+      value: 172.18.0.5
   conditions:
     - lastTransitionTime: "2026-05-05T19:06:19Z"
       message: Gateway successfully scheduled
