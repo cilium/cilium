@@ -624,7 +624,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix netip.Prefix, isLocalNode 
 }
 
 func (n *linuxNodeHandler) lookupNodeRoute(prefix netip.Prefix, isLocalNode bool) (*route.Route, error) {
-	if !prefix.IsValid() {
+	if !prefix.IsValid() || !n.familyEnabled(prefix) {
 		return nil, nil
 	}
 
@@ -713,7 +713,12 @@ func (n *linuxNodeHandler) addNodeRoutes(prefixes []netip.Prefix, isLocalNode bo
 func (n *linuxNodeHandler) removeNodeRoutes(prefixes []netip.Prefix, isLocalNode bool) error {
 	var errs error
 	for _, prefix := range prefixes {
-		if rt, _ := n.lookupNodeRoute(prefix, isLocalNode); rt != nil {
+		rt, err := n.lookupNodeRoute(prefix, isLocalNode)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to look up node route %q: %w", prefix, err))
+			continue
+		}
+		if rt != nil {
 			if err := n.deleteNodeRoute(prefix, isLocalNode); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to remove aux route %q: %w", prefix, err))
 			}
@@ -777,28 +782,31 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return errors.Join(errs, n.updateHybridRoutes(oldNode, newNode, isLocalNode))
 	}
 
+	_, recovering := n.pendingNodes[newNode.Identity()]
+	oldEncapsulation := oldNode != nil && n.enableEncapsulation(oldNode)
 	if n.enableEncapsulation(newNode) {
-		if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv4: %w", err))
+		added4, removed4 := diffPrefixes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs)
+		added6, removed6 := diffPrefixes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs)
+		// Unchanged prefixes need routes when entering tunnel mode or recovering
+		// from a failed update that may have removed them.
+		if !oldEncapsulation || recovering {
+			added4, added6 = newAllIP4AllocCidrs, newAllIP6AllocCidrs
 		}
-		if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv6: %w", err))
-		}
-	} else if firstAddition {
-		for _, ipv4AllocCIDR := range newAllIP4AllocCidrs {
-			if rt, _ := n.lookupNodeRoute(ipv4AllocCIDR, isLocalNode); rt != nil {
-				if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to clean up stale tunnel route for ipv4: %w", err))
-				}
-			}
-		}
-		for _, ipv6AllocCIDR := range newAllIP6AllocCidrs {
-			if rt, _ := n.lookupNodeRoute(ipv6AllocCIDR, isLocalNode); rt != nil {
-				if err := n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to clean up stale tunnel route for ipv6: %w", err))
-				}
-			}
-		}
+		errs = errors.Join(errs,
+			n.addNodeRoutes(added4, isLocalNode),
+			n.addNodeRoutes(added6, isLocalNode),
+			n.removeNodeRoutes(removed4, isLocalNode),
+			n.removeNodeRoutes(removed6, isLocalNode),
+		)
+	} else if firstAddition || oldEncapsulation || recovering {
+		// Clean up stale tunnel routes only on discovery, mode transitions,
+		// or recovery. Include both versions when prefixes also changed.
+		errs = errors.Join(errs,
+			n.removeNodeRoutes(oldAllIP4AllocCidrs, isLocalNode),
+			n.removeNodeRoutes(oldAllIP6AllocCidrs, isLocalNode),
+			n.removeNodeRoutes(newAllIP4AllocCidrs, isLocalNode),
+			n.removeNodeRoutes(newAllIP6AllocCidrs, isLocalNode),
+		)
 	}
 	return errs
 }
