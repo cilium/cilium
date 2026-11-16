@@ -84,6 +84,10 @@ func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
 		gr.AddResource(NewUDPRouteResource(gr.registryConfig))
 	}
 
+	if r.IncludeServiceImports {
+		gr.AddResource(NewServiceImportResource(gr.registryConfig))
+	}
+
 	return gr
 }
 
