@@ -65,7 +65,11 @@ func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
 	gr.AddResource(NewGRPCRouteResource(gr.registryConfig))
 	gr.AddResource(NewTLSRouteResource(gr.registryConfig))
 	gr.AddResource(NewBackendTLSPolicyResource(gr.registryConfig))
+	gr.AddResource(NewReferenceGrantResource(gr.registryConfig))
 	gr.AddResource(NewConfigMapResource(gr.registryConfig))
+	gr.AddResource(NewSecretResource(gr.registryConfig))
+	gr.AddResource(NewNamespaceResource(gr.registryConfig))
+	gr.AddResource(NewServiceResource(gr.registryConfig))
 
 	if r.IncludeListenerSets {
 		gr.AddResource(NewListenerSetResource(gr.registryConfig))
