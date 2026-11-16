@@ -40,7 +40,7 @@ int is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
 	if (!CONFIG(enable_sip_verification))
 		return 1;
 
-	if (is_defined(ENABLE_IPV4))
+	if (CONFIG(enable_ipv4))
 		return ip4->saddr == CONFIG(endpoint_ipv4).be32;
 
 	/* Can't send IPv4 if no IPv4 address is configured */
