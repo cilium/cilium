@@ -172,13 +172,19 @@ func supportsBIGTCPIPv6(log *slog.Logger) bool {
 
 // Probes whether the kernel supports BIG TCP for VXLAN and GENEVE.
 func supportsBIGTCPTunnel(log *slog.Logger) bool {
+	log.Debug("Probing kernel support for BIG TCP for UDP tunnels")
+	result := true
 	if err := probes.HaveBIGTCPTunnel(); err != nil {
 		if !errors.Is(err, probes.ErrNotSupported) {
 			log.Warn("Failed to probe kernel support for BIG TCP for UDP tunnels: " + err.Error())
+			return false
 		}
-		return false
+		result = false
 	}
-	return true
+	log.Info("Probed kernel support for BIG TCP for UDP tunnels",
+		logfields.State, result,
+	)
+	return result
 }
 
 // Returns the current gso_max_size (IPv6), gso_ipv4_max_size (IPv4) and
@@ -272,9 +278,6 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 
 func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
 	bigtcpTunnel := supportsBIGTCPTunnel(p.Log)
-	p.Log.Info("Probed kernel support for BIG TCP for UDP tunnels",
-		logfields.State, bigtcpTunnel,
-	)
 
 	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.TunnelConfig, p.LBConfig.DSRDispatch, bigtcpTunnel); err != nil {
 		return nil, err
