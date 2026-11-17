@@ -244,9 +244,7 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s",
 			cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5))
 	}
-	if _, err := os.Lstat(sysctlConfPath); err == nil {
-		toBeRemoved = append(toBeRemoved, fmt.Sprintf("sysctl config at %s", sysctlConfPath))
-	}
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("sysctl config at %s", sysctlConfPath))
 	return toBeRemoved
 }
 
@@ -373,7 +371,6 @@ func removeCNI() error {
 }
 
 // removeSysctlConf removes the sysctl config file written by cilium-sysctlfix.
-// The values it set stay in effect until the next reboot or systemd-sysctl run.
 func removeSysctlConf() error {
 	if err := os.Remove(sysctlConfPath); err != nil && !os.IsNotExist(err) {
 		return err
