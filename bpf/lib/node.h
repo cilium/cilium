@@ -31,7 +31,7 @@ struct {
 	__type(key, struct node_key);
 	__type(value, struct node_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, NODE_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_node_map_v2 __section_maps_btf;
 

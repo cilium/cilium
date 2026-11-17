@@ -8,8 +8,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 )
 
 // Cell provides the nodemap.MapV2 which contains information about node IDs, SPIs, and their IP addresses.
@@ -19,6 +22,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newNodeMap),
 	cell.Config(defaultConfig),
+	cell.Invoke(configureNodeMap),
 )
 
 type Config struct {
@@ -34,21 +38,46 @@ var defaultConfig = Config{
 	NodeMapMax: DefaultMaxEntries,
 }
 
-func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error) {
+func newNodeMap(lifecycle cell.Lifecycle, mapRegistry *mapregistry.MapRegistry,
+	conf Config) (bpf.MapOut[MapV2], error) {
 	if conf.NodeMapMax < DefaultMaxEntries {
 		return bpf.MapOut[MapV2]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
 			DefaultMaxEntries, conf.NodeMapMax)
 	}
-	nodeMap := newMapV2(MapNameV2, conf)
+	nodeMap := &nodeMapV2{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			return nodeMap.init()
+			var err error
+			if nodeMap.bpfMap, err = bpf.NewMapFromRegistry(mapRegistry, MapNameV2, &NodeKey{},
+				&NodeValueV2{}); err != nil {
+				return fmt.Errorf("pull %s map from registry: %w", MapNameV2, err)
+			}
+
+			if err := nodeMap.bpfMap.OpenOrCreate(); err != nil {
+				return fmt.Errorf("open/create %s map: %w", MapNameV2, err)
+			}
+			return nil
 		},
 		OnStop: func(context cell.HookContext) error {
-			return nodeMap.close()
+			if err := nodeMap.bpfMap.Close(); err != nil {
+				return fmt.Errorf("close %s map: %w", MapNameV2, err)
+			}
+			return nil
 		},
 	})
 
 	return bpf.NewMapOut(MapV2(nodeMap)), nil
+}
+
+func configureNodeMap(reg *mapregistry.MapRegistry, conf Config) error {
+	flags := bpf.GetMapMemoryFlags(ebpf.Hash) | unix.BPF_F_RDONLY_PROG
+	maxEntries := conf.NodeMapMax
+	if err := reg.Modify(MapNameV2, func(patch *mapregistry.MapSpecPatch) {
+		patch.Flags = flags
+		patch.MaxEntries = maxEntries
+	}); err != nil {
+		return fmt.Errorf("error setting %s map flags and max entries: %w", MapNameV2, err)
+	}
+	return nil
 }
