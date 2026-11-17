@@ -14,6 +14,10 @@ db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table
 
+# Verify that each frontend mapping reports its corresponding backend.
+lrp/list lrp.actual
+cmp lrp.actual lrp-list.expected
+
 # Remove the LRP.
 k8s/delete lrp-addr.yaml
 
@@ -78,6 +82,10 @@ Service                       Address
 test/lrp-addr:local-redirect  10.244.2.1:50/TCP
 test/lrp-addr:local-redirect  10.244.2.1:51/TCP
 
+-- lrp-list.expected --
+test/lrp-addr type=addr frontend-type="IP + named ports"
+  169.254.169.254:5050/TCP => 10.244.2.1:50/TCP (test/lrp-pod, active)
+  169.254.169.254:5051/TCP => 10.244.2.1:51/TCP (test/lrp-pod, active)
 -- lrp-single.table --
 Name                       Type     FrontendType      Frontends
 test/lrp-addr-single       address  addr-single-port  169.254.169.254:5050/TCP
