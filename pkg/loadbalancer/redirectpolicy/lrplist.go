@@ -23,7 +23,6 @@ func newLRPListCommand(
 	db *statedb.DB,
 	lrps statedb.Table[*LocalRedirectPolicy],
 	frontends statedb.Table[*lb.Frontend],
-	backends statedb.Table[*lb.Backend],
 	pods statedb.Table[k8sTables.LocalPod],
 ) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
@@ -49,7 +48,7 @@ func newLRPListCommand(
 				return func(s *script.State) (stdout string, stderr string, err error) {
 					var lines []string
 
-					for _, spec := range getLRPs(db.ReadTxn(), lrps, frontends, backends, pods) {
+					for _, spec := range getLRPs(db.ReadTxn(), lrps, frontends, pods) {
 						lines = append(lines, formatLRPSpec(spec))
 					}
 
