@@ -53,11 +53,18 @@ spec:
                 items:
                   properties:
                     cidr:
-                      description: CIDR is the IPv4 CIDR the network configuration
-                        applies to.
-                      format: cidr
-                      pattern: ^[^:]+$
+                      description: |-
+                        CIDR is the IPv4 CIDR the network configuration applies to. It must be a network address,
+                        with no host bits set (e.g.: 10.0.0.0/16).
+
+                        MaxLength bounds the string length of the value (not the CIDR prefix length).
+                      maxLength: 18
                       type: string
+                      x-kubernetes-validations:
+                      - message: 'must be an IPv4 network address in CIDR notation
+                          with no host bits set (e.g.: 10.0.0.0/16)'
+                        rule: isCIDR(self) && cidr(self).ip().family() == 4 && string(cidr(self).masked())
+                          == self
                     prefixLength:
                       description: |-
                         PrefixLength is the prefix length associated to the allocated IPv4 addresses. If it is
@@ -72,20 +79,33 @@ spec:
                       items:
                         properties:
                           destination:
-                            description: Destination specifies the route destination,
-                              as an IPv4 CIDR.
-                            format: cidr
-                            pattern: ^[^:]+$
+                            description: |-
+                              Destination specifies the route destination, as an IPv4 CIDR. It must be a network address,
+                              with no host bits set (e.g.: 192.168.1.0/24).
+
+                              MaxLength bounds the string length of the value (not the CIDR prefix length).
+                            maxLength: 18
                             type: string
+                            x-kubernetes-validations:
+                            - message: 'must be an IPv4 network address in CIDR notation
+                                with no host bits set (e.g.: 192.168.1.0/24)'
+                              rule: isCIDR(self) && cidr(self).ip().family() == 4
+                                && string(cidr(self).masked()) == self
                           gateway:
-                            description: Gateway specifies the route gateway address.
-                              If it is omitted, the route is a direct route.
-                            format: ipv4
-                            pattern: ^[^:]+$
+                            description: |-
+                              Gateway specifies the route gateway address. If it is omitted, the route is a direct route.
+
+                              MaxLength bounds the string length of the value.
+                            maxLength: 15
                             type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid IPv4 address in dotted-decimal
+                                notation, without leading zeros
+                              rule: isIP(self) && ip(self).family() == 4
                         required:
                         - destination
                         type: object
+                      maxItems: 32
                       minItems: 1
                       type: array
                       x-kubernetes-list-map-keys:
@@ -109,14 +129,22 @@ spec:
                 items:
                   properties:
                     cidr:
-                      description: CIDR is the IPv6 CIDR the network configuration
-                        applies to.
-                      format: cidr
-                      pattern: ':'
+                      description: |-
+                        CIDR is the IPv6 CIDR the network configuration applies to. It must be a network address
+                        in canonical form (lowercase, compressed, with no host bits set; e.g.: fd00::/48).
+
+                        MaxLength bounds the string length of the value (not the CIDR prefix length).
+                      maxLength: 43
                       type: string
+                      x-kubernetes-validations:
+                      - message: 'must be an IPv6 network address in canonical CIDR
+                          notation (lowercase, compressed, no host bits set; e.g.:
+                          fd00::/48)'
+                        rule: isCIDR(self) && cidr(self).ip().family() == 6 && string(cidr(self).masked())
+                          == self
                     prefixLength:
                       description: |-
-                        PrefixLength is the prefix length associated to the allocated IPv4 addresses. If it is
+                        PrefixLength is the prefix length associated to the allocated IPv6 addresses. If it is
                         omitted, the prefix length of the CIDR is applied instead.
                       maximum: 128
                       minimum: 1
@@ -128,19 +156,34 @@ spec:
                       items:
                         properties:
                           destination:
-                            description: Destination specifies the route destination,
-                              as an IPv6 CIDR.
-                            format: cidr
-                            pattern: ':'
+                            description: |-
+                              Destination specifies the route destination, as an IPv6 CIDR. It must be a network address
+                              in canonical form (lowercase, compressed, with no host bits set; e.g.: fd01::/64).
+
+                              MaxLength bounds the string length of the value (not the CIDR prefix length).
+                            maxLength: 43
                             type: string
+                            x-kubernetes-validations:
+                            - message: 'must be an IPv6 network address in canonical
+                                CIDR notation (lowercase, compressed, no host bits
+                                set; e.g.: fd01::/64)'
+                              rule: isCIDR(self) && cidr(self).ip().family() == 6
+                                && string(cidr(self).masked()) == self
                           gateway:
-                            description: Gateway specifies the route gateway address.
-                              If it is omitted, the route is a direct route.
-                            format: ipv6
+                            description: |-
+                              Gateway specifies the route gateway address. If it is omitted, the route is a direct route.
+
+                              MaxLength bounds the string length of the value.
+                            maxLength: 45
                             type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid IPv6 address (IPv4-mapped addresses
+                                are not allowed)
+                              rule: isIP(self) && ip(self).family() == 6
                         required:
                         - destination
                         type: object
+                      maxItems: 32
                       minItems: 1
                       type: array
                       x-kubernetes-list-map-keys:
