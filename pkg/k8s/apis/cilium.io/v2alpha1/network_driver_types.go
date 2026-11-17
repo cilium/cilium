@@ -383,11 +383,13 @@ type CiliumResourceNetworkConfigSpec struct {
 }
 
 type IPv4NetworkConfigSpec struct {
-	// CIDR is the IPv4 CIDR the network configuration applies to.
+	// CIDR is the IPv4 CIDR the network configuration applies to. It must be a network address,
+	// with no host bits set (e.g.: 10.0.0.0/16).
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=cidr
-	// +kubebuilder:validation:Pattern=`^[^:]+$`
+	// MaxLength bounds the string length of the value (not the CIDR prefix length).
+	// +kubebuilder:validation:MaxLength=18
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 4 && string(cidr(self).masked()) == self", message="must be an IPv4 network address in CIDR notation with no host bits set (e.g.: 10.0.0.0/16)"
 	CIDR string `json:"cidr"`
 
 	// PrefixLength is the prefix length associated to the allocated IPv4 addresses. If it is
@@ -403,20 +405,23 @@ type IPv4NetworkConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
 	// +listType=map
 	// +listMapKey=destination
 	Routes []IPv4StaticRouteSpec `json:"routes,omitempty"`
 }
 
 type IPv6NetworkConfigSpec struct {
-	// CIDR is the IPv6 CIDR the network configuration applies to.
+	// CIDR is the IPv6 CIDR the network configuration applies to. It must be a network address
+	// in canonical form (lowercase, compressed, with no host bits set; e.g.: fd00::/48).
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=cidr
-	// +kubebuilder:validation:Pattern=`:`
+	// MaxLength bounds the string length of the value (not the CIDR prefix length).
+	// +kubebuilder:validation:MaxLength=43
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 6 && string(cidr(self).masked()) == self", message="must be an IPv6 network address in canonical CIDR notation (lowercase, compressed, no host bits set; e.g.: fd00::/48)"
 	CIDR string `json:"cidr"`
 
-	// PrefixLength is the prefix length associated to the allocated IPv4 addresses. If it is
+	// PrefixLength is the prefix length associated to the allocated IPv6 addresses. If it is
 	// omitted, the prefix length of the CIDR is applied instead.
 	//
 	// +kubebuilder:validation:Optional
@@ -429,39 +434,47 @@ type IPv6NetworkConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
 	// +listType=map
 	// +listMapKey=destination
 	Routes []IPv6StaticRouteSpec `json:"routes,omitempty"`
 }
 
 type IPv4StaticRouteSpec struct {
-	// Destination specifies the route destination, as an IPv4 CIDR.
+	// Destination specifies the route destination, as an IPv4 CIDR. It must be a network address,
+	// with no host bits set (e.g.: 192.168.1.0/24).
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=cidr
-	// +kubebuilder:validation:Pattern=`^[^:]+$`
+	// MaxLength bounds the string length of the value (not the CIDR prefix length).
+	// +kubebuilder:validation:MaxLength=18
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 4 && string(cidr(self).masked()) == self", message="must be an IPv4 network address in CIDR notation with no host bits set (e.g.: 192.168.1.0/24)"
 	Destination string `json:"destination"`
 
 	// Gateway specifies the route gateway address. If it is omitted, the route is a direct route.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Format=ipv4
-	// +kubebuilder:validation:Pattern=`^[^:]+$`
+	// MaxLength bounds the string length of the value.
+	// +kubebuilder:validation:MaxLength=15
+	// +kubebuilder:validation:XValidation:rule="isIP(self) && ip(self).family() == 4", message="must be a valid IPv4 address in dotted-decimal notation, without leading zeros"
 	Gateway *string `json:"gateway,omitempty"`
 }
 
 type IPv6StaticRouteSpec struct {
-	// Destination specifies the route destination, as an IPv6 CIDR.
+	// Destination specifies the route destination, as an IPv6 CIDR. It must be a network address
+	// in canonical form (lowercase, compressed, with no host bits set; e.g.: fd01::/64).
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=cidr
-	// +kubebuilder:validation:Pattern=`:`
+	// MaxLength bounds the string length of the value (not the CIDR prefix length).
+	// +kubebuilder:validation:MaxLength=43
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 6 && string(cidr(self).masked()) == self", message="must be an IPv6 network address in canonical CIDR notation (lowercase, compressed, no host bits set; e.g.: fd01::/64)"
 	Destination string `json:"destination"`
 
 	// Gateway specifies the route gateway address. If it is omitted, the route is a direct route.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Format=ipv6
+	// MaxLength bounds the string length of the value.
+	// +kubebuilder:validation:MaxLength=45
+	// +kubebuilder:validation:XValidation:rule="isIP(self) && ip(self).family() == 6", message="must be a valid IPv6 address (IPv4-mapped addresses are not allowed)"
 	Gateway *string `json:"gateway,omitempty"`
 }
 
