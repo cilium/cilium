@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -22,7 +21,6 @@ type WriterParams struct {
 
 	Log                *slog.Logger
 	LBConfig           loadbalancer.Config
-	NodeMap            nodemap.MapV2
 	NodeAddressing     node.Addressing
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`

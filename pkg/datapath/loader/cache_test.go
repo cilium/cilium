@@ -19,7 +19,6 @@ import (
 	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	fakeNodeMap "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -225,7 +224,6 @@ func configWriterForTest(t testing.TB) config.Writer {
 	t.Helper()
 
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		NodeMap:        fakeNodeMap.NewFakeNodeMapV2(),
 		NodeAddressing: fakenode.NewAddressing(),
 		Sysctl:         nil,
 	})

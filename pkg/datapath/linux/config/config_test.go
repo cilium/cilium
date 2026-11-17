@@ -29,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
-	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
@@ -97,7 +95,6 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 		var writer Writer
 		t.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
-			provideNodemap,
 			tables.DirectRoutingDeviceCell,
 			maglev.Cell,
 			cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
@@ -216,8 +213,7 @@ func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 				func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
 			},
-			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-			NodeMap: fake.NewFakeNodeMapV2(),
+			Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		})
 		require.NoError(t, err)
 
@@ -236,8 +232,7 @@ func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 			NodeExtraDefineFns: []dpdef.Fn{
 				func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 			},
-			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-			NodeMap: fake.NewFakeNodeMapV2(),
+			Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		})
 		require.NoError(t, err)
 
@@ -252,8 +247,7 @@ func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 			},
-			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-			NodeMap: fake.NewFakeNodeMapV2(),
+			Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		})
 		require.NoError(t, err)
 		buffer.Reset()
@@ -278,7 +272,6 @@ func TestPrivilegedNewHeaderfileWriter(t *testing.T) {
 			NodeExtraDefines:   []dpdef.Map{a, a},
 			NodeExtraDefineFns: nil,
 			Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-			NodeMap:            fake.NewFakeNodeMapV2(),
 		})
 
 		require.Error(t, err, "duplicate keys should be rejected")
@@ -288,7 +281,6 @@ func TestPrivilegedNewHeaderfileWriter(t *testing.T) {
 			NodeExtraDefines:   []dpdef.Map{a},
 			NodeExtraDefineFns: nil,
 			Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-			NodeMap:            fake.NewFakeNodeMapV2(),
 		})
 		require.NoError(t, err)
 		require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
@@ -297,10 +289,6 @@ func TestPrivilegedNewHeaderfileWriter(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
-
-var provideNodemap = cell.Provide(func() nodemap.MapV2 {
-	return fake.NewFakeNodeMapV2()
-})
 
 // writeNodeConfigToBuffer creates a HeaderfileWriter and writes the node
 // configuration to a buffer. This helper is used by the datapath config
@@ -312,7 +300,6 @@ func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
 		NodeExtraDefines:   nil,
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
-		NodeMap:            fake.NewFakeNodeMapV2(),
 	})
 	require.NoError(t, err)
 

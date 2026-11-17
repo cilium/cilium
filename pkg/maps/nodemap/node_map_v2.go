@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -19,7 +20,7 @@ import (
 var _ MapV2 = (*nodeMapV2)(nil)
 
 const (
-	MapNameV2         = "cilium_node_map_v2"
+	MapNameV2         = maps.CiliumNodeMapV2
 	DefaultMaxEntries = 16384
 )
 
@@ -36,22 +37,18 @@ type MapV2 interface {
 	// IterateWithCallback iterates through all the keys/values of a node map,
 	// passing each key/value pair to the cb callback.
 	IterateWithCallback(cb NodeIterateCallbackV2) error
-
-	// Size returns what how many entries the node map is configured to hold.
-	Size() uint32
 }
 
 // nodeMapV2 is an iteration on nodeMap which associates an IPSec SPI with each
 // node in the map.
 type nodeMapV2 struct {
-	conf   Config
 	bpfMap *bpf.Map
 }
 
 func newMapV2(mapName string, conf Config) *nodeMapV2 {
 	flags := uint32(unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG)
 	m := bpf.NewMap(mapName, ebpf.Hash, &NodeKey{}, &NodeValueV2{}, int(conf.NodeMapMax), flags)
-	return &nodeMapV2{conf: conf, bpfMap: m}
+	return &nodeMapV2{bpfMap: m}
 }
 
 type NodeKey struct {
@@ -116,10 +113,6 @@ func (m *nodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8, internalIP b
 	return nil
 }
 
-func (m *nodeMapV2) Size() uint32 {
-	return m.conf.NodeMapMax
-}
-
 func (m *nodeMapV2) Delete(ip netip.Addr) error {
 	key := newNodeKey(ip)
 	if err := m.bpfMap.Delete(&key); err != nil {
@@ -152,20 +145,4 @@ func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
 	}
 
 	return &nodeMapV2{bpfMap: bpfMap}, nil
-}
-
-func (m *nodeMapV2) init() error {
-	if err := m.bpfMap.OpenOrCreate(); err != nil {
-		return fmt.Errorf("failed to init bpf map: %w", err)
-	}
-
-	return nil
-}
-
-func (m *nodeMapV2) close() error {
-	if err := m.bpfMap.Close(); err != nil {
-		return fmt.Errorf("failed to close bpf map: %w", err)
-	}
-
-	return nil
 }
