@@ -6,8 +6,6 @@ package translation
 import (
 	"cmp"
 	"fmt"
-	"iter"
-	"maps"
 	goslices "slices"
 	"strings"
 	"syscall"
@@ -359,31 +357,77 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_conf
 	return filterChains, nil
 }
 
-type tlsFilterChainKey struct {
-	Secret  model.TLSSecret
-	Options model.TLSOptions
+type tlsFilterChainGroup struct {
+	hosts      []string
+	tlsOptions *model.TLSOptions
 }
 
-func newTLSFilterChainKey(secret model.TLSSecret, options *model.TLSOptions) tlsFilterChainKey {
-	key := tlsFilterChainKey{Secret: secret}
-	if options != nil {
-		key.Options = *options
+func addTLSFilterChainHost(groups []tlsFilterChainGroup, options *model.TLSOptions, hostname string) []tlsFilterChainGroup {
+	tlsOptions := normalizeTLSOptions(options)
+	for idx := range groups {
+		if equalTLSOptions(groups[idx].tlsOptions, tlsOptions) {
+			groups[idx].hosts = append(groups[idx].hosts, hostname)
+			return groups
+		}
 	}
-	return key
+
+	return append(groups, tlsFilterChainGroup{
+		hosts:      []string{hostname},
+		tlsOptions: tlsOptions,
+	})
 }
 
-func sortedTLSFilterChainKeys(keys iter.Seq[tlsFilterChainKey]) []tlsFilterChainKey {
-	return goslices.SortedStableFunc(keys, func(a, b tlsFilterChainKey) int {
-		if c := cmp.Compare(a.Secret.Namespace, b.Secret.Namespace); c != 0 {
-			return c
+func normalizeTLSOptions(options *model.TLSOptions) *model.TLSOptions {
+	if options == nil || (options.MinVersion == "" &&
+		options.MaxVersion == "" &&
+		len(options.CipherSuites) == 0 &&
+		len(options.ECDHCurves) == 0 &&
+		len(options.SignatureAlgorithms) == 0) {
+		return nil
+	}
+	optionsCopy := *options
+	return &optionsCopy
+}
+
+func equalTLSOptions(a, b *model.TLSOptions) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.MinVersion == b.MinVersion &&
+		a.MaxVersion == b.MaxVersion &&
+		goslices.Equal(a.CipherSuites, b.CipherSuites) &&
+		goslices.Equal(a.ECDHCurves, b.ECDHCurves) &&
+		goslices.Equal(a.SignatureAlgorithms, b.SignatureAlgorithms)
+}
+
+func compareTLSOptions(a, b *model.TLSOptions) int {
+	if a == nil {
+		if b == nil {
+			return 0
 		}
-		if c := cmp.Compare(a.Secret.Name, b.Secret.Name); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(a.Options.MinVersion, b.Options.MinVersion); c != 0 {
-			return c
-		}
-		return cmp.Compare(a.Options.MaxVersion, b.Options.MaxVersion)
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+	if c := cmp.Compare(a.MinVersion, b.MinVersion); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.MaxVersion, b.MaxVersion); c != 0 {
+		return c
+	}
+	if c := goslices.Compare(a.CipherSuites, b.CipherSuites); c != 0 {
+		return c
+	}
+	if c := goslices.Compare(a.ECDHCurves, b.ECDHCurves); c != 0 {
+		return c
+	}
+	return goslices.Compare(a.SignatureAlgorithms, b.SignatureAlgorithms)
+}
+
+func sortTLSFilterChainGroups(groups []tlsFilterChainGroup) {
+	goslices.SortStableFunc(groups, func(a, b tlsFilterChainGroup) int {
+		return compareTLSOptions(a.tlsOptions, b.tlsOptions)
 	})
 }
 
@@ -397,24 +441,24 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 	tlsListeners := m.TLSSecretsToListeners()
 	var filterChains []*envoy_config_listener.FilterChain
 	for _, data := range tlsData {
-		hostsByKey := map[tlsFilterChainKey][]string{}
+		var groups []tlsFilterChainGroup
 		for _, ref := range tlsListeners[data.TLSSecret] {
 			if !goslices.Contains(data.Hostnames, ref.Hostname) {
 				continue
 			}
 
-			key := newTLSFilterChainKey(data.TLSSecret, ref.TLSOptions)
-			hostsByKey[key] = append(hostsByKey[key], ref.Hostname)
+			groups = addTLSFilterChainHost(groups, ref.TLSOptions, ref.Hostname)
 		}
 
-		for _, key := range sortedTLSFilterChainKeys(maps.Keys(hostsByKey)) {
+		sortTLSFilterChainGroups(groups)
+		for _, group := range groups {
 			secureHCMName := fmt.Sprintf("%s-%s", name, secureHost)
 			secureHCM, err := i.desiredHTTPConnectionManager(secureHCMName, secureHCMName, m)
 			if err != nil {
 				return nil, err
 			}
 			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-				FilterChainMatch: toFilterChainMatch(slices.SortedUnique(hostsByKey[key])),
+				FilterChainMatch: toFilterChainMatch(slices.SortedUnique(group.hosts)),
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: httpConnectionManagerType,
@@ -423,7 +467,7 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 						},
 					},
 				},
-				TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation, key.Options),
+				TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation, group.tlsOptions),
 			})
 		}
 	}
@@ -648,23 +692,23 @@ func (i *cecTranslator) httpsFilterChainsForPort(name string, port uint32, m *mo
 	tlsListeners := m.TLSSecretsToListeners()
 	var filterChains []*envoy_config_listener.FilterChain
 	for _, data := range tlsData {
-		hostsByKey := map[tlsFilterChainKey][]string{}
+		var groups []tlsFilterChainGroup
 		for _, ref := range tlsListeners[data.TLSSecret] {
 			if ref.Port != port || !goslices.Contains(data.Hostnames, ref.Hostname) {
 				continue
 			}
 
-			key := newTLSFilterChainKey(data.TLSSecret, ref.TLSOptions)
-			hostsByKey[key] = append(hostsByKey[key], ref.Hostname)
+			groups = addTLSFilterChainHost(groups, ref.TLSOptions, ref.Hostname)
 		}
 
-		for _, key := range sortedTLSFilterChainKeys(maps.Keys(hostsByKey)) {
+		sortTLSFilterChainGroups(groups)
+		for _, group := range groups {
 			hcm, err := i.desiredHTTPConnectionManager(name, name, m)
 			if err != nil {
 				return nil, err
 			}
 			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-				FilterChainMatch: toFilterChainMatch(slices.SortedUnique(hostsByKey[key])),
+				FilterChainMatch: toFilterChainMatch(slices.SortedUnique(group.hosts)),
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: httpConnectionManagerType,
@@ -673,7 +717,7 @@ func (i *cecTranslator) httpsFilterChainsForPort(name string, port uint32, m *mo
 						},
 					},
 				},
-				TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{key.Secret}, data.FrontendTLSValidation, key.Options),
+				TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation, group.tlsOptions),
 			})
 		}
 	}
@@ -918,7 +962,7 @@ func tlsPassthroughBackendWeight(backend model.Backend) uint32 {
 	return uint32(*backend.Weight)
 }
 
-func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, frontendValidation *model.FrontendTLSValidation, tlsOptions model.TLSOptions) *envoy_config_core_v3.TransportSocket {
+func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, frontendValidation *model.FrontendTLSValidation, tlsOptions *model.TLSOptions) *envoy_config_core_v3.TransportSocket {
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
@@ -934,14 +978,24 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, fron
 	commonTLSContext := &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
 		TlsCertificateSdsSecretConfigs: tlsSdsConfig,
 	}
-	if tlsOptions.MinVersion != "" || tlsOptions.MaxVersion != "" {
-		commonTLSContext.TlsParams = &envoy_extensions_transport_sockets_tls_v3.TlsParameters{}
-		if tlsOptions.MinVersion != "" {
-			commonTLSContext.TlsParams.TlsMinimumProtocolVersion = toEnvoyTLSVersion(tlsOptions.MinVersion)
+	if tlsOptions != nil {
+		tlsParams := &envoy_extensions_transport_sockets_tls_v3.TlsParameters{}
+		if v := tlsOptions.MinVersion; v != "" {
+			tlsParams.TlsMinimumProtocolVersion = toEnvoyTLSVersion(v)
 		}
-		if tlsOptions.MaxVersion != "" {
-			commonTLSContext.TlsParams.TlsMaximumProtocolVersion = toEnvoyTLSVersion(tlsOptions.MaxVersion)
+		if v := tlsOptions.MaxVersion; v != "" {
+			tlsParams.TlsMaximumProtocolVersion = toEnvoyTLSVersion(v)
 		}
+		if v := tlsOptions.CipherSuites; len(v) != 0 {
+			tlsParams.CipherSuites = v
+		}
+		if v := tlsOptions.ECDHCurves; len(v) != 0 {
+			tlsParams.EcdhCurves = v
+		}
+		if v := tlsOptions.SignatureAlgorithms; len(v) != 0 {
+			tlsParams.SignatureAlgorithms = v
+		}
+		commonTLSContext.TlsParams = tlsParams
 	}
 
 	downStreamContext := envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
