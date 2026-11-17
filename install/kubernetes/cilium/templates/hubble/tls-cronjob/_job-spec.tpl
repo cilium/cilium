@@ -21,6 +21,7 @@ spec:
               drop:
               - ALL
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           {{- with .Values.certgen.resources }}
           resources:
           {{- toYaml . | nindent 12 }}
