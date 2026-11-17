@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -262,34 +263,34 @@ type params struct {
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg ipsec.Config, tunnelConfig tunnel.Config, dsrDispatch string, bigtcpTunnel bool) error {
+func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg ipsec.Config, tunnelConfig tunnel.Config, dsrDispatch string, bigtcpTunnel func() bool) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
-		// Check all configurations where Cilium creates tunnel devices
-		// that don't support BIG TCP.
-		if dsrDispatch == loadbalancer.DSRDispatchIPIP {
-			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
-		}
-		if !bigtcpTunnel {
-			if tunnelConfig.EncapProtocol() != tunnel.Disabled {
-				return errors.New("BIG TCP in tunneling mode requires kernel 7.3 or newer")
-			}
-			if dsrDispatch != loadbalancer.DSRDispatchOption {
-				return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires kernel 7.3 or newer")
-			}
-		}
-
 		if ipsecCfg.Enabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
 		if daemonCfg.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 			return errors.New("BIG TCP is not supported with legacy host routing")
 		}
+
+		// Check all configurations where Cilium creates tunnel devices
+		// that don't support BIG TCP.
+		if dsrDispatch == loadbalancer.DSRDispatchIPIP {
+			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
+		}
+		if tunnelConfig.EncapProtocol() != tunnel.Disabled && !bigtcpTunnel() {
+			return errors.New("BIG TCP in tunneling mode requires kernel 7.3 or newer")
+		}
+		if dsrDispatch != loadbalancer.DSRDispatchOption && !bigtcpTunnel() {
+			return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires kernel 7.3 or newer")
+		}
 	}
 	return nil
 }
 
 func newBIGTCP(lc cell.Lifecycle, p params) (Config, error) {
-	bigtcpTunnel := supportsBIGTCPTunnel(p.Log)
+	bigtcpTunnel := sync.OnceValue(func() bool {
+		return supportsBIGTCPTunnel(p.Log)
+	})
 
 	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.TunnelConfig, p.LBConfig.DSRDispatch, bigtcpTunnel); err != nil {
 		return nil, err
