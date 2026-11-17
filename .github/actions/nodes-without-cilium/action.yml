@@ -6,6 +6,17 @@ runs:
     - name: Add no-schedule labels to nodes without Cilium
       shell: bash
       run: |
+        # A just-created GKE endpoint drops some new connections for up to a minute, so each API call retries on a new one.
+        kubectl_retry() {
+          for i in 1 2 3; do
+            timeout 20 kubectl --request-timeout=10s "$@" && return 0
+            echo "::warning::kubectl $1 failed (attempt ${i}/4), retrying in 2s" >&2
+            sleep 2
+          done
+          timeout 20 kubectl --request-timeout=10s "$@" && return 0
+          echo "::error::kubectl $1 failed 4 times" >&2
+          return 1
+        }
         mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
         # Fail loudly at the labeling site if fewer than two nodes are present:
         # generic-external-targets needs two labeled nodes and this step never
