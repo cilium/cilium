@@ -53,7 +53,10 @@ runs:
           echo "::warning::No matching ${{ inputs.pattern }} artifacts found."
         fi
     - name: Merge ${{ inputs.name }}
+      id: merge
       if: ${{ steps.filter_artifacts.outputs.exists == 'true' }}
+      # DeleteArtifact can return 404 for a source artifact after upload-artifact uploads the merged one.
+      continue-on-error: true
       uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: ${{ inputs.name }}
@@ -61,3 +64,16 @@ runs:
         retention-days: 5
         delete-merged: ${{ inputs.delete-merged }}
         separate-directories: ${{ inputs.separate-directories }}
+    - name: Check the merge of ${{ inputs.name }}
+      if: ${{ steps.merge.outcome == 'failure' }}
+      shell: bash
+      env:
+        ARTIFACT_ID: ${{ steps.merge.outputs.artifact-id }}
+        NAME: ${{ inputs.name }}
+        PATTERN: ${{ inputs.pattern }}
+      run: |
+        if [ -z "$ARTIFACT_ID" ]; then
+          echo "::error::Merging the $PATTERN artifacts into $NAME failed."
+          exit 1
+        fi
+        echo "::warning::$NAME was uploaded as artifact $ARTIFACT_ID, but deleting the merged $PATTERN artifacts failed."
