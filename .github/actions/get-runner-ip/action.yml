@@ -37,6 +37,10 @@ runs:
             core.setFailed("Input 'source' must be a non-empty URL");
             return;
           }
+          if (parsing !== 'text' && parsing !== 'json') {
+            core.setFailed(`Unsupported parsing mode '${parsing}'. Use 'text' or 'json'.`);
+            return;
+          }
           const isLikelyIp = (value) => {
             if (typeof value !== 'string') return false;
             const v = value.trim();
@@ -47,69 +51,72 @@ runs:
             if (!path) return undefined;
             return path.split('.').reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj);
           };
-          let response;
           const timeoutMs = 15000;
-          const controller = new AbortController();
-          const timeout = setTimeout(() => {
-            controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
-          }, timeoutMs);
-          try {
-            response = await fetch(source, {
-              signal: controller.signal,
-              headers: {
-                'User-Agent': 'actions/github-script get-runner-ip',
-                'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
-              },
-            });
-          } catch (e) {
-            core.setFailed(`Failed to fetch '${source}': ${e?.message || e}`);
-            return;
-          } finally {
-            clearTimeout(timeout);
-          }
-          if (!response.ok) {
-            const body = await response.text().catch(() => '');
-            core.setFailed(`Fetch '${source}' failed: HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
-            return;
-          }
-          const rawText = await response.text();
-          const trimmed = (rawText || '').trim();
-          let ip;
-          if (parsing === 'text') {
-            ip = trimmed;
-          } else if (parsing === 'json') {
-            let data;
+          // Returns the IP that source reports, or throws.
+          const lookup = async (source) => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => {
+              controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+            let response;
             try {
-              data = JSON.parse(trimmed);
+              response = await fetch(source, {
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'actions/github-script get-runner-ip',
+                  'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
+                },
+              });
             } catch (e) {
-              core.setFailed(`Failed to parse JSON from '${source}': ${e?.message || e}; body starts with: ${trimmed.slice(0, 200)}`);
-              return;
+              throw new Error(`${e?.message || e}${e?.cause?.message ? ` (${e.cause.message})` : ''}`);
+            } finally {
+              clearTimeout(timeout);
             }
-            const candidates = [];
-            if (jsonKey) {
-              candidates.push(getByDotPath(data, jsonKey));
+            if (!response.ok) {
+              const body = await response.text().catch(() => '');
+              throw new Error(`HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
             }
-            // Common response shapes from IP endpoints
-            candidates.push(data?.ip);
-            candidates.push(data?.origin);
-            candidates.push(data?.query);
-            candidates.push(data?.address);
-            candidates.push(data?.data?.ip);
-            candidates.push(data?.data?.address);
-            ip = candidates.find((c) => typeof c === 'string' && c.trim().length > 0);
-            if (typeof ip === 'string') {
-              ip = ip.trim();
+            const rawText = await response.text();
+            const trimmed = (rawText || '').trim();
+            let ip;
+            if (parsing === 'text') {
+              ip = trimmed;
+            } else {
+              let data;
+              try {
+                data = JSON.parse(trimmed);
+              } catch (e) {
+                throw new Error(`Failed to parse JSON: ${e?.message || e}; body starts with: ${trimmed.slice(0, 200)}`);
+              }
+              const candidates = [];
+              if (jsonKey) {
+                candidates.push(getByDotPath(data, jsonKey));
+              }
+              // Common response shapes from IP endpoints
+              candidates.push(data?.ip);
+              candidates.push(data?.origin);
+              candidates.push(data?.query);
+              candidates.push(data?.address);
+              candidates.push(data?.data?.ip);
+              candidates.push(data?.data?.address);
+              ip = candidates.find((c) => typeof c === 'string' && c.trim().length > 0);
+              if (typeof ip === 'string') {
+                ip = ip.trim();
+              }
             }
-          } else {
-            core.setFailed(`Unsupported parsing mode '${parsing}'. Use 'text' or 'json'.`);
-            return;
-          }
-          if (!ip || typeof ip !== 'string') {
-            core.setFailed(`No IP address found in response from '${source}'.`);
-            return;
-          }
-          if (!isLikelyIp(ip)) {
-            core.setFailed(`Parsed value is not a valid IP address: '${ip}'`);
+            if (!ip || typeof ip !== 'string') {
+              throw new Error('No IP address found in the response');
+            }
+            if (!isLikelyIp(ip)) {
+              throw new Error(`Parsed value is not a valid IP address: '${ip}'`);
+            }
+            return ip;
+          };
+          let ip;
+          try {
+            ip = await lookup(source);
+          } catch (e) {
+            core.setFailed(`Fetch '${source}' failed: ${e.message}`);
             return;
           }
           core.setOutput('ip', ip);
