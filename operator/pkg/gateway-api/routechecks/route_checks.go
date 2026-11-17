@@ -51,7 +51,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
-			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) && !helpers.IsInferencePool(be.BackendObjectReference) {
+			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) && !helpers.IsInferencePool(be.BackendObjectReference) && backendValidator(input, be.BackendObjectReference) == nil {
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -62,7 +62,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 				continueChecks = false
 				continue
 			}
-			if be.BackendObjectReference.Port == nil && !helpers.IsInferencePool(be.BackendObjectReference) {
+			if be.BackendObjectReference.Port == nil && !helpers.IsInferencePool(be.BackendObjectReference) && backendValidator(input, be.BackendObjectReference) == nil {
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -162,6 +162,22 @@ func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentRefere
 				continue
 			}
 			ns := helpers.NamespaceDerefOr(be.Namespace, input.GetNamespace())
+			if validator := backendValidator(input, be.BackendObjectReference); validator != nil {
+				failure, err := validator.Validate(input.GetContext(), ns, be.BackendObjectReference)
+				if err != nil {
+					if !k8serrors.IsNotFound(err) {
+						return false, err
+					}
+					failure = &BackendValidationFailure{Reason: gatewayv1.RouteReasonBackendNotFound, Message: err.Error()}
+				}
+				if failure != nil {
+					input.SetParentCondition(parentRef, metav1.Condition{
+						Type:   string(gatewayv1.RouteConditionResolvedRefs),
+						Status: metav1.ConditionFalse, Reason: string(failure.Reason), Message: failure.Message,
+					})
+				}
+				continue
+			}
 			svcName, err := helpers.GetBackendServiceName(input.GetClient(), ns, be.BackendObjectReference)
 			if err != nil {
 				// Service Import does not exist, update the status for all the parents

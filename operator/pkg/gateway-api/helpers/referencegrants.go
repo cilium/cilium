@@ -22,11 +22,15 @@ func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.Backend
 		// Cross reference ns for InferencePools are currently not allowed. Check if the ns is the same
 		// https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/113
 		ns := NamespaceDerefOr(be.Namespace, originatingNamespace)
-		if originatingNamespace == ns {
-			return true
-		}
+		return originatingNamespace == ns
 	}
 
+	// Extension kinds use the same group/kind/name grant matching as core
+	// resources. Whether a kind is supported is checked separately.
+	if be.Group != nil && be.Kind != nil {
+		return IsReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk,
+			schema.GroupVersionKind{Group: string(*be.Group), Kind: string(*be.Kind)}, grants)
+	}
 	return false
 }
 
