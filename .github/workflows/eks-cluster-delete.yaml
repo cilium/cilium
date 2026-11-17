@@ -48,7 +48,7 @@ jobs:
         id: get-runner-ip
         uses: ./.github/actions/get-runner-ip
         with:
-          source: https://checkip.amazonaws.com
+          source: https://checkip.amazonaws.com https://api.ipify.org
           parsing: text
 
       - name: Look up the runner's GitHub Actions range
