@@ -29,7 +29,8 @@ var postUninstallCleanupCmd = &cobra.Command{
 	Use:   "post-uninstall-cleanup",
 	Short: "Remove system state installed by Cilium at runtime",
 	Long: `Clean up CNI configurations, CNI binaries, attached BPF programs,
-bpffs, tc filters, routes, links and named network namespaces.
+bpffs, tc filters, routes, links, named network namespaces and the sysctl
+config file written by cilium-sysctlfix.
 
 Running this command might be necessary to get the worker node back into
 working condition after uninstalling the Cilium agent.`,
@@ -71,6 +72,9 @@ const (
 	cniConfigV4       = cniPath + "/05-cilium.conf"
 	cniConfigV5       = cniPath + "/05-cilium.conflist"
 )
+
+// sysctlConfPath is the file cilium-sysctlfix writes when run with its default flags.
+var sysctlConfPath = filepath.Join(defaults.SysctlConfDir, defaults.SysctlConfFile)
 
 func init() {
 	RootCmd.AddCommand(postUninstallCleanupCmd)
@@ -240,6 +244,9 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s",
 			cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5))
 	}
+	if _, err := os.Lstat(sysctlConfPath); err == nil {
+		toBeRemoved = append(toBeRemoved, fmt.Sprintf("sysctl config at %s", sysctlConfPath))
+	}
 	return toBeRemoved
 }
 
@@ -267,6 +274,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		funcs = append(funcs, removeDirs)
 		funcs = append(funcs, revertCNIBackup)
 		funcs = append(funcs, removeCNI)
+		funcs = append(funcs, removeSysctlConf)
 	}
 	return funcs
 }
@@ -360,6 +368,15 @@ func removeCNI() error {
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
+	}
+	return nil
+}
+
+// removeSysctlConf removes the sysctl config file written by cilium-sysctlfix.
+// The values it set stay in effect until the next reboot or systemd-sysctl run.
+func removeSysctlConf() error {
+	if err := os.Remove(sysctlConfPath); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	return nil
 }
