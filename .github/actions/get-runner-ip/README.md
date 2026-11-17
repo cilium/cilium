@@ -2,11 +2,13 @@
 
 This composite action fetches the runner public IP address from a provided `source` URL, parses the response (as text or JSON), validates it looks like an IP address, and returns it as an output.
 
+Each URL in `source` gets one attempt of 10 seconds, in order, until one of them returns an IP address.
+
 ## Inputs
 
 - **`source`** (required)
 
-  URL to fetch the runner public IP from.
+  One or more URLs, separated by spaces, to fetch the runner public IP from. The action tries them in order.
 
 - **`parsing`** (optional, default: `text`)
 

@@ -2,7 +2,7 @@ name: Get Runner IP
 description: Fetch the runner public IP from a source and return it as an output.
 inputs:
   source:
-    description: URL to fetch the runner public IP from.
+    description: One or more URLs, separated by spaces, to fetch the runner public IP from, tried in order.
     required: true
   parsing:
     description: Parsing mode for the fetched response. Supported values are 'text' and 'json'.
@@ -29,12 +29,12 @@ runs:
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       with:
         script: |
-          const source = `${{ inputs.source }}`.trim();
+          const sources = `${{ inputs.source }}`.trim().split(/\s+/).filter(Boolean);
           const parsing = `${{ inputs.parsing }}`.trim().toLowerCase();
           const jsonKey = `${{ inputs['json-key'] }}`.trim();
           const net = require('node:net');
-          if (!source) {
-            core.setFailed("Input 'source' must be a non-empty URL");
+          if (sources.length === 0) {
+            core.setFailed("Input 'source' must list at least one URL");
             return;
           }
           if (parsing !== 'text' && parsing !== 'json') {
@@ -51,32 +51,32 @@ runs:
             if (!path) return undefined;
             return path.split('.').reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj);
           };
-          const timeoutMs = 15000;
+          const timeoutMs = 10000;
           // Returns the IP that source reports, or throws.
           const lookup = async (source) => {
             const controller = new AbortController();
             const timeout = setTimeout(() => {
               controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
             }, timeoutMs);
-            let response;
+            let rawText;
             try {
-              response = await fetch(source, {
+              const response = await fetch(source, {
                 signal: controller.signal,
                 headers: {
                   'User-Agent': 'actions/github-script get-runner-ip',
                   'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
                 },
               });
+              if (!response.ok) {
+                const body = await response.text().catch(() => '');
+                throw new Error(`HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
+              }
+              rawText = await response.text();
             } catch (e) {
               throw new Error(`${e?.message || e}${e?.cause?.message ? ` (${e.cause.message})` : ''}`);
             } finally {
               clearTimeout(timeout);
             }
-            if (!response.ok) {
-              const body = await response.text().catch(() => '');
-              throw new Error(`HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
-            }
-            const rawText = await response.text();
             const trimmed = (rawText || '').trim();
             let ip;
             if (parsing === 'text') {
@@ -112,11 +112,22 @@ runs:
             }
             return ip;
           };
+          // One 10s attempt per source, in order.
+          const errors = [];
           let ip;
-          try {
-            ip = await lookup(source);
-          } catch (e) {
-            core.setFailed(`Fetch '${source}' failed: ${e.message}`);
+          for (const source of sources) {
+            try {
+              ip = await lookup(source);
+              break;
+            } catch (e) {
+              errors.push(`'${source}': ${e.message}`);
+              if (errors.length < sources.length) {
+                core.warning(`Fetch '${source}' failed: ${e.message}; trying the next source`);
+              }
+            }
+          }
+          if (!ip) {
+            core.setFailed(`Failed to fetch the runner IP from every source: ${errors.join('; ')}`);
             return;
           }
           core.setOutput('ip', ip);
