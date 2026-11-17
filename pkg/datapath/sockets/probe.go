@@ -211,9 +211,10 @@ func probeForSockDestroy(ctx context.Context, logger *slog.Logger, tcp, udp bool
 // and attempts to terminate it to probe for functionality enabled by
 // CONFIG_INET_DIAG_DESTROY.
 func InetDiagDestroyEnabled(logger *slog.Logger, probeTCP, probeUDP bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	probeOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
 		probeErr = probeForSockDestroy(ctx, logger, probeTCP, probeUDP)
 	})
 	return probeErr
