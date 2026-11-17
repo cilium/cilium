@@ -29,6 +29,7 @@ time="2025-04-08T14:27:03.095898735Z" level=error msg=bar serviceID=1 source=/go
 time=2025-04-08T14:27:05Z level=error error="Failed to update lock:..."
 time=2025-04-08T14:27:07Z level=warning msg="baz"
 time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2 source=/go/src/github.com/cilium/cilium/pkg/datapath/linux/node.go:189
+time=2026-11-17T17:25:51Z level=warn msg="Ignoring error while deleting Cilium health endpoint" error="unable to delete element 10.244.0.49:0 from map cilium_lxc: delete: key does not exist"
 [debug][admin] request complete: path: /server_info
 [error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()
 [critical][backtrace] Caught Aborted, suspect faulting address 0xd
