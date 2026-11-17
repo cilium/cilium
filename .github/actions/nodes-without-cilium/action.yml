@@ -17,9 +17,10 @@ runs:
           echo "::error::kubectl $1 failed 4 times" >&2
           return 1
         }
-        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
+        nodes=$(kubectl_retry get nodes -o name)
+        mapfile -t nodes_without_cilium < <(printf '%s' "${nodes}" | head -n 2)
         # Fail loudly at the labeling site if fewer than two nodes are present:
         # generic-external-targets needs two labeled nodes and this step never
         # re-labels, so a late error here beats a jsonpath out-of-bounds later.
         [ "${#nodes_without_cilium[@]}" -ge 2 ] || { echo "::error::expected >=2 nodes to label, found ${#nodes_without_cilium[@]}"; kubectl get nodes -o wide; exit 1; }
-        kubectl patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+        kubectl_retry patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
