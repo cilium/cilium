@@ -101,6 +101,38 @@ jobs:
                 image_pull_progress_timeout = "60s"
           EOF
 
+      - name: Checkout Kubernetes source for agnhost
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kubernetes/kubernetes
+          ref: ${{ env.KIND_K8S_VERSION }}
+          path: kubernetes
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Go for agnhost
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: kubernetes/.go-version
+          cache: false
+
+      - name: Load agnhost with the SCTP porter fix
+        run: |
+          # Drop this step once upstream agnhost porter reads the SCTP request before replying.
+          cd kubernetes
+          git apply ../contrib/testing/agnhost-porter-sctp-read-request.patch
+          AGNHOST_TAG=$(sed -nE 's/^\s*configs\[Agnhost\] = Config\{list\.PromoterE2eRegistry, "agnhost", "([^"]+)"\}$/\1/p' test/utils/image/manifest.go)
+          AGNHOST_IMAGE="registry.k8s.io/e2e-test-images/agnhost:${AGNHOST_TAG}"
+          if ! /usr/local/bin/e2e.test --list-images | grep -qxF "${AGNHOST_IMAGE}"; then
+            echo "e2e.test does not use ${AGNHOST_IMAGE}"
+            exit 1
+          fi
+          BUILD_DIR=$(mktemp -d)
+          CGO_ENABLED=0 go build -o "${BUILD_DIR}/agnhost" ./test/images/agnhost
+          printf 'FROM %s\nCOPY agnhost /agnhost\n' "${AGNHOST_IMAGE}" > "${BUILD_DIR}/Dockerfile"
+          docker build -t "${AGNHOST_IMAGE}" "${BUILD_DIR}"
+          /usr/local/bin/kind load docker-image --name ${{ env.cluster_name }} "${AGNHOST_IMAGE}"
+
       - name: Workaround CoreDNS for IPv6 airgapped
         if: ${{ matrix.ipFamily == 'ipv6' }}
         run: |
