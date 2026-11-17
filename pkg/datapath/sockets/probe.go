@@ -20,7 +20,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var probeOnce sync.Once
+var (
+	probeOnce sync.Once
+	probeErr  error
+)
 
 type closer interface {
 	Close() error
@@ -208,11 +211,10 @@ func probeForSockDestroy(ctx context.Context, logger *slog.Logger, tcp, udp bool
 // and attempts to terminate it to probe for functionality enabled by
 // CONFIG_INET_DIAG_DESTROY.
 func InetDiagDestroyEnabled(logger *slog.Logger, probeTCP, probeUDP bool) error {
-	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	probeOnce.Do(func() {
-		err = probeForSockDestroy(ctx, logger, probeTCP, probeUDP)
+		probeErr = probeForSockDestroy(ctx, logger, probeTCP, probeUDP)
 	})
-	return err
+	return probeErr
 }
