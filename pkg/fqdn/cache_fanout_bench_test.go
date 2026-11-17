@@ -10,14 +10,15 @@ import (
 	"time"
 )
 
-// BenchmarkDNSCacheRestoreFanout keeps the number of names fixed and compares
-// 5,000 names per IP with one name per IP.
+// BenchmarkDNSCacheRestoreFanout keeps the number of names fixed and varies
+// the number of IPs they resolve to.
 func BenchmarkDNSCacheRestoreFanout(b *testing.B) {
 	const nameCount = 320_000
 
-	for _, ipCount := range []int{64, nameCount} {
+	for _, ipCount := range []int{1, 64, 20_000, nameCount} {
 		b.Run(fmt.Sprintf("names=%d/ips=%d", nameCount, ipCount), func(b *testing.B) {
 			global, endpoint := NewDNSCache(0), NewDNSCache(0)
+			global.DisableCleanupTrack()
 			names := make([]string, nameCount)
 			now := time.Now()
 			for i := range names {
