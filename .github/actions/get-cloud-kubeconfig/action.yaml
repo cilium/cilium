@@ -18,6 +18,17 @@ runs:
       id: service-account-create
       shell: bash
       run: |
+        # A just-created GKE endpoint drops some new connections for up to a minute, so each API call retries on a new one.
+        kubectl_retry() {
+          for i in 1 2 3; do
+            timeout 20 kubectl --kubeconfig ${{ inputs.kubeconfig }} --request-timeout=10s "$@" && return 0
+            echo "::warning::kubectl $1 failed (attempt ${i}/4), retrying in 2s" >&2
+            sleep 2
+          done
+          timeout 20 kubectl --kubeconfig ${{ inputs.kubeconfig }} --request-timeout=10s "$@" && return 0
+          echo "::error::kubectl $1 failed 4 times" >&2
+          return 1
+        }
         kubectl --kubeconfig ${{ inputs.kubeconfig }} create serviceaccount -n kube-system cilium-cli
         kubectl --kubeconfig ${{ inputs.kubeconfig }} create clusterrolebinding -n kube-system cilium-cli-binding --clusterrole cluster-admin --serviceaccount "kube-system:cilium-cli"
         cat <<EOF | kubectl apply -f -
