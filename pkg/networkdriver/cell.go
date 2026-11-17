@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/networkdriver/networkconfig"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -52,6 +53,7 @@ var Cell = cell.Module(
 		newRXQueueFlowsTable,
 	),
 	networkdriverIPAM.Cell,
+	networkconfig.Cell,
 	cell.Invoke(
 		registerNetworkDriver,
 		registerRXQueueFlowReconciler,
