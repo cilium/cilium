@@ -3117,6 +3117,13 @@ sigs.k8s.io/mcs-api/controllers
 sigs.k8s.io/network-policy-api/apis/v1alpha1
 sigs.k8s.io/network-policy-api/apis/v1alpha2
 sigs.k8s.io/network-policy-api/apis/v1beta1
+sigs.k8s.io/network-policy-api/conformance
+sigs.k8s.io/network-policy-api/conformance/apis/v1alpha1
+sigs.k8s.io/network-policy-api/conformance/tests
+sigs.k8s.io/network-policy-api/conformance/utils/config
+sigs.k8s.io/network-policy-api/conformance/utils/flags
+sigs.k8s.io/network-policy-api/conformance/utils/kubernetes
+sigs.k8s.io/network-policy-api/conformance/utils/suite
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha1
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha2
@@ -3131,6 +3138,7 @@ sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha
 sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2/fake
 sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1beta1
 sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1beta1/fake
+sigs.k8s.io/network-policy-api/pkg/consts
 # sigs.k8s.io/randfill v1.0.0
 ## explicit; go 1.18
 sigs.k8s.io/randfill
