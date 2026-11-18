@@ -192,12 +192,6 @@ func (h *HeaderfileWriter) writeNodeConfig(w io.Writer, cfg *config.Config, with
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	if option.Config.TunnelingEnabled() {
-		cDefinesMap["TUNNEL_MODE"] = "1"
-	}
-
-	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
-
 	if err := cDefinesMap.Merge(h.nodeExtraDefines); err != nil {
 		return fmt.Errorf("merging extra node defines: %w", err)
 	}

@@ -224,5 +224,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableActiveConnectionTracking = lnc.EnableActiveConnectionTracking
 
+	node.EnableTunnelMode = option.Config.TunnelingEnabled()
+
 	return node
 }
