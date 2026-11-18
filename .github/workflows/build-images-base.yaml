@@ -10,10 +10,13 @@ on:
     paths:
       - images/runtime/**
       - images/builder/**
-    branches-ignore:
-      - v1.20
-      - v1.19
-      - v1.18
+    branches:
+      - main
+      - ft/main/**
+      # No effect on GitHub; check-workflow-check-name-collisions.go reads these to tell this file from its -v1.x copies
+      - '!v1.20'
+      - '!v1.19'
+      - '!v1.18'
   # This workflow can be reused so that renovate can execute this workflow_dispatch:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml

@@ -9,10 +9,13 @@ on:
       - reopened
     paths:
       - images/docs-builder/**
-    branches-ignore:
-      - v1.20
-      - v1.19
-      - v1.18
+    branches:
+      - main
+      - ft/main/**
+      # No effect on GitHub; check-workflow-check-name-collisions.go reads these to tell this file from its -v1.x copies
+      - '!v1.20'
+      - '!v1.19'
+      - '!v1.18'
   # Renovate branches build from a different environment than 'docs-builder'.
   # See build-images-docs-builder-renovate.yaml
   workflow_call:
