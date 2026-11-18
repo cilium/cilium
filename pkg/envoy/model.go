@@ -227,6 +227,9 @@ func toEnvoyOriginatingTLSContext(tls *policy.TLSContext, policySecretsNamespace
 		// If values are not present in these fields, then we should be using SDS,
 		// and Secret should be populated.
 		if tls.Secret.String() != "/" {
+			if tls.TrustBundle.Name != "" {
+				return toEnvoyMutualTLSContext(tls, policySecretsNamespace)
+			}
 			return &cilium.TLSContext{
 				ValidationContextSdsSecret: namespacedNametoSyncedSDSSecretName(tls.Secret, policySecretsNamespace),
 			}
@@ -264,6 +267,9 @@ func toEnvoyTerminatingTLSContext(tls *policy.TLSContext, policySecretsNamespace
 		// If the values have been read from Kubernetes, then we should be using SDS,
 		// and Secret should be populated.
 		if tls.Secret.String() != "/" {
+			if tls.TrustBundle.Name != "" {
+				return toEnvoyMutualTLSContext(tls, policySecretsNamespace)
+			}
 			return &cilium.TLSContext{
 				TlsSdsSecret: namespacedNametoSyncedSDSSecretName(tls.Secret, policySecretsNamespace),
 			}
@@ -291,6 +297,17 @@ func toEnvoyTerminatingTLSContext(tls *policy.TLSContext, policySecretsNamespace
 
 func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, policySecretsNamespace string) string {
 	return syncnames.SyncedSDSSecretName(policySecretsNamespace, namespacedName)
+}
+
+// toEnvoyMutualTLSContext returns a "cilium envoy" TLS context for a "policy" TLS context
+// with a trust bundle, in either direction. The Secret holds the certificate and private key
+// presented to the peer, and the trust bundle holds the CA certificates used to validate the
+// peer's certificate. Trust bundles are only supported with SDS.
+func toEnvoyMutualTLSContext(tls *policy.TLSContext, policySecretsNamespace string) *cilium.TLSContext {
+	return &cilium.TLSContext{
+		TlsSdsSecret:               namespacedNametoSyncedSDSSecretName(tls.Secret, policySecretsNamespace),
+		ValidationContextSdsSecret: namespacedNametoSyncedSDSSecretName(tls.TrustBundle, policySecretsNamespace),
+	}
 }
 
 func GetNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,

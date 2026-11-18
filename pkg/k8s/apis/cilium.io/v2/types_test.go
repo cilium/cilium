@@ -574,6 +574,95 @@ func TestParseWithNodeSelector(t *testing.T) {
 	require.ErrorContains(t, err, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 }
 
+func TestValidateTLSTrustBundle(t *testing.T) {
+	tlsRule := func(secretNamespace string) *api.Rule {
+		return &api.Rule{
+			EndpointSelector: api.NewESFromLabels(),
+			Egress: []api.EgressRule{{
+				ToEndpoints: []api.EndpointSelector{api.NewESFromLabels()},
+				ToPorts: api.PortRules{{
+					Ports: []api.PortProtocol{{Port: "443", Protocol: api.ProtoTCP}},
+					OriginatingTLS: &api.TLSContext{
+						Secret:      &api.Secret{Namespace: secretNamespace, Name: "identity"},
+						TrustBundle: &api.Secret{Namespace: "shared", Name: "bundle"},
+					},
+				}},
+			}},
+		}
+	}
+	const (
+		nsErr   = "TLS secret other/identity must be in the policy namespace ns when trustBundle is set"
+		ccnpErr = "trustBundle is not supported in cluster-scoped policies"
+	)
+
+	for _, tc := range []struct {
+		name            string
+		validate        func(rule *api.Rule, useSpecs bool) error
+		secretNamespace string
+		wantErr         string
+	}{
+		{
+			name:            "CNP with Secret in the policy namespace",
+			secretNamespace: "ns",
+			validate: func(rule *api.Rule, useSpecs bool) error {
+				return newCNP("ns", rule, useSpecs).Validate()
+			},
+		},
+		{
+			name:            "CNP with Secret from another namespace",
+			secretNamespace: "other",
+			wantErr:         nsErr,
+			validate: func(rule *api.Rule, useSpecs bool) error {
+				return newCNP("ns", rule, useSpecs).Validate()
+			},
+		},
+		{
+			name:            "CCNP with trust bundle",
+			secretNamespace: "ns",
+			wantErr:         ccnpErr,
+			validate: func(rule *api.Rule, useSpecs bool) error {
+				ccnp := &CiliumClusterwideNetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "rule", UID: uuidRule}}
+				if useSpecs {
+					ccnp.Specs = api.Rules{rule}
+				} else {
+					ccnp.Spec = rule
+				}
+				return ccnp.Validate()
+			},
+		},
+		{
+			// CiliumNetworkPolicy.Validate handles an empty namespace as a CCNP. See #12834.
+			name:            "CCNP converted to CNP with trust bundle",
+			secretNamespace: "ns",
+			wantErr:         ccnpErr,
+			validate: func(rule *api.Rule, useSpecs bool) error {
+				return newCNP("", rule, useSpecs).Validate()
+			},
+		},
+	} {
+		for _, useSpecs := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/specs=%t", tc.name, useSpecs), func(t *testing.T) {
+				err := tc.validate(tlsRule(tc.secretNamespace), useSpecs)
+				if tc.wantErr != "" {
+					require.ErrorContains(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
+	}
+}
+
+func newCNP(namespace string, rule *api.Rule, useSpecs bool) *CiliumNetworkPolicy {
+	cnp := &CiliumNetworkPolicy{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "rule", UID: uuidRule}}
+	if useSpecs {
+		cnp.Specs = api.Rules{rule}
+	} else {
+		cnp.Spec = rule
+	}
+	return cnp
+}
+
 func TestCiliumNodeInstanceID(t *testing.T) {
 	require.Empty(t, (*CiliumNode)(nil).InstanceID())
 	require.Empty(t, (&CiliumNode{}).InstanceID())

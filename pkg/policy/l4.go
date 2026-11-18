@@ -44,6 +44,10 @@ type TLSContext struct {
 	// FromFile is true if the values in the keys above were read from the filesystem
 	// and not a Kubernetes Secret
 	FromFile bool
+	// TrustBundle holds the name of the trust bundle object that was referenced in the Policy,
+	// if any. When set, Secret holds the certificate and private key, and the trust bundle
+	// holds the trusted CA certificates, and both are always passed to the proxy via SDS.
+	TrustBundle k8sTypes.NamespacedName
 }
 
 // Equal returns true if 'a' and 'b' have the same contents.
@@ -915,6 +919,19 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 		return nil, err
 	}
 
+	var trustBundle k8sTypes.NamespacedName
+	if tls.TrustBundle != nil {
+		trustBundle, err = getTrustBundle(policyCtx, tls, inlineSecrets)
+		if err != nil {
+			logger.Warn(
+				"policy: Invalid TLS trust bundle",
+				logfields.Error, err,
+				logfields.TrafficDirection, direction,
+			)
+			return nil, err
+		}
+	}
+
 	// If the secret is not being included into NPDS inline, we're going to pass an SDS reference instead.
 	if inlineSecrets {
 		switch direction {
@@ -939,7 +956,35 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 		PrivateKey:       private,
 		FromFile:         inlineSecrets,
 		Secret:           k8sTypes.NamespacedName(*tls.Secret),
+		TrustBundle:      trustBundle,
 	}, nil
+}
+
+// getTrustBundle validates the trust bundle of the given TLS context and returns its
+// reference.
+func getTrustBundle(policyCtx PolicyContext, tls *api.TLSContext, inlineSecrets bool) (k8sTypes.NamespacedName, error) {
+	ref := k8sTypes.NamespacedName(*tls.TrustBundle)
+
+	// Trust bundles are only supported when secrets are synchronized to the proxy via SDS.
+	if inlineSecrets {
+		return k8sTypes.NamespacedName{}, fmt.Errorf("trust bundle %s requires policy secrets to be synchronized via SDS", ref)
+	}
+
+	if ref.Namespace == "" || ref.Name == "" {
+		return k8sTypes.NamespacedName{}, fmt.Errorf("trust bundle must have both namespace and name")
+	}
+
+	// The trust bundle must be separate from the Secret holding the certificate and the
+	// private key, as a single Secret can not be used as both via SDS.
+	secret := k8sTypes.NamespacedName(*tls.Secret)
+	if secret.Namespace == "" {
+		secret.Namespace = policyCtx.GetNamespace()
+	}
+	if secret == ref {
+		return k8sTypes.NamespacedName{}, fmt.Errorf("trust bundle %s must not be the same Secret as the TLS secret", ref)
+	}
+
+	return ref, nil
 }
 
 // createL4Filter creates a filter for L4 policy that applies to the specified
