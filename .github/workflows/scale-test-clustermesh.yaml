@@ -63,7 +63,7 @@ env:
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 593.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: b6e1820b795c5e309759ce87757dcba3c0bcd897
+  cmapisrv_mock_ref: 025ce1681817379a72339710ba532b115d2ae00d
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
