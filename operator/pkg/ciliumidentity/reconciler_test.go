@@ -24,6 +24,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/key"
+	"github.com/cilium/cilium/pkg/idpool"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -679,6 +680,95 @@ func TestHandleStoreCIDMatch(t *testing.T) {
 
 			if tc.expectedCID != cid {
 				t.Errorf("Expected CID %v, but got %v", tc.expectedCID, cid)
+			}
+		})
+	}
+}
+
+// testReserveAllIDsExcept takes every ID out of the reconciler's pool except
+// the given one, so that AllocateRandom can only return that ID.
+func testReserveAllIDsExcept(t *testing.T, r *reconciler, free idpool.ID) {
+	t.Helper()
+	minID := idpool.ID(r.clusterInfo.MinimalAllocationIdentity())
+	maxID := idpool.ID(r.clusterInfo.MaximumAllocationIdentity())
+	for id := minID; id <= maxID; id++ {
+		if id != free {
+			require.NoError(t, r.idAllocator.Allocate(id))
+		}
+	}
+}
+
+func TestAllocateCIDSkipsStoredCID(t *testing.T) {
+	const (
+		storedCIDName = "1000"
+		freeCID       = idpool.ID(2000)
+	)
+	ns1 := cidtest.NewNamespace("ns1", nil)
+	existingPod := cidtest.NewPod("existing", ns1.Name, testLbsA, "node1")
+	newPod := cidtest.NewPod("new", ns1.Name, testLbsB, "node1")
+	existingPodKey := podResourceKey(existingPod.Name, existingPod.Namespace)
+	newPodKey := podResourceKey(newPod.Name, newPod.Namespace)
+
+	testCases := []struct {
+		name          string
+		storedCIDUsed bool
+	}{
+		{
+			// After an operator restart all pods are processed before any CID
+			// event, so nothing has reserved the stored CID's ID yet.
+			name:          "used_cid_before_cid_event",
+			storedCIDUsed: true,
+		},
+		{
+			// The CID event of an unused CID does not reserve its ID.
+			name:          "unused_cid_after_cid_event",
+			storedCIDUsed: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
+			r, _, fakeClient, cleanupFunc := testNewReconciler(t, ctx, false)
+			defer cleanupFunc()
+
+			storedCID := cidtest.NewCIDWithNamespace(storedCIDName, existingPod, ns1)
+			_, err := fakeClient.CiliumV2().CiliumIdentities().Create(ctx, storedCID, metav1.CreateOptions{})
+			require.NoError(t, err)
+			require.Eventually(t, func() bool {
+				_, exists, _ := r.cidStore.GetByKey(cidResourceKey(storedCIDName))
+				return exists
+			}, WaitUntilTimeout, 10*time.Millisecond)
+
+			require.NoError(t, r.nsStore.CacheStore().Add(ns1))
+			require.NoError(t, r.podStore.CacheStore().Add(newPod))
+			if tc.storedCIDUsed {
+				require.NoError(t, r.podStore.CacheStore().Add(existingPod))
+				require.NoError(t, r.cepStore.CacheStore().Add(&capi_v2.CiliumEndpoint{
+					ObjectMeta: metav1.ObjectMeta{Name: existingPod.Name, Namespace: existingPod.Namespace},
+					Status:     capi_v2.EndpointStatus{Identity: &capi_v2.EndpointIdentity{ID: 1000}},
+				}))
+			} else {
+				require.NoError(t, r.reconcileCID(cidResourceKey(storedCIDName)))
+			}
+
+			testReserveAllIDsExcept(t, r, 1000)
+
+			assert.Error(t, r.reconcilePod(newPodKey), "new pod must not get the stored CID's ID")
+			if tc.storedCIDUsed {
+				assert.NoError(t, r.reconcilePod(existingPodKey))
+			}
+			assert.NoError(t, r.reconcileCID(cidResourceKey(storedCIDName)))
+
+			cid, err := fakeClient.CiliumV2().CiliumIdentities().Get(ctx, storedCIDName, metav1.GetOptions{})
+			require.NoError(t, err)
+			assert.Equal(t, storedCID.SecurityLabels, cid.SecurityLabels, "stored CID labels were rewritten")
+
+			require.NoError(t, r.idAllocator.ReturnToAvailablePool(freeCID))
+			require.NoError(t, r.reconcilePod(newPodKey))
+			assert.Equal(t, freeCID.String(), r.cidUsageInPods.podToCID[newPodKey.String()])
+			if tc.storedCIDUsed {
+				assert.Equal(t, storedCIDName, r.cidUsageInPods.podToCID[existingPodKey.String()])
 			}
 		})
 	}
