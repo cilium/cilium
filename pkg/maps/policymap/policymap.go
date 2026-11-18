@@ -10,8 +10,6 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/maps"
@@ -24,14 +22,6 @@ import (
 )
 
 const (
-	// PolicyCallMapName is the name of the map to do tail calls into policy
-	// enforcement programs.
-	PolicyCallMapName = "cilium_call_policy"
-
-	// PolicyEgressCallMapName is the name of the map to do tail calls into egress policy
-	// enforcement programs.
-	PolicyEgressCallMapName = "cilium_egresscall_policy"
-
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
@@ -45,11 +35,6 @@ const (
 	//         to the policy map value.
 	// "_v3_": semantic change due to policy identity aggregation.
 	MapName = "cilium_policy_v3_"
-
-	// PolicyCallMaxEntries is the upper limit of entries in the program
-	// array for the tail calls to jump into the endpoint specific policy
-	// programs. This number *MUST* be identical to the maximum endpoint ID.
-	PolicyCallMaxEntries = ^uint16(0)
 
 	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
 	// are allowed. In the datapath, this is represented with the value 0 in the
@@ -210,24 +195,6 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 
 	return flags
 }
-
-// CallKey is the index into the prog array map.
-type CallKey struct {
-	Index uint32
-}
-
-// CallValue is the program ID in the prog array map.
-type CallValue struct {
-	ProgID uint32
-}
-
-// String converts the key into a human readable string format.
-func (k *CallKey) String() string  { return strconv.FormatUint(uint64(k.Index), 10) }
-func (k *CallKey) New() bpf.MapKey { return &CallKey{} }
-
-// String converts the value into a human readable string format.
-func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.ProgID), 10) }
-func (v *CallValue) New() bpf.MapValue { return &CallValue{} }
 
 type PolicyEntryDump struct {
 	PolicyEntry
@@ -486,27 +453,4 @@ func OpenPolicyMap(logger *slog.Logger, path string) (*policyMap, error) {
 		stats: stats,
 		epID:  id,
 	}, nil
-}
-
-// initCallMap creates the policy call maps in the kernel.
-func initCallMaps() error {
-	policyCallMap := bpf.NewMap(PolicyCallMapName,
-		ebpf.ProgramArray,
-		&CallKey{},
-		&CallValue{},
-		int(PolicyCallMaxEntries),
-		0,
-	)
-	if err := policyCallMap.Create(); err != nil {
-		return err
-	}
-
-	policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
-		ebpf.ProgramArray,
-		&CallKey{},
-		&CallValue{},
-		int(PolicyCallMaxEntries),
-		0,
-	)
-	return policyEgressCallMap.Create()
 }
