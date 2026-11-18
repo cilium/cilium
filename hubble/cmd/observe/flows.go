@@ -145,7 +145,7 @@ func getFlowFiltersYAML(req *observerpb.GetFlowsRequest) (string, error) {
 var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client observerpb.ObserverClient, cleanup func() error, err error) {
 	if otherOpts.inputFile != "" {
 		if vp.GetBool(config.KeyPortForward) {
-			return nil, nil, fmt.Errorf("cannot use --input-file and --auto-port-forward together")
+			return nil, nil, fmt.Errorf("cannot use --input-file and --port-forward together")
 		}
 		var f *os.File
 		if otherOpts.inputFile == "-" {
