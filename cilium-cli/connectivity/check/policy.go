@@ -347,11 +347,23 @@ func (t *Test) applyResources(ctx context.Context) error {
 		t.Debugf("Pod %s's current policy revision %d", pod.Name(), revision)
 	}
 
+	// Register the finalizer first so a failed apply or a cancelled wait still deletes what the loop applied.
+	applied := 0
+	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
+		if err := t.deleteResources(ctx, t.resources[:applied]); err != nil {
+			t.ContainerLogs(ctx)
+			return err
+		}
+
+		return nil
+	})
+
 	// Incremented, by cluster, for every expected revision.
 	revDeltas := map[string]int{}
 
 	// apply resources to all clusters
-	for _, obj := range t.resources {
+	for i, obj := range t.resources {
+		applied = i + 1
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Applying %s '%s' to namespace '%s' on cluster %s..", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName())
@@ -365,18 +377,6 @@ func (t *Test) applyResources(ctx context.Context) error {
 			}
 		}
 	}
-
-	// Register a finalizer with the Test immediately to enable cleanup.
-	// If we return a cleanup closure from this function, cleanup cannot be
-	// performed if the user cancels during the policy revision wait time.
-	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
-		if err := t.deleteResources(ctx); err != nil {
-			t.ContainerLogs(ctx)
-			return err
-		}
-
-		return nil
-	})
 
 	// Wait for policies to take effect on all Cilium nodes if we think policies
 	// were modified on the API server.
@@ -422,8 +422,8 @@ func isServerError(err error) bool {
 
 // deleteResources deletes the previously-created set of resources that
 // belong to this test.
-func (t *Test) deleteResources(ctx context.Context) error {
-	if len(t.resources) == 0 {
+func (t *Test) deleteResources(ctx context.Context, resources []k8s.Object) error {
+	if len(resources) == 0 {
 		return nil
 	}
 
@@ -440,11 +440,15 @@ func (t *Test) deleteResources(ctx context.Context) error {
 	}
 
 	revDeltas := map[string]int{}
-	for _, obj := range t.resources {
+	for _, obj := range resources {
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Deleting %s '%s' in namespace '%s' on cluster %s..", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName())
 			err := retryDelete(deleteBackoff, func() error { return client.DeleteGeneric(ctx, obj) })
+			if k8serrors.IsNotFound(err) {
+				// A failed apply never created it.
+				continue
+			}
 			if err != nil {
 				return fmt.Errorf("failed to delete %s '%s' in namespace '%s' on cluster %s: %w", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName(), err)
 			}
@@ -462,9 +466,7 @@ func (t *Test) deleteResources(ctx context.Context) error {
 		}
 	}
 
-	if len(t.resources) > 0 {
-		t.Debugf("📜 Successfully deleted %d resources", len(t.resources))
-	}
+	t.Debugf("📜 Successfully deleted %d resources", len(resources))
 
 	return nil
 }
