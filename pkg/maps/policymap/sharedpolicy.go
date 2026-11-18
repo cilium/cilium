@@ -12,12 +12,14 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // ErrSharedPolicyMapFull is returned when an endpoint's policy does not fit in the shared
@@ -367,7 +369,11 @@ func (f *factory) RemoveStaleEndpointOverlays(exists func(epID uint16) bool) err
 	return errs
 }
 
-func (f *factory) registerSharedPolicy(lifecycle cell.Lifecycle, reg *registry.MapRegistry) {
+// registerSharedPolicy opens the shared policy maps and restores their state on start. If jobs
+// is set and interval is positive, it also reconciles the maps with the recorded state at
+// that interval, see reconcileSharedPolicy. The job is added after the start hook, so that
+// it starts after the maps are restored and stops before they are closed.
+func (f *factory) registerSharedPolicy(lifecycle cell.Lifecycle, reg *registry.MapRegistry, jobs job.Group, interval time.Duration) {
 	f.allocator = NewRuleSetAllocator()
 	var shared, overlay *bpf.Map
 	lifecycle.Append(cell.Hook{
@@ -400,4 +406,7 @@ func (f *factory) registerSharedPolicy(lifecycle cell.Lifecycle, reg *registry.M
 			return errors.Join(overlay.Close(), shared.Close())
 		},
 	})
+	if jobs != nil && interval > 0 {
+		jobs.Add(job.Timer("shared-policy-map-reconciliation", f.reconcileSharedPolicyJob, interval))
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -267,4 +268,84 @@ func TestPrivilegedSyncEndpointOverlaysInPlace(t *testing.T) {
 	n := 0
 	require.NoError(t, shared.DumpWithCallback(func(bpf.MapKey, bpf.MapValue) { n++ }))
 	require.Equal(t, 4, n)
+}
+
+// TestPrivilegedReconcileSharedPolicy checks with BPF maps that the reconciliation fixes the
+// changes to the shared policy map and the policy overlay map that the agent did not make.
+func TestPrivilegedReconcileSharedPolicy(t *testing.T) {
+	setupPrivilegedCommon(t)
+	shared := bpf.NewMap(SharedPolicyMapName, ebpf.LPMTrie, &SharedPolicyKey{}, &PolicyEntry{},
+		16, unix.BPF_F_NO_PREALLOC)
+	require.NoError(t, shared.CreateUnpinned())
+	t.Cleanup(func() { shared.Close() })
+	overlay := bpf.NewMap(PolicyOverlayMapName, ebpf.Hash, &OverlayKey{}, &OverlayValue{},
+		16, unix.BPF_F_NO_PREALLOC)
+	require.NoError(t, overlay.CreateUnpinned())
+	t.Cleanup(func() { overlay.Close() })
+	f := &factory{
+		logger:     hivetest.Logger(t),
+		sharedMap:  shared,
+		overlayMap: overlay,
+		allocator:  NewRuleSetAllocator(),
+	}
+
+	// Identity 101 also has an L3 entry, which matches the keys of its other entries in a
+	// lookup when they are missing.
+	l3 := ruleWithEntry{
+		Key:   policyTypes.KeyForDirection(trafficdirection.Ingress).WithIdentity(101),
+		Entry: policyTypes.AllowEntry(),
+	}
+	for _, epID := range []uint16{1, 2} {
+		require.NoError(t, f.SyncEndpointOverlay(epID, entriesOf(append(rulesForIdentities(100, 101), l3))))
+	}
+	require.NoError(t, f.SyncEndpointOverlay(3, entriesOf(rulesForIdentities(200))))
+	ruleSetOf := func(epID uint16) uint32 {
+		v, err := overlay.Lookup(&OverlayKey{EndpointID: uint32(epID)})
+		require.NoError(t, err)
+		return v.(*OverlayValue).RuleSetID
+	}
+	rsA, rsB := ruleSetOf(1), ruleSetOf(3)
+
+	// A missing entry, an entry in an unknown rule set, an overlay entry that points to
+	// another rule set, and one of an endpoint that has no rule set.
+	keyA := NewSharedKey(rsA, rulesForIdentities(101)[0].Key)
+	require.NoError(t, shared.Delete(&keyA))
+	stray := NewSharedKey(77, rulesForIdentities(999)[0].Key)
+	strayEntry := NewSharedEntry(stray, policyTypes.AllowEntry())
+	require.NoError(t, shared.Update(&stray, &strayEntry))
+	require.NoError(t, overlay.Update(&OverlayKey{EndpointID: 1}, &OverlayValue{RuleSetID: rsB}))
+	require.NoError(t, overlay.Update(&OverlayKey{EndpointID: 9}, &OverlayValue{RuleSetID: rsA}))
+
+	fixed, err := f.reconcileSharedPolicy()
+	require.NoError(t, err)
+	require.Equal(t, 4, fixed)
+	require.Equal(t, rsA, ruleSetOf(1))
+	_, err = overlay.Lookup(&OverlayKey{EndpointID: 9})
+	require.ErrorIs(t, err, ebpf.ErrKeyNotExist)
+	v, err := shared.Lookup(&keyA)
+	require.NoError(t, err)
+	require.Equal(t, NewSharedEntry(keyA, policyTypes.AllowEntry()), *v.(*PolicyEntry))
+	for _, epID := range []uint16{1, 2} {
+		require.ElementsMatch(t, []uint32{100, 101, 101}, endpointIdentities(t, f, epID))
+	}
+	_, err = shared.Lookup(&stray)
+	require.ErrorIs(t, err, ebpf.ErrKeyNotExist)
+
+	fixed, err = f.reconcileSharedPolicy()
+	require.NoError(t, err)
+	require.Zero(t, fixed)
+
+	// An entry that is deleted after the snapshot is not counted, even though the L3 entry
+	// matches its key in a lookup.
+	stray = NewSharedKey(rsA, createTestRules(101, 443)[0].Key)
+	strayEntry = NewSharedEntry(stray, policyTypes.AllowEntry())
+	require.NoError(t, shared.Update(&stray, &strayEntry))
+	s, err := f.snapshotSharedPolicy()
+	require.NoError(t, err)
+	require.NoError(t, shared.Delete(&stray))
+	f.allocator.mu.Lock()
+	fixed, err = f.reconcileSharedPolicyLocked(s)
+	f.allocator.mu.Unlock()
+	require.NoError(t, err)
+	require.Zero(t, fixed)
 }
