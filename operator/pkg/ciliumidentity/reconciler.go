@@ -343,12 +343,39 @@ func (r *reconciler) allocateCID(cidKey *key.GlobalIdentity) (string, bool, erro
 		}
 	}
 
-	allocatedID, err := r.idAllocator.AllocateRandom()
+	allocatedID, err := r.allocateRandomID()
 	if err != nil {
 		return "", false, err
 	}
 
 	return allocatedID.String(), true, nil
+}
+
+// allocateRandomID returns a random free ID that no CID in the CID store has.
+// The pool can still hold the ID of a stored CID that no pod has claimed yet,
+// so such IDs are skipped and put back for that pod to claim.
+func (r *reconciler) allocateRandomID() (idpool.ID, error) {
+	var stored []idpool.ID
+	defer func() {
+		for _, id := range stored {
+			_ = r.idAllocator.ReturnToAvailablePool(id)
+		}
+	}()
+
+	for {
+		id, err := r.idAllocator.AllocateRandom()
+		if err != nil {
+			return idpool.NoID, err
+		}
+		_, exists, err := r.cidStore.GetByKey(cidResourceKey(id.String()))
+		if err == nil && !exists {
+			return id, nil
+		}
+		stored = append(stored, id)
+		if err != nil {
+			return idpool.NoID, err
+		}
+	}
 }
 
 func (r *reconciler) assignedCIDForPod(pod *slim_corev1.Pod) (*cilium_api_v2.CiliumIdentity, error) {
