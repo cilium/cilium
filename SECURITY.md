@@ -12,13 +12,13 @@
 
 ## Reporting a Vulnerability
 
-We strongly encourage you to report security vulnerabilities to
-our private security mailing list: security@cilium.io - first, before
-disclosing them in any public forums.
+Please report security vulnerabilities privately through
+[Cilium's vulnerability reporting form](https://github.com/cilium/cilium/security/advisories/new)
+before disclosing them in any public forums. Reports submitted through this
+form will be treated with high priority by the Cilium Security Team.
 
-This is a private mailing list where members of Cilium's
-[Security Team](https://github.com/cilium/community/blob/main/roles/Security-Team.md)
-are subscribed to, and is treated as top priority.
+For enquiries and reports not related to Cilium software, contact the Cilium
+security team via security@cilium.io.
 
 ### Scope
 
