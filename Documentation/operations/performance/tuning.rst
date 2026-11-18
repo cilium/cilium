@@ -519,13 +519,13 @@ The following will set the aggregation interval to 10 seconds.
        .. parsed-literal::
 
            cilium install --version |CHART_VERSION| \\
-             --set bpf.events.monitorInterval="10s"
+             --set monitor.aggregationInterval="10s"
 
     .. group-tab:: Helm
 
        .. cilium-helm-install::
           :namespace: kube-system
-          :set: bpf.events.monitorInterval="10s"
+          :set: monitor.aggregationInterval="10s"
 
 Rate Limit Events
 -----------------

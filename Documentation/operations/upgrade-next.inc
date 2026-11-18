@@ -84,6 +84,10 @@ New Options
 
 The following options have been introduced in this version of Cilium:
 
+* Packet monitoring, including monitor aggregation, can now be configured with
+  the following Helm values: ``monitor.sidecar``, ``monitor.aggregation``,
+  ``monitor.aggregationInterval``, ``monitor.aggregationFlags``, and
+  ``monitor.traceIPOption``.
 * The Prometheus container port names can now be configured via the Helm values
   ``prometheus.portName``, ``operator.prometheus.portName``,
   ``envoy.prometheus.portName``, ``hubble.metrics.portName``,
@@ -173,6 +177,21 @@ you may need to take action to migrate to an alternative.
   be removed in v1.22. ``eni.awsReleaseExcessIPs`` now renders
   ``ipam-release-excess-ips``, so upgrade the chart and the operator image
   together.
+
+* The ``monitor.enabled`` Helm value is deprecated in favor of
+  ``monitor.sidecar``.
+
+* The ``bpf.monitorAggregation`` Helm value is deprecated in favor of
+  ``monitor.aggregation``.
+
+* The ``bpf.monitorInterval`` Helm value is deprecated in favor of
+  ``monitor.aggregationInterval``.
+
+* The ``bpf.monitorFlags`` Helm value is deprecated in favor of
+  ``monitor.aggregationFlags``.
+
+* The ``bpf.monitorTraceIPOption`` Helm value is deprecated in favor of
+  ``monitor.traceIPOption``.
 
 Removed Options
 ###############

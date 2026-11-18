@@ -31,7 +31,7 @@ Prerequisites
 Cluster Setup
 =============
 
-Create a kind cluster and install Cilium with the ``bpf.monitorTraceIPOption``
+Create a kind cluster and install Cilium with the ``monitor.traceIPOption``
 flag enabled.
 
 #. Configure kind
@@ -65,7 +65,7 @@ flag enabled.
 
 #. Install Cilium with IP Option Monitoring and restart the agent
 
-   Install Cilium using Helm. The key flag here is ``--set bpf.monitorTraceIPOption=136``.
+   Install Cilium using Helm. The key flag here is ``--set monitor.traceIPOption=136``.
    This flag configures Cilium to extract data from IP Option 136 packets. IP option 136 represents a "Stream ID",
    which will be used later in this guide to generate tracing packets.
 
@@ -74,7 +74,7 @@ flag enabled.
        :set: hubble.enabled=true
              hubble.relay.enabled=true
              hubble.ui.enabled=true
-             bpf.monitorTraceIPOption=136
+             monitor.traceIPOption=136
        :post-commands: kubectl -n kube-system wait --for=condition=ready pod -l k8s-app=cilium --timeout=300s
 
 Manual Verification
