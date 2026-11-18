@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"iter"
 	"os"
 	"testing"
 
@@ -20,8 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -70,6 +75,78 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "endpoint has nil policyMapFactory")
 	require.True(t, reverted)
+}
+
+type lockdownTestPolicyMapFactory struct {
+	fakepolicymap.Factory
+	syncErr    error
+	lockedDown []uint16
+}
+
+func (f *lockdownTestPolicyMapFactory) SharedPolicyEnabled() bool { return true }
+
+func (f *lockdownTestPolicyMapFactory) SyncEndpointOverlay(uint16, iter.Seq2[policytypes.Key, policytypes.MapStateEntry]) error {
+	return f.syncErr
+}
+
+func (f *lockdownTestPolicyMapFactory) LockdownEndpoint(epID uint16) error {
+	f.lockedDown = append(f.lockedDown, epID)
+	return nil
+}
+
+// TestSharedPolicyLockdown checks that with the shared policy map, an endpoint whose policy
+// does not fit in the map is locked down, that its regeneration is retried, and that the
+// lockdown ends once the policy fits.
+func TestSharedPolicyLockdown(t *testing.T) {
+	lockdown := option.Config.EnableEndpointLockdownOnPolicyOverflow
+	t.Cleanup(func() { option.Config.EnableEndpointLockdownOnPolicyOverflow = lockdown })
+	option.Config.EnableEndpointLockdownOnPolicyOverflow = true
+
+	errFull := fmt.Errorf("sync failed: %w", policymap.ErrSharedPolicyMapFull)
+	factory := &lockdownTestPolicyMapFactory{syncErr: errFull}
+	ep := &Endpoint{
+		ID:               1,
+		policyMapFactory: factory,
+		desiredPolicy:    &policy.EndpointPolicy{},
+		regenFailedChan:  make(chan struct{}, 1),
+	}
+	ep.logger.Store(hivetest.Logger(t))
+
+	err := ep.syncSharedPolicyLocked()
+	require.ErrorIs(t, err, ErrPolicyEntryMaxExceeded)
+	require.ErrorIs(t, err, policymap.ErrSharedPolicyMapFull)
+	require.True(t, ep.lockdown)
+	require.Equal(t, []uint16{1}, factory.lockedDown)
+	require.Len(t, ep.regenFailedChan, 1, "regeneration is retried until the policy fits")
+
+	// Still full: the endpoint stays locked down.
+	<-ep.regenFailedChan
+	require.ErrorIs(t, ep.syncSharedPolicyLocked(), ErrPolicyEntryMaxExceeded)
+	require.True(t, ep.lockdown)
+	require.Equal(t, []uint16{1}, factory.lockedDown)
+	require.Len(t, ep.regenFailedChan, 1)
+
+	// The policy fits again: the lockdown ends.
+	<-ep.regenFailedChan
+	factory.syncErr = nil
+	require.NoError(t, ep.syncSharedPolicyLocked())
+	require.False(t, ep.lockdown)
+	require.Empty(t, ep.regenFailedChan)
+
+	// Other errors are returned as is.
+	factory.syncErr = errors.New("other error")
+	require.ErrorIs(t, ep.syncSharedPolicyLocked(), factory.syncErr)
+	require.False(t, ep.lockdown)
+	require.Empty(t, ep.regenFailedChan)
+
+	// Without lockdown on policy overflow, the endpoint keeps its current rule set, and
+	// the regeneration is still retried.
+	option.Config.EnableEndpointLockdownOnPolicyOverflow = false
+	factory.syncErr = errFull
+	require.ErrorIs(t, ep.syncSharedPolicyLocked(), policymap.ErrSharedPolicyMapFull)
+	require.False(t, ep.lockdown)
+	require.Equal(t, []uint16{1}, factory.lockedDown)
+	require.Len(t, ep.regenFailedChan, 1)
 }
 
 // An endpoint's first regeneration reuses the policy that ComputeInitialPolicy
