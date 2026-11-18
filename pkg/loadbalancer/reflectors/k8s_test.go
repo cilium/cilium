@@ -4,23 +4,33 @@
 package reflectors
 
 import (
+	"context"
 	"log/slog"
 	"maps"
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy/types"
 	reflectorEndpoints "github.com/cilium/cilium/pkg/loadbalancer/reflectors/endpoints"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -143,4 +153,89 @@ func TestConvertEndpointsWeightZeroForcesMaintenance(t *testing.T) {
 	require.Len(t, backends, 1)
 	require.Zero(t, backends[0].Weight)
 	require.Equal(t, loadbalancer.BackendStateMaintenance, backends[0].State)
+}
+
+type serviceEndpointReflectorTestParams struct {
+	cell.In
+
+	DB     *statedb.DB
+	Writer *writer.Writer
+	Nodes  statedb.Table[*node.LocalNode]
+}
+
+func TestServiceEndpointReflectorPreservesSyntheticServices(t *testing.T) {
+	ctx := context.Background()
+	logger := hivetest.Logger(t)
+
+	var p serviceEndpointReflectorTestParams
+	h := hive.New(
+		writer.Cell,
+		cell.Provide(
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+			node.NewNodeTable,
+			statedb.RWTable[*node.LocalNode].ToTable,
+			tables.NewNodeAddressTable,
+			statedb.RWTable[tables.NodeAddress].ToTable,
+			source.NewSources,
+		),
+		cell.Invoke(func(p_ serviceEndpointReflectorTestParams) { p = p_ }),
+	)
+
+	require.NoError(t, h.Start(logger, ctx))
+	t.Cleanup(func() { h.Stop(logger, ctx) })
+
+	testCases := []struct {
+		serviceName loadbalancer.ServiceName
+		isSynthetic bool
+	}{
+		{
+			serviceName: loadbalancer.NewServiceName("test", "pod-hostport"+hostPortServiceNameInfix+"8080-tcp"),
+			isSynthetic: true,
+		},
+		{
+			serviceName: loadbalancer.NewServiceName("test", "lrp-service"+types.LRPServiceNameSuffix),
+			isSynthetic: true,
+		},
+		{
+			serviceName: loadbalancer.NewServiceName("test", "ordinary-service"),
+			isSynthetic: false,
+		},
+	}
+
+	// Upsert all services before we run the ServiceEndpointReflector.
+	wtxn := p.Writer.WriteTxn()
+	for _, tc := range testCases {
+		_, err := p.Writer.UpsertService(wtxn, &loadbalancer.Service{
+			Name:   tc.serviceName,
+			Source: source.Kubernetes,
+		})
+		require.NoError(t, err)
+	}
+	wtxn.Commit()
+
+	// Trigger reflector resync.
+	params := reflectorParams{
+		DB:          p.DB,
+		Log:         logger,
+		Writer:      p.Writer,
+		Nodes:       p.Nodes,
+		EventStream: stream.Just[event](replaceServicesEvent{}),
+		Config:      loadbalancer.DefaultConfig,
+		SVCMetrics:  NewSVCMetricsNoop(),
+	}
+	require.NoError(t, runServiceEndpointsReflector(
+		context.Background(),
+		&cell.SimpleHealth{},
+		params,
+		func(writer.WriteTxn) {},
+		func(writer.WriteTxn) {},
+	))
+
+	// Verify that synthetic services have been left in place, while non-synthetic
+	// services have been classed as orphan and deleted.
+	rtxn := p.DB.ReadTxn()
+	for _, tc := range testCases {
+		_, _, found := p.Writer.Services().Get(rtxn, loadbalancer.ServiceByName(tc.serviceName))
+		assert.Equalf(t, tc.isSynthetic, found, "Synthetic service missing: %v", tc.serviceName)
+	}
 }
