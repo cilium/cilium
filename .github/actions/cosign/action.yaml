@@ -70,6 +70,7 @@ runs:
         output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json
         image: ${{ inputs.image_tag }}
         upload-release-assets: ${{ inputs.upload_sbom_release_assets  }}
+        config: ${{ github.action_path }}/syft.yaml
 
     - name: Generate SBOM (retry)
       if: ${{ steps.generate_sbom.outcome == 'failure' }}
@@ -79,6 +80,7 @@ runs:
         output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json
         image: ${{ inputs.image_tag }}
         upload-release-assets: ${{ inputs.upload_sbom_release_assets  }}
+        config: ${{ github.action_path }}/syft.yaml
 
     # Login to registry for cosign to authenticate when pushing signatures
     - name: Login to registry for cosign

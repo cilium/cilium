@@ -1,0 +1,1 @@
+# Passed to syft with -c so that it never loads a config from the working directory.

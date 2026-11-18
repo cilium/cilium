@@ -74,6 +74,12 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      # Without SYFT_CONFIG, syft loads a config file from the pull request checked out below.
+      - name: Point syft at an empty config file
+        run: |
+          : > "${RUNNER_TEMP}/syft.yaml"
+          echo "SYFT_CONFIG=${RUNNER_TEMP}/syft.yaml" >> "$GITHUB_ENV"
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
