@@ -163,7 +163,9 @@ type testCase struct {
 // faultyLBMaps wraps an LBMaps and can inject errors on UpdateService.
 type faultyLBMaps struct {
 	maps.LBMaps
-	fail bool
+	fail              bool
+	failUpdateBackend bool
+	failDeleteService bool
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {
@@ -171,6 +173,20 @@ func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValu
 		return errors.New("update service failed")
 	}
 	return m.LBMaps.UpdateService(key, value)
+}
+
+func (m *faultyLBMaps) UpdateBackend(key maps.BackendKey, value maps.BackendValue) error {
+	if m.failUpdateBackend {
+		return errors.New("update backend failed")
+	}
+	return m.LBMaps.UpdateBackend(key, value)
+}
+
+func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
+	if m.failDeleteService {
+		return errors.New("delete service failed")
+	}
+	return m.LBMaps.DeleteService(key)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -1444,4 +1460,175 @@ func showMaps(m []maps.MapDump) string {
 	}
 	w.WriteString("},\n")
 	return w.String()
+}
+
+// newBPFOpsAffinityTestFixture constructs a BPFOps for the affinity leak
+// regression tests. The test lifecycle executes ResetAndRestore immediately.
+func newBPFOpsAffinityTestFixture(t *testing.T, lbmaps maps.LBMaps) *BPFOps {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+
+	maglevCfg, err := maglev.UserConfig{
+		TableSize: 1021,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	maglevInst := maglev.New(maglevCfg, lc)
+
+	extCfg := loadbalancer.ExternalConfig{
+		ZoneMapper:            &option.DaemonConfig{},
+		EnableIPv4:            true,
+		EnableIPv6:            true,
+		KubeProxyReplacement:  true,
+		EnableHostPort:        true,
+		EnableSessionAffinity: true,
+	}
+
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+
+	db := statedb.New()
+	nodeAddrs, _ := tables.NewNodeAddressTable()
+	require.NoError(t, db.RegisterTable(nodeAddrs))
+
+	p := bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		Maglev:         maglevInst,
+		DB:             db,
+		NodeAddresses:  nodeAddrs,
+	}
+
+	return newBPFOps(p)
+}
+
+// newAffinityTestFrontend builds a ClusterIP frontend with the given session
+// affinity setting and backends.
+func newAffinityTestFrontend(addr loadbalancer.L3n4Addr, sessionAffinity bool, backends ...loadbalancer.Backend) loadbalancer.Frontend {
+	svc := baseService
+	svc.SessionAffinity = sessionAffinity
+	fe := baseFrontend
+	fe.Type = ClusterIP
+	fe.Address = addr
+	fe.Service = &svc
+	for _, be := range backends {
+		fe.Backends = concatBe(fe.Backends, *be.GetInstance(svc.Name), nextBackendRevision)
+		nextBackendRevision++
+	}
+	return fe
+}
+
+// affinityEntryCount returns the number of entries in the affinity match map.
+func affinityEntryCount(t *testing.T, lbmaps maps.LBMaps) int {
+	t.Helper()
+	count := 0
+	cb := func(*maps.AffinityMatchKey, *maps.AffinityMatchValue) {
+		count++
+	}
+	require.NoError(t, lbmaps.DumpAffinityMatch(cb))
+	return count
+}
+
+// affinityMatchKeys returns the host-order affinity match keys present in the map.
+func affinityMatchKeys(t *testing.T, lbmaps maps.LBMaps) map[maps.AffinityMatchKey]struct{} {
+	t.Helper()
+	keys := map[maps.AffinityMatchKey]struct{}{}
+	cb := func(key *maps.AffinityMatchKey, _ *maps.AffinityMatchValue) {
+		k := key.ToHost()
+		keys[*k] = struct{}{}
+	}
+	require.NoError(t, lbmaps.DumpAffinityMatch(cb))
+	return keys
+}
+
+func TestBPFOpsAffinityLeakRegressions(t *testing.T) {
+	backend1Be := newTestBackend(backend1, loadbalancer.BackendStateActive)
+	backend2Be := newTestBackend(backend2, loadbalancer.BackendStateActive)
+	feAddr1 := parseAddrPort("10.0.0.1:80")
+	feAddr2 := extraFrontend
+
+	t.Run("drop shared backend deletes affinity match", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		ops := newBPFOpsAffinityTestFixture(t, lbmaps)
+
+		fe1 := newAffinityTestFrontend(feAddr1, true, backend1Be, backend2Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe1))
+
+		fe2 := newAffinityTestFrontend(feAddr2, true, backend1Be, backend2Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe2))
+		require.Equal(t, 4, affinityEntryCount(t, lbmaps))
+
+		// Drop backend2 from fe1 while fe2 still references it. The affinity
+		// match (fe1, backend2) must be deleted even though backend2 is still
+		// referenced by fe2 (refCount > 1).
+		fe1 = newAffinityTestFrontend(feAddr1, true, backend1Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe1))
+
+		require.Equal(t, 3, affinityEntryCount(t, lbmaps))
+		keys := affinityMatchKeys(t, lbmaps)
+		// fe1 gets service ID 1, fe2 ID 2, backend1 ID 1, backend2 ID 2.
+		require.NotContains(t, keys, maps.AffinityMatchKey{RevNATID: 1, BackendID: 2},
+			"affinity match for the dropped shared backend was leaked")
+		require.Contains(t, keys, maps.AffinityMatchKey{RevNATID: 2, BackendID: 2},
+			"affinity match for the still-referenced backend was removed")
+	})
+
+	t.Run("startup prune removes stale session affinity", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+
+		ops := newBPFOpsAffinityTestFixture(t, lbmaps)
+		fe := newAffinityTestFrontend(feAddr1, true, backend1Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe))
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps))
+
+		// Restart with the same maps: the frontend no longer has session
+		// affinity but still references the backend. The stale entry must be
+		// reclaimed by Prune.
+		ops = newBPFOpsAffinityTestFixture(t, lbmaps)
+		fe = newAffinityTestFrontend(feAddr1, false, backend1Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe))
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entry should remain until Prune")
+		require.NoError(t, ops.Prune(context.TODO(), nil, nil))
+		require.Equal(t, 0, affinityEntryCount(t, lbmaps), "stale affinity entry was not pruned")
+	})
+
+	t.Run("failed startup update preserves session affinity", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+
+		ops := newBPFOpsAffinityTestFixture(t, lbmaps)
+		fe := newAffinityTestFrontend(feAddr1, true, backend1Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe))
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps))
+
+		// Restart with a fault injected in UpdateBackend. The startup update
+		// fails, but the valid affinity match must be preserved (split-brain).
+		faultMaps := &faultyLBMaps{LBMaps: lbmaps, failUpdateBackend: true}
+		ops = newBPFOpsAffinityTestFixture(t, faultMaps)
+		fe = newAffinityTestFrontend(feAddr1, true, backend1Be)
+		require.Error(t, ops.Update(context.TODO(), nil, 0, &fe))
+		require.NoError(t, ops.Prune(context.TODO(), nil, nil))
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "valid affinity entry was removed after failed startup update")
+	})
+
+	t.Run("failed delete retry does not leak service slots", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		faultMaps := &faultyLBMaps{LBMaps: lbmaps}
+		ops := newBPFOpsAffinityTestFixture(t, faultMaps)
+
+		// Program a frontend with two backends (two service slots).
+		fe := newAffinityTestFrontend(feAddr1, false, backend1Be, backend2Be)
+		require.NoError(t, ops.Update(context.TODO(), nil, 0, &fe))
+
+		// Fail the first delete partway through service slot removal.
+		faultMaps.failDeleteService = true
+		require.Error(t, ops.Delete(context.TODO(), nil, 0, &fe))
+		faultMaps.failDeleteService = false
+
+		// Retry the delete. It must not leak the partially-deleted service slots.
+		require.NoError(t, ops.Delete(context.TODO(), nil, 0, &fe))
+		require.True(t, lbmaps.IsEmpty(), "BPF maps not empty after retried delete")
+		require.True(t, ops.StateIsEmpty(), "internal state not empty after retried delete")
+	})
 }
