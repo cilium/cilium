@@ -415,21 +415,16 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 		t.Fatalf("update CID: %v", err)
 	}
 
-	cid, err := fakeClient.CiliumV2().CiliumIdentities().Get(ctx, updated.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("get CID: %v", err)
-	}
-	if !cmp.Equal(cid.SecurityLabels, updated.SecurityLabels) {
-		t.Fatalf("expected labels %v, got %v", updated.SecurityLabels, cid.SecurityLabels)
-	}
-
+	// The store can still hold the object from before the tampering, which
+	// already has the original labels.
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		cids := store.List()
 		if !assert.Len(ct, cids, 1) {
 			return
 		}
-		cid = cids[0]
+		cid := cids[0]
 
+		assert.NotEqual(ct, toUpdate.ResourceVersion, cid.ResourceVersion)
 		assert.Equal(ct, cid1.SecurityLabels, cid.SecurityLabels)
 	}, WaitUntilTimeout, 100*time.Millisecond)
 }
