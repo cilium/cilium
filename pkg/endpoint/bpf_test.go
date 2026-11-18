@@ -10,19 +10,27 @@ import (
 	"io"
 	"os"
 	"testing"
+	"testing/synctest"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // newRegenTestEndpoint returns an endpoint that regenerateBPF can run on up to
@@ -134,63 +142,200 @@ func TestFirstRegenerationComputesPolicyOnce(t *testing.T) {
 type recordingAckRedirectProxy struct {
 	FakeEndpointProxy
 	redirects map[string]uint16
+	onAck     func()
 	err       error
 }
 
 func (p *recordingAckRedirectProxy) AckRedirects(_ context.Context, redirects map[string]uint16) error {
 	p.redirects = redirects
+	p.onAck()
 	return p.err
 }
 
-func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
+type regenerationDatapath struct {
+	fakeendpoint.FakeOrchestrator
+	lxcmap.Map
+	events []string
+}
+
+func (d *regenerationDatapath) ReloadDatapath(context.Context, endpointtypes.Endpoint, *metrics.SpanStat) (string, error) {
+	d.events = append(d.events, "load-bpf")
+	return "", nil
+}
+
+func (d *regenerationDatapath) WriteEndpoint(lxcmap.EndpointFrontend) error {
+	d.events = append(d.events, "publish-endpoint")
+	return nil
+}
+
+func (*regenerationDatapath) Update(PolicyMapPressureEvent) {}
+func (*regenerationDatapath) Remove(uint16)                 {}
+
+func TestRegenerateBPFWaitsForProxy(t *testing.T) {
+	f := newPolicyTestFixture(t)
 	nackErr := errors.New("proxy rejected update")
 	rulesErr := errors.New("installing proxy rules failed")
-	tests := []struct {
-		name       string
-		cancel     bool
-		reject     bool
-		rulesError error
-		err        error
+	for _, mode := range []struct {
+		name      string
+		restored  bool
+		skipBPF   bool
+		level     regeneration.DatapathRegenerationLevel
+		beforeAck []string
+		afterAck  []string
 	}{
-		{name: "ack"},
-		{name: "nack", reject: true, err: nackErr},
-		{name: "parent-canceled", cancel: true, reject: true, err: context.Canceled},
-		{name: "rules-error", rulesError: rulesErr, err: rulesErr},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			proxy := &recordingAckRedirectProxy{err: tt.rulesError}
-			ep := &Endpoint{proxy: proxy}
-			ep.logger.Store(hivetest.Logger(t))
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			wg := completion.NewWaitGroup(ctx)
-			defer wg.Cancel()
-			var callbackErr error
-			pending := wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
-			result := wg.AddCompletionWithCallback(nil, nil)
-			if tt.reject {
-				result.Complete(nackErr)
-			} else {
-				pending.Complete(nil)
-				result.Complete(nil)
-			}
-			if tt.cancel {
-				cancel()
-			}
+		{
+			name: "empty-map", level: regeneration.RegenerateWithDatapath,
+			afterAck: []string{"redirect-rules", "load-bpf", "publish-endpoint"},
+		},
+		{
+			name: "restored-map", restored: true, level: regeneration.RegenerateWithDatapath,
+			beforeAck: []string{"load-bpf", "publish-endpoint"},
+			afterAck:  []string{"load-bpf", "publish-endpoint", "redirect-rules"},
+		},
+		{
+			name: "no-reload", restored: true, level: regeneration.RegenerateWithoutDatapath,
+			beforeAck: []string{"publish-endpoint"},
+			afterAck:  []string{"publish-endpoint", "redirect-rules"},
+		},
+		{
+			name: "ingress", skipBPF: true, level: regeneration.RegenerateWithDatapath,
+			afterAck: []string{"publish-endpoint"},
+		},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			for _, tt := range []struct {
+				name       string
+				cancel     bool
+				reject     bool
+				rulesError error
+				err        error
+			}{
+				{name: "ack"},
+				{name: "nack", reject: true, err: nackErr},
+				{name: "parent-canceled", cancel: true, err: context.Canceled},
+				{name: "rules-error", rulesError: rulesErr, err: rulesErr},
+			} {
+				if mode.skipBPF && tt.rulesError != nil {
+					continue // Ingress endpoints have no redirects to acknowledge.
+				}
+				t.Run(tt.name, func(t *testing.T) {
+					synctest.Test(t, func(t *testing.T) {
+						logger := hivetest.Logger(t)
+						ctx, cancel := context.WithCancel(t.Context())
+						dp := &regenerationDatapath{}
+						proxy := &recordingAckRedirectProxy{
+							err: tt.rulesError,
+							onAck: func() {
+								dp.events = append(dp.events, "redirect-rules")
+							},
+						}
+						realized := policy.NewEndpointPolicy(logger, f.repo)
+						desired := policy.NewEndpointPolicy(logger, f.repo)
+						key := policy.EgressKey().WithPortProto(u8proto.TCP, 80)
+						entries := policy.MapStateMap{key: (policy.MapStateEntry{}).WithProxyPort(12345)}
+						desired.CopyMapStateFrom(entries)
+						if !mode.skipBPF {
+							desired.Redirects = map[string]uint16{"redirect": 12345}
+						}
+						ep := newRegenTestEndpoint(t, f.repo, realized)
+						ep.proxy = proxy
+						ep.orchestrator = dp
+						ep.lxcMap = dp
+						ep.PolicyMapPressureUpdater = dp
+						ep.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
+						ep.hasBPFProgram = make(chan struct{})
+						if mode.skipBPF {
+							ep.properties = map[string]any{endpointtypes.PropertySkipBPFPolicy: true, endpointtypes.PropertyAtHostNS: true}
+						}
+						pm := fakepolicymap.NewFakePolicyMap()
+						ep.policyMap = pm
+						if mode.restored {
+							k := policymap.NewKeyFromPolicyKey(key)
+							v := policymap.NewEntryFromPolicyEntry(k, (policy.MapStateEntry{}).WithDeny(false))
+							require.NoError(t, pm.Update(&k, &v))
+						}
+						original, err := pm.DumpToMapStateMap()
+						require.NoError(t, err)
+						dir := t.TempDir()
+						datapath := &datapathRegenerationContext{
+							policyResult: &policyGenerateResult{
+								endpointPolicy: desired,
+								policyRevision: f.repo.GetRevision(),
+							},
+							ctCleaned:         make(chan struct{}),
+							currentDir:        dir,
+							nextDir:           dir,
+							regenerationLevel: mode.level,
+						}
+						var pending, result *completion.Completion
+						var callbackErr error
+						ep.dnsRulesAPI = noopDNSRulesAPI{onRead: func() {
+							pending = datapath.proxyWaitGroup.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
+							result = datapath.proxyWaitGroup.AddCompletionWithCallback(nil, nil)
+						}}
+						defer func() {
+							cancel()
+							synctest.Wait()
+							if trigger := ep.dnsHistoryTrigger.Load(); trigger != nil {
+								ep.dnsRulesAPI = noopDNSRulesAPI{}
+								ep.state = StateDisconnected
+								trigger.Shutdown()
+							}
+						}()
+						done := make(chan error, 1)
+						go func() {
+							ep.buildMutex.Lock()
+							defer ep.buildMutex.Unlock()
+							_, err := ep.regenerateBPF(&regenerationContext{
+								parentContext: ctx, datapathRegenerationContext: datapath,
+							})
+							done <- err
+						}()
 
-			redirects := map[string]uint16{"redirect": 12345}
-			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, wg, redirects), tt.err)
-			if tt.cancel {
-				// Regeneration drains an early return before reverting resources.
-				wg.Cancel()
-			}
-			if tt.reject {
-				require.ErrorIs(t, callbackErr, context.Canceled)
-				require.Nil(t, proxy.redirects, "a failed wait must not acknowledge proxy ports")
-			} else {
-				require.NoError(t, callbackErr)
-				require.Equal(t, redirects, proxy.redirects)
+						// Leave proxy updates pending until regeneration blocks on them.
+						synctest.Wait()
+						require.NotNil(t, pending)
+						require.Equal(t, mode.beforeAck, dp.events)
+						current, err := pm.DumpToMapStateMap()
+						require.NoError(t, err)
+						if mode.restored || mode.skipBPF {
+							require.Equal(t, original, current)
+						} else {
+							require.Equal(t, entries, current)
+						}
+
+						switch {
+						case tt.cancel:
+							cancel()
+						case tt.reject:
+							result.Complete(nackErr)
+						default:
+							pending.Complete(nil)
+							result.Complete(nil)
+						}
+						require.ErrorIs(t, <-done, tt.err)
+						if tt.cancel || tt.reject {
+							require.ErrorIs(t, callbackErr, context.Canceled)
+							require.Nil(t, proxy.redirects)
+							require.Equal(t, mode.beforeAck, dp.events)
+						} else {
+							require.NoError(t, callbackErr)
+							require.Equal(t, desired.Redirects, proxy.redirects)
+							want := mode.afterAck
+							if tt.rulesError != nil && !mode.restored {
+								want = []string{"redirect-rules"}
+							}
+							require.Equal(t, want, dp.events)
+						}
+						current, err = pm.DumpToMapStateMap()
+						require.NoError(t, err)
+						if tt.err != nil || mode.skipBPF {
+							require.Equal(t, original, current)
+						} else {
+							require.Equal(t, entries, current)
+						}
+					})
+				})
 			}
 		})
 	}
