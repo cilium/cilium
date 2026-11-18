@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 	"golang.org/x/sys/unix"
 
@@ -167,6 +168,9 @@ type createFactoryParams struct {
 	MapRegistry *mapregistry.MapRegistry
 	PolicyConfig
 	DaemonConfig *option.DaemonConfig
+	// JobGroup runs the periodic reconciliation of the shared policy map. It is optional
+	// so that tests can create the factory without a job registry.
+	JobGroup job.Group `optional:"true"`
 }
 
 func createFactory(in createFactoryParams) (out struct {
@@ -211,7 +215,7 @@ func createFactory(in createFactoryParams) (out struct {
 	f := newFactory(in.Log, in.MapRegistry, m, in.BpfPolicyMapMax)
 	out.Factory = f
 	if in.DaemonConfig.EnableSharedPolicy {
-		f.registerSharedPolicy(in.Lifecycle, in.MapRegistry)
+		f.registerSharedPolicy(in.Lifecycle, in.MapRegistry, in.JobGroup, in.DaemonConfig.PolicyMapFullReconciliationInterval)
 	}
 
 	out.NodeDefines = map[string]string{

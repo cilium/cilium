@@ -1734,7 +1734,8 @@ func (e *Endpoint) sharedPolicyEnabled() bool {
 
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.
 func (e *Endpoint) startSyncPolicyMapController() {
-	// Skip the controller if the endpoint has no per-endpoint policy map
+	// Skip the controller if the endpoint has no per-endpoint policy map. The policymap cell
+	// reconciles the shared policy map at the same interval instead.
 	if e.isPropertyLocked(endpointtypes.PropertySkipBPFPolicy) || e.sharedPolicyEnabled() {
 		return
 	}
