@@ -165,6 +165,7 @@ Zhou
 aarch
 addr
 agentNotReadyTaintKey
+aggregationFlags
 aggregationInterval
 alibabacloud
 allocatable
@@ -863,6 +864,7 @@ tolerations
 toolchain
 topologies
 toto
+traceIPOption
 traceparent
 tracepoint
 tracepoints
