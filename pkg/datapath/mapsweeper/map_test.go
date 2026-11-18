@@ -4,6 +4,7 @@
 package mapsweeper
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
 type testEPManager struct {
@@ -146,7 +148,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager(tt.paths)
-			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{}, &policyMapFactorySweeper{})
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -183,7 +185,7 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			"cilium_auth_map",
 		}
 
-		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{}, &policyMapFactorySweeper{})
 
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)
@@ -200,9 +202,64 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			},
 		)
 
-		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{}, &policyMapFactorySweeper{})
 
 		sweeper.RemoveDisabledMaps()
 		require.Empty(t, testEPManager.removedPaths)
 	})
+
+	sharedPolicyPaths := []string{
+		policymap.SharedPolicyMapName,
+		policymap.PolicyOverlayMapName,
+		"cilium_policy_v3_00001",
+	}
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("Shared policy maps with enable-shared-policy=%t", enabled), func(t *testing.T) {
+			testEPManager := newTestEPManager(sharedPolicyPaths)
+			policyMapFactory := &policyMapFactorySweeper{enabled: enabled}
+			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{}, policyMapFactory)
+			sweeper.RemoveDisabledMaps()
+
+			if enabled {
+				require.ElementsMatch(t, []string{"cilium_policy_v3_00001"},
+					testEPManager.removedPaths)
+			} else {
+				// The shared policy maps must not survive a restart with the shared policy
+				// map disabled, otherwise their stale contents would take effect again when
+				// it is re-enabled. Per-endpoint policy maps are kept.
+				require.ElementsMatch(t, []string{policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName},
+					testEPManager.removedPaths)
+			}
+		})
+	}
+}
+
+type policyMapFactorySweeper struct {
+	policymap.Factory
+	overlays map[uint16]bool
+	enabled  bool
+}
+
+func (p *policyMapFactorySweeper) SharedPolicyEnabled() bool {
+	return p != nil && p.enabled
+}
+
+func (p *policyMapFactorySweeper) RemoveStaleEndpointOverlays(exists func(uint16) bool) error {
+	for id := range p.overlays {
+		if !exists(id) {
+			delete(p.overlays, id)
+		}
+	}
+	return nil
+}
+
+func TestCollectStaleSharedPolicyOverlays(t *testing.T) {
+	policyMapFactory := &policyMapFactorySweeper{overlays: map[uint16]bool{1: true, 42: true}}
+	testEPManager := newTestEPManager(nil)
+	testEPManager.addEndpoint(42)
+	sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{}, policyMapFactory)
+	sweeper.CollectStaleMapGarbage()
+
+	require.NotContains(t, policyMapFactory.overlays, uint16(1), "overlay entry of deleted endpoint must be removed")
+	require.Contains(t, policyMapFactory.overlays, uint16(42))
 }

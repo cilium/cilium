@@ -423,10 +423,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyEnabled:            policyEnabled,
 	}
 
-	var desiredL4Policy *policy.L4Policy
-	if e.desiredPolicy != nil {
-		desiredL4Policy = &e.desiredPolicy.SelectorPolicy.L4Policy
-	}
+	desiredL4Policy := &e.desiredPolicy.SelectorPolicy.L4Policy
 
 	desiredMdl := &models.EndpointPolicy{
 		ID: int64(e.SecurityIdentity.ID),
