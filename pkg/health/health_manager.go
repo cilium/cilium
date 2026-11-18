@@ -189,15 +189,7 @@ func (h *ciliumHealthManager) init(ctx context.Context) error {
 			DoFunc: func(ctx context.Context) error {
 				var err error
 
-				if client != nil {
-					err = client.PingEndpoint()
-					if err == nil {
-						h.logger.Debug("Successfully pinged health endpoint")
-						lastSuccessfulPing = time.Now()
-					} else {
-						h.logger.Debug("Failed to ping health endpoint", logfields.Error, err)
-					}
-				}
+				lastSuccessfulPing, err = h.pingHealthEndpoint(client, lastSuccessfulPing)
 
 				// Restart the health EP if too much time has gone since the
 				// lastSuccessfulPing time, which is also true for a non-existent
@@ -231,6 +223,21 @@ func (h *ciliumHealthManager) init(ctx context.Context) error {
 	)
 
 	return nil
+}
+
+// pingHealthEndpoint returns the time from which the health endpoint restart timeout counts.
+func (h *ciliumHealthManager) pingHealthEndpoint(client *Client, lastSuccessfulPing time.Time) (time.Time, error) {
+	if client == nil {
+		return lastSuccessfulPing, nil
+	}
+
+	if err := client.PingEndpoint(); err != nil {
+		h.logger.Debug("Failed to ping health endpoint", logfields.Error, err)
+		return lastSuccessfulPing, err
+	}
+
+	h.logger.Debug("Successfully pinged health endpoint")
+	return time.Now(), nil
 }
 
 func (h *ciliumHealthManager) cleanupHealthEndpoint(ctx context.Context) error {
