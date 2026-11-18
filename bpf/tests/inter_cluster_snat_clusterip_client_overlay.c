@@ -16,9 +16,6 @@
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4 1
 
-/* Overlapping PodCIDR depends on tunnel */
-#define TUNNEL_MODE 1
-
 /* Cluster-aware addressing is mandatory for overlapping PodCIDR support */
 #define ENABLE_CLUSTER_AWARE_ADDRESSING		1
 
@@ -93,6 +90,9 @@ ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+
+/* Overlapping PodCIDR depends on tunnel */
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 #include "lib/endpoint.h"
 

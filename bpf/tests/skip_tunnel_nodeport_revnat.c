@@ -12,7 +12,6 @@
 #define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define TUNNEL_MODE 1
 
 /*
  * Simulate sending traffic from pod_one on node_one to pod_two
@@ -89,6 +88,7 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)

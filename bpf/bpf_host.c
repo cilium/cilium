@@ -366,26 +366,26 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
 
-#ifdef TUNNEL_MODE
-	/* Check if the source and destination IP has same subnet ID. */
-	bool same_subnet_id = false;
+	if (CONFIG(enable_tunnel_mode)) {
+		/* Check if the source and destination IP has same subnet ID. */
+		bool same_subnet_id = false;
 
-	if (CONFIG(hybrid_routing_enabled))
-		same_subnet_id = is_subnet_same_id6((union v6addr *)&ip6->saddr,
-						    (union v6addr *)&ip6->daddr);
+		if (CONFIG(hybrid_routing_enabled))
+			same_subnet_id = is_subnet_same_id6((union v6addr *)&ip6->saddr,
+							    (union v6addr *)&ip6->daddr);
 
-	if ((info && info->flag_skip_tunnel) || same_subnet_id)
-		goto skip_tunnel;
+		if ((info && info->flag_skip_tunnel) || same_subnet_id)
+			goto skip_tunnel;
 
-	if (info && info->flag_has_tunnel_ep) {
-		return encap_and_redirect_with_nodeid(ctx, info, secctx,
-						      info->sec_identity,
-						      &trace,
-						      bpf_htons(ETH_P_IPV6));
+		if (info && info->flag_has_tunnel_ep) {
+			return encap_and_redirect_with_nodeid(ctx, info, secctx,
+							info->sec_identity,
+							&trace,
+							bpf_htons(ETH_P_IPV6));
+		}
 	}
-skip_tunnel:
-#endif
 
+skip_tunnel:
 	if (from_proxy) {
 		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 		return CTX_ACT_OK;
@@ -817,25 +817,25 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
-#ifdef TUNNEL_MODE
-	/* Check if the source and destination IP has same subnet ID. */
-	bool same_subnet_id = false;
-	/* Lookup the subnet IDs for the source and destination IPs in hybrid routing mode. */
-	if (CONFIG(hybrid_routing_enabled))
-		same_subnet_id = is_subnet_same_id4(ip4->saddr, ip4->daddr);
+	if (CONFIG(enable_tunnel_mode)) {
+		/* Check if the source and destination IP has same subnet ID. */
+		bool same_subnet_id = false;
+		/* Lookup the subnet IDs for the source and destination IPs in hybrid routing mode. */
+		if (CONFIG(hybrid_routing_enabled))
+			same_subnet_id = is_subnet_same_id4(ip4->saddr, ip4->daddr);
 
-	if ((info && info->flag_skip_tunnel) || same_subnet_id)
-		goto skip_tunnel;
+		if ((info && info->flag_skip_tunnel) || same_subnet_id)
+			goto skip_tunnel;
 
-	if (info && info->flag_has_tunnel_ep) {
-		return encap_and_redirect_with_nodeid(ctx, info, secctx,
-						      info->sec_identity,
-						      &trace,
-						      bpf_htons(ETH_P_IP));
+		if (info && info->flag_has_tunnel_ep) {
+			return encap_and_redirect_with_nodeid(ctx, info, secctx,
+							info->sec_identity,
+							&trace,
+							bpf_htons(ETH_P_IP));
+		}
 	}
-skip_tunnel:
-#endif
 
+skip_tunnel:
 	/* When a proxy's traffic couldn't be delivered by the preceding code,
 	 * we let it pass through (for routing by the stack). To prevent
 	 * tproxy-matching for transparent connections, we need to explicitly
@@ -1820,7 +1820,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 	}
 
 	if (CONFIG(enable_ipsec)) {
-#if !defined(TUNNEL_MODE)
 		/* Since v1.18 Cilium performs IPsec encryption at the native device,
 		 * before the packet leaves the host.
 		 *
@@ -1852,9 +1851,9 @@ int cil_to_host(struct __ctx_buff *ctx)
 		 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
 		 * and allow it to enter the foward path once punted to stack.
 		 */
-		if (ctx->mark == 0 && CONFIG(interface_ifindex) == CONFIG(cilium_net_ifindex))
+		if (ctx->mark == 0 && CONFIG(interface_ifindex) == CONFIG(cilium_net_ifindex) &&
+		    !CONFIG(enable_tunnel_mode))
 			ctx->mark = MARK_MAGIC_SKIP_TPROXY;
-#endif /* !TUNNEL_MODE */
 
 		if (NODEPORT_ENABLED && ctx_is_encrypt(ctx) &&
 		    validate_ethertype(ctx, &proto)) {

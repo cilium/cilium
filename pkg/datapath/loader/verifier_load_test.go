@@ -65,6 +65,7 @@ func setBasePermutations(t *config.Node) {
 	t.EnableNodeportAcceleration = true
 	t.EnableL7LB = true
 	t.EnableBandwidthManager = true
+	t.EnableTunnelMode = true
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {

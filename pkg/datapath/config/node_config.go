@@ -83,6 +83,8 @@ type Node struct {
 	EnableTproxy bool `config:"enable_tproxy"`
 	// Enable trace notifications.
 	EnableTraceNotify bool `config:"enable_trace_notify"`
+	// Enable tunnel mode, routing over some overlay network.
+	EnableTunnelMode bool `config:"enable_tunnel_mode"`
 	// Enable Wireguard support.
 	EnableWireguard bool `config:"enable_wireguard"`
 	// Interface index of the IPv4 IPIP encapsulation device.
@@ -167,7 +169,7 @@ func NewNode() *Node {
 		false, false, false, 0x0, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

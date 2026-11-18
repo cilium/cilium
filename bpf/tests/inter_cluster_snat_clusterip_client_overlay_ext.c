@@ -8,7 +8,6 @@
 
 #define ENCAP_IFINDEX 1
 #define ENABLE_IPV4 1
-#define TUNNEL_MODE 1
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
 #define ENABLE_INTER_CLUSTER_SNAT
 
@@ -66,6 +65,7 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, ipv4_inter_cluster_snat, { .be32 = CLIENT_NODE_IP })
 ASSIGN_CONFIG(__u32, cluster_id, 1)
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 #include "lib/endpoint.h"
 

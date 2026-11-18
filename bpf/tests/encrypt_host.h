@@ -426,7 +426,6 @@ int encrypt_v6_5_encrypted_check(const struct __ctx_buff *ctx)
 	return check(ctx, CTX_ACT_OK);
 }
 
-#ifdef TUNNEL_MODE
 PKTGEN(PROG_TYPE, "encrypt_v4_vxlan")
 int encrypt_v4_vxlan_pktgen(struct __ctx_buff *ctx)
 {
@@ -462,6 +461,12 @@ int encrypt_v4_vxlan_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "encrypt_v4_vxlan")
 int encrypt_v4_vxlan_check(const struct __ctx_buff *ctx)
 {
+	if (!CONFIG(enable_tunnel_mode)) {
+		test_init();
+		return TEST_SKIP;
+		test_finish();
+	}
+
 	return check(ctx, CTX_ACT_REDIRECT);
 }
 
@@ -500,6 +505,11 @@ int encrypt_v6_vxlan_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "encrypt_v6_vxlan")
 int encrypt_v6_vxlan_check(const struct __ctx_buff *ctx)
 {
+	if (!CONFIG(enable_tunnel_mode)) {
+		test_init();
+		return TEST_SKIP;
+		test_finish();
+	}
+
 	return check(ctx, CTX_ACT_REDIRECT);
 }
-#endif
