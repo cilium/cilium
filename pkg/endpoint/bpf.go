@@ -482,8 +482,26 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return e.desiredPolicyRevision, nil
 	}
 
+	proxyWait := func() error {
+		stats.proxyWaitForAck.Start()
+		err := e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
+		stats.proxyWaitForAck.End(err == nil)
+		if err != nil {
+			return newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
+		}
+		return nil
+	}
+
 	// Skip BPF if the endpoint has no policy map
 	if e.IsProperty(endpointtypes.PropertySkipBPFPolicy) {
+		// Allow another builder to start while we wait for the proxy
+		if regenContext.DoneFunc != nil {
+			regenContext.DoneFunc()
+		}
+		// Wait for proxy ACK before exposing endpoint
+		if err := proxyWait(); err != nil {
+			return 0, err
+		}
 		// Ingress endpoint needs entries in the endpoints map so that the return traffic,
 		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
 		if e.IsProperty(endpointtypes.PropertyAtHostNS) {
@@ -494,19 +512,6 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 				return 0, newRegenerationErrorf(regenerationFailureReasonBPFError, "exposing endpoint in endpoints BPF map failed: %w", err)
 			}
 		}
-
-		// Allow another builder to start while we wait for the proxy
-		if regenContext.DoneFunc != nil {
-			regenContext.DoneFunc()
-		}
-
-		stats.proxyWaitForAck.Start()
-		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
-		stats.proxyWaitForAck.End(err == nil)
-		if err != nil {
-			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
-		}
-
 		return e.desiredPolicyRevision, nil
 	}
 
@@ -515,7 +520,18 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	<-datapathRegenCtxt.ctCleaned
 	stats.waitingForCTClean.End(true)
 
+	proxyWaitDone := false
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
+		// Must wait for proxy updates before exposing new bpf programs if
+		// the policy map has already been synced.
+		// We still hold the build mutex for the possible recompile below.
+		// A no-op if the endpoint does not require any proxy redirects.
+		if datapathRegenCtxt.policyMapSyncDone {
+			if err := proxyWait(); err != nil {
+				return 0, err
+			}
+			proxyWaitDone = true
+		}
 		err = e.realizeBPFState(regenContext)
 		if err != nil {
 			return datapathRegenCtxt.epInfoCache.revision, newRegenerationError(regenerationFailureReasonDatapathOrchestrationError, err)
@@ -547,11 +563,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		regenContext.DoneFunc()
 	}
 
-	stats.proxyWaitForAck.Start()
-	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
-	stats.proxyWaitForAck.End(err == nil)
-	if err != nil {
-		return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
+	// Wait for proxy completions before syncing the policymap below
+	if !proxyWaitDone {
+		if err := proxyWait(); err != nil {
+			return 0, err
+		}
 	}
 
 	stats.waitingForLock.Start()
