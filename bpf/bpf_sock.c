@@ -669,6 +669,8 @@ int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
+#ifdef ENABLE_IPV6
+
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const union v6addr *dst_ip,
@@ -727,6 +729,7 @@ static __always_inline int sock6_delete_revnat(struct bpf_sock *ctx)
 	ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
 	return ret;
 }
+#endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 					       union v6addr *addr)
@@ -986,6 +989,7 @@ sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx)
 	return 0;
 }
 
+#ifdef ENABLE_IPV6
 static __always_inline void sock6_auto_bind(struct bpf_sock_addr *ctx)
 {
 	union v6addr zero = {};
@@ -993,6 +997,7 @@ static __always_inline void sock6_auto_bind(struct bpf_sock_addr *ctx)
 	ctx_set_v6_address(ctx, &zero);
 	ctx_set_port(ctx, 0);
 }
+#endif
 
 static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 {
@@ -1008,13 +1013,12 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 	ctx_get_v6_address(ctx, &val.peer.address);
 	if (is_v4_in_v6(&val.peer.address))
 		return sock6_pre_bind_v4_in_v6(ctx);
-	if (!is_defined(ENABLE_IPV6))
-		return ret;
-
+#ifdef ENABLE_IPV6
 	key = get_socket_cookie(ctx);
 	ret = map_update_elem(&cilium_lb6_health, &key, &val, 0);
 	if (!ret)
 		sock6_auto_bind(ctx);
+#endif
 	return ret;
 }
 
@@ -1038,9 +1042,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 					     const bool udp_only,
 					     const bool is_connect)
 {
-	if (!is_defined(ENABLE_IPV6))
-		return sock6_xlate_v4_in_v6(ctx, udp_only, is_connect);
-
+#ifdef ENABLE_IPV6
 	union lb6_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx, &id.client_cookie);
 	const struct lb6_backend *backend;
@@ -1158,6 +1160,9 @@ out:
 	ctx_set_port(ctx, backend->port);
 
 	return 0;
+#else
+	return sock6_xlate_v4_in_v6(ctx, udp_only, is_connect);
+#endif /* ENABLE_IPV6 */
 }
 
 __section("cgroup/connect6")
@@ -1211,9 +1216,7 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx)
 
 static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 {
-	if (!is_defined(ENABLE_IPV6))
-		return sock6_xlate_rev_v4_in_v6(ctx);
-
+#ifdef ENABLE_IPV6
 	struct ipv6_revnat_tuple key = {};
 	struct ipv6_revnat_entry *val;
 	__u16 dst_port = ctx_dst_port(ctx);
@@ -1253,6 +1256,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 					bpf_ntohs(val->port), false);
 		return 0;
 	}
+#endif /* ENABLE_IPV6 */
 
 	return sock6_xlate_rev_v4_in_v6(ctx);
 }
@@ -1293,7 +1297,8 @@ int cil_sock_release(struct bpf_sock *ctx)
 			update_metrics(0, METRIC_EGRESS,
 				       REASON_LB_REVNAT_DELETE);
 	}
-	if (is_defined(ENABLE_IPV6) && ctx->family == AF_INET6) {
+#ifdef ENABLE_IPV6
+	if (ctx->family == AF_INET6) {
 		union v6addr addr6;
 
 		ctx_get_v6_dst_address(ctx, &addr6);
@@ -1313,6 +1318,7 @@ int cil_sock_release(struct bpf_sock *ctx)
 					       REASON_LB_REVNAT_DELETE);
 		}
 	}
+#endif /* ENABLE_IPV6 */
 	return SYS_PROCEED;
 }
 
