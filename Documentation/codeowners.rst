@@ -189,6 +189,11 @@ external software and protocols:
 - `@cilium/sig-clustermesh <https://github.com/orgs/cilium/teams/sig-clustermesh>`__:
   Ensure the reliability of state sharing between clusters to ensure that
   each cluster maintains a separate fault domain.
+- `@cilium/datapath-monitor <https://github.com/orgs/cilium/teams/datapath-monitor>`__:
+  Review the datapath event pipeline: the BPF trace/drop/debug/policy-verdict
+  notifications, the wire format they share with the Go decoders in
+  pkg/monitor, the events map, and the agent-side monitor and cilium-dbg
+  monitor. Keep the C structs and their Go/Hubble decoders in sync.
 - `@cilium/sig-datapath <https://github.com/orgs/cilium/teams/sig-datapath>`__:
   Provide feedback on all eBPF code changes, use of the kernel APIs for
   configuring the networking and socket layers. Coordination of kernel

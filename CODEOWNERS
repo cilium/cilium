@@ -186,6 +186,11 @@
 # - @cilium/sig-clustermesh:
 #   Ensure the reliability of state sharing between clusters to ensure that
 #   each cluster maintains a separate fault domain.
+# - @cilium/datapath-monitor:
+#   Review the datapath event pipeline: the BPF trace/drop/debug/policy-verdict
+#   notifications, the wire format they share with the Go decoders in
+#   pkg/monitor, the events map, and the agent-side monitor and cilium-dbg
+#   monitor. Keep the C structs and their Go/Hubble decoders in sync.
 # - @cilium/sig-datapath:
 #   Provide feedback on all eBPF code changes, use of the kernel APIs for
 #   configuring the networking and socket layers. Coordination of kernel
@@ -317,18 +322,24 @@ Makefile* @cilium/build
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bpf/include/bpf/config @cilium/loader
 /bpf/lib/clustermesh.h @cilium/sig-datapath @cilium/sig-clustermesh
-/bpf/lib/drop_reasons.h @cilium/sig-hubble
+/bpf/lib/dbg.h @cilium/datapath-monitor
+/bpf/lib/drop.h @cilium/datapath-monitor
+/bpf/lib/drop_reasons.h @cilium/datapath-monitor @cilium/sig-hubble
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
 /bpf/lib/encrypt.h @cilium/sig-encryption @cilium/ipsec @cilium/wireguard
 /bpf/lib/eps.h @cilium/sig-datapath @cilium/endpoint @cilium/ipcache
+/bpf/lib/events.h @cilium/datapath-monitor
 /bpf/lib/ipsec.h @cilium/ipsec
 /bpf/lib/lb.h @cilium/sig-lb
 /bpf/lib/lrp.h @cilium/sig-lb
 /bpf/lib/nodeport* @cilium/sig-datapath @cilium/sig-lb
+/bpf/lib/notify.h @cilium/datapath-monitor
 /bpf/lib/policy* @cilium/sig-datapath @cilium/sig-policy
+/bpf/lib/policy_log.h @cilium/datapath-monitor @cilium/sig-policy
 /bpf/lib/proxy* @cilium/proxy @cilium/sig-datapath
 /bpf/lib/sock* @cilium/sig-lb
 /bpf/lib/tailcall.h @cilium/sig-datapath @cilium/loader
+/bpf/lib/trace* @cilium/datapath-monitor
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bpf/Makefile* @cilium/loader
 /bpf/node_config.h @cilium/loader
@@ -339,10 +350,13 @@ Makefile* @cilium/build
 /bpf/tests/lib/lb.h @cilium/sig-datapath @cilium/sig-lb
 /bpf/tests/lib/metrics.h @cilium/sig-datapath @cilium/metrics
 /bpf/tests/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
+/bpf/tests/drop_notify_test.c @cilium/datapath-monitor
+/bpf/tests/ip_options_trace_id.c @cilium/datapath-monitor
 /bpf/tests/network_policy.c @cilium/sig-datapath @cilium/sig-policy
 /bugtool/ @cilium/cli
 /cilium-dbg/ @cilium/cli
 /cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
+/cilium-dbg/cmd/monitor.go @cilium/datapath-monitor @cilium/cli
 /cilium-dbg/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
 /cilium-cli/ @cilium/cli
 /cilium-cli/bgp/ @cilium/sig-bgp
@@ -659,17 +673,18 @@ Makefile* @cilium/build
 /pkg/maps/ @cilium/sig-datapath
 /pkg/maps/egressmap @cilium/egress-gateway
 /pkg/maps/encrypt @cilium/ipsec
+/pkg/maps/eventsmap @cilium/datapath-monitor
 /pkg/maps/ipcache @cilium/ipcache
 /pkg/maps/lxcmap @cilium/endpoint
 /pkg/maps/metricsmap @cilium/metrics
 /pkg/maps/policymap @cilium/sig-policy
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
-/pkg/monitor @cilium/sig-datapath
-/pkg/monitor/api @cilium/api @cilium/sig-datapath
-/pkg/monitor/datapath_trace.go @cilium/sig-datapath @cilium/sig-hubble
-/pkg/monitor/format @cilium/cli @cilium/sig-datapath
-/pkg/monitor/payload @cilium/api @cilium/sig-datapath
+/pkg/monitor @cilium/datapath-monitor
+/pkg/monitor/api @cilium/api @cilium/datapath-monitor
+/pkg/monitor/datapath_trace.go @cilium/datapath-monitor @cilium/sig-hubble
+/pkg/monitor/format @cilium/cli @cilium/datapath-monitor
+/pkg/monitor/payload @cilium/api @cilium/datapath-monitor
 /pkg/mountinfo @cilium/sig-datapath
 /pkg/mtu @cilium/sig-datapath
 /pkg/multicast @cilium/sig-datapath
