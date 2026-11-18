@@ -112,6 +112,8 @@ const (
 
 	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
 
+	NetworkDriver Feature = "enable-network-driver"
+
 	BGPControlPlane Feature = "enable-bgp-control-plane"
 
 	NodeLocalDNS Feature = "node-local-dns"
@@ -387,6 +389,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[LocalRedirectPolicy] = Status{
 		Enabled: cm.Data[string(LocalRedirectPolicy)] == "true",
+	}
+
+	fs[NetworkDriver] = Status{
+		Enabled: cm.Data[string(NetworkDriver)] == "true",
 	}
 
 	fs[BPFLBExternalClusterIP] = Status{
