@@ -8,9 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#ifdef TUNNEL_MODE
-#undef TUNNEL_MODE
-#endif
 
 #include "lib/bpf_lxc.h"
 #include "lib/ipcache.h"
@@ -20,6 +17,7 @@ ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
 ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable = true, .enable_srh_encap = true})
+ASSIGN_CONFIG(bool, enable_tunnel_mode, false)
 
 #define POD_IPV4 v4_pod_one
 #define EXT_IPV4 v4_ext_one

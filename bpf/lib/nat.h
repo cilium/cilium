@@ -750,7 +750,7 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			return NAT_NEEDED;
 		}
 		/* Don't masquerade in native-routing mode: */
-		if (!is_defined(TUNNEL_MODE))
+		if (!CONFIG(enable_tunnel_mode))
 			return NAT_PUNT_TO_STACK;
 
 		/* In overlay routing mode, pod-to-remote-node traffic
@@ -1804,7 +1804,7 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			ipv6_addr_copy(&target->addr, &masq_addr);
 			return NAT_NEEDED;
 		}
-		if (!is_defined(TUNNEL_MODE))
+		if (!CONFIG(enable_tunnel_mode))
 			return NAT_PUNT_TO_STACK;
 
 		/* In hybrid routing mode, skip SNAT for traffic within the same

@@ -77,7 +77,7 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 						    CONFIG(strict_egress_encryption).ipv4_net.be32,
 						    CONFIG(strict_egress_encryption).ipv4_net_size);
 
-		if (is_defined(TUNNEL_MODE) ||
+		if (CONFIG(enable_tunnel_mode) ||
 		    CONFIG(strict_egress_encryption).allow_remote_nodes) {
 			/* Allow pod to remote-node communication */
 			dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);

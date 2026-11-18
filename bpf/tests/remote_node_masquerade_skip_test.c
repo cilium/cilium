@@ -17,8 +17,6 @@ ASSIGN_CONFIG(bool, debug, true)
 #define ENABLE_BPF_MASQUERADE 1
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #define IS_BPF_HOST 1
-/* For this test, ensure TUNNEL_MODE is also not defined to hit NAT_PUNT_TO_STACK */
-/* #undef TUNNEL_MODE (implicitly undefined) */
 
 #include <lib/dbg.h>
 #include <lib/time.h>
@@ -40,6 +38,9 @@ ASSIGN_CONFIG(__u32, trace_payload_len, 128UL)
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
 ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+
+/* For this test, ensure CONFIG(enable_tunnel_mode) is false to hit NAT_PUNT_TO_STACK */
+ASSIGN_CONFIG(bool, enable_tunnel_mode, false)
 
 #include "lib/ipcache.h"
 
@@ -74,9 +75,8 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
 	args->target.ifindex = 0;
 
 	/*
-	 * Test: With enable_remote_node_masquerade configured as false via ASSIGN_CONFIG.
-	 * and TUNNEL_MODE undefined.
-	 * Expect NAT_PUNT_TO_STACK and target.addr to be 0.
+	 * Test: With enable_remote_node_masquerade and enable_tunnel_mode configured as false
+	 * via ASSIGN_CONFIG. Expect NAT_PUNT_TO_STACK and target.addr to be 0.
 	 */
 	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
 	assert(ret == NAT_PUNT_TO_STACK);

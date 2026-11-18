@@ -3,7 +3,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define TUNNEL_MODE 1
 #define ENCAP_IFINDEX 4
 #define DEST_IFINDEX 5
 #define DEST_LXC_ID 0
@@ -68,6 +67,7 @@ ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_identity_mark, true)
 ASSIGN_CONFIG(bool, encryption_strict_ingress, true)
 ASSIGN_CONFIG(bool, enable_wireguard, true)
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 #include "lib/endpoint.h"
 

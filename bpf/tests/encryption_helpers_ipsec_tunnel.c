@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define TUNNEL_MODE 1
-
 #include "encryption_helpers_ipsec.h"
 
 #include "node_config.h"
@@ -12,6 +10,8 @@
 #include "tests/lib/node.h"
 #include "tests/lib/ipcache.h"
 #include "tests/lib/ipsec.h"
+
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 static __always_inline
 int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4)

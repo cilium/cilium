@@ -17,8 +17,6 @@ ASSIGN_CONFIG(bool, debug, true)
 #define ENABLE_BPF_MASQUERADE 1
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #define IS_BPF_HOST 1
-/* For this test, we assume non-tunnel mode to hit the specific path */
-/* #undef TUNNEL_MODE */
 
 #include <lib/dbg.h>
 #include <lib/time.h>
@@ -40,6 +38,9 @@ ASSIGN_CONFIG(__u32, trace_payload_len, 128UL)
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
 ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+
+/* For this test, we assume non-tunnel mode to hit the specific path */
+ASSIGN_CONFIG(bool, enable_tunnel_mode, false)
 
 #include "lib/ipcache.h"
 

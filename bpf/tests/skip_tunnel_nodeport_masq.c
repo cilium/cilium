@@ -12,7 +12,6 @@
 #define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define TUNNEL_MODE 1
 
 /*
  * Simulate sending traffic from pod_one on node_one directly to
@@ -42,6 +41,7 @@ ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, {.addr = v6_node_one_addr})
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 /*
  * Include test helpers

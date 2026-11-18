@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#undef TUNNEL_MODE
-
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 
@@ -14,3 +12,4 @@ ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, debug, true)
+ASSIGN_CONFIG(bool, enable_tunnel_mode, false)
