@@ -39,7 +39,10 @@ func TestUpsertPoolPreservesReservedRanges(t *testing.T) {
 					{
 						CIDR: poolCIDR,
 						ReservedRanges: []ciliumv2.ReservedRange{
-							{Start: "10.0.0.1", End: "10.0.0.10"},
+							{
+								Start: iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+								End:   iputil.AddrFrom(netip.MustParseAddr("10.0.0.10")),
+							},
 						},
 					},
 				},

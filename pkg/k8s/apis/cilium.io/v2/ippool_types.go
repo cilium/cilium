@@ -143,28 +143,39 @@ type IPv6PoolSpec struct {
 	Pool []PoolCIDRConfig `json:"pool,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.reservedRanges) || self.reservedRanges.all(r, cidr(self.cidr).containsIP(r.start) && cidr(self.cidr).containsIP(r.end))",message="reserved ranges must be within cidr"
 type PoolCIDRConfig struct {
 	// CIDR references one of the CIDRs listed in the parent pool spec.
 	//
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:MaxLength=43
 	CIDR iputil.Prefix `json:"cidr"`
 
 	// ReservedRanges is a list of IP ranges within CIDR that must not be allocated.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=16
 	ReservedRanges []ReservedRange `json:"reservedRanges,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="ip(self.start).family() == ip(self.end).family()",message="start and end must be of the same IP family"
 type ReservedRange struct {
 	// The first IP in the reserved range.
 	//
 	// +kubebuilder:validation:Required
-	Start string `json:"start"`
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:MaxLength=39
+	// +kubebuilder:validation:XValidation:rule="isIP(self)",message="start must be a valid IP address"
+	Start iputil.Addr `json:"start"`
 
 	// The last IP in the reserved range.
 	//
 	// +kubebuilder:validation:Required
-	End string `json:"end"`
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:MaxLength=39
+	// +kubebuilder:validation:XValidation:rule="isIP(self)",message="end must be a valid IP address"
+	End iputil.Addr `json:"end"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
