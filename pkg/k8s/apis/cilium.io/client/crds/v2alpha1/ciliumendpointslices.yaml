@@ -100,6 +100,9 @@ spec:
                   required:
                   - addressing
                   type: object
+                nodeName:
+                  description: NodeName is the name of the Node hosting this endpoint
+                  type: string
                 pod-uid:
                   description: PodUID is the UID of the Pod that owns this endpoint.
                   type: string
