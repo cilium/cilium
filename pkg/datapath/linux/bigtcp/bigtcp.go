@@ -5,6 +5,7 @@ package bigtcp
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sync"
@@ -172,20 +173,20 @@ func supportsBIGTCPIPv6(log *slog.Logger) bool {
 }
 
 // Probes whether the kernel supports BIG TCP for VXLAN and GENEVE.
-func supportsBIGTCPTunnel(log *slog.Logger) bool {
+func supportsBIGTCPTunnel(log *slog.Logger) (bool, error) {
 	log.Debug("Probing kernel support for BIG TCP for UDP tunnels")
 	result := true
 	if err := probes.HaveBIGTCPTunnel(); err != nil {
 		if !errors.Is(err, probes.ErrNotSupported) {
 			log.Warn("Failed to probe kernel support for BIG TCP for UDP tunnels: " + err.Error())
-			return false
+			return false, err
 		}
 		result = false
 	}
 	log.Info("Probed kernel support for BIG TCP for UDP tunnels",
 		logfields.State, result,
 	)
-	return result
+	return result, nil
 }
 
 // Returns the current gso_max_size (IPv6), gso_ipv4_max_size (IPv4) and
@@ -251,7 +252,23 @@ type params struct {
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, tunnelConfig tunnel.Config, dsrDispatch string, bigtcpTunnel func() bool) error {
+// Formats an error with a clear message distinguishing between a failed kernel
+// probe and one that detected missing BIG TCP support.
+func formatBIGTCPError(context string, err error) error {
+	if err != nil {
+		return fmt.Errorf("BIG TCP %s: kernel probe failed: %w", context, err)
+	}
+	return fmt.Errorf("BIG TCP %s requires kernel 7.3 or newer", context)
+}
+
+func validateConfig(
+	cfg types.BigTCPUserConfig,
+	daemonCfg *option.DaemonConfig,
+	ipsecCfg types.IPsecConfig,
+	tunnelConfig tunnel.Config,
+	dsrDispatch string,
+	bigtcpTunnel func() (bool, error),
+) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		if ipsecCfg.Enabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
@@ -265,18 +282,22 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 		if dsrDispatch == loadbalancer.DSRDispatchIPIP {
 			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
 		}
-		if tunnelConfig.EncapProtocol() != tunnel.Disabled && !bigtcpTunnel() {
-			return errors.New("BIG TCP in tunneling mode requires kernel 7.3 or newer")
+		if tunnelConfig.EncapProtocol() != tunnel.Disabled {
+			if ok, err := bigtcpTunnel(); !ok {
+				return formatBIGTCPError("in tunneling mode", err)
+			}
 		}
-		if dsrDispatch != loadbalancer.DSRDispatchOption && !bigtcpTunnel() {
-			return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires kernel 7.3 or newer")
+		if dsrDispatch != loadbalancer.DSRDispatchOption {
+			if ok, err := bigtcpTunnel(); !ok {
+				return formatBIGTCPError("with bpf-lb-dsr-dispatch geneve", err)
+			}
 		}
 	}
 	return nil
 }
 
 func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
-	bigtcpTunnel := sync.OnceValue(func() bool {
+	bigtcpTunnel := sync.OnceValues(func() (bool, error) {
 		return supportsBIGTCPTunnel(p.Log)
 	})
 
