@@ -112,6 +112,19 @@ type IPAMPoolRequest struct {
 	Needed IPAMPoolDemand `json:"needed,omitzero"`
 }
 
+// IPAMPoolRelease describes the CIDRs a node has released from an IPAM pool.
+type IPAMPoolRelease struct {
+	// Pool is the name of the IPAM pool the CIDRs were released from
+	//
+	// +kubebuilder:validation:MinLength=1
+	Pool string `json:"pool"`
+
+	// CIDRs contains the CIDRs released from this pool.
+	//
+	// +optional
+	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
+}
+
 type IPAMPoolSpec struct {
 	// Requested contains a list of IPAM pool requests, i.e. indicates how many
 	// addresses this node requests out of each pool listed here. This field
@@ -126,6 +139,16 @@ type IPAMPoolSpec struct {
 	//
 	// +optional
 	Allocated []IPAMPoolAllocation `json:"allocated,omitempty"`
+
+	// Released reports a snapshot of the CIDRs the agent has released from
+	// each pool and does not currently allocate from. It is informational
+	// only and does not claim ownership: a listed CIDR may already be
+	// unassigned from this node until the agent's next update. On restart,
+	// the agent restores the entries still assigned to this node. This field
+	// is owned and written to by cilium-agent.
+	//
+	// +optional
+	Released []IPAMPoolRelease `json:"released,omitempty"`
 }
 
 // IPAMSpec is the IPAM specification of the node

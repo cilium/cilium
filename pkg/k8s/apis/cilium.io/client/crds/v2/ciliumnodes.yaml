@@ -384,6 +384,35 @@ spec:
                           - pool
                           type: object
                         type: array
+                      released:
+                        description: |-
+                          Released reports a snapshot of the CIDRs the agent has released from
+                          each pool and does not currently allocate from. It is informational
+                          only and does not claim ownership: a listed CIDR may already be
+                          unassigned from this node until the agent's next update. On restart,
+                          the agent restores the entries still assigned to this node. This field
+                          is owned and written to by cilium-agent.
+                        items:
+                          description: IPAMPoolRelease describes the CIDRs a node
+                            has released from an IPAM pool.
+                          properties:
+                            cidrs:
+                              description: CIDRs contains the CIDRs released from
+                                this pool.
+                              items:
+                                format: cidr
+                                maxLength: 43
+                                type: string
+                              type: array
+                            pool:
+                              description: Pool is the name of the IPAM pool the CIDRs
+                                were released from
+                              minLength: 1
+                              type: string
+                          required:
+                          - pool
+                          type: object
+                        type: array
                       requested:
                         description: |-
                           Requested contains a list of IPAM pool requests, i.e. indicates how many
@@ -461,6 +490,35 @@ spec:
                             pool:
                               description: Pool is the name of the IPAM pool backing
                                 this allocation
+                              minLength: 1
+                              type: string
+                          required:
+                          - pool
+                          type: object
+                        type: array
+                      released:
+                        description: |-
+                          Released reports a snapshot of the CIDRs the agent has released from
+                          each pool and does not currently allocate from. It is informational
+                          only and does not claim ownership: a listed CIDR may already be
+                          unassigned from this node until the agent's next update. On restart,
+                          the agent restores the entries still assigned to this node. This field
+                          is owned and written to by cilium-agent.
+                        items:
+                          description: IPAMPoolRelease describes the CIDRs a node
+                            has released from an IPAM pool.
+                          properties:
+                            cidrs:
+                              description: CIDRs contains the CIDRs released from
+                                this pool.
+                              items:
+                                format: cidr
+                                maxLength: 43
+                                type: string
+                              type: array
+                            pool:
+                              description: Pool is the name of the IPAM pool the CIDRs
+                                were released from
                               minLength: 1
                               type: string
                           required:
