@@ -4950,6 +4950,15 @@
     },
     "monitor": {
       "properties": {
+        "aggregation": {
+          "type": "string"
+        },
+        "aggregationFlags": {
+          "type": "string"
+        },
+        "aggregationInterval": {
+          "type": "string"
+        },
         "enabled": {
           "type": "boolean"
         },
@@ -4958,6 +4967,14 @@
         },
         "sidecar": {
           "type": "boolean"
+        },
+        "traceIPOption": {
+          "minimum": 0,
+          "maximum": 255,
+          "type": [
+            "null",
+            "integer"
+          ]
         }
       },
       "type": "object"

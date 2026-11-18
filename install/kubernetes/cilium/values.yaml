@@ -681,13 +681,16 @@ bpf:
   mapDynamicSizeRatio: ~
   # -- Configure the level of aggregation for monitor notifications.
   # Valid options are none, low, medium, maximum.
-  monitorAggregation: medium
+  # Deprecated in favor of monitor.aggregation. To be removed in v1.22.
+  monitorAggregation: ""
   # -- Configure the typical time between monitor notifications for
   # active connections.
-  monitorInterval: "5s"
+  # Deprecated in favor of monitor.aggregationInterval. To be removed in v1.22.
+  monitorInterval: ""
   # -- Configure which TCP flags trigger notifications when seen for the
   # first time in a connection.
-  monitorFlags: "all"
+  # Deprecated in favor of monitor.aggregationFlags. To be removed in v1.22.
+  monitorFlags: ""
   # -- (bool) Allow cluster external access to ClusterIP services.
   # @default -- `false`
   lbExternalClusterIP: false
@@ -736,8 +739,7 @@ bpf:
   # @default -- `[]`
   vlanBypass: ~
   # -- Configure the IP tracing option type.
-  # This option is used to specify the IP option type to use for tracing.
-  # The value must be an integer between 0 and 255.
+  # Deprecated in favor of monitor.traceIPOption. To be removed in v1.22.
   # @schema
   # type: [null, integer]
   # minimum: 0
@@ -763,6 +765,24 @@ monitor:
   enabled: false
   # -- Enable the cilium-monitor sidecar.
   sidecar: false
+  # -- Configure the level of aggregation for monitor notifications.
+  # Valid options are none, low, medium, maximum.
+  aggregation: medium
+  # -- Configure the typical time between monitor notifications for
+  # active connections.
+  aggregationInterval: "5s"
+  # -- Configure which TCP flags trigger notifications when seen for the
+  # first time in a connection.
+  aggregationFlags: "all"
+  # -- Configure the IP tracing option type.
+  # This option is used to specify the IP option type to use for tracing.
+  # The value must be an integer between 0 and 255.
+  # @schema
+  # type: [null, integer]
+  # minimum: 0
+  # maximum: 255
+  # @schema
+  traceIPOption: 0
   # -- Enables tracing for native devices.
   netdevTracing: false
 # -- Enable BPF clock source probing for more efficient tick retrieval.

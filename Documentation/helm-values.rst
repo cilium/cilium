@@ -237,19 +237,19 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bpf.monitorAggregation`
-     - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum.
+     - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. Deprecated in favor of monitor.aggregation. To be removed in v1.22.
      - string
-     - ``"medium"``
+     - ``""``
    * - :spelling:ignore:`bpf.monitorFlags`
-     - Configure which TCP flags trigger notifications when seen for the first time in a connection.
+     - Configure which TCP flags trigger notifications when seen for the first time in a connection. Deprecated in favor of monitor.aggregationFlags. To be removed in v1.22.
      - string
-     - ``"all"``
+     - ``""``
    * - :spelling:ignore:`bpf.monitorInterval`
-     - Configure the typical time between monitor notifications for active connections.
+     - Configure the typical time between monitor notifications for active connections. Deprecated in favor of monitor.aggregationInterval. To be removed in v1.22.
      - string
-     - ``"5s"``
+     - ``""``
    * - :spelling:ignore:`bpf.monitorTraceIPOption`
-     - Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema
+     - Configure the IP tracing option type. Deprecated in favor of monitor.traceIPOption. To be removed in v1.22. @schema type: [null, integer] minimum: 0 maximum: 255 @schema
      - int
      - ``0``
    * - :spelling:ignore:`bpf.natMax`
@@ -3287,7 +3287,19 @@
    * - :spelling:ignore:`monitor`
      - Everything to control the tracking of packets in the datapath, including monitor aggregation.
      - object
-     - ``{"enabled":false,"netdevTracing":false,"sidecar":false}``
+     - ``{"aggregation":"medium","aggregationFlags":"all","aggregationInterval":"5s","enabled":false,"netdevTracing":false,"sidecar":false,"traceIPOption":0}``
+   * - :spelling:ignore:`monitor.aggregation`
+     - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum.
+     - string
+     - ``"medium"``
+   * - :spelling:ignore:`monitor.aggregationFlags`
+     - Configure which TCP flags trigger notifications when seen for the first time in a connection.
+     - string
+     - ``"all"``
+   * - :spelling:ignore:`monitor.aggregationInterval`
+     - Configure the typical time between monitor notifications for active connections.
+     - string
+     - ``"5s"``
    * - :spelling:ignore:`monitor.enabled`
      - Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. To be removed in v1.22.
      - bool
@@ -3300,6 +3312,10 @@
      - Enable the cilium-monitor sidecar.
      - bool
      - ``false``
+   * - :spelling:ignore:`monitor.traceIPOption`
+     - Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema
+     - int
+     - ``0``
    * - :spelling:ignore:`name`
      - Agent daemonset name.
      - string
