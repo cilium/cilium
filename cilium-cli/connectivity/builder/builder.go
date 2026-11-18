@@ -279,6 +279,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		clusterEntityMultiCluster{},
 		hostEntityEgress{},
 		hostEntityIngress{},
+		hostPortCNIConflict{},
 		echoIngress{},
 		echoIngressFromOutside{},
 		echoIngressKnp{},

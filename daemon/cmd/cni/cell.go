@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/cmd/cni/config"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -54,6 +55,7 @@ type configManagerParams struct {
 	Lifecycle    cell.Lifecycle
 	Logger       *slog.Logger
 	Config       config.Config
+	KPRConfig    kpr.KPRConfig
 	DaemonConfig *option.DaemonConfig // only for .Debug
 	// todo(ekoops): remove this once BPF objects get pre-compiled.
 	// DatapathReady keeps the agent not ready, and holds back the writing of a missing CNI
@@ -63,6 +65,7 @@ type configManagerParams struct {
 
 func enableConfigManager(p configManagerParams) CNIConfigManager {
 	c := newConfigManager(p.Logger, p.Config, p.DaemonConfig.Debug)
+	c.kubeProxyReplacement = p.KPRConfig.KubeProxyReplacement
 	c.datapathReady = p.DatapathReady
 	p.Lifecycle.Append(c)
 	return c
