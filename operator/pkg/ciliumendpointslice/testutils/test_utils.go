@@ -45,6 +45,7 @@ func CreateManagerEndpoint(name string, identity int64, node string) capi_v2a1.C
 		Name:       name,
 		IdentityID: identity,
 		PodUID:     name + "-uid",
+		NodeName:   node,
 		Networking: &v2.EndpointNetworking{
 			NodeIP: NodeIPs[node],
 		},

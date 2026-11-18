@@ -631,6 +631,7 @@ func TestAssignedCIDForPod(t *testing.T) {
 				Name:       pod.Name,
 				IdentityID: 1000,
 				PodUID:     string(pod.UID),
+				NodeName:   pod.Spec.NodeName,
 			}},
 		}))
 

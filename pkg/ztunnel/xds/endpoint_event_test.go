@@ -150,9 +150,11 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 func endpointToCiliumEndpoint(ep *endpoint.Endpoint) *types.CiliumEndpoint {
 	hostIP := ""
 	serviceAccount := ""
-	if ep.GetPod() != nil {
-		hostIP = ep.GetPod().Status.HostIP
-		serviceAccount = ep.GetPod().Spec.ServiceAccountName
+	nodeName := ""
+	if pod := ep.GetPod(); pod != nil {
+		hostIP = pod.Status.HostIP
+		serviceAccount = pod.Spec.ServiceAccountName
+		nodeName = pod.Spec.NodeName
 	}
 	cep := &types.CiliumEndpoint{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -171,6 +173,7 @@ func endpointToCiliumEndpoint(ep *endpoint.Endpoint) *types.CiliumEndpoint {
 			NodeIP:     hostIP,
 		},
 		ServiceAccount: serviceAccount,
+		NodeName:       nodeName,
 	}
 
 	if ep.IPv4.IsValid() {
