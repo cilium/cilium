@@ -110,7 +110,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hubble.metrics.enabled": `{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}`,
 				"hubble.relay.enabled":   "true",
-				"bpf.monitorAggregation": "none",
+				"monitor.aggregation":    "none",
 			})
 
 			var err error
