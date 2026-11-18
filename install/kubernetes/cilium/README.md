@@ -109,10 +109,10 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.lbSourceRangeAllTypes | bool | `false` | Enable loadBalancerSourceRanges CIDR filtering for all service types, not just LoadBalancer services. The corresponding NodePort and ClusterIP (if enabled for cluster-external traffic) will also apply the CIDR filter. |
 | bpf.mapDynamicSizeRatio | float64 | `0.0025` | Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/stable/network/ebpf/maps/ |
 | bpf.masquerade | bool | `false` | Enable native IP masquerade support in eBPF |
-| bpf.monitorAggregation | string | `"medium"` | Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. |
-| bpf.monitorFlags | string | `"all"` | Configure which TCP flags trigger notifications when seen for the first time in a connection. |
-| bpf.monitorInterval | string | `"5s"` | Configure the typical time between monitor notifications for active connections. |
-| bpf.monitorTraceIPOption | int | `0` | Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema |
+| bpf.monitorAggregation | string | `""` | Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. Deprecated in favor of monitor.aggregation. To be removed in v1.22. |
+| bpf.monitorFlags | string | `""` | Configure which TCP flags trigger notifications when seen for the first time in a connection. Deprecated in favor of monitor.aggregationFlags. To be removed in v1.22. |
+| bpf.monitorInterval | string | `""` | Configure the typical time between monitor notifications for active connections. Deprecated in favor of monitor.aggregationInterval. To be removed in v1.22. |
+| bpf.monitorTraceIPOption | int | `0` | Configure the IP tracing option type. Deprecated in favor of monitor.traceIPOption. To be removed in v1.22. @schema type: [null, integer] minimum: 0 maximum: 255 @schema |
 | bpf.natMax | int | `524288` | Configure the maximum number of entries for the NAT table. |
 | bpf.neighMax | int | `524288` | Configure the maximum number of entries for the neighbor table. |
 | bpf.nodeMapMax | int | `nil` | Configures the maximum number of entries for the node table. |
@@ -871,10 +871,14 @@ contributors across the globe, there is almost always someone available to help.
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
 | minReadySeconds | int | `0` | Minimum number of seconds for which a newly created agent pod should be ready before it is considered available. Defaults to 0 (pod is considered available as soon as it is ready). ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/ |
-| monitor | object | `{"enabled":false,"netdevTracing":false,"sidecar":false}` | Everything to control the tracking of packets in the datapath, including monitor aggregation. |
+| monitor | object | `{"aggregation":"medium","aggregationFlags":"all","aggregationInterval":"5s","enabled":false,"netdevTracing":false,"sidecar":false,"traceIPOption":0}` | Everything to control the tracking of packets in the datapath, including monitor aggregation. |
+| monitor.aggregation | string | `"medium"` | Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. |
+| monitor.aggregationFlags | string | `"all"` | Configure which TCP flags trigger notifications when seen for the first time in a connection. |
+| monitor.aggregationInterval | string | `"5s"` | Configure the typical time between monitor notifications for active connections. |
 | monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. To be removed in v1.22. |
 | monitor.netdevTracing | bool | `false` | Enables tracing for native devices. |
 | monitor.sidecar | bool | `false` | Enable the cilium-monitor sidecar. |
+| monitor.traceIPOption | int | `0` | Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema |
 | name | string | `"cilium"` | Agent daemonset name. |
 | namespaceOverride | string | `""` | namespaceOverride allows to override the destination namespace for Cilium resources. |
 | nat.mapStatsEntries | int | `32` | Number of the top-k SNAT map connections to track in Cilium statedb. |

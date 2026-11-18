@@ -401,22 +401,41 @@ data:
 {{- else if eq $defaultBpfTProxy "true" }}
   enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
 {{- end }}
-  # If you want cilium monitor to aggregate tracing for packets, set this level
-  # to "low", "medium", or "maximum". The higher the level, the less packets
-  # that will be seen in monitor output.
+
+# If you want cilium monitor to aggregate tracing for packets, set this level
+# to "low", "medium", or "maximum". The higher the level, the less packets
+# that will be seen in monitor output.
+{{- if .Values.bpf.monitorAggregation }}
   monitor-aggregation: {{ .Values.bpf.monitorAggregation }}
+{{- else }}
+  monitor-aggregation: {{ .Values.monitor.aggregation }}
+{{- end }}
 
-  # The monitor aggregation interval governs the typical time between monitor
-  # notification events for each allowed connection.
-  #
-  # Only effective when monitor aggregation is set to "medium" or higher.
+# The monitor aggregation interval governs the typical time between monitor
+# notification events for each allowed connection.
+#
+# Only effective when monitor aggregation is set to "medium" or higher.
+{{- if .Values.bpf.monitorInterval }}
   monitor-aggregation-interval: {{ include "validateDuration" .Values.bpf.monitorInterval | quote }}
+{{- else }}
+  monitor-aggregation-interval: {{ include "validateDuration" .Values.monitor.aggregationInterval | quote }}
+{{- end }}
 
-  # The monitor aggregation flags determine which TCP flags which, upon the
-  # first observation, cause monitor notifications to be generated.
-  #
-  # Only effective when monitor aggregation is set to "medium" or higher.
+# The monitor aggregation flags determine which TCP flags which, upon the
+# first observation, cause monitor notifications to be generated.
+#
+# Only effective when monitor aggregation is set to "medium" or higher.
+{{- if .Values.bpf.monitorFlags }}
   monitor-aggregation-flags: {{ .Values.bpf.monitorFlags }}
+{{- else }}
+  monitor-aggregation-flags: {{ .Values.monitor.aggregationFlags }}
+{{- end }}
+
+{{- if .Values.bpf.monitorTraceIPOption }}
+  ip-tracing-option-type: {{ .Values.bpf.monitorTraceIPOption | quote }}
+{{- else if .Values.monitor.traceIPOption }}
+  ip-tracing-option-type: {{ .Values.monitor.traceIPOption | quote }}
+{{- end }}
 
 {{- if .Values.monitor.netdevTracing }}
   trace-netdev: {{ .Values.monitor.netdevTracing | quote }}
@@ -948,10 +967,6 @@ data:
 {{- end }}
 {{- if hasKey .Values.maglev "hashSeed" }}
   bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
-{{- end }}
-
-{{- if .Values.bpf.monitorTraceIPOption }}
-  ip-tracing-option-type: {{ .Values.bpf.monitorTraceIPOption | quote }}
 {{- end }}
 
 {{- if hasKey .Values "l2NeighDiscovery" }}
