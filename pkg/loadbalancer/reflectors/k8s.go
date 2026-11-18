@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	lrpTypes "github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy/types"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -264,6 +265,17 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		rh.update("svc:"+svc.Name.String(), err)
 	}
 
+	isSyntheticKubernetesService := func(svc *loadbalancer.Service) bool {
+		switch svc.Source {
+		case source.Kubernetes:
+			svcName := svc.Name.Name()
+			return strings.Contains(svcName, hostPortServiceNameInfix) ||
+				strings.Contains(svcName, lrpTypes.LRPServiceNameSuffix)
+		default:
+			return false
+		}
+	}
+
 	processServiceEvent := func(txn writer.WriteTxn, val bufferValue) {
 		switch val.kind {
 		case resource.Sync:
@@ -273,9 +285,12 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				rh.update("svc:"+name.String(), nil)
 			}
 			clear(conflictingServices)
+
 			orphans := sets.New[loadbalancer.ServiceName]()
 			for svc := range p.Writer.Services().All(txn) {
-				if svc.Source == source.Kubernetes && !strings.Contains(svc.Name.Name(), hostPortServiceNameInfix) {
+				// Synthetic Services are not in the Kubernetes Service reflector
+				// sync result. Don't mark them as orphan.
+				if !isSyntheticKubernetesService(svc) {
 					orphans.Insert(svc.Name)
 				}
 			}
