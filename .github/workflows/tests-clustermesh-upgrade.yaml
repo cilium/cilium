@@ -199,7 +199,7 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
+          CILIUM_DOWNGRADE_VERSION=d65ec42baf8114bbdda7655ebf7f9d459f3350cc
           echo "downgrade_version=${CILIUM_DOWNGRADE_VERSION}" >> $GITHUB_OUTPUT
 
           # * Monitor aggregation is set to medium to avoid the performance penalty
