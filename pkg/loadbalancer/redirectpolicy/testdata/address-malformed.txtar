@@ -1,4 +1,5 @@
-# Verifies that malformed AddressMatcher LRPs are not applied
+# Verifies that malformed AddressMatcher LRPs are not applied. This
+# includes unspecified addresses.
 
 hive start
 
@@ -16,6 +17,13 @@ k8s/delete lrp-addr-malformed.yaml
 k8s/add lrp-addr-malformed.yaml
 
 # Tables and maps should still be empty.
+* db/empty services frontends backends localredirectpolicies
+
+# Unspecified IPv4 and IPv6 addressMatchers should also be rejected.
+k8s/add lrp-addr-unspecified-v4.yaml lrp-addr-unspecified-v6.yaml pod.yaml
+* db/empty services frontends backends localredirectpolicies
+
+k8s/delete lrp-addr-unspecified-v4.yaml lrp-addr-unspecified-v6.yaml pod.yaml
 * db/empty services frontends backends localredirectpolicies
 
 -- lrp-addr-malformed.yaml --
@@ -44,6 +52,48 @@ spec:
         protocol: TCP
       - port: "81"
         name: "test1"
+        protocol: TCP
+
+-- lrp-addr-unspecified-v4.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr-unspecified-v4"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "0.0.0.0"
+      toPorts:
+        - port: "5050"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- lrp-addr-unspecified-v6.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr-unspecified-v6"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "::"
+      toPorts:
+        - port: "5050"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
         protocol: TCP
 
 -- lrp-addr.yaml --
