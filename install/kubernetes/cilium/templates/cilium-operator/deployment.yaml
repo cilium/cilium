@@ -45,7 +45,7 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if .Values.operator.rollOutPods }}
+        {{- if ((kindIs "invalid" .Values.operator.rollOutPods) | ternary .Values.rollOutCiliumPods .Values.operator.rollOutPods) }}
         # ensure pods roll when configmap updates
         cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
         {{- end }}

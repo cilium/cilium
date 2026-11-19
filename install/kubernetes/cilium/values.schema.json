@@ -2763,7 +2763,10 @@
           "type": "object"
         },
         "rollOutPods": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "boolean"
+          ]
         },
         "securityContext": {
           "properties": {
@@ -3731,7 +3734,10 @@
               ]
             },
             "rollOutPods": {
-              "type": "boolean"
+              "type": [
+                "null",
+                "boolean"
+              ]
             },
             "securityContext": {
               "properties": {
@@ -4246,7 +4252,10 @@
               "type": "integer"
             },
             "rollOutPods": {
-              "type": "boolean"
+              "type": [
+                "null",
+                "boolean"
+              ]
             },
             "securityContext": {
               "properties": {
@@ -5568,7 +5577,10 @@
           "type": "object"
         },
         "rollOutPods": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "boolean"
+          ]
         },
         "securityContext": {
           "properties": {
@@ -6623,7 +6635,10 @@
           "type": "object"
         },
         "rollOutPods": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "boolean"
+          ]
         },
         "serverPort": {
           "type": "integer"
