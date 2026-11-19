@@ -43,5 +43,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
+	cfg.EnableMulticast = lnc.EnableMulticast
+
 	return cfg
 }

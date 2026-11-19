@@ -1644,8 +1644,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
-#ifdef ENABLE_MULTICAST
-	if (mcast_ipv4_is_igmp(ip4)) {
+	if (CONFIG(enable_multicast) && mcast_ipv4_is_igmp(ip4)) {
 		/* note:
 		 * we will always drop IGMP from this point on as we have no
 		 * need to forward to the stack
@@ -1659,7 +1658,6 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 						  CILIUM_CALL_MULTICAST_EP_DELIVERY,
 						  ext_err);
 	}
-#endif /* ENABLE_MULTICAST */
 
 	if (ENABLE_PER_PACKET_LB) {
 		/* will tailcall internally or return error */

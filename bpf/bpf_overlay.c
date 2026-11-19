@@ -271,14 +271,12 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-#ifdef ENABLE_MULTICAST
-	if (IN_MULTICAST(bpf_ntohl(ip4->daddr))) {
+	if (CONFIG(enable_multicast) && IN_MULTICAST(bpf_ntohl(ip4->daddr))) {
 		if (mcast_lookup_subscriber_map(&ip4->daddr))
 			return tail_call_internal(ctx,
 						  CILIUM_CALL_MULTICAST_EP_DELIVERY,
 						  ext_err);
 	}
-#endif /* ENABLE_MULTICAST */
 
 	if (NODEPORT_ENABLED && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
