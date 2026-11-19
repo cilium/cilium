@@ -142,12 +142,16 @@ linters:
           reason: gocheck has been deprecated, see https://github.com/cilium/cilium/issues/28596
         - module: gopkg.in/yaml.v2
           recommendations:
-            - go.yaml.in/yaml/v2
+            - go.yaml.in/yaml/v4
           reason: gopkg.in/yaml.v2 is deprecated, see https://github.com/yaml/go-yaml/discussions/11
         - module: gopkg.in/yaml.v3
           recommendations:
-            - go.yaml.in/yaml/v3
+            - go.yaml.in/yaml/v4
           reason: gopkg.in/yaml.v3 is deprecated, see https://github.com/yaml/go-yaml/discussions/11
+        - module: go.yaml.in/yaml/v3
+          recommendations:
+            - go.yaml.in/yaml/v4
+          reason: go.yaml.in/yaml/v4 is the version in use
         - module: github.com/cilium/checkmate
           recommendations:
             - github.com/stretchr/testify/assert
