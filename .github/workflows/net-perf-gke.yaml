@@ -306,6 +306,7 @@ jobs:
           fallback-zones: ${{ steps.fallback-zones.outputs.zones }}
           node-taints: ${{ steps.vars.outputs.node_taints }}
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
+          machine-type: "n2-standard-16"
 
       - name: Create ESP allow firewall rule
         if: ${{ matrix.name == 'tunnel-ipsec' }}
