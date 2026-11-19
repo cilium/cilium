@@ -500,6 +500,16 @@ jobs:
           kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
             kubectl --context ${{ env.contextName2 }} create -f -
 
+      - name: Wait for the pods already scheduled in cluster1 to be ready
+        run: |
+          # The previous release marks the agent as ready before bpf_lxc is
+          # compiled, so the endpoints of the pods already scheduled on the nodes
+          # wait for the compilation to complete. Do not start the cluster2 agents
+          # in the meantime: their compilations would slow it down enough to make
+          # the endpoint creation time out.
+          kubectl --context ${{ env.contextName1 }} -n kube-system rollout status deployment/coredns --timeout=10m
+          kubectl --context ${{ env.contextName1 }} -n local-path-storage rollout status deployment/local-path-provisioner --timeout=10m
+
       - name: Install Cilium in cluster2
         env:
           KVSTORE_ID: 2
