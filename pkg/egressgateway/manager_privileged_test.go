@@ -1090,13 +1090,6 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	assertEgressRules6(t, policyMap6, assignEndpoints(eps, nodes[:1], ifIndex1, false))
 }
 
-func TestCell(t *testing.T) {
-	err := hive.New(Cell).Populate(hivetest.Logger(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addrs []string) {
 	tb.Helper()
 

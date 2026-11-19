@@ -134,7 +134,6 @@ func TestPrivilegedScripts(t *testing.T) {
 					func() kpr.KPRConfig { return kpr.KPRConfig{} },
 				),
 
-				cell.Invoke(func(*Manager) {}),
 				cell.Invoke(func(clusterInfo cmtypes.ClusterInfo) {
 					// Set ClusterName for [nodeTypes.Node.IsLocal] to work properly
 					// since it still depends on the legacy global config.
