@@ -31,8 +31,14 @@ var bpfIPCacheListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ipcache list")
 
+		ipCacheMap, err := ipcache.OpenMap(log)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error opening map: %s\n", err)
+			os.Exit(1)
+		}
+
 		bpfIPCacheList := make(map[string][]string)
-		if err := ipcache.NewMap(nil, ipcache.Name).Dump(bpfIPCacheList); err != nil {
+		if err := ipCacheMap.Dump(bpfIPCacheList); err != nil {
 			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
 			os.Exit(1)
 		}

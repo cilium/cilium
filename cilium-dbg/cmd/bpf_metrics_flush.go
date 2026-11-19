@@ -31,15 +31,8 @@ var bpfMetricsFlushCmd = &cobra.Command{
 }
 
 func flushMetrics(m metricsmap.MetricsMap) {
-	cb := func(key *metricsmap.Key, values *metricsmap.Values) {
-		if err := m.Delete(key); err != nil {
-			fmt.Fprintf(os.Stderr, "error removing key from BPF metrics map: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	if err := m.IterateWithCallback(cb); err != nil {
-		fmt.Fprintf(os.Stderr, "error iterating BPF metrics map: %v\n", err)
+	if err := m.DeleteAll(); err != nil {
+		fmt.Fprintf(os.Stderr, "error flushing BPF metrics map: %v\n", err)
 		os.Exit(1)
 	}
 }

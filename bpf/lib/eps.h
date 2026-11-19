@@ -122,7 +122,7 @@ struct {
 	__type(key, struct ipcache_key);
 	__type(value, struct remote_endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, IPCACHE_MAP_SIZE);
+	__uint(max_entries, 512000);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipcache_v2 __section_maps_btf;
 
