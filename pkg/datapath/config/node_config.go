@@ -36,6 +36,8 @@ type Node struct {
 	DebugTagged bool `config:"debug_tagged"`
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfIndex uint32 `config:"direct_routing_dev_ifindex"`
+	// Enable active connection tracking.
+	EnableActiveConnectionTracking bool `config:"enable_active_connection_tracking"`
 	// Enable BPF Host Routing.
 	EnableBPFHostRouting bool `config:"enable_bpf_host_routing"`
 	// Enable bandwidth manager.
@@ -169,7 +171,7 @@ func NewNode() *Node {
 		false, false, false, 0x0, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

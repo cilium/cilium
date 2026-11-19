@@ -253,3 +253,5 @@ NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")
 NODE_CONFIG(bool, enable_bandwidth_manager, "Enable bandwidth manager")
 
 NODE_CONFIG(bool, enable_egress_gateway, "Enable egress gateway support")
+
+NODE_CONFIG(bool, enable_active_connection_tracking, "Enable active connection tracking")
