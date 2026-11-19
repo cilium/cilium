@@ -159,9 +159,9 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	require.Equal(t, rev, epm.toRev)
 	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{100})
 
-	// Update to new rule that selects id 102 and has two prefixes
-	// we should see 1 new prefix, and 2 regenerated endpoints
-	rev = writeRules(policyapi.NewRule().
+	// Update to new rule that selects id 101 and has three prefixes
+	// we should see 2 new prefixes, and 2 regenerated endpoints
+	rule := policyapi.NewRule().
 		WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("",
 			&slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -171,22 +171,31 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		).
 		WithEgressRules([]policyapi.EgressRule{{
 			EgressCommonRule: policyapi.EgressCommonRule{
-				ToCIDR: policyapi.CIDRSlice{"1.0.1.0/24", "1.0.2.0/24"},
-			}}}))
+				ToCIDR: policyapi.CIDRSlice{"1.0.1.0/24", "1.0.2.0/24", "1.0.3.0/24"},
+			}}})
+	rev = writeRules(rule)
 
 	require.True(t, ipc.waited)
-	// We only allocate 1 new cidr
-	require.ElementsMatch(t, ipc.added.AsSlice(), []string{"1.0.2.0/24"})
+	// We only allocate 2 new CIDRs
+	require.ElementsMatch(t, ipc.added.AsSlice(), []string{"1.0.2.0/24", "1.0.3.0/24"})
 	require.Empty(t, ipc.removed.AsSlice())
 
 	require.ElementsMatch(t, pi.prefixesByResource[resource], []netip.Prefix{
 		netip.MustParsePrefix("1.0.1.0/24"),
 		netip.MustParsePrefix("1.0.2.0/24"),
+		netip.MustParsePrefix("1.0.3.0/24"),
 	})
 
 	// Check that the right endpoints were updated
 	require.Equal(t, rev, epm.toRev)
 	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{100, 101})
+
+	// Reapplying three unchanged CIDRs must not allocate any additional references.
+	ipc.added.Clear()
+	ipc.removed.Clear()
+	writeRules(rule)
+	require.Empty(t, ipc.added.AsSlice())
+	require.Empty(t, ipc.removed.AsSlice())
 
 	// Swap endpoints and prefixes
 	rev = writeRules(policyapi.NewRule().
@@ -204,7 +213,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 	require.True(t, ipc.waited)
 	// We only allocate 1 new cidr
-	require.ElementsMatch(t, ipc.removed.AsSlice(), []string{"1.0.1.0/24", "1.0.2.0/24"})
+	require.ElementsMatch(t, ipc.removed.AsSlice(), []string{"1.0.1.0/24", "1.0.2.0/24", "1.0.3.0/24"})
 	require.ElementsMatch(t, ipc.added.AsSlice(), []string{"2.0.0.0/24"})
 
 	// Check that the right endpoints were updated
