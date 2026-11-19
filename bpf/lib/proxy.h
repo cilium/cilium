@@ -215,7 +215,7 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple,
 			result =
 			ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port, &ipv4_localhost);
 		}
-		if (is_defined(ENABLE_IPV6) && !ipv4) {
+		if (CONFIG(enable_ipv6) && !ipv4) {
 			union v6addr ipv6_localhost = { .addr[15] = 1,};
 
 			result =
@@ -290,7 +290,7 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 		union v6addr ipv6_localhost = { .addr[15] = 1,};
 		struct ipv6_ct_tuple tuple;
 
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			return DROP_UNKNOWN_L3;
 
 		ret = extract_tuple6(ctx, &tuple);

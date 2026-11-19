@@ -3,7 +3,6 @@
 
 #define ENABLE_NODE_ENCRYPTION 1
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
 
 #define CLUSTER_IDENTITY 0x5555
 

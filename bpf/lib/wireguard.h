@@ -85,7 +85,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			goto out;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))

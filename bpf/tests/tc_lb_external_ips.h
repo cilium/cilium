@@ -7,7 +7,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 
 #ifdef NORTH_SOUTH_TEST
 # define CLIENT_IP		v4_ext_one

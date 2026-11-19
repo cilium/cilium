@@ -6,7 +6,6 @@
 #include "common.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
 #define SECLABEL 1
 #define SECLABEL_IPV4 SECLABEL
 #define SECLABEL_IPV6 SECLABEL

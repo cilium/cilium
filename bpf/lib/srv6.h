@@ -307,7 +307,7 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid __maybe_unused)
 	case bpf_htons(ETH_P_IPV6): {
 		struct ipv6hdr *ip6;
 
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			return DROP_INVALID;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -392,7 +392,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);
 	case IPPROTO_IPV6:
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}

@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 
 /* GH#47396: a stale NodePort CT entry shares its tuple with a live flow. */
 

@@ -537,7 +537,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			break;
 
 		ret = resolve_srcid_from_tunnel(ctx, proto, &src_sec_identity);
@@ -562,7 +562,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (is_defined(ENABLE_IPV6))
+		if (CONFIG(enable_ipv6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY, &ext_err);
 		else
 			ret = DROP_UNKNOWN_L3;

@@ -4,7 +4,6 @@
 #define ENCAP_IFINDEX		1
 
 #define ENABLE_IPV4			1
-#define ENABLE_IPV6			1
 #define DSR_ENCAP_MODE			DSR_ENCAP_NONE
 
 #include "bpf_nat_icmp.h"

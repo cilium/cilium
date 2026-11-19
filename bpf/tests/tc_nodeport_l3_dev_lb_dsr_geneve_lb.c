@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ETH_HLEN		0
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 #define ENCAP_IFINDEX		42
 

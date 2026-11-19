@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
-#define ENABLE_IPV6			1
 
 #define NODE_IP				v4_node_one
 #define NODE_IP_V6			v6_node_one

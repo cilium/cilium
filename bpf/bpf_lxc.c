@@ -448,7 +448,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 	__u32 src_label = 0;
 	__u32 sec_label = SECLABEL;
 
-	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+	if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6)) {
 		switch (ctx_get_protocol(ctx)) {
 		case bpf_htons(ETH_P_IP):
 			sec_label = SECLABEL_IPV4;
@@ -1761,7 +1761,7 @@ int cil_from_container(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}
@@ -2433,12 +2433,12 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}
 
-		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+		if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 						 &ext_err);
 		else
@@ -2451,7 +2451,7 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+		if (is_defined(ENABLE_IPV4) && CONFIG(enable_ipv6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 						 &ext_err);
 		else
@@ -2507,7 +2507,7 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}
@@ -2620,7 +2620,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6)) {
+		if (!CONFIG(enable_ipv6)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}

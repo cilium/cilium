@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		v6_ext_node_one

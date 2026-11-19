@@ -8,7 +8,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
-#define ENABLE_IPV6			1
 
 #define FRONTEND_IP		v4_svc_one
 #define FRONTEND_IPV6		v6_svc_one

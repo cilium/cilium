@@ -63,7 +63,7 @@ static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx, __be16 proto)
 {
 	switch (bpf_ntohs(proto)) {
 	case ETH_P_IPV6:
-		if (is_defined(ENABLE_IPV6)) {
+		if (CONFIG(enable_ipv6)) {
 			void *data, *data_end;
 			struct ipv6hdr *ip6;
 

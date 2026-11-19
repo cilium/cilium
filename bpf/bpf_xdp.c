@@ -290,7 +290,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 			ret = check_v4_lb(ctx);
 		break;
 	case bpf_htons(ETH_P_IPV6):
-		if (!is_defined(ENABLE_IPV6))
+		if (!CONFIG(enable_ipv6))
 			break;
 
 		if (CONFIG(enable_xdp_prefilter)) {

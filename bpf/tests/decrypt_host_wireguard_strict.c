@@ -7,7 +7,6 @@
  */
 
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
 
 #define DEST_LXC_ID	0
 #define HOSTPORT_PORT	__bpf_htons(8080)

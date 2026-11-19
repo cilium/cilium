@@ -177,10 +177,6 @@ func (h *HeaderfileWriter) writeNodeConfig(w io.Writer, cfg *config.Config, with
 		cDefinesMap["ENABLE_IPV4"] = "1"
 	}
 
-	if option.Config.EnableIPv6 {
-		cDefinesMap["ENABLE_IPV6"] = "1"
-	}
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	// todo(ekoops): get rid of this once we are able to ship pre-compiled objects.

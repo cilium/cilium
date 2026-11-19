@@ -2305,7 +2305,7 @@ snat_v6_has_v4_match_rfc6052(const struct ipv4_ct_tuple *tuple4)
 static __always_inline bool
 snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 {
-	if (!is_defined(ENABLE_IPV6) || !NODEPORT_ENABLED)
+	if (!CONFIG(enable_ipv6) || !NODEPORT_ENABLED)
 		return false;
 
 	struct ipv6_ct_tuple tuple6;

@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 
 /* A new connection reuses the tuple of an ingress CT entry that still has
  * proxy_redirect set from an earlier L7-proxied connection. Once the L7 rule
@@ -35,6 +34,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "lib/bpf_lxc.h"
 
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = SERVER_IP })
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_two_addr })
 
