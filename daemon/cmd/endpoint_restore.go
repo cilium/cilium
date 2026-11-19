@@ -883,8 +883,9 @@ func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) 
 	return nil
 }
 
-// clearStaleCiliumEndpointVeths checks all veths created by cilium and removes all that
-// are considered a leftover from failed attempts to connect the container.
+// clearStaleCiliumEndpointVeths checks all veth and netkit pairs created by cilium and
+// removes all that are considered a leftover from failed attempts to connect the
+// container.
 func (r *endpointRestorer) clearStaleCiliumEndpointVeths() error {
 	r.logger.Info("Removing stale endpoint interfaces")
 
@@ -927,7 +928,7 @@ func (r *endpointRestorer) clearStaleCiliumEndpointVeths() error {
 	return nil
 }
 
-// listVethIfaces returns a map of VETH interfaces with the index as key.
+// listVethIfaces returns a map of veth and netkit interfaces with the index as key.
 func (*endpointRestorer) listVethIfaces() (map[int]netlink.Link, error) {
 	ifs, err := safenetlink.LinkList()
 	if err != nil {
@@ -936,7 +937,7 @@ func (*endpointRestorer) listVethIfaces() (map[int]netlink.Link, error) {
 
 	vethLXCIdxs := map[int]netlink.Link{}
 	for _, intf := range ifs {
-		if intf.Type() == "veth" {
+		if intf.Type() == "veth" || intf.Type() == "netkit" {
 			vethLXCIdxs[intf.Attrs().Index] = intf
 		}
 	}
