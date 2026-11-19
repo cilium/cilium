@@ -39,6 +39,7 @@ func setBasePermutations(t *config.Node) {
 	t.TracingIPOptionType = 1
 	t.EventsMapRateLimit = 1000
 	t.EnableIdentityMark = true
+	t.EnableEgressChainContinue = true
 	t.EnableTraceNotify = true
 	t.TracePayloadLen = 128
 	t.TracePayloadLenOverlay = 192

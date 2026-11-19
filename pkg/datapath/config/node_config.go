@@ -44,6 +44,9 @@ type Node struct {
 	EnableConntrackAccounting bool `config:"enable_conntrack_accounting"`
 	// Enable drop notifications.
 	EnableDropNotify bool `config:"enable_drop_notify"`
+	// Continue the TCX egress chain after to-netdev (return TCX_NEXT instead of
+	// TCX_PASS).
+	EnableEgressChainContinue bool `config:"enable_egress_chain_continue"`
 	// Enable per endpoint routes.
 	EnableEndpointRoutes bool `config:"enable_endpoint_routes"`
 	// Enable host firewall.
@@ -166,7 +169,7 @@ func NewNode() *Node {
 		false, false, 0x0, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

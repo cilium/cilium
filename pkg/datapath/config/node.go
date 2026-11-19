@@ -187,6 +187,8 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableIdentityMark = option.Config.EnableIdentityMark
 
+	node.EnableEgressChainContinue = option.Config.EnableEgressChainContinue
+
 	node.EnableMasqueradeIPv6 = option.Config.EnableBPFMasquerade && option.Config.EnableIPv6Masquerade
 
 	node.EnableBPFHostRouting = !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting

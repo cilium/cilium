@@ -132,6 +132,7 @@ cilium-agent [flags]
       --enable-dynamic-config[=true|false]                                   Enables support for dynamic agent config (default true)
       --enable-dynamic-lifecycle-manager[=true|false]                        Enables support for dynamic lifecycle management
       --enable-dynamic-source-lookup-nodeport[=true|false]                   Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.
+      --enable-egress-chain-continue[=true|false]                            Continue the TCX egress chain after to-netdev (return TCX_NEXT instead of TCX_PASS)
       --enable-egress-gateway[=true|false]                                   Enable egress gateway
       --enable-encryption-strict-mode-egress[=true|false]                    Enable strict mode encryption enforcement for egress traffic
       --enable-encryption-strict-mode-ingress[=true|false]                   Enable strict mode encryption enforcement for ingress traffic

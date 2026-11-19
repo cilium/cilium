@@ -1440,7 +1440,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		vlan_id = ctx->vlan_tci & 0xfff;
 		if (vlan_id) {
 			if (allow_vlan(vlan_id))
-				return CTX_ACT_OK;
+				return egress_chain_verdict(CTX_ACT_OK);
 
 			ret = DROP_VLAN_FILTERED;
 			goto drop_err;
@@ -1645,7 +1645,7 @@ exit:
 			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 			  trace.reason, trace.monitor, proto);
 
-	return ret;
+	return egress_chain_verdict(ret);
 
 drop_err:
 	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,

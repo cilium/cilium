@@ -249,6 +249,10 @@ const (
 	// conflicting marks.
 	EnableIdentityMark = "enable-identity-mark"
 
+	// EnableEgressChainContinue makes the to-netdev BPF program return TCX_NEXT
+	// instead of TCX_PASS so later programs in the TCX egress chain still run.
+	EnableEgressChainContinue = "enable-egress-chain-continue"
+
 	// AddressScopeMax controls the maximum address scope for addresses to be
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax = "local-max-addr-scope"
@@ -1595,6 +1599,10 @@ type DaemonConfig struct {
 	// conflicting marks.
 	EnableIdentityMark bool
 
+	// EnableEgressChainContinue makes the to-netdev BPF program return TCX_NEXT
+	// instead of TCX_PASS so later programs in the TCX egress chain still run.
+	EnableEgressChainContinue bool
+
 	// KernelHz is the HZ rate the kernel is operating in
 	KernelHz int
 
@@ -2595,6 +2603,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	c.ClockSource = ClockSourceKtime
 	c.EnableIdentityMark = vp.GetBool(EnableIdentityMark)
+	c.EnableEgressChainContinue = vp.GetBool(EnableEgressChainContinue)
 
 	// toFQDNs options
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)

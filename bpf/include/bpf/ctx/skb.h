@@ -28,6 +28,14 @@
 #define CTX_ACT_TX		TC_ACT_REDIRECT
 #define CTX_ACT_REDIRECT	TC_ACT_REDIRECT
 
+/* Let the next program in the TCX chain run (TCX_NEXT, same value as
+ * TC_ACT_UNSPEC).
+ */
+#ifndef TC_ACT_UNSPEC
+# define TC_ACT_UNSPEC	(-1)
+#endif
+#define CTX_ACT_CONTINUE	TC_ACT_UNSPEC
+
 /* Discouraged since prologue will unclone full skb. */
 #define CTX_DIRECT_WRITE_OK	0
 

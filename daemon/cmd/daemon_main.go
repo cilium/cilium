@@ -449,6 +449,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
 
+	flags.Bool(option.EnableEgressChainContinue, false, "Continue the TCX egress chain after to-netdev (return TCX_NEXT instead of TCX_PASS)")
+	option.BindEnv(vp, option.EnableEgressChainContinue)
+
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(vp, option.EnableHostFirewall)
 

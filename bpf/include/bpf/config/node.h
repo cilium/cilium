@@ -118,6 +118,9 @@ NODE_CONFIG(bool, enable_endpoint_routes, "Enable per endpoint routes")
 
 NODE_CONFIG(bool, enable_identity_mark, "Enable setting identity mark for local traffic")
 
+NODE_CONFIG(bool, enable_egress_chain_continue,
+	    "Continue the TCX egress chain after to-netdev (return TCX_NEXT instead of TCX_PASS)")
+
 NODE_CONFIG(bool, enable_bpf_host_routing, "Enable BPF Host Routing")
 
 NODE_CONFIG(bool, enable_host_firewall, "Enable host firewall")

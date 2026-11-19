@@ -7,6 +7,22 @@
 #include "drop.h"
 #include "nodeport.h"
 
+/* Final verdict for the to-netdev path. With enable_egress_chain_continue set,
+ * turn CTX_ACT_OK (TCX_PASS, which ends the TCX chain) into CTX_ACT_CONTINUE
+ * (TCX_NEXT) so that programs attached after Cilium still run. Verdicts other
+ * than CTX_ACT_OK (drops, redirects) are never changed, and only bpf_host is
+ * affected.
+ */
+static __always_inline int
+egress_chain_verdict(int ret)
+{
+#if defined(IS_BPF_HOST)
+	if (ret == CTX_ACT_OK && CONFIG(enable_egress_chain_continue))
+		return CTX_ACT_CONTINUE;
+#endif
+	return ret;
+}
+
 
 #if defined(IS_BPF_OVERLAY)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_OVERLAY
@@ -155,7 +171,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 				   saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   args->trace.reason, args->trace.monitor);
 
-	return ret;
+	return egress_chain_verdict(ret);
 }
 #endif /* !SKIP_NODEPORT_PROGS */
 
@@ -289,7 +305,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 				  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
-	return ret;
+	return egress_chain_verdict(ret);
 }
 #endif /* !SKIP_NODEPORT_PROGS */
 
@@ -478,7 +494,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 				   saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   trace.reason, trace.monitor);
 
-	return ret;
+	return egress_chain_verdict(ret);
 }
 #endif /* !SKIP_NODEPORT_PROGS */
 
@@ -617,7 +633,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 				  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
-	return ret;
+	return egress_chain_verdict(ret);
 }
 #endif /* !SKIP_NODEPORT_PROGS */
 
