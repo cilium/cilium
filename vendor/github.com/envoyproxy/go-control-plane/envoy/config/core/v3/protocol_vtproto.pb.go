@@ -576,6 +576,28 @@ func (m *HttpProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, er
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.MaxConnectionDurationJitter != nil {
+		if vtmsg, ok := interface{}(m.MaxConnectionDurationJitter).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.MaxConnectionDurationJitter)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x42
+	}
 	if m.MaxResponseHeadersKb != nil {
 		size, err := (*wrapperspb.UInt32Value)(m.MaxResponseHeadersKb).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1091,6 +1113,30 @@ func (m *Http2ProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.StreamResetRate != nil {
+		size, err := (*wrapperspb.UInt64Value)(m.StreamResetRate).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
+	}
+	if m.StreamResetBurst != nil {
+		size, err := (*wrapperspb.UInt64Value)(m.StreamResetBurst).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
 	}
 	if m.DisallowObsText != nil {
 		size, err := (*wrapperspb.BoolValue)(m.DisallowObsText).MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -1743,6 +1789,16 @@ func (m *HttpProtocolOptions) SizeVT() (n int) {
 		l = (*wrapperspb.UInt32Value)(m.MaxResponseHeadersKb).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
+	if m.MaxConnectionDurationJitter != nil {
+		if size, ok := interface{}(m.MaxConnectionDurationJitter).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.MaxConnectionDurationJitter)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1988,6 +2044,14 @@ func (m *Http2ProtocolOptions) SizeVT() (n int) {
 	}
 	if m.DisallowObsText != nil {
 		l = (*wrapperspb.BoolValue)(m.DisallowObsText).SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.StreamResetBurst != nil {
+		l = (*wrapperspb.UInt64Value)(m.StreamResetBurst).SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.StreamResetRate != nil {
+		l = (*wrapperspb.UInt64Value)(m.StreamResetRate).SizeVT()
 		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

@@ -147,6 +147,11 @@ func (m *SinkConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.MaxDataPointsPerRequest != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.MaxDataPointsPerRequest))
+		i--
+		dAtA[i] = 0x50
+	}
 	if msg, ok := m.ProtocolSpecifier.(*SinkConfig_HttpService); ok {
 		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -411,6 +416,9 @@ func (m *SinkConfig) SizeVT() (n int) {
 			l = proto.Size(m.CustomMetricConversions)
 		}
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.MaxDataPointsPerRequest != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.MaxDataPointsPerRequest))
 	}
 	n += len(m.unknownFields)
 	return n

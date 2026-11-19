@@ -186,6 +186,36 @@ func (m *DnsCluster) validate(all bool) error {
 
 	// no validation rules for AllAddressesInSingleEndpoint
 
+	if d := m.GetDnsMinRefreshRate(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = DnsClusterValidationError{
+				field:  "DnsMinRefreshRate",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gte := time.Duration(1*time.Second + 0*time.Nanosecond)
+
+			if dur < gte {
+				err := DnsClusterValidationError{
+					field:  "DnsMinRefreshRate",
+					reason: "value must be greater than or equal to 1s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
 	if len(errors) > 0 {
 		return DnsClusterMultiError(errors)
 	}
