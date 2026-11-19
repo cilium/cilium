@@ -69,7 +69,8 @@ struct {
 	});
 } cilium_mcast_group_outer_v4_map __section_maps_btf;
 
-#ifdef ENABLE_MULTICAST
+DECLARE_CONFIG(bool, enable_multicast, "Enable multicast support")
+
 /* lookup a subscriber map for the given ipv4 multicast group
  * returns a void pointer to a inner subscriper map if one exists
  */
@@ -427,4 +428,3 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 				METRIC_INGRESS);
 }
 
-#endif /* ENABLE_MULTICAST */

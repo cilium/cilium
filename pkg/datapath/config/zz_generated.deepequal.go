@@ -243,6 +243,10 @@ func (in *Config) deepEqual(other *Config) bool {
 		}
 	}
 
+	if in.EnableMulticast != other.EnableMulticast {
+		return false
+	}
+
 	return true
 }
 

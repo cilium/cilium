@@ -74,6 +74,7 @@ func newLocalNodeConfig(
 	bandwidthManagerEnabled bool,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
+	multicastEnabled bool,
 ) (config.Config, []<-chan struct{}, error) {
 	auxPrefixes := []ip.Prefix{}
 
@@ -254,6 +255,7 @@ func newLocalNodeConfig(
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		VLANFilter:                   vlanFilter,
 		Plugins:                      plugins,
+		EnableMulticast:              multicastEnabled,
 	}, watchChans, nil
 }
 
