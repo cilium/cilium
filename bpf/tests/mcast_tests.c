@@ -2,7 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #define ENABLE_IPV4 1
-#define ENABLE_MULTICAST 1
 #define ENCAP_IFINDEX 1
 
 #include "bpf/ctx/skb.h"
@@ -18,6 +17,7 @@
 #include "../lib/mcast.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_multicast, true)
 
 static __always_inline int default_packet(struct __ctx_buff *ctx)
 {

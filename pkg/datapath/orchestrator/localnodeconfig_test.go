@@ -200,6 +200,7 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 			false,
 			fakeconnector.NewVeth(),
 			nil,
+			false,
 		)
 		return watches, err
 	}

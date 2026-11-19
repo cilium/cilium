@@ -283,6 +283,9 @@ type Config struct {
 	SvcRouteConfig svcrouteconfig.RoutesConfig
 
 	Plugins plugin.Plugins
+
+	// EnableMulticast enables multicast support.
+	EnableMulticast bool
 }
 
 // DeepEqual compares two LocalNodeConfiguration structs for equality.

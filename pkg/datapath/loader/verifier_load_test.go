@@ -91,6 +91,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.EnableBPFRouting = true
 			t.EnablePolicyAuditMode = true
 			t.EnablePolicyVerdictNotification = true
+			t.EnableMulticast = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
@@ -178,6 +179,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.EnableServiceNoBackendResponse = true
 			t.EnableNAT46X64 = true
 			t.EnableNAT46X64Gateway = true
+			t.EnableMulticast = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
 		Increment(func(t *config.BPFOverlay, v bool) { setDebugOptions(&t.Node, v) }),

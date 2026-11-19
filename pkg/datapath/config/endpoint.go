@@ -93,5 +93,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 
 	cfg.EnableBPFRouting = ep.RequireBPFRouting()
 
+	cfg.EnableMulticast = lnc.EnableMulticast
+
 	return cfg
 }
