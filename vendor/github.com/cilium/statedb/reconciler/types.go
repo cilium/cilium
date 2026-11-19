@@ -74,7 +74,8 @@ type Operations[Obj any] interface {
 	// Prune undesired state. It is given an iterator for the full set of
 	// desired objects. The implementation should diff the desired state against
 	// the realized state to find things to prune.
-	// Invoked during full reconciliation before the individual objects are Update()'d.
+	// Initial pruning uses a snapshot taken after table initialization and waits
+	// until reconciliation has been attempted for all objects in that snapshot.
 	//
 	// Unlike failed Update()'s a failed Prune() operation is not retried until
 	// the next full reconciliation round.
