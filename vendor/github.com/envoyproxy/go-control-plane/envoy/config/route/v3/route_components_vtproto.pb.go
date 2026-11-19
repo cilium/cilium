@@ -3612,6 +3612,16 @@ func (m *RetryPolicy) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.RefreshClusterOnRetry {
+		i--
+		if m.RefreshClusterOnRetry {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x70
+	}
 	if m.PerTryIdleTimeout != nil {
 		size, err := (*durationpb.Duration)(m.PerTryIdleTimeout).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -3872,6 +3882,13 @@ func (m *RedirectAction) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if msg, ok := m.PathRewriteSpecifier.(*RedirectAction_PathRewrite); ok {
+		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+	}
 	if msg, ok := m.PathRewriteSpecifier.(*RedirectAction_RegexRewrite); ok {
 		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -4029,6 +4046,20 @@ func (m *RedirectAction_RegexRewrite) MarshalToSizedBufferVTStrict(dAtA []byte) 
 		i--
 		dAtA[i] = 0x4a
 	}
+	return len(dAtA) - i, nil
+}
+func (m *RedirectAction_PathRewrite) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *RedirectAction_PathRewrite) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.PathRewrite)
+	copy(dAtA[i:], m.PathRewrite)
+	i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.PathRewrite)))
+	i--
+	dAtA[i] = 0x52
 	return len(dAtA) - i, nil
 }
 func (m *DirectResponseAction) MarshalVTStrict() (dAtA []byte, err error) {
@@ -5576,6 +5607,49 @@ func (m *RateLimit_Override_DynamicMetadata) MarshalToSizedBufferVTStrict(dAtA [
 	return len(dAtA) - i, nil
 }
 
+func (m *RateLimit_Override_RateLimitOverride) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RateLimit_Override_RateLimitOverride) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *RateLimit_Override_RateLimitOverride) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Unit != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Unit))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.RequestsPerUnit != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.RequestsPerUnit))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *RateLimit_Override) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -5605,6 +5679,13 @@ func (m *RateLimit_Override) MarshalToSizedBufferVTStrict(dAtA []byte) (int, err
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if msg, ok := m.OverrideSpecifier.(*RateLimit_Override_RateLimit); ok {
+		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
 	}
 	if msg, ok := m.OverrideSpecifier.(*RateLimit_Override_DynamicMetadata_); ok {
 		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -5636,6 +5717,29 @@ func (m *RateLimit_Override_DynamicMetadata_) MarshalToSizedBufferVTStrict(dAtA 
 		i = protohelpers.EncodeVarint(dAtA, i, 0)
 		i--
 		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *RateLimit_Override_RateLimit) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *RateLimit_Override_RateLimit) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.RateLimit != nil {
+		size, err := m.RateLimit.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x12
+	} else {
+		i = protohelpers.EncodeVarint(dAtA, i, 0)
+		i--
+		dAtA[i] = 0x12
 	}
 	return len(dAtA) - i, nil
 }
@@ -8016,6 +8120,9 @@ func (m *RetryPolicy) SizeVT() (n int) {
 		l = (*durationpb.Duration)(m.PerTryIdleTimeout).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
+	if m.RefreshClusterOnRetry {
+		n += 2
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -8133,6 +8240,16 @@ func (m *RedirectAction_RegexRewrite) SizeVT() (n int) {
 	} else {
 		n += 2
 	}
+	return n
+}
+func (m *RedirectAction_PathRewrite) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.PathRewrite)
+	n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	return n
 }
 func (m *DirectResponseAction) SizeVT() (n int) {
@@ -8767,6 +8884,22 @@ func (m *RateLimit_Override_DynamicMetadata) SizeVT() (n int) {
 	return n
 }
 
+func (m *RateLimit_Override_RateLimitOverride) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RequestsPerUnit != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.RequestsPerUnit))
+	}
+	if m.Unit != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.Unit))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
 func (m *RateLimit_Override) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -8788,6 +8921,20 @@ func (m *RateLimit_Override_DynamicMetadata_) SizeVT() (n int) {
 	_ = l
 	if m.DynamicMetadata != nil {
 		l = m.DynamicMetadata.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	} else {
+		n += 2
+	}
+	return n
+}
+func (m *RateLimit_Override_RateLimit) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RateLimit != nil {
+		l = m.RateLimit.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	} else {
 		n += 2
