@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -163,30 +164,60 @@ func TestEndpointRestoreInitialization(t *testing.T) {
 func TestPrivilegedRemoveStaleEPIfaces(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	ns := netns.NewNetNS(t)
+	for _, tt := range []struct {
+		name       string
+		shouldSkip bool
+		pair       func(linkAttrs netlink.LinkAttrs) netlink.Link
+	}{
+		{
+			name: "veth",
+			pair: func(linkAttrs netlink.LinkAttrs) netlink.Link {
+				return &netlink.Veth{
+					LinkAttrs: linkAttrs,
+					PeerName:  "tmp54321",
+				}
+			},
+		},
+		{
+			name:       "netkit",
+			shouldSkip: probes.HaveNetkit() != nil,
+			pair: func(linkAttrs netlink.LinkAttrs) netlink.Link {
+				netkit := &netlink.Netkit{
+					LinkAttrs: linkAttrs,
+					Mode:      netlink.NETKIT_MODE_L3,
+				}
+				netkit.SetPeerAttrs(&netlink.LinkAttrs{Name: "tmp54321"})
+				return netkit
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldSkip {
+				t.Skip()
+			}
 
-	ns.Do(func() error {
-		linkAttrs := netlink.NewLinkAttrs()
-		linkAttrs.Name = "lxc12345"
-		veth := &netlink.Veth{
-			LinkAttrs: linkAttrs,
-			PeerName:  "tmp54321",
-		}
+			ns := netns.NewNetNS(t)
 
-		err := netlink.LinkAdd(veth)
-		assert.NoError(t, err)
+			ns.Do(func() error {
+				linkAttrs := netlink.NewLinkAttrs()
+				linkAttrs.Name = "lxc12345"
 
-		_, err = safenetlink.LinkByName(linkAttrs.Name)
-		assert.NoError(t, err)
+				err := netlink.LinkAdd(tt.pair(linkAttrs))
+				assert.NoError(t, err)
 
-		restorer := &endpointRestorer{logger: hivetest.Logger(t)}
-		err = restorer.clearStaleCiliumEndpointVeths()
-		assert.NoError(t, err)
+				_, err = safenetlink.LinkByName(linkAttrs.Name)
+				assert.NoError(t, err)
 
-		// Check that stale iface is removed
-		_, err = safenetlink.LinkByName(linkAttrs.Name)
-		assert.Error(t, err)
+				restorer := &endpointRestorer{logger: hivetest.Logger(t)}
+				err = restorer.clearStaleCiliumEndpointVeths()
+				assert.NoError(t, err)
 
-		return nil
-	})
+				// Check that stale iface is removed
+				_, err = safenetlink.LinkByName(linkAttrs.Name)
+				assert.Error(t, err)
+
+				return nil
+			})
+		})
+	}
 }
