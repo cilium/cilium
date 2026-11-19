@@ -116,6 +116,19 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 		},
 	})
 
+	// HTTP filter order matters. When CORS is enabled, the CORS filter
+	// must run before auth filters and envoy.filters.http.router This way,
+	// requests and responses for OPTIONS requests are handled for
+	// protected routes.
+	if m.IsCORSFilterConfigured() {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+			Name: "envoy.filters.http.cors",
+			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&httpCorsv3.Cors{}),
+			},
+		})
+	}
+
 	for _, af := range i.getUniqueAuthFilters(m) {
 		hf = append(hf, buildExtAuthzHTTPFilter(af))
 	}
@@ -124,17 +137,6 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 		for _, epp := range epps {
 			hf = append(hf, buildExtProcHTTPFilter(epp))
 		}
-	}
-
-	// HTTP filter order matters. When CORS is enabled,
-	// the CORS filter must run before envoy.filters.http.router.
-	if m.IsCORSFilterConfigured() {
-		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
-			Name: "envoy.filters.http.cors",
-			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&httpCorsv3.Cors{}),
-			},
-		})
 	}
 
 	if m.IsSessionPersistenceConfigured() {
