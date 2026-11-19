@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/ebpf"
 )
@@ -83,7 +82,6 @@ type ParamsIn struct {
 type ParamsOut struct {
 	cell.Out
 	bpf.MapOut[GroupV4Map]
-	defines.NodeOut
 }
 
 // NewGroupV4Map creates a new GroupV4Map
@@ -105,8 +103,6 @@ func NewGroupV4Map(in ParamsIn) ParamsOut {
 		in.Logger.Error("Disabled support for BPF Multicast due to missing kernel support (Linux 5.13 or later)")
 		return out
 	}
-
-	out.NodeDefines = defines.Map{"ENABLE_MULTICAST": "1"}
 
 	groupMap := NewGroupV4OuterMap(in.Logger, GroupOuter4MapName)
 
