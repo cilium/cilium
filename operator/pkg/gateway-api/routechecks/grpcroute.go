@@ -168,7 +168,7 @@ func (g *GRPCRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
 func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range g.GRPCRoute.Status.RouteStatus.Parents {
-		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+		if string(parent.ControllerName) == g.ControllerName && reflect.DeepEqual(parent.ParentRef, parentRef) {
 			index = i
 			break
 		}
