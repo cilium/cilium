@@ -207,5 +207,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableL7LB = option.Config.EnableEnvoyConfig
 
+	node.EnableActiveConnectionTracking = lnc.EnableActiveConnectionTracking
+
 	return node
 }

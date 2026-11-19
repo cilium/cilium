@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
@@ -64,15 +63,10 @@ type actMap struct {
 	f *bpf.Map
 }
 
-func provide(lc cell.Lifecycle, cfg Config, lbCfg loadbalancer.Config, reg *registry.MapRegistry) (
-	bpf.MaybeMapOut[ACTMap], defines.NodeOut, error) {
-	var nodeOut defines.NodeOut
+func provide(lc cell.Lifecycle, cfg Config, reg *registry.MapRegistry) (
+	bpf.MaybeMapOut[ACTMap], error) {
 	if !cfg.EnableActiveConnectionTracking {
-		return bpf.NoneMap[ACTMap](), nodeOut, nil
-	}
-
-	nodeOut.NodeDefines = map[string]string{
-		"ENABLE_ACTIVE_CONNECTION_TRACKING": "1",
+		return bpf.NoneMap[ACTMap](), nil
 	}
 
 	actMap := &actMap{}
@@ -97,7 +91,7 @@ func provide(lc cell.Lifecycle, cfg Config, lbCfg loadbalancer.Config, reg *regi
 		},
 	})
 
-	return bpf.SomeMap(ACTMap(actMap)), nodeOut, nil
+	return bpf.SomeMap(ACTMap(actMap)), nil
 }
 
 func configure(cfg Config, lbCfg loadbalancer.Config, reg *registry.MapRegistry) error {

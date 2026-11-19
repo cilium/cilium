@@ -236,6 +236,9 @@ func (in *Config) deepEqual(other *Config) bool {
 		return false
 	}
 
+	if in.EnableActiveConnectionTracking != other.EnableActiveConnectionTracking {
+		return false
+	}
 	if ((in.Plugins != nil) && (other.Plugins != nil)) || ((in.Plugins == nil) != (other.Plugins == nil)) {
 		in, other := &in.Plugins, &other.Plugins
 		if other == nil || !in.DeepEqual(other) {

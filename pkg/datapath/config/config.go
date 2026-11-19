@@ -286,6 +286,9 @@ type Config struct {
 
 	// EnableMulticast enables multicast support.
 	EnableMulticast bool
+
+	// EnableActiveConnectionTracking enables active connection tracking support.
+	EnableActiveConnectionTracking bool
 }
 
 // DeepEqual compares two LocalNodeConfiguration structs for equality.

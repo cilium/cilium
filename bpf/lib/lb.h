@@ -1482,9 +1482,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
-#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
-		_lb_act_conn_open(state->rev_nat_index, backend->zone);
-#endif
+		if (CONFIG(enable_active_connection_tracking))
+			_lb_act_conn_open(state->rev_nat_index, backend->zone);
 
 		break;
 	case CT_REPLY:
@@ -1495,14 +1494,14 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		 * session we are likely to get a TCP RST.
 		 */
 		backend = lb6_lookup_backend(ctx, backend_id);
-#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
-		if (backend) {
+
+		if (CONFIG(enable_active_connection_tracking) && backend) {
 			if (state->syn) /* Reopened connections */
 				_lb_act_conn_open(svc->rev_nat_index, backend->zone);
 			else if (state->closing)
 				_lb_act_conn_closed(svc->rev_nat_index, backend->zone);
 		}
-#endif
+
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends. UDP connections are not drained because
@@ -2296,9 +2295,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
-#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
-		_lb_act_conn_open(state->rev_nat_index, backend->zone);
-#endif
+		if (CONFIG(enable_active_connection_tracking))
+			_lb_act_conn_open(state->rev_nat_index, backend->zone);
 
 		break;
 	case CT_REPLY:
@@ -2309,14 +2307,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * session we are likely to get a TCP RST.
 		 */
 		backend = lb4_lookup_backend(ctx, backend_id);
-#ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
-		if (backend) {
+
+		if (CONFIG(enable_active_connection_tracking) && backend) {
 			if (state->syn) /* Reopened connections */
 				_lb_act_conn_open(svc->rev_nat_index, backend->zone);
 			else if (state->closing)
 				_lb_act_conn_closed(svc->rev_nat_index, backend->zone);
 		}
-#endif
+
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends. UDP connections are not drained because

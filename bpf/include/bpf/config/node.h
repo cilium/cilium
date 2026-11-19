@@ -241,3 +241,5 @@ NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
 NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")
 
 NODE_CONFIG(bool, enable_bandwidth_manager, "Enable bandwidth manager")
+
+NODE_CONFIG(bool, enable_active_connection_tracking, "Enable active connection tracking")
