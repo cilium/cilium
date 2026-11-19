@@ -9,24 +9,26 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/maps"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 )
 
 const (
 	// PolicyCallMapName is the name of the map to do tail calls into policy
 	// enforcement programs.
-	PolicyCallMapName = "cilium_call_policy"
+	PolicyCallMapName = maps.CiliumCallPolicy
 
 	// PolicyEgressCallMapName is the name of the map to do tail calls into egress policy
 	// enforcement programs.
-	PolicyEgressCallMapName = "cilium_egresscall_policy"
+	PolicyEgressCallMapName = maps.CiliumEgresscallPolicy
 
-	// PolicyCallMaxEntries is the upper limit of entries in the program
+	// policyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
 	// programs. This number *MUST* be identical to the maximum endpoint ID.
-	PolicyCallMaxEntries = ^uint16(0)
+	policyCallMaxEntries = ^uint16(0)
 )
 
 // CallKey is the index into the prog array map.
@@ -81,25 +83,39 @@ func openCallMap(logger *slog.Logger, name string) (*bpf.Map, error) {
 	return bpf.OpenMap(bpf.MapPath(logger, name), &CallKey{}, &CallValue{})
 }
 
-// initCallMap creates the policy call maps in the kernel.
-func initCallMaps() error {
-	policyCallMap := bpf.NewMap(PolicyCallMapName,
-		ebpf.ProgramArray,
-		&CallKey{},
-		&CallValue{},
-		int(PolicyCallMaxEntries),
-		0,
-	)
-	if err := policyCallMap.Create(); err != nil {
-		return err
+func newCallMaps(lc cell.Lifecycle, reg *mapregistry.MapRegistry) {
+	newCallMap(lc, reg, PolicyCallMapName)
+	newCallMap(lc, reg, PolicyEgressCallMapName)
+}
+
+func newCallMap(lc cell.Lifecycle,
+	reg *mapregistry.MapRegistry, mapName string) {
+	lc.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			m, err := bpf.NewMapFromRegistry(reg, mapName, &CallKey{}, &CallValue{})
+			if err != nil {
+				return fmt.Errorf("pull %s map from registry: %w", mapName, err)
+			}
+			if err := m.Create(); err != nil {
+				return fmt.Errorf("create %s map: %w", mapName, err)
+			}
+			return nil
+		},
+	})
+}
+
+func configureCallMaps(reg *mapregistry.MapRegistry) error {
+	if err := reg.Modify(PolicyCallMapName, func(patch *mapregistry.MapSpecPatch) {
+		patch.MaxEntries = uint32(policyCallMaxEntries)
+	}); err != nil {
+		return fmt.Errorf("error setting %s map max entries: %w", PolicyCallMapName, err)
 	}
 
-	policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
-		ebpf.ProgramArray,
-		&CallKey{},
-		&CallValue{},
-		int(PolicyCallMaxEntries),
-		0,
-	)
-	return policyEgressCallMap.Create()
+	if err := reg.Modify(PolicyEgressCallMapName, func(patch *mapregistry.MapSpecPatch) {
+		patch.MaxEntries = uint32(policyCallMaxEntries)
+	}); err != nil {
+		return fmt.Errorf("error setting %s map max entries: %w", PolicyEgressCallMapName, err)
+	}
+
+	return nil
 }

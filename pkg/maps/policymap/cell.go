@@ -159,14 +159,9 @@ func createFactory(in createFactoryParams) Factory {
 	nCPU := possibleCPU(in.Log)
 	roundDown := in.BpfPolicyStatsMapMax % nCPU
 	in.BpfPolicyStatsMapMax -= roundDown
-	in.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			if err := initCallMaps(); err != nil {
-				return fmt.Errorf("failed to create policy call map: %w", err)
-			}
-			return nil
-		},
-	})
+
+	newCallMaps(in.Lifecycle, in.MapRegistry)
+
 	return newFactory(in.Log, in.MapRegistry, in.Stats, in.BpfPolicyMapMax, in.BpfPolicyStatsMapMax)
 }
 
@@ -187,5 +182,6 @@ func configurePolicyMaps(reg *mapregistry.MapRegistry, factory Factory) error {
 		return fmt.Errorf("error setting %s map max entries: %w",
 			maps.CiliumPolicystats, err)
 	}
-	return nil
+
+	return configureCallMaps(reg)
 }
