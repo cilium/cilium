@@ -22,9 +22,14 @@ func setDebugOptions(t *config.Node, v bool) {
 	t.Debug, t.DebugLB, t.DebugTagged = v, v, v
 }
 
+// disableIPv6 is meant to be the last permuted option, so that loads with IPv6 enabled come first.
+func disableIPv6(t *config.Node, v bool) {
+	// Invert it so we get the IPv6-enabled permutations first.
+	t.EnableIPv6 = !v
+}
+
 func setBasePermutations(t *config.Node) {
 	t.EnableIPv4 = true
-	t.EnableIPv6 = true
 	t.EnableBPFHostRouting = true
 	t.IPv4SNATExclusion.DstAddr.Addr = [4]byte{0xff, 0xff, 0x00, 0x00}
 	t.IPv4SNATExclusion.Bits = 16
@@ -95,6 +100,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFLXC, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFLXC, v bool) { disableIPv6(&t.Node, v) }),
 	)
 	return b
 }
@@ -140,6 +146,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 			}
 		}),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFHost, v bool) { disableIPv6(&t.Node, v) }),
 	)
 	return b
 }
@@ -158,6 +165,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
 		Increment(func(t *config.BPFOverlay, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFOverlay, v bool) { disableIPv6(&t.Node, v) }),
 	)
 	return b
 }
@@ -185,6 +193,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 		}),
 		IncrementOrPermute(func(t *config.BPFSock, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFSock, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFSock, v bool) { disableIPv6(&t.Node, v) }),
 	)
 	return b
 }
@@ -205,6 +214,7 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFWireguard, v bool) { t.Node.EnableEndpointRoutes = v }),
 		Increment(func(t *config.BPFWireguard, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFWireguard, v bool) { disableIPv6(&t.Node, v) }),
 	)
 	return b
 }
@@ -225,6 +235,7 @@ func baseXDPPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFXDP, v bool) { t.EnableXDPPrefilter = v }),
 		Increment(func(t *config.BPFXDP, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFXDP, v bool) { disableIPv6(&t.Node, v) }),
 	)
 	return b
 }
