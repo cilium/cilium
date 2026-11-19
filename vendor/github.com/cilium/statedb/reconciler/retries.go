@@ -145,6 +145,9 @@ func (rq *retries) Add(obj any, rev statedb.Revision, origRev statedb.Revision, 
 	keyStr := string(key)
 	if item, ok = rq.items[keyStr]; !ok {
 		item = &retryItem{
+			// Requeued failures still belong to the same unresolved work.
+			// Only Clear followed by Add starts a new original revision.
+			origRev:    origRev,
 			numRetries: 0,
 			index:      -1,
 			revIndex:   -1,
@@ -153,7 +156,6 @@ func (rq *retries) Add(obj any, rev statedb.Revision, origRev statedb.Revision, 
 	}
 	item.object = obj
 	item.rev = rev
-	item.origRev = origRev
 	item.delete = delete
 	item.numRetries += 1
 	item.lastError = lastError

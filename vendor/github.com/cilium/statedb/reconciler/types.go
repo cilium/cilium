@@ -85,7 +85,8 @@ type Operations[Obj any] interface {
 	// Prune undesired state. It is given an iterator for the full set of
 	// desired objects. The implementation should diff the desired state against
 	// the realized state to find things to prune.
-	// Invoked during full reconciliation before the individual objects are Update()'d.
+	// Initial pruning uses a snapshot taken after table initialization and waits
+	// until reconciliation has been attempted for all objects in that snapshot.
 	//
 	// Unlike failed Update()'s a failed Prune() operation is not retried until
 	// the next full reconciliation round.
@@ -196,7 +197,8 @@ type Status struct {
 	UpdatedAt time.Time `json:"updated-at" yaml:"updated-at"`
 	Error     *string   `json:"error,omitempty" yaml:"error,omitempty"`
 
-	// id is a unique identifier for a pending object.
+	// ID identifies a pending or refreshing reconciliation request and is
+	// preserved when the reconciler sets its Done or Error status.
 	// The reconciler uses this to compare whether the object
 	// has really changed when committing the resulting status.
 	// This allows multiple reconcilers to exist for a single
