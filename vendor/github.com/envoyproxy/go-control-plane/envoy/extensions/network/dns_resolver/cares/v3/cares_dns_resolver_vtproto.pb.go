@@ -51,6 +51,16 @@ func (m *CaresDnsResolverConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int,
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.QcacheMaxTtl != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.QcacheMaxTtl).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x62
+	}
 	if m.ReinitChannelOnTimeout {
 		i--
 		if m.ReinitChannelOnTimeout {
@@ -249,6 +259,10 @@ func (m *CaresDnsResolverConfig) SizeVT() (n int) {
 	}
 	if m.ReinitChannelOnTimeout {
 		n += 2
+	}
+	if m.QcacheMaxTtl != nil {
+		l = (*wrapperspb.UInt32Value)(m.QcacheMaxTtl).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

@@ -774,6 +774,30 @@ func (m *HttpConnectionManager) MarshalToSizedBufferVTStrict(dAtA []byte) (int, 
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.DrainTimeoutJitter != nil {
+		if vtmsg, ok := interface{}(m.DrainTimeoutJitter).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.DrainTimeoutJitter)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xf2
+	}
 	if m.ForwardProtoConfig != nil {
 		size, err := m.ForwardProtoConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -3252,6 +3276,16 @@ func (m *HttpConnectionManager) SizeVT() (n int) {
 	}
 	if m.ForwardProtoConfig != nil {
 		l = m.ForwardProtoConfig.SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.DrainTimeoutJitter != nil {
+		if size, ok := interface{}(m.DrainTimeoutJitter).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.DrainTimeoutJitter)
+		}
 		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

@@ -244,6 +244,8 @@ func (m *ProxyProtocol_KeyValuePair) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for ValueStringEncoding
+
 	if len(errors) > 0 {
 		return ProxyProtocol_KeyValuePairMultiError(errors)
 	}
