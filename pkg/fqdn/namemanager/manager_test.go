@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -61,17 +62,13 @@ func TestMapIPsToSelectors(t *testing.T) {
 		})
 	)
 
-	// Create DNS cache
-	now := time.Now()
-	cache := nameManager.cache
-
 	// Empty cache.
 	nameIPMapping := nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Empty(t, nameIPMapping)
 
 	// Just one IP.
 	ciliumIOName := prepareMatchName(ciliumIOSel.MatchName)
-	res := cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1}, 100)
+	res := nameManager.updateIPsForName(ciliumIOName, []netip.Addr{ciliumIP1})
 	require.Equal(t, fqdn.UpdateStatus{Updated: true, Upserted: true}, res)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Len(t, nameIPMapping, 1)
@@ -82,7 +79,7 @@ func TestMapIPsToSelectors(t *testing.T) {
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 
 	// Two IPs now.
-	res = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 100)
+	res = nameManager.updateIPsForName(ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2})
 	require.Equal(t, fqdn.UpdateStatus{Updated: true, Upserted: true}, res)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Len(t, nameIPMapping, 1)
@@ -93,21 +90,9 @@ func TestMapIPsToSelectors(t *testing.T) {
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 	require.Equal(t, ciliumIP2, ciliumIPs[1])
 
-	// Two IPs again with long ttl.
-	res = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 101)
-	require.Equal(t, fqdn.UpdateStatus{Updated: true, Upserted: false}, res)
-	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
-	require.Len(t, nameIPMapping, 1)
-	ciliumIPs, ok = nameIPMapping[ciliumIOName]
-	require.True(t, ok)
-	require.Len(t, ciliumIPs, 2)
-	ip.SortAddrList(ciliumIPs)
-	require.Equal(t, ciliumIP1, ciliumIPs[0])
-	require.Equal(t, ciliumIP2, ciliumIPs[1])
-
-	// Two IPs again with short ttl.
-	res = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 1)
-	require.Equal(t, fqdn.UpdateStatus{Updated: false, Upserted: false}, res)
+	// Repeated IPs do not change the global name/IP set.
+	res = nameManager.updateIPsForName(ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2})
+	require.Equal(t, fqdn.UpdateStatus{}, res)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Len(t, nameIPMapping, 1)
 	ciliumIPs, ok = nameIPMapping[ciliumIOName]
@@ -280,10 +265,10 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
 	require.NoError(t, err)
 
-	require.Empty(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()))
+	require.NotContains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixOne.AsPrefix().Addr())
 	_, found := ipc.LookupByPrefix(prefixOne.String())
 	require.False(t, found)
-	require.NotContains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.NotContains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixOne.AsPrefix().Addr())
 
 	// Upsert to global cache and ensure its present
 	<-nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixOne.AsPrefix().Addr()}}, ep.DNSHistory)
@@ -292,7 +277,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.True(t, found)
 	ident := ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
 	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
-	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.Contains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixOne.AsPrefix().Addr())
 
 	// Run GC and ensure it's still present
 	// This is again assuming the GC started before the endpoint was created, so the manager still does not know about the endpoint
@@ -306,7 +291,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
 	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
-	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.Contains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixOne.AsPrefix().Addr())
 
 	// Add endpoint to the manager
 	epMgr.UpsertEndpoint(ep)
@@ -322,7 +307,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
 	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
-	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.Contains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixOne.AsPrefix().Addr())
 
 	// Insert old prefix that will end up as zombie
 	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixTwo.AsPrefix().Addr()}, 10)
@@ -339,7 +324,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
 	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
-	require.Contains(t, nameManager.cache.LookupIP(prefixTwo.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.Contains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixTwo.AsPrefix().Addr())
 
 	// Add another prefix to local cache
 	ep.DNSHistory.Update(lookupTime, dns.FQDN("cilium.io"), []netip.Addr{prefixThree.AsPrefix().Addr()}, 10)
@@ -351,11 +336,11 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
 	require.NoError(t, err)
 
-	require.Empty(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()))
+	require.NotContains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixThree.AsPrefix().Addr())
 
 	_, found = ipc.LookupByPrefix(prefixThree.String())
 	require.False(t, found)
-	require.NotContains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.NotContains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixThree.AsPrefix().Addr())
 
 	// Upsert to global cache and ensure its present
 	<-nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixThree.AsPrefix().Addr()}}, ep.DNSHistory)
@@ -364,7 +349,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
 	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
-	require.Contains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.Contains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixThree.AsPrefix().Addr())
 
 	// Run GC and ensure it's still present
 	require.NoError(t, nameManager.doGC(t.Context()))
@@ -399,7 +384,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
 	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
-	require.Contains(t, nameManager.cache.LookupIP(prefixFour.AsPrefix().Addr()), dns.FQDN("cilium.io"))
+	require.Contains(t, nameManager.cache.lookup(dns.FQDN("cilium.io")), prefixFour.AsPrefix().Addr())
 
 	// Explicitly GC the local cache to ensure the IP goes fully unused by any endpoint - except for the zombie.
 	// However, since the endpoint is deleted by the time of the next endpointManager GC, it won't be seen by the
@@ -419,7 +404,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
 	require.NoError(t, err)
 
-	require.Empty(t, nameManager.cache.Dump())
+	require.Empty(t, nameManager.cache.names())
 
 	// Ensure all IPs are gone, even if selector is still registered
 	for _, p := range []cmtypes.PrefixCluster{prefixOne, prefixTwo, prefixThree, prefixFour} {
@@ -520,4 +505,64 @@ func (mgr *mgrMock) GetEndpoints() []*endpoint.Endpoint {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	return mgr.eps.UnsortedList()
+}
+
+func TestNameManagerRestoration(t *testing.T) {
+	logger := hivetest.Logger(t)
+	now := time.Now()
+	liveIP := netip.MustParseAddr("192.0.2.1")
+	expiredIP := netip.MustParseAddr("192.0.2.2")
+	zombieIP := netip.MustParseAddr("2001:db8::1")
+	history := fqdn.NewDNSCache(0)
+	history.Update(now, "cilium.io.", []netip.Addr{liveIP}, 3600)
+	history.Update(now.Add(-time.Hour), "expired.", []netip.Addr{expiredIP}, 1)
+	zombies := fqdn.NewDNSZombieMappings(logger, 100, 100)
+	zombies.Upsert(now, zombieIP, "cilium.io.")
+	n := New(ManagerParams{Logger: logger})
+	n.RestorationNotify(map[uint16]*endpoint.Endpoint{
+		1: {DNSHistory: history},
+		2: {DNSZombies: zombies},
+	})
+	require.ElementsMatch(t, []netip.Addr{liveIP, zombieIP}, n.cache.lookup("cilium.io."))
+	require.Empty(t, n.cache.lookup("expired."))
+
+	lookups, err := n.dnsHistoryModel("", nil, nil, DNSSourceGlobal)
+	require.NoError(t, err)
+	require.Len(t, lookups, 2)
+	var restoredIPs []string
+	for _, lookup := range lookups {
+		require.Equal(t, "cilium.io.", lookup.Fqdn)
+		require.Len(t, lookup.Ips, 1)
+		require.Zero(t, lookup.TTL)
+		restoredIPs = append(restoredIPs, lookup.Ips[0])
+	}
+	require.ElementsMatch(t, []string{liveIP.String(), zombieIP.String()}, restoredIPs)
+}
+
+func TestNameManagerDeleteDNSLookups(t *testing.T) {
+	logger := hivetest.Logger(t)
+	now := time.Now()
+	old := now.Add(-time.Minute)
+	oldIP := netip.MustParseAddr("192.0.2.1")
+	newIP := netip.MustParseAddr("192.0.2.2")
+	zombieIP := netip.MustParseAddr("2001:db8::1")
+	unseenIP := netip.MustParseAddr("192.0.2.3")
+	ep := &endpoint.Endpoint{
+		DNSHistory: fqdn.NewDNSCache(0),
+		DNSZombies: fqdn.NewDNSZombieMappings(logger, 100, 100),
+	}
+	ep.DNSHistory.Update(old, "cilium.io.", []netip.Addr{oldIP}, 3600)
+	ep.DNSHistory.Update(now, "cilium.io.", []netip.Addr{newIP, unseenIP}, 3600)
+	ep.DNSHistory.Update(old, "other.", []netip.Addr{oldIP}, 3600)
+	ep.DNSZombies.Upsert(now, zombieIP, "cilium.io.")
+	epMgr := &mgrMock{eps: sets.New(ep)}
+	n := New(ManagerParams{Logger: logger, EPMgr: epMgr, IPCache: testipcache.NewMockIPCache()})
+	n.cache.add("cilium.io.", oldIP, newIP, zombieIP)
+	n.cache.add("other.", oldIP)
+	require.NoError(t, n.deleteDNSLookups(now.Add(-time.Second), "cilium.io."))
+	require.ElementsMatch(t, []netip.Addr{newIP, zombieIP}, n.cache.lookup("cilium.io."))
+	require.Equal(t, []netip.Addr{oldIP}, n.cache.lookup("other."))
+
+	require.NoError(t, n.deleteDNSLookups(now.Add(time.Second), ""))
+	require.Empty(t, n.cache.names())
 }

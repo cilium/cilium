@@ -10,11 +10,14 @@ import (
 	"net/netip"
 	"regexp"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -45,7 +48,12 @@ type manager struct {
 	// use these selectors to map selectors --> IPs.
 	allSelectors map[api.FQDNSelector]*regexp.Regexp
 
-	cache *fqdn.DNSCache
+	// cache and updatedCaches are protected by RWMutex.
+	cache nameCache
+
+	// Include caches updated since the last GC, even if their endpoints were
+	// created after GC took its endpoint snapshot.
+	updatedCaches sets.Set[*fqdn.DNSCache]
 
 	bootstrapCompleted bool
 
@@ -66,19 +74,14 @@ type selectorChange struct {
 
 // New creates an initialized NameManager.
 func New(params ManagerParams) *manager {
-	cache := fqdn.NewDNSCache(params.Config.MinTTL)
-	// Disable cleanup tracking on the default DNS cache. This cache simply
-	// tracks which api.FQDNSelector are present in policy which apply to
-	// locally running endpoints.
-	cache.DisableCleanupTrack()
-
 	n := &manager{
-		logger:       params.Logger,
-		params:       params,
-		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
-		selectorIDs:  make(map[api.FQDNSelector][]identity.NumericIdentity),
-		cache:        cache,
-		nameLocks:    make([]*lock.Mutex, params.Config.DNSProxyLockCount),
+		logger:        params.Logger,
+		params:        params,
+		allSelectors:  make(map[api.FQDNSelector]*regexp.Regexp),
+		selectorIDs:   make(map[api.FQDNSelector][]identity.NumericIdentity),
+		cache:         newNameCache(),
+		updatedCaches: sets.New[*fqdn.DNSCache](),
+		nameLocks:     make([]*lock.Mutex, params.Config.DNSProxyLockCount),
 	}
 
 	for i := range n.nameLocks {
@@ -216,7 +219,7 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	res, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record, caches...)
+	res, ipcacheRevision := n.updateDNSIPs(name, record, caches...)
 	if res.Upserted {
 		n.logger.Debug(
 			"Updated FQDN with new IPs",
@@ -254,8 +257,8 @@ func (n *manager) waitForEndpointRestore(ctx context.Context) error {
 
 // updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
 // changed and ipcacheRevision, a revision number to pass to WaitForRevision()
-func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords, caches ...*fqdn.DNSCache) (res fqdn.UpdateStatus, ipcacheRevision uint64) {
-	res = n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL, caches...)
+func (n *manager) updateDNSIPs(dnsName string, lookupIPs *fqdn.DNSIPRecords, caches ...*fqdn.DNSCache) (res fqdn.UpdateStatus, ipcacheRevision uint64) {
+	res = n.updateIPsForName(dnsName, lookupIPs.IPs, caches...)
 
 	// The IPs didn't change. No more to be done for this dnsName
 	if !res.Upserted && n.bootstrapCompleted {
@@ -299,11 +302,12 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 	return res, ipcacheRevision
 }
 
-// updateIPsName will update the IPs for dnsName. It always retains a copy of
-// newIPs.
-// upserted is true when the new IPs differ from the old IPs
-func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, caches ...*fqdn.DNSCache) fqdn.UpdateStatus {
-	return n.cache.Update(lookupTime, dnsName, newIPs, ttl, caches...)
+// updateIPsForName accumulates IPs for dnsName and records the endpoint caches
+// that supplied them. The caller must hold the manager lock.
+func (n *manager) updateIPsForName(dnsName string, newIPs []netip.Addr, caches ...*fqdn.DNSCache) fqdn.UpdateStatus {
+	n.updatedCaches.Insert(caches...)
+	changed := n.cache.add(dnsName, newIPs...)
+	return fqdn.UpdateStatus{Updated: changed, Upserted: changed}
 }
 
 func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {
@@ -358,16 +362,18 @@ func (n *manager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcach
 
 // maybeRemoveMetadata removes the ipcache metadata from every (name, IP) pair
 // in maybeRemoved, as long as that (name, IP) is not still in the dns cache.
-func (n *manager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) {
+func (n *manager) maybeRemoveMetadata(maybeRemoved map[string]set.Set[netip.Addr]) {
 	// Need to take an RLock here so that no DNS updates are processed.
 	// Otherwise, we might accidentally remove an IP that is newly inserted.
 	n.RWMutex.RLock()
 	defer n.RWMutex.RUnlock()
 
-	n.cache.RemoveKnown(maybeRemoved)
 	ipCacheUpdates := make([]ipcache.MU, 0, len(maybeRemoved))
-	for ip, names := range maybeRemoved {
-		for _, name := range names {
+	for name, ips := range maybeRemoved {
+		for ip := range ips.Members() {
+			if n.cache.has(name, ip) {
+				continue
+			}
 			ipCacheUpdates = append(ipCacheUpdates, ipcache.MU{
 				Prefix:   cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(ip, ip.BitLen())),
 				Source:   source.Generated,
@@ -454,7 +460,7 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 	// lookup matching DNS names
 	if len(fqdnSelector.MatchName) > 0 {
 		dnsName := prepareMatchName(fqdnSelector.MatchName)
-		lookupIPs := n.cache.Lookup(dnsName)
+		lookupIPs := n.cache.lookup(dnsName)
 		if len(lookupIPs) > 0 {
 			n.logger.Debug(
 				"Emitting matching DNS Name -> IPs for FQDNSelector",
@@ -479,9 +485,7 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 			n.logger.Error("Error compiling matchPattern", logfields.Error, err)
 			return namesIPMapping
 		}
-		lookupIPs := n.cache.LookupByRegexp(patternRE)
-
-		for dnsName, ips := range lookupIPs {
+		for dnsName, ips := range n.cache.lookupByRegexp(patternRE) {
 			if len(ips) > 0 {
 				n.logger.Debug(
 					"Emitting matching DNS Name -> IPs for FQDNSelector",

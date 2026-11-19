@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/option"
@@ -1627,4 +1628,92 @@ func TestZombiesGracePeriod(t *testing.T) {
 	alive, dead := zombies.GC()
 	require.Empty(t, alive)
 	assertZombiesContain(t, dead, map[string][]string{"1.1.1.1": {"test.com"}})
+}
+
+func TestRemoveKnown(t *testing.T) {
+	ips := []netip.Addr{
+		netip.MustParseAddr("192.0.2.1"),
+		netip.MustParseAddr("192.0.2.2"),
+		netip.MustParseAddr("2001:db8::1"),
+	}
+	cache := NewDNSCache(0)
+	now := time.Now()
+	cache.Update(now, "known.", ips[:2], 3600)
+	cache.Update(now, "other.", ips[:1], 3600)
+	tests := []struct {
+		name       string
+		candidates map[string]set.Set[netip.Addr]
+		want       map[string]set.Set[netip.Addr]
+	}{
+		{
+			name:       "fewer candidate names and IPs",
+			candidates: map[string]set.Set[netip.Addr]{"known.": set.NewSet(ips[0])},
+			want:       map[string]set.Set[netip.Addr]{},
+		},
+		{
+			name:       "remove remaining IP after shrinking to singleton",
+			candidates: map[string]set.Set[netip.Addr]{"known.": set.NewSet(ips[:2]...)},
+			want:       map[string]set.Set[netip.Addr]{},
+		},
+		{
+			name:       "equal IP counts with partial overlap",
+			candidates: map[string]set.Set[netip.Addr]{"known.": set.NewSet(ips[0], ips[2])},
+			want:       map[string]set.Set[netip.Addr]{"known.": set.NewSet(ips[2])},
+		},
+		{
+			name: "equal IP counts without overlap",
+			candidates: map[string]set.Set[netip.Addr]{
+				"known.": set.NewSet(ips[2], netip.MustParseAddr("2001:db8::2")),
+			},
+			want: map[string]set.Set[netip.Addr]{
+				"known.": set.NewSet(ips[2], netip.MustParseAddr("2001:db8::2")),
+			},
+		},
+		{
+			name:       "fewer candidate names and more IPs",
+			candidates: map[string]set.Set[netip.Addr]{"known.": set.NewSet(ips...)},
+			want:       map[string]set.Set[netip.Addr]{"known.": set.NewSet(ips[2])},
+		},
+		{
+			name: "more candidate names and fewer IPs",
+			candidates: map[string]set.Set[netip.Addr]{
+				"known.":   set.NewSet(ips[0]),
+				"other.":   set.NewSet(ips[1]),
+				"missing.": set.NewSet(ips[0]),
+			},
+			want: map[string]set.Set[netip.Addr]{
+				"other.":   set.NewSet(ips[1]),
+				"missing.": set.NewSet(ips[0]),
+			},
+		},
+		{
+			name: "more candidate names and IPs",
+			candidates: map[string]set.Set[netip.Addr]{
+				"known.":   set.NewSet(ips...),
+				"other.":   set.NewSet(ips[:2]...),
+				"missing.": set.NewSet(ips[0]),
+			},
+			want: map[string]set.Set[netip.Addr]{
+				"known.":   set.NewSet(ips[2]),
+				"other.":   set.NewSet(ips[1]),
+				"missing.": set.NewSet(ips[0]),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache.RemoveKnown(tt.candidates)
+			require.Equal(t, tt.want, tt.candidates)
+			require.ElementsMatch(t, ips[:2], cache.Lookup("known."))
+			require.Equal(t, ips[:1], cache.Lookup("other."))
+
+			// Another endpoint can rule out the remaining candidates.
+			other := NewDNSCache(0)
+			for name, addresses := range tt.want {
+				other.Update(now, name, addresses.AsSlice(), 3600)
+			}
+			other.RemoveKnown(tt.candidates)
+			require.Empty(t, tt.candidates)
+		})
+	}
 }

@@ -16,6 +16,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -560,22 +561,42 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 	return names
 }
 
-// RemoveKnown removes all ip-name associations from mappings which are known to
-// the cache.
-func (c *DNSCache) RemoveKnown(mappings map[netip.Addr][]string) {
+// RemoveKnown removes name/IP pairs present in the cache from mappings,
+// deleting names with no remaining candidates. The cache is not modified.
+// The caller must own the candidate sets, which are modified in place.
+func (c *DNSCache) RemoveKnown(mappings map[string]set.Set[netip.Addr]) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	for ip, names := range mappings {
-		rnames, exists := c.reverse[ip]
-		if !exists || len(rnames) == 0 {
-			continue
+	remove := func(name string, candidates set.Set[netip.Addr], entries ipEntries) {
+		changed := false
+		if candidates.Len() <= len(entries) {
+			for ip := range candidates.Members() {
+				if _, exists := entries[ip]; exists {
+					changed = candidates.Remove(ip) || changed
+				}
+			}
+		} else {
+			for ip := range entries {
+				changed = candidates.Remove(ip) || changed
+			}
 		}
-
-		mappings[ip] = slices.DeleteFunc(names, func(name string) bool {
-			_, ok := rnames[name]
-			return ok
-		})
+		if candidates.Empty() {
+			delete(mappings, name)
+		} else if changed {
+			mappings[name] = candidates
+		}
+	}
+	if len(c.forward) < len(mappings) {
+		for name, entries := range c.forward {
+			if candidates, exists := mappings[name]; exists {
+				remove(name, candidates, entries)
+			}
+		}
+	} else {
+		for name, candidates := range mappings {
+			remove(name, candidates, c.forward[name])
+		}
 	}
 }
 

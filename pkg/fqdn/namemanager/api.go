@@ -61,24 +61,18 @@ func (n *manager) model() *models.NameManager {
 // endpointID may be "" in order to get DNS history for all endpoints.
 func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
 	if source == DNSSourceGlobal {
+		n.RLock()
+		defer n.RUnlock()
 		globalSourceEntries := []*models.DNSLookup{}
-		for _, lookup := range n.cache.Dump() {
-			// The API model needs strings
-			IPStrings := make([]string, 0, len(lookup.IPs))
-
-			for _, ip := range lookup.IPs {
-				IPStrings = append(IPStrings, ip.String())
+		for name, addresses := range n.cache.all() {
+			for _, ip := range addresses {
+				globalSourceEntries = append(globalSourceEntries, &models.DNSLookup{
+					Fqdn:       name,
+					Ips:        []string{ip.String()},
+					EndpointID: 0,
+					Source:     DNSSourceGlobal,
+				})
 			}
-
-			globalSourceEntries = append(globalSourceEntries, &models.DNSLookup{
-				Fqdn:           lookup.Name,
-				Ips:            IPStrings,
-				LookupTime:     strfmt.DateTime(lookup.LookupTime),
-				TTL:            int64(lookup.TTL),
-				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
-				EndpointID:     0,
-				Source:         DNSSourceGlobal,
-			})
 		}
 		return globalSourceEntries, nil
 	}
@@ -170,34 +164,40 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 		}
 	}
 
-	maybeStaleIPs := n.cache.GetIPs()
-
-	// Clear any to-delete entries globally
-	// Clear any to-delete entries in each endpoint, then update globally to
-	// insert any entries that now should be in the global cache (because they
-	// provide an IP at the latest expiration time).
-	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
-	for _, ep := range n.params.EPMgr.GetEndpoints() {
-		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
-		n.cache.UpdateFromCache(ep.DNSHistory)
-
-		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
-		activeConnections := fqdn.NewDNSCache(0)
+	endpoints := n.params.EPMgr.GetEndpoints()
+	activeConnections := newNameIPSet()
+	for _, ep := range endpoints {
+		affectedNames := ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)
+		affectedNames.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		zombies, dead := ep.DNSZombies.GC()
-		lookupTime := time.Now()
 		for _, zombie := range zombies {
 			for name := range zombie.Names {
-				namesToRegen.Insert(name)
-				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
+				activeConnections.add(name, zombie.IP)
 			}
 		}
-		n.cache.UpdateFromCache(activeConnections)
 
 		// Persist the changes made to DNS{History, Zombies} for the endpoint.
-		if len(namesToRegen) > 0 || len(dead) > 0 {
+		if len(affectedNames) > 0 || len(dead) > 0 {
 			ep.SyncEndpointHeaderFile()
 		}
 	}
+	n.Lock()
+	namesToRegen := n.cache.names()
+	if nameMatcher != nil {
+		for name := range namesToRegen {
+			if !nameMatcher.MatchString(name) {
+				namesToRegen.Delete(name)
+			}
+		}
+	}
+	for _, ep := range endpoints {
+		n.updatedCaches.Insert(ep.DNSHistory)
+	}
+	for cache := range n.updatedCaches {
+		cache.ForceExpire(expireLookupsBefore, nameMatcher)
+	}
+	maybeStaleIPs := n.removeStaleIPs(namesToRegen, &activeConnections)
+	n.Unlock()
 
 	// We may have removed entries; remove them from the ipcache metadata layer
 	n.maybeRemoveMetadata(maybeStaleIPs)
