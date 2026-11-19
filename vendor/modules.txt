@@ -401,7 +401,7 @@ github.com/cilium/lumberjack/v2
 # github.com/cilium/proxy v0.0.0-20261020105557-fd18fd552619
 ## explicit; go 1.26.4
 github.com/cilium/proxy/go/cilium/api
-# github.com/cilium/statedb v0.9.4
+# github.com/cilium/statedb v0.9.5
 ## explicit; go 1.25.0
 github.com/cilium/statedb
 github.com/cilium/statedb/index

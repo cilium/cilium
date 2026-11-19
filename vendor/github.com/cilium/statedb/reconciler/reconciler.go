@@ -44,30 +44,32 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 	// Create the change iterator to watch for inserts and deletes to the table.
 	wtxn := r.DB.WriteTxn(r.config.Table)
 	changeIterator, err := r.config.Table.Changes(wtxn)
-	txn := wtxn.Commit()
+	startTxn := wtxn.Commit()
 	if err != nil {
 		return fmt.Errorf("watching for changes failed: %w", err)
 	}
 	defer changeIterator.Close()
 
-	tableWatchChan := closedWatchChannel
+	var (
+		tableWatchChan       = closedWatchChannel
+		pruneRequested       = false
+		initialSetReconciled = false
+		initialTxn           statedb.ReadTxn
 
-	externalPrune := false
-
-	tableInitialized := false
-	_, tableInitWatch := r.config.Table.Initialized(txn)
-
-	incremental := incremental[Obj]{
-		moduleID:       r.ModuleID,
-		name:           r.config.Name,
-		metrics:        r.config.Metrics,
-		config:         &r.config,
-		retries:        r.retries,
-		primaryIndexer: r.primaryIndexer,
-		db:             r.DB,
-		table:          r.config.Table,
-		results:        make(map[Obj]opResult),
-	}
+		incremental = incremental[Obj]{
+			moduleID:       r.ModuleID,
+			name:           r.config.Name,
+			metrics:        r.config.Metrics,
+			config:         &r.config,
+			retries:        r.retries,
+			primaryIndexer: r.primaryIndexer,
+			db:             r.DB,
+			table:          r.config.Table,
+			results:        make(map[Obj]opResult),
+			lastRevision:   0,
+		}
+	)
+	_, tableInitWatch := r.config.Table.Initialized(startTxn)
 
 	for {
 		// Throttle a bit before reconciliation to allow for a bigger batch to arrive and
@@ -75,8 +77,6 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 		if err := r.config.RateLimiter.Wait(ctx); err != nil {
 			return err
 		}
-
-		prune := false
 
 		// Wait for trigger
 		select {
@@ -87,34 +87,62 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 		case <-tableWatchChan:
 			// Table has changed
 		case <-tableInitWatch:
-			tableInitialized = true
-			tableInitWatch = nil
-
-			// Do an immediate pruning now as the table has finished
-			// initializing and pruning is enabled.
-			prune = r.config.PruneInterval != 0
+			// Table has been initialized
 		case <-pruneTickerChan:
-			prune = true
+			pruneRequested = true
 		case <-r.externalPruneTrigger:
-			externalPrune = true
+			pruneRequested = true
 		}
 
-		// Grab a new snapshot and refresh the changes iterator to read
-		// in the new changes.
-		txn = r.DB.ReadTxn()
+		// Pin the snapshot when initialization is observed and drain it across
+		// rounds. Otherwise concurrent writes could move initial objects past
+		// the revision being reconciled and allow pruning before their first attempt.
+		txn := initialTxn
+		if txn == nil {
+			txn = r.DB.ReadTxn()
+			if !initialSetReconciled {
+				if initialized, _ := r.config.Table.Initialized(txn); initialized {
+					// Table has become initialized. Keep processing this snapshot
+					// until we've done enough rounds to exhaust it and we can
+					// perform the initial pruning.
+					initialTxn = txn
+					tableInitWatch = nil
+					pruneRequested = pruneRequested || r.config.PruneInterval != 0
+				}
+			}
+		}
 		var changes iter.Seq2[statedb.Change[Obj], statedb.Revision]
 		changes, tableWatchChan = changeIterator.Next(txn)
+		if initialTxn != nil {
+			// Wrap 'changes' to track when we've processed all changes in the
+			// snapshot after table initialization.
+			seq := changes
+			changes = func(yield func(statedb.Change[Obj], statedb.Revision) bool) {
+				for change, rev := range seq {
+					if !yield(change, rev) {
+						return
+					}
+				}
+				initialSetReconciled = true
+			}
+		}
 
 		// Perform incremental reconciliation and retries of previously failed
 		// objects.
-		errs, lastRevision, retryLowWatermark := incremental.run(ctx, txn, changes)
-		r.progress.update(lastRevision, retryLowWatermark)
+		errs, retryLowWatermark := incremental.run(ctx, txn, changes)
+		r.progress.update(incremental.lastRevision, retryLowWatermark)
 
-		if tableInitialized && (prune || externalPrune) {
-			if err := r.prune(ctx, txn); err != nil {
-				errs = append(errs, err)
+		if initialSetReconciled {
+			// Prune if it's requested and we've attempted reconciliation of all objects
+			// in the initial snapshot. Use that same snapshot for the initial prune
+			// so it does not include newer objects that have not been attempted yet.
+			if pruneRequested {
+				if err := r.prune(ctx, txn); err != nil {
+					errs = append(errs, err)
+				}
+				pruneRequested = false
 			}
-			externalPrune = false
+			initialTxn = nil
 		}
 
 		if len(errs) == 0 {
