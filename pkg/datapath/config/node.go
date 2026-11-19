@@ -222,5 +222,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableEgressGateway = option.Config.EnableEgressGateway
 
+	node.EnableActiveConnectionTracking = lnc.EnableActiveConnectionTracking
+
 	return node
 }

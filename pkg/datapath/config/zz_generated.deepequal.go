@@ -246,6 +246,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnableMulticast != other.EnableMulticast {
 		return false
 	}
+	if in.EnableActiveConnectionTracking != other.EnableActiveConnectionTracking {
+		return false
+	}
 
 	return true
 }

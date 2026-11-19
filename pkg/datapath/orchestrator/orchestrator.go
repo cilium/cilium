@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -146,6 +147,7 @@ type orchestratorParams struct {
 	ConnectorConfig     connector.Config
 	PluginRegistry      plugin.Registry
 	MulticastConfig     multicast.Config
+	ACTConfig           act.Config
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -317,6 +319,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				o.params.ConnectorConfig,
 				o.params.PluginRegistry.Plugins(),
 				o.params.MulticastConfig.MulticastEnabled,
+				o.params.ACTConfig.EnableActiveConnectionTracking,
 			)
 			if err != nil {
 				health.Degraded("failed to get local node configuration", err)
