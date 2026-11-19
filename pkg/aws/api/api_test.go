@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 type Filters []ec2_types.Filter
@@ -312,4 +313,149 @@ func TestParseENIIPv6(t *testing.T) {
 			assert.Equal(t, tt.want, eni.IPv6.String())
 		})
 	}
+}
+
+func TestParseVPCIPv6CIDRs(t *testing.T) {
+	type assoc struct {
+		cidr  *string
+		state *ec2_types.VpcCidrBlockStateCode
+	}
+	associated := ec2_types.VpcCidrBlockStateCodeAssociated
+	associating := ec2_types.VpcCidrBlockStateCodeAssociating
+	disassociated := ec2_types.VpcCidrBlockStateCodeDisassociated
+
+	newVPC := func(assocs []assoc) ec2_types.Vpc {
+		v := ec2_types.Vpc{VpcId: aws.String("vpc-1")}
+		for i, a := range assocs {
+			entry := ec2_types.VpcIpv6CidrBlockAssociation{
+				AssociationId: aws.String("vpc-cidr-assoc-" + string(rune('a'+i))),
+				Ipv6CidrBlock: a.cidr,
+			}
+			if a.state != nil {
+				entry.Ipv6CidrBlockState = &ec2_types.VpcCidrBlockState{State: *a.state}
+			}
+			v.Ipv6CidrBlockAssociationSet = append(v.Ipv6CidrBlockAssociationSet, entry)
+		}
+		return v
+	}
+
+	tests := []struct {
+		name      string
+		assocs    []assoc
+		want      []string
+		wantError bool
+	}{
+		{
+			name: "no association",
+		},
+		{
+			name: "multiple active associations are masked, deduplicated and sorted",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String("2600:1f14:1111:2200::1/56"), state: &associated},
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String("2600:1f14:1111:2200::/64"), state: &associated},
+			},
+			want: []string{"2600:1f14:1111:2200::/56", "2600:1f14:1111:2200::/64", "2600:1f14:abcd:ef00::/56"},
+		},
+		{
+			name: "associations without state or not associated are skipped",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String("2600:1f14:1111:2200::/56")},
+				{cidr: aws.String("2600:1f14:2222:3300::/56"), state: &associating},
+				{cidr: aws.String("2600:1f14:3333:4400::/56"), state: &disassociated},
+				// Skipped entries are not validated.
+				{cidr: aws.String("not-a-cidr"), state: &disassociated},
+			},
+			want: []string{"2600:1f14:abcd:ef00::/56"},
+		},
+		{
+			name: "a nil CIDR is an error",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{state: &associated},
+			},
+			wantError: true,
+		},
+		{
+			name: "an empty CIDR is an error",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String(""), state: &associated},
+			},
+			wantError: true,
+		},
+		{
+			name: "a malformed CIDR is an error",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String("2600:1f14::/129"), state: &associated},
+			},
+			wantError: true,
+		},
+		{
+			name: "an IPv4 CIDR is an error",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String("10.0.0.0/16"), state: &associated},
+			},
+			wantError: true,
+		},
+		{
+			name: "an IPv4-mapped CIDR is an error",
+			assocs: []assoc{
+				{cidr: aws.String("2600:1f14:abcd:ef00::/56"), state: &associated},
+				{cidr: aws.String("::ffff:10.0.0.0/112"), state: &associated},
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseVPCIPv6CIDRs(newVPC(tt.assocs))
+			if tt.wantError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "vpc-cidr-assoc-b")
+				require.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+
+			var want []iputil.Prefix
+			for _, s := range tt.want {
+				want = append(want, iputil.PrefixFrom(netip.MustParsePrefix(s)))
+			}
+			require.Equal(t, want, got)
+		})
+	}
+}
+
+func TestParseENIVPCIPv6CIDRs(t *testing.T) {
+	vpcs := ipamTypes.VirtualNetworkMap{
+		"vpc-1": {
+			ID:          "vpc-1",
+			PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("192.168.0.0/16")),
+			IPv6CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("2600:1f14:1111:2200::/56")),
+				iputil.PrefixFrom(netip.MustParsePrefix("2600:1f14:abcd:ef00::/56")),
+			},
+		},
+	}
+	iface := &ec2_types.NetworkInterface{
+		PrivateIpAddress: aws.String("192.168.1.1"),
+		VpcId:            aws.String("vpc-1"),
+	}
+
+	_, eni, err := parseENI(iface, vpcs, nil)
+	require.NoError(t, err)
+	require.Equal(t, []iputil.Prefix{
+		iputil.PrefixFrom(netip.MustParsePrefix("2600:1f14:1111:2200::/56")),
+		iputil.PrefixFrom(netip.MustParsePrefix("2600:1f14:abcd:ef00::/56")),
+	}, eni.VPC.IPv6CIDRs)
+
+	// The ENI status must not alias the shared VPC inventory.
+	vpcs["vpc-1"].IPv6CIDRs[0] = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8::/56"))
+	require.Equal(t, iputil.PrefixFrom(netip.MustParsePrefix("2600:1f14:1111:2200::/56")), eni.VPC.IPv6CIDRs[0])
 }

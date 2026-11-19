@@ -30,6 +30,7 @@ import (
 	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	routingReconciler "github.com/cilium/cilium/pkg/datapath/linux/routing/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -157,6 +158,7 @@ func TestPrivilegedScript(t *testing.T) {
 					func() *ipmasq.IPMasqAgent { return nil },
 					func() mtu.MTU { return &mtuFake.MTU{} },
 					func() sysctl.Sysctl { return &sysctlFake.Sysctl{} },
+					func() ipsecTypes.Config { return fakeipsec.Config{} },
 					func() monitorAgent.Agent { return &testmonitor.TestMonitorAgent{} },
 					func() promise.Promise[endpointstate.Restorer] { return restorerPromise },
 					datapathTables.NewDeviceTable,

@@ -33,6 +33,10 @@ import (
 // If the native routing CIDR is already configured (via Helm or CLI), this
 // validates that the configured value contains the VPC CIDR.
 //
+// With IPsec and IPv6 enabled, it additionally waits until an IPv6 encryption
+// scope is known (see ipv6EncryptionScopeReady): without it, IPsec installs no
+// IPv6 OUT policies or states and remote pod IPv6 traffic is dropped.
+//
 // The returned channel is closed once the native routing CIDR has been
 // determined. Callers must wait on it before programming the datapath,
 // otherwise masquerade exclusion may be configured against an empty CIDR.
@@ -45,6 +49,7 @@ func startNativeRoutingCIDRSync(
 	nodeResource agentK8s.LocalCiliumNodeResource,
 	localNodeStore *node.LocalNodeStore,
 	conf *option.DaemonConfig,
+	ipsecEnabled bool,
 ) <-chan struct{} {
 	ready := make(chan struct{})
 	var once sync.Once
@@ -72,15 +77,32 @@ func startNativeRoutingCIDRSync(
 				// Status.ENI.ENIs[].VPC.PrimaryCIDR with a valid value.
 				// An invalid PrimaryCIDR (operator hasn't written yet) is
 				// treated as a transient absence.
-				primaryCIDR, secondaryCIDRs := deriveVPCCIDRs(ev.Object)
-				if !primaryCIDR.IsValid() {
+				vpc := deriveVPCCIDRs(ev.Object)
+				if !vpc.primary.IsValid() {
 					return nil
 				}
 
-				var err error
+				// Checked before consuming once or mutating the local node: a
+				// missing IPv6 encryption scope is retried on later Upserts.
+				scopeReady, err := ipv6EncryptionScopeReady(ipsecEnabled, conf, vpc)
+				if err != nil {
+					return err
+				}
+				if !scopeReady {
+					return nil
+				}
+
+				if vpc.multipleVPCs {
+					logger.Warn("ENIs of the node belong to several VPCs, only using the CIDRs of one of them",
+						logfields.VPCCIDR, vpc.primary,
+					)
+				}
+
 				once.Do(func() {
-					err = autoDetectNativeRoutingCIDR(logger, primaryCIDR, secondaryCIDRs, localNodeStore, conf)
-					close(ready)
+					err = autoDetectNativeRoutingCIDR(logger, vpc, localNodeStore, conf)
+					if err == nil {
+						close(ready)
+					}
 				})
 				return err
 			},
@@ -89,6 +111,37 @@ func startNativeRoutingCIDRSync(
 		),
 	)
 	return ready
+}
+
+// ipv6EncryptionScopeReady reports whether the IPv6 subnets pod IPs are
+// allocated from are known, which IPsec needs to build its IPv6 XFRM OUT
+// policies under ENI (there is no node PodCIDR). It is always ready unless both
+// IPsec and IPv6 are enabled.
+//
+// An explicit --ipv6-pod-subnets overrides the derived subnets and therefore
+// satisfies the requirement on its own, provided all its entries are native
+// IPv6 prefixes. Otherwise, a configured IPv6 native routing CIDR or the IPv6
+// CIDR associations of the VPC are required.
+func ipv6EncryptionScopeReady(ipsecEnabled bool, conf *option.DaemonConfig, vpc vpcCIDRs) (bool, error) {
+	if !ipsecEnabled || !conf.EnableIPv6 {
+		return true, nil
+	}
+
+	if len(conf.IPv6PodSubnets) > 0 {
+		for _, p := range conf.IPv6PodSubnets {
+			if !isNativeIPv6Prefix(p) {
+				return false, fmt.Errorf("configured --%s entry %s is not a valid IPv6 prefix, but IPsec uses it as the IPv6 encryption scope",
+					option.IPv6PodSubnets, p)
+			}
+		}
+		return true, nil
+	}
+
+	return isNativeIPv6Prefix(conf.IPv6NativeRoutingCIDR) || len(vpc.ipv6) > 0, nil
+}
+
+func isNativeIPv6Prefix(p netip.Prefix) bool {
+	return p.IsValid() && p.Addr().Is6() && !p.Addr().Is4In6()
 }
 
 // autoDetectNativeRoutingCIDR either validates an existing native routing
@@ -103,11 +156,11 @@ func startNativeRoutingCIDRSync(
 // see the masquerading note on startNativeRoutingCIDRSync.
 func autoDetectNativeRoutingCIDR(
 	logger *slog.Logger,
-	primaryCIDR netip.Prefix,
-	secondaryCIDRs []netip.Prefix,
+	vpc vpcCIDRs,
 	localNodeStore *node.LocalNodeStore,
 	conf *option.DaemonConfig,
 ) error {
+	primaryCIDR, secondaryCIDRs := vpc.primary, vpc.secondary
 	podSubnets := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
 	autodetected := false
 
@@ -136,9 +189,12 @@ func autoDetectNativeRoutingCIDR(
 		autodetected = true
 	}
 
-	// There is no IPv6 VPC CIDR to autodetect: AwsVPC only carries the IPv4
-	// CIDR block associations, so the only IPv6 pod subnet that can ever be
-	// known is the operator-supplied one.
+	// The IPv6 CIDR associations of the VPC are only recorded as pod subnets
+	// (the IPv6 encryption scope), not as the IPv6 native routing CIDR, which
+	// is never autodetected.
+	if conf.EnableIPv6 {
+		podSubnets = append(podSubnets, vpc.ipv6...)
+	}
 	if nativeCIDR := conf.IPv6NativeRoutingCIDR; nativeCIDR.IsValid() {
 		podSubnets = append(podSubnets, nativeCIDR)
 	}
@@ -152,24 +208,74 @@ func autoDetectNativeRoutingCIDR(
 	return nil
 }
 
+// vpcCIDRs are the CIDRs of the VPC of the node, as reported in the ENI status.
+type vpcCIDRs struct {
+	// primary is the VPC primary IPv4 CIDR. It is the zero prefix when no ENI
+	// has populated it yet.
+	primary netip.Prefix
+
+	// secondary are the secondary IPv4 CIDR associations of the VPC.
+	secondary []netip.Prefix
+
+	// ipv6 are the IPv6 CIDR associations of the VPC, masked, deduplicated and
+	// sorted.
+	ipv6 []netip.Prefix
+
+	// multipleVPCs is set when ENIs of the node report another VPC ID.
+	multipleVPCs bool
+}
+
 // deriveVPCCIDRs extracts the VPC primary CIDR and the secondary CIDR
-// associations from the first ENI in the CiliumNode status. All ENIs on a node
-// belong to the same VPC, so any ENI can be used.
+// associations from the first ENI in the CiliumNode status with a valid primary
+// CIDR. All ENIs on a node are expected to belong to the same VPC, so any ENI
+// can be used. The IPv6 CIDR associations are collected from all ENIs of that
+// same VPC, so that an ENI whose IPv6 metadata is not populated yet does not
+// hide the IPv6 associations reported on another one.
 //
-// Returns the zero netip.Prefix when no ENI has populated PrimaryCIDR yet
-// (transient startup state).
-func deriveVPCCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR netip.Prefix, secondaryCIDRs []netip.Prefix) {
+// Returns the zero value when no ENI has populated PrimaryCIDR yet (transient
+// startup state).
+func deriveVPCCIDRs(node *ciliumv2.CiliumNode) vpcCIDRs {
+	var (
+		res   vpcCIDRs
+		vpcID string
+	)
 	for _, eni := range node.Status.ENI.ENIs {
 		if !eni.VPC.PrimaryCIDR.IsValid() {
 			continue
 		}
-		primaryCIDR = eni.VPC.PrimaryCIDR.Masked()
+		vpcID = eni.VPC.ID
+		res.primary = eni.VPC.PrimaryCIDR.Masked()
 		for _, c := range eni.VPC.CIDRs {
 			if c.IsValid() {
-				secondaryCIDRs = append(secondaryCIDRs, c.Masked())
+				res.secondary = append(res.secondary, c.Masked())
 			}
 		}
-		return primaryCIDR, secondaryCIDRs
+		break
 	}
-	return netip.Prefix{}, nil
+	if !res.primary.IsValid() {
+		return vpcCIDRs{}
+	}
+
+	for _, eni := range node.Status.ENI.ENIs {
+		if eni.VPC.ID != vpcID {
+			if eni.VPC.ID != "" {
+				res.multipleVPCs = true
+			}
+			continue
+		}
+		for _, c := range eni.VPC.IPv6CIDRs {
+			if isNativeIPv6Prefix(c.Prefix) {
+				res.ipv6 = append(res.ipv6, c.Masked())
+			}
+		}
+	}
+	slices.SortFunc(res.ipv6, func(a, b netip.Prefix) int {
+		if c := a.Addr().Compare(b.Addr()); c != 0 {
+			return c
+		}
+		return a.Bits() - b.Bits()
+	})
+	res.ipv6 = slices.Compact(res.ipv6)
+
+	return res
 }

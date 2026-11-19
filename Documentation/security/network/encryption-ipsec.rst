@@ -147,6 +147,17 @@ interface as follows:
 
            --set encryption.ipsec.interface=ethX
 
+ENI IPAM with IPv6
+------------------
+
+With ENI IPAM and IPv6 enabled, the IPv6 encryption scope is derived from the
+IPv6 CIDR blocks associated with the VPC, which cilium-operator publishes in
+the ``ipv6-cidrs`` field of the CiliumNode ENI status. Upgrade the CiliumNode
+CRD and cilium-operator before the agents, or set ``--ipv6-pod-subnets`` to
+IPv6 subnets covering the pods of all nodes. Agents block at startup until an
+IPv6 scope is known, and fail after five minutes. Changes to the VPC CIDR
+blocks after an agent started require a rolling restart of the agents.
+
 Validate the Setup
 ==================
 
