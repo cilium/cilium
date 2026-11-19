@@ -47,7 +47,7 @@ func (t *TLSRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condit
 func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range t.TLSRoute.Status.RouteStatus.Parents {
-		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+		if string(parent.ControllerName) == t.ControllerName && reflect.DeepEqual(parent.ParentRef, parentRef) {
 			index = i
 			break
 		}
