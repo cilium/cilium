@@ -122,6 +122,16 @@ func determinePoolByAnnotations(annotations map[string]string, family ipam.Famil
 	return "", false
 }
 
+func validatePoolName(pool string) error {
+	errs := validation.IsDNS1123Subdomain(pool)
+	if len(errs) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("pool name %q is not a valid CiliumPodIPPool name: %s", pool, strings.Join(errs, "; "))
+
+}
+
 func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
 	if !m.poolsSynced.Load() {
 		return "", ErrManagerPoolsNotSynced
@@ -146,6 +156,9 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 	if !found {
 		return "", &ResourceNotFound{Resource: "Pod", Namespace: namespace, Name: name}
 	} else if ippool, ok := determinePoolByAnnotations(pod.Annotations, family); ok {
+		if err := validatePoolName(ippool); err != nil {
+			return "", fmt.Errorf("invalid IPAM pool annotation on pod %s: %w", owner, err)
+		}
 		m.logger.Debug("pool selector: found pool by pod annotation",
 			logfields.Owner, owner,
 			logfields.K8sNamespace, namespace,
@@ -164,6 +177,9 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 		)
 		return "", &ResourceNotFound{Resource: "Namespace", Name: namespace}
 	} else if ippool, ok := determinePoolByAnnotations(podNamespace.Annotations, family); ok {
+		if err := validatePoolName(ippool); err != nil {
+			return "", fmt.Errorf("invalid IPAM pool annotation on namespace %s: %w", namespace, err)
+		}
 		m.logger.Debug("pool selector: found pool by namespace annotation",
 			logfields.Owner, owner,
 			logfields.K8sNamespace, namespace,

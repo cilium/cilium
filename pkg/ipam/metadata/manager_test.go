@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -208,6 +210,195 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 			}
 			if gotPool != tt.wantPool {
 				t.Errorf("GetIPPoolForPod() gotPool = %v, want %v", gotPool, tt.wantPool)
+			}
+		})
+	}
+
+	txn = db.WriteTxn(pods, namespaces)
+
+	pods.Insert(txn, newPod("default", "uppercase", map[string]string{
+		annotation.IPAMPoolKey: "Test-pool",
+	}))
+	pods.Insert(txn, newPod("default", "underscore", map[string]string{
+		annotation.IPAMPoolKey: "test_pool",
+	}))
+	pods.Insert(txn, newPod("default", "slash", map[string]string{
+		annotation.IPAMPoolKey: "test/pool",
+	}))
+	pods.Insert(txn, newPod("default", "space", map[string]string{
+		annotation.IPAMPoolKey: "test pool",
+	}))
+	pods.Insert(txn, newPod("default", "non-ascii", map[string]string{
+		annotation.IPAMPoolKey: "p\u00f6\u00f6l",
+	}))
+
+	pods.Insert(txn, newPod("default", "leading-hyphen", map[string]string{
+		annotation.IPAMPoolKey: "-testpool",
+	}))
+	pods.Insert(txn, newPod("default", "trailing-hyphen", map[string]string{
+		annotation.IPAMPoolKey: "testpool-",
+	}))
+
+	pods.Insert(txn, newPod("default", "too-long",
+		map[string]string{
+			annotation.IPAMPoolKey: strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1),
+		}))
+
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "uppercase",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "Test-pool",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "underscore",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "test_pool",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "slash",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "test/pool",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "space",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "test pool",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "non-ascii",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "p\u00f6\u00f6l",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "leading-hyphen",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "-testpool",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "trailing-hyphen",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: "testpool-",
+			},
+		})
+	namespaces.Insert(
+		txn,
+		k8sTables.Namespace{
+			Name: "too-long",
+			Annotations: map[string]string{
+				annotation.IPAMPoolKey: strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1),
+			},
+		})
+	for _, namespace := range []string{
+		"too-long",
+		"uppercase",
+		"underscore",
+		"slash",
+		"space",
+		"non-ascii",
+		"leading-hyphen",
+		"trailing-hyphen",
+	} {
+		pods.Insert(txn, newPod(namespace, "workload", nil))
+	}
+
+	txn.Commit()
+
+	validationTests := []struct {
+		name  string
+		owner string
+	}{
+		{
+			name:  "pod annotation uppercase",
+			owner: "default/uppercase",
+		},
+		{
+			name:  "pod annotation underscore",
+			owner: "default/underscore",
+		},
+		{
+			name:  "pod annotation slash",
+			owner: "default/slash",
+		},
+		{
+			name:  "pod annotation space",
+			owner: "default/space",
+		},
+		{
+			name:  "pod annotation non-ASCII",
+			owner: "default/non-ascii",
+		},
+		{
+			name:  "pod annotation leading hyphen",
+			owner: "default/leading-hyphen",
+		},
+		{
+			name:  "pod annotation trailing hyphen",
+			owner: "default/trailing-hyphen",
+		},
+		{
+			name:  "pod annotation too long",
+			owner: "default/too-long",
+		},
+		{
+			name:  "namespace annotation uppercase",
+			owner: "uppercase/workload",
+		},
+		{
+			name:  "namespace annotation underscore",
+			owner: "underscore/workload",
+		},
+		{
+			name:  "namespace annotation slash",
+			owner: "slash/workload",
+		},
+		{
+			name:  "namespace annotation space",
+			owner: "space/workload",
+		},
+		{
+			name:  "namespace annotation non-ASCII",
+			owner: "non-ascii/workload",
+		},
+		{
+			name:  "namespace annotation leading hyphen",
+			owner: "leading-hyphen/workload",
+		},
+		{
+			name:  "namespace annotation trailing hyphen",
+			owner: "trailing-hyphen/workload",
+		},
+		{
+			name:  "namespace annotation too long",
+			owner: "too-long/workload",
+		},
+	}
+
+	for _, tt := range validationTests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, family := range []ipam.Family{ipam.IPv4, ipam.IPv6} {
+				if _, err := m.GetIPPoolForPod(tt.owner, family); err == nil {
+					t.Errorf("GetIPPoolForPod() error = nil but expected an error for family %v", family)
+				}
 			}
 		})
 	}
