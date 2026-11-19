@@ -257,42 +257,45 @@ func (c *fakeComputer) UpdatePolicy(_ set.Set[identity.NumericIdentity], fromRev
 	c.fromRev, c.toRev = fromRev, toRev
 }
 
-// fakeRepo advances the revision by bumpPerReplace on each ReplaceByResource. A
-// value above one models the repository advancing by more revisions than the
-// import produced, as a BumpRevision from another code path would.
+// fakeRepo advances the revision on each ReplaceByResource, by the next value
+// of bumps, or by one once bumps is exhausted. A value above one models another
+// code path calling BumpRevision during the import.
 type fakeRepo struct {
 	policy.PolicyRepository
-	rev            uint64
-	bumpPerReplace uint64
+	rev   uint64
+	bumps []uint64
 }
 
 func (r *fakeRepo) GetRevision() uint64 { return r.rev }
 
 func (r *fakeRepo) ReplaceByResource(policytypes.PolicyEntries, ipcachetypes.ResourceID) (*set.Set[identity.NumericIdentity], uint64, int) {
-	r.rev += r.bumpPerReplace
+	bump := uint64(1)
+	if len(r.bumps) > 0 {
+		bump, r.bumps = r.bumps[0], r.bumps[1:]
+	}
+	r.rev += bump
 	return &set.Set[identity.NumericIdentity]{}, r.rev, 0
 }
 
-// TestImporterCollapsesAdvanceOnOutsideBump checks that the importer advances
-// revisions it produced, and when another source bumped the revision during
-// the import, collapses the advance range instead of carrying identities
-// across a change it did not make.
-func TestImporterCollapsesAdvanceOnOutsideBump(t *testing.T) {
+// TestImporterAdvancesFromLastOutsideBump checks that the importer advances
+// the identities it didn't affect, and when another source bumped the revision
+// during the import, only from the last revision that source bumped.
+func TestImporterAdvancesFromLastOutsideBump(t *testing.T) {
+	const startRev = 10
 	for _, tc := range []struct {
-		name           string
-		numUpdates     int
-		bumpPerReplace uint64
-		wantCollapsed  bool
+		name     string
+		bumps    []uint64
+		from, to uint64
 	}{
-		{"no outside bump", 1, 1, false},
-		{"outside bump", 1, 2, true},
-		// A batched import produces more than one revision, so the check must
-		// compare against the count it produced, not a hardcoded one.
-		{"batched import, no outside bump", 2, 1, false},
+		{"no outside bump", []uint64{1}, 10, 11},
+		{"outside bump before the import", []uint64{2}, 11, 12},
+		{"batched import, no outside bump", []uint64{1, 1, 1}, 10, 13},
+		{"batched import, outside bump", []uint64{1, 2, 1}, 12, 14},
+		{"batched import, outside bump before the last update", []uint64{1, 1, 2}, 13, 14},
+		{"batched import, several outside bumps", []uint64{2, 1, 3, 1}, 15, 17},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			const startRev = 1
-			repo := &fakeRepo{rev: startRev, bumpPerReplace: tc.bumpPerReplace}
+			repo := &fakeRepo{rev: startRev, bumps: tc.bumps}
 			comp := &fakeComputer{}
 			pi := &Importer{
 				log:                hivetest.Logger(t),
@@ -304,19 +307,14 @@ func TestImporterCollapsesAdvanceOnOutsideBump(t *testing.T) {
 				prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 			}
 
-			updates := make([]*policytypes.PolicyUpdate, tc.numUpdates)
+			updates := make([]*policytypes.PolicyUpdate, len(tc.bumps))
 			for i := range updates {
 				updates[i] = &policytypes.PolicyUpdate{Resource: ipcachetypes.ResourceID(fmt.Sprintf("res-%d", i))}
 			}
 			pi.processUpdates(context.Background(), updates)
 
-			endRev := uint64(startRev) + tc.bumpPerReplace*uint64(tc.numUpdates)
-			require.Equal(t, endRev, comp.toRev)
-			if tc.wantCollapsed {
-				require.Equal(t, comp.toRev, comp.fromRev, "advance range should collapse to a no-op")
-			} else {
-				require.Equal(t, uint64(startRev), comp.fromRev, "advance range should start at the pre-import revision")
-			}
+			require.Equal(t, tc.from, comp.fromRev)
+			require.Equal(t, tc.to, comp.toRev)
 		})
 	}
 }

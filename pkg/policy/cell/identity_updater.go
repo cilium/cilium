@@ -236,7 +236,7 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 		i.logger.Info("Incremental policy update mutated identities. Forcing policy recalculation.")
 		rev := i.policy.BumpRevision()
 		i.computer.RecomputeIdentityPolicyForAllIdentities(rev)
-		i.epmanager.RegenerateAllForPolicy(rev)
+		i.epmanager.RegenerateAllForPolicy()
 	}
 
 	// inform waiters that the in-flight batch is done.

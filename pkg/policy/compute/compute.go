@@ -25,6 +25,9 @@ type PolicyRecomputer interface {
 	GetIdentityPolicyByNumericIdentity(identity identity.NumericIdentity) (Result, statedb.Revision, <-chan struct{}, bool)
 	GetIdentityPolicyByIdentity(identity *identity.Identity) (Result, statedb.Revision, <-chan struct{}, bool)
 	GetPolicySnapshot() map[identity.NumericIdentity]policy.SelectorPolicy
+	// RequestedRevision returns the highest revision all committed policies
+	// have been requested to become current at. Regenerations wait for it.
+	RequestedRevision() uint64
 }
 
 type Result struct {
@@ -84,6 +87,7 @@ func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.Numeri
 		fromRev:    fromRev,
 		toRev:      toRev,
 	})
+	r.raiseRequestedRevisionLocked(toRev)
 	r.reqsMu.Unlock()
 	r.notifyTrigger()
 }
@@ -104,8 +108,8 @@ func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.Numeri
 // policy is still awaiting (or has failed) a computation for an earlier
 // revision is never marked current for a later one.
 //
-// Must be called from processRequests with wtxn open, so that these writes
-// cannot invalidate a CompareAndSwap performed by a concurrent recomputation.
+// Must be called from processRequests before it reads the rows of the batch it
+// computes, so that these writes cannot invalidate their CompareAndSwaps.
 func (r *IdentityPolicyComputer) applyAdvances(wtxn statedb.WriteTxn, advances []advanceRequest) {
 	if len(advances) == 0 {
 		return
@@ -171,6 +175,22 @@ func (r *IdentityPolicyComputer) enqueueLocked(identity *identity.Identity, toRe
 	return req.done
 }
 
+// raiseRequestedRevisionLocked raises the requested revision to rev. It must
+// only be called once the work that makes all committed policies current at rev
+// is queued, so that a regeneration waiting for it cannot wait for work that
+// does not exist. Must be called with r.reqsMu held.
+func (r *IdentityPolicyComputer) raiseRequestedRevisionLocked(rev uint64) {
+	if rev > r.requestedRev.Load() {
+		r.requestedRev.Store(rev)
+	}
+}
+
+// RequestedRevision returns the highest revision that has been passed to
+// raiseRequestedRevisionLocked.
+func (r *IdentityPolicyComputer) RequestedRevision() uint64 {
+	return r.requestedRev.Load()
+}
+
 func (r *IdentityPolicyComputer) notifyTrigger() {
 	select {
 	case r.trigger <- struct{}{}:
@@ -214,6 +234,7 @@ func (r *IdentityPolicyComputer) RecomputeIdentityPolicyForAllIdentities(toRev u
 	for _, id := range ids {
 		ws.Add(r.enqueueLocked(id, toRev))
 	}
+	r.raiseRequestedRevisionLocked(toRev)
 	r.reqsMu.Unlock()
 	r.notifyTrigger()
 	return ws, nil
@@ -274,6 +295,14 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 
 		r.logger.Debug("Processing policy computation batch", logfields.Count, len(batch))
 
+		// Advance before computing, so that a regeneration does not
+		// unnecessarily wait for all the computations of the batch.
+		if len(advances) > 0 {
+			wtxn := r.db.WriteTxn(r.tbl)
+			r.applyAdvances(wtxn, advances)
+			wtxn.Commit()
+		}
+
 		// Check which requests actually need computation.
 		rtxn := r.db.ReadTxn()
 		work := make([]pending, 0, len(batch))
@@ -291,11 +320,6 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 			work = append(work, pending{computeRequest: req, rev: rev})
 		}
 		if len(work) == 0 {
-			if len(advances) > 0 {
-				wtxn := r.db.WriteTxn(r.tbl)
-				r.applyAdvances(wtxn, advances)
-				wtxn.Commit()
-			}
 			continue
 		}
 
@@ -325,10 +349,6 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		// Commit in a single WriteTxn.
 		wtxn := r.db.WriteTxn(r.tbl)
 		committed, superseded, dropped, retry := r.commitResults(wtxn, results)
-		// Advance after the CompareAndSwaps. applyAdvances rewrites rows, which
-		// changes their statedb revision, so a CompareAndSwap against the
-		// revision read before computing would then fail and drop the result.
-		r.applyAdvances(wtxn, advances)
 		wtxn.Commit()
 
 		// Dropped results are never stored, so release their policies. They

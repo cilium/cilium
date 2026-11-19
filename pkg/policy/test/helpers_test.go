@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"sync"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -40,6 +42,8 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -60,6 +64,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testmonitor "github.com/cilium/cilium/pkg/testutils/monitor"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type testFixture struct {
@@ -73,6 +78,14 @@ type testFixture struct {
 	importer   policycell.PolicyImporter
 	ipcache    *ipcache.IPCache
 	templateEP *endpoint.Endpoint
+
+	// computeGate and buildGate hold policy computations and endpoint builds.
+	computeGate *computeGate
+	buildGate   *buildGate
+	// fetcher is the endpoints' policy fetcher. It counts policy fetches.
+	fetcher *countingFetcher
+	// allocGate is the endpoints' identity allocator.
+	allocGate *allocGate
 }
 
 func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.CertificateManager) *testFixture {
@@ -80,7 +93,10 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		certMgr = &testcertificatemanager.Fake{}
 	}
 
-	f := &testFixture{}
+	f := &testFixture{
+		computeGate: &computeGate{},
+		buildGate:   &buildGate{EndpointBuildQueue: endpoint.NewEndpointBuildQueue()},
+	}
 
 	f.hive = hive.New(
 		k8sClient.FakeClientCell(),
@@ -103,7 +119,9 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 				f.repo = repo
 				f.idmgr = idmgr
 				f.allocator = alloc
+				f.allocGate = &allocGate{IdentityAllocator: alloc}
 				f.computer = comp
+				f.fetcher = &countingFetcher{PolicyRecomputer: comp}
 				f.importer = imp
 				f.epm = epm
 
@@ -115,7 +133,7 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 				f.templateEP, err = endpoint.NewEndpointFromChangeModel(
 					endpoint.EndpointParams{
 						Logger:              log,
-						EPBuildQueue:        endpoint.NewEndpointBuildQueue(),
+						EPBuildQueue:        f.buildGate,
 						Loader:              &fakeloader.Loader{},
 						Orchestrator:        &fakeendpoint.FakeOrchestrator{},
 						CompilationLock:     loader.NewCompilationLock(),
@@ -123,8 +141,8 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 						MonitorAgent:        &testmonitor.TestMonitorAgent{},
 						PolicyMapFactory:    &fakePolicyMapFactory{},
 						PolicyRepo:          f.repo,
-						PolicyFetcher:       f.computer,
-						Allocator:           f.allocator,
+						PolicyFetcher:       f.fetcher,
+						Allocator:           f.allocGate,
 						CTMapGC:             ctmap.NewFakeGCRunner(),
 						KVStoreSynchronizer: ipcache.NewIPIdentitySynchronizer(log, kvstore.SetupDummy(t, kvstore.DisabledBackendName)),
 						LocalNodeStore:      node.NewTestLocalNodeStore(node.LocalNode{}),
@@ -173,6 +191,8 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		node.LocalNodeStoreTestCell,
 
 		cell.Provide(func(params compute.Params) compute.PolicyRecomputer {
+			f.computeGate.PolicyRepository = params.Repo
+			params.Repo = f.computeGate
 			return compute.NewIdentityPolicyComputer(params)
 		}),
 		cell.ProvidePrivate(compute.NewPolicyComputationTable),
@@ -183,7 +203,11 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		for _, ep := range f.epm.GetEndpoints() {
 			f.epm.RemoveEndpoint(ep, endpoint.DeleteConfig{})
 		}
-		assert.NoError(t, f.hive.Stop(log, context.TODO()))
+		// Bound the stop, so a test that fails while it holds an import
+		// reports the failure instead of hanging.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		assert.NoError(t, f.hive.Stop(log, ctx))
 		// The fixture builds the IPCache directly rather than through its cell,
 		// so the ipcache-inject-labels controller is not reaped by hive.Stop.
 		// Mirror the cell's OnStop hook so it does not leak across test runs.
@@ -277,6 +301,171 @@ func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{
 	out := make(chan struct{})
 	close(out)
 	return out
+}
+
+// computeGate wraps the repository the policy computer uses, to hold or fail
+// computations for chosen identities.
+type computeGate struct {
+	policy.PolicyRepository
+
+	mu      lock.Mutex
+	held    map[identity.NumericIdentity]chan struct{}
+	failing map[identity.NumericIdentity]bool
+}
+
+func (g *computeGate) ComputeSelectorPolicy(id *identity.Identity) (policy.SelectorPolicy, uint64, error) {
+	g.mu.Lock()
+	held, failing := g.held[id.ID], g.failing[id.ID]
+	g.mu.Unlock()
+	if held != nil {
+		<-held
+	}
+	if failing {
+		// The computer retries failures immediately, don't spin.
+		time.Sleep(10 * time.Millisecond)
+		return nil, 0, fmt.Errorf("injected: policy computation failure for identity %d", id.ID)
+	}
+	return g.PolicyRepository.ComputeSelectorPolicy(id)
+}
+
+// hold blocks computations for id until the returned function is called.
+func (g *computeGate) hold(id identity.NumericIdentity) (release func()) {
+	ch := make(chan struct{})
+	g.mu.Lock()
+	if g.held == nil {
+		g.held = map[identity.NumericIdentity]chan struct{}{}
+	}
+	g.held[id] = ch
+	g.mu.Unlock()
+	return sync.OnceFunc(func() {
+		g.mu.Lock()
+		delete(g.held, id)
+		g.mu.Unlock()
+		close(ch)
+	})
+}
+
+// fail makes computations for id fail until the returned function is called.
+func (g *computeGate) fail(id identity.NumericIdentity) (stop func()) {
+	g.mu.Lock()
+	if g.failing == nil {
+		g.failing = map[identity.NumericIdentity]bool{}
+	}
+	g.failing[id] = true
+	g.mu.Unlock()
+	return sync.OnceFunc(func() {
+		g.mu.Lock()
+		delete(g.failing, id)
+		g.mu.Unlock()
+	})
+}
+
+// allocGate wraps the endpoints' identity allocator, to hold allocations of
+// identities with a given label key.
+type allocGate struct {
+	cache.IdentityAllocator
+
+	mu   lock.Mutex
+	held map[string]chan struct{}
+}
+
+func (g *allocGate) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	g.mu.Lock()
+	var held []chan struct{}
+	for key, ch := range g.held {
+		if _, ok := lbls[key]; ok {
+			held = append(held, ch)
+		}
+	}
+	g.mu.Unlock()
+	for _, ch := range held {
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			return nil, false, ctx.Err()
+		}
+	}
+	return g.IdentityAllocator.AllocateIdentity(ctx, lbls, notifyOwner, oldNID)
+}
+
+// hold blocks allocations of identities with a label with key until the
+// returned function is called.
+func (g *allocGate) hold(key string) (release func()) {
+	ch := make(chan struct{})
+	g.mu.Lock()
+	if g.held == nil {
+		g.held = map[string]chan struct{}{}
+	}
+	g.held[key] = ch
+	g.mu.Unlock()
+	return sync.OnceFunc(func() {
+		g.mu.Lock()
+		delete(g.held, key)
+		g.mu.Unlock()
+		close(ch)
+	})
+}
+
+// countingFetcher counts the policies fetched for each identity.
+type countingFetcher struct {
+	compute.PolicyRecomputer
+
+	mu      lock.Mutex
+	fetched map[identity.NumericIdentity]int
+}
+
+func (f *countingFetcher) GetIdentityPolicyByIdentity(id *identity.Identity) (compute.Result, statedb.Revision, <-chan struct{}, bool) {
+	if id != nil {
+		f.mu.Lock()
+		if f.fetched == nil {
+			f.fetched = map[identity.NumericIdentity]int{}
+		}
+		f.fetched[id.ID]++
+		f.mu.Unlock()
+	}
+	return f.PolicyRecomputer.GetIdentityPolicyByIdentity(id)
+}
+
+func (f *countingFetcher) fetches(id identity.NumericIdentity) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.fetched[id]
+}
+
+// buildGate wraps the endpoint build queue to hold endpoint builds.
+type buildGate struct {
+	endpoint.EndpointBuildQueue
+
+	mu   lock.Mutex
+	held chan struct{}
+}
+
+func (g *buildGate) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	g.mu.Lock()
+	held := g.held
+	g.mu.Unlock()
+	if held != nil {
+		select {
+		case <-held:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return g.EndpointBuildQueue.QueueEndpointBuild(ctx, epID)
+}
+
+// hold blocks endpoint builds until the returned function is called.
+func (g *buildGate) hold() (release func()) {
+	ch := make(chan struct{})
+	g.mu.Lock()
+	g.held = ch
+	g.mu.Unlock()
+	return sync.OnceFunc(func() {
+		g.mu.Lock()
+		g.held = nil
+		g.mu.Unlock()
+		close(ch)
+	})
 }
 
 type fakeRestorer struct{}

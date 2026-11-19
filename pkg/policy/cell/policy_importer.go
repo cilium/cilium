@@ -263,8 +263,11 @@ func (i *Importer) processUpdates(ctx context.Context, updates []*policytypes.Po
 	idsToRegen := &set.Set[identity.NumericIdentity]{}
 	startRevision := i.repo.GetRevision()
 	endRevision := startRevision
-	// Number of revisions this import produced, one per ReplaceByResource.
-	var ownRevs uint64
+	// Identities not affected by the import are only advanced from the last
+	// revision bumped outside of it, since the importer doesn't know what that
+	// bump changed. The path that bumped it recomputes all identities, see
+	// BumpRevision.
+	advanceFrom := startRevision
 	for _, upd := range updates {
 		if upd.Resource == "" {
 			i.log.Error("BUG: Policy supplied with empty resource!")
@@ -272,8 +275,11 @@ func (i *Importer) processUpdates(ctx context.Context, updates []*policytypes.Po
 		}
 
 		regen, er, oldRuleCnt := i.repo.ReplaceByResource(upd.Rules, upd.Resource)
+		if er != endRevision+1 {
+			// Another path bumped the revision.
+			advanceFrom = er - 1
+		}
 		endRevision = er
-		ownRevs++
 		idsToRegen.Merge(*regen)
 
 		if len(upd.Rules) == 0 {
@@ -324,19 +330,7 @@ func (i *Importer) processUpdates(ctx context.Context, updates []*policytypes.Po
 	// Unaffected endpoints can merely have their policy revision set.
 	i.log.Debug("Policy repository updates complete, triggering endpoint updates",
 		logfields.PolicyRevision, endRevision)
-	// The importer must not rely on revisions advanced by code paths other than
-	// itself. If the repo advanced by more than ownRevs, another path bumped it
-	// during this import, so collapse the advance range and leave those
-	// identities to that path. Only the compute path reads fromRev.
-	//
-	// Without this, an identity's revision could be advanced past a change the
-	// importer did not make, and an endpoint could install a policy whose
-	// contents do not match the revision it claims to have realized.
-	revDiff := endRevision - startRevision
-	advanceFrom := startRevision
-	if revDiff != ownRevs {
-		advanceFrom = endRevision
-	}
+	// Only the compute path reads advanceFrom.
 	i.computer.UpdatePolicy(*idsToRegen, advanceFrom, endRevision)
 	if i.epm != nil {
 		i.epm.UpdatePolicy(idsToRegen, startRevision, endRevision)

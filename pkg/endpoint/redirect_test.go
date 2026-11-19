@@ -383,7 +383,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	ep := s.NewTestEndpoint(t)
 
 	// Policy denies anything to "foo"
-	s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(api.Rules{
+	s.datapathRegenCtxt.policyRevision = s.AddRules(api.Rules{
 		ruleL3DenyFoo.WithEndpointSelector(selectBar_),
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
@@ -465,7 +465,7 @@ func TestDNSIdentityUpdateRefreshesProxyRules(t *testing.T) {
 		<-s.do.UpdateIdentities(identity.IdentityMap{oldCoreDNSIdentity: corednsLabels}, nil)
 
 		ep := s.NewTestEndpoint(t)
-		s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(dnsIdentityUpdateRule())
+		s.datapathRegenCtxt.policyRevision = s.AddRules(dnsIdentityUpdateRule())
 
 		s.computePolicyForTest(t, ep, completion.NewWaitGroup(t.Context()))
 		require.Len(t, ep.desiredPolicy.Redirects, 1)
@@ -492,7 +492,7 @@ func TestDNSIdentityUpdateRefreshesProxyRules(t *testing.T) {
 		<-s.do.UpdateIdentities(identity.IdentityMap{oldCoreDNSIdentity: corednsLabels}, nil)
 
 		ep := s.NewTestEndpoint(t)
-		s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(dnsIdentityUpdateRule())
+		s.datapathRegenCtxt.policyRevision = s.AddRules(dnsIdentityUpdateRule())
 
 		// regeneratePolicy() calls addNewRedirects(), which pushes the DNS proxy rules for
 		// the newly computed (not yet desired) selector policy using the selections at that
@@ -606,7 +606,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	api.TestAllowIngressListener = true
 	defer func() { api.TestAllowIngressListener = false }()
 
-	s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(api.Rules{
+	s.datapathRegenCtxt.policyRevision = s.AddRules(api.Rules{
 		ruleL4AllowListener1.WithEndpointSelector(selectBar_),
 		ruleL4AllowPort80.WithEndpointSelector(selectBar_),
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
@@ -659,7 +659,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	api.TestAllowIngressListener = true
 	defer func() { api.TestAllowIngressListener = false }()
-	s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(api.Rules{
+	s.datapathRegenCtxt.policyRevision = s.AddRules(api.Rules{
 		ruleL4L7AllowListener1Priority1.WithEndpointSelector(selectBar_),
 		ruleL4AllowPort80.WithEndpointSelector(selectBar_),
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),

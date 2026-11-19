@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -46,6 +47,7 @@ func newRegenTestEndpoint(t *testing.T, repo *policy.Repository, endpointPolicy 
 func TestRegenerateBPFFailureReverts(t *testing.T) {
 	endpointPolicy := &policy.EndpointPolicy{}
 	ep := newRegenTestEndpoint(t, &policy.Repository{}, endpointPolicy)
+	ep.policyFetcher = &compute.IdentityPolicyComputer{}
 	datapath := &datapathRegenerationContext{
 		policyResult: &policyGenerateResult{endpointPolicy: endpointPolicy},
 		ctCleaned:    make(chan struct{}),
@@ -88,6 +90,8 @@ func TestFirstRegenerationComputesPolicyOnce(t *testing.T) {
 		{"policy changed", func(t *testing.T, ep *Endpoint) {
 			_, err := f.polComputer.RecomputeIdentityPolicyForAllIdentities(f.repo.BumpRevision())
 			require.NoError(t, err)
+			// The regeneration of all endpoints that follows.
+			ep.requestPolicyRevision()
 		}, true},
 		{"labels changed", func(_ *testing.T, ep *Endpoint) {
 			ep.identityRevision++
@@ -116,8 +120,10 @@ func TestFirstRegenerationComputesPolicyOnce(t *testing.T) {
 			tc.change(t, ep)
 
 			// runPreCompilationSteps times the policy calculation only when it
-			// does not reuse the initial result.
+			// doesn't reuse the initial result. This skips regenerate(), which
+			// normally reads the requested revision.
 			regenCtx.Stats = regenerationStatistics{}
+			regenCtx.datapathRegenerationContext.policyRevision = ep.requestedPolicyRevision.Load()
 			func() {
 				ep.buildMutex.Lock()
 				defer ep.buildMutex.Unlock()

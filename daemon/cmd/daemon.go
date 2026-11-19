@@ -321,15 +321,12 @@ func unloadDNSPolicies(params daemonParams) {
 			"Triggering policy recalculation to remove DNS rules due to option",
 			logfields.Option, option.DNSPolicyUnloadOnShutdown,
 		)
-		regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+		params.PolicyComputer.RecomputeIdentityPolicyForAllIdentities(params.Policy.BumpRevision())
+		wg := params.EndpointManager.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
 			Reason:            regeneration.ReasonDaemonConfigUpdate,
 			Message:           "unloading DNS rules on graceful shutdown",
 			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-
-			PolicyRevisionToWaitFor: params.Policy.BumpRevision(),
-		}
-		params.PolicyComputer.RecomputeIdentityPolicyForAllIdentities(regenerationMetadata.PolicyRevisionToWaitFor)
-		wg := params.EndpointManager.RegenerateAllEndpoints(regenerationMetadata)
+		})
 		wg.Wait()
 		params.Logger.Info("All endpoints regenerated after unloading DNS rules on graceful shutdown")
 	}

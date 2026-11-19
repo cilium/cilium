@@ -312,7 +312,7 @@ func (noopEndpointManager) RegenerateAllEndpoints(*regeneration.ExternalRegenera
 	return &sync.WaitGroup{}
 }
 func (noopEndpointManager) TriggerRegenerateAllEndpoints()                            {}
-func (noopEndpointManager) RegenerateAllForPolicy(uint64)                             {}
+func (noopEndpointManager) RegenerateAllForPolicy()                                   {}
 func (noopEndpointManager) WaitForEndpointsAtPolicyRev(context.Context, uint64) error { return nil }
 func (noopEndpointManager) OverrideEndpointOpts(option.OptionMap)                     {}
 func (noopEndpointManager) InitHostEndpointLabels(context.Context)                    {}
