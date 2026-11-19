@@ -47,7 +47,7 @@ func (h *HTTPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condi
 func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range h.HTTPRoute.Status.RouteStatus.Parents {
-		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+		if string(parent.ControllerName) == h.ControllerName && reflect.DeepEqual(parent.ParentRef, parentRef) {
 			index = i
 			break
 		}

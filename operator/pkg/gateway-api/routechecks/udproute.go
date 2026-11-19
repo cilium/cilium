@@ -43,7 +43,7 @@ func (u *UDPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condit
 func (u *UDPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range u.UDPRoute.Status.RouteStatus.Parents {
-		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+		if string(parent.ControllerName) == u.ControllerName && reflect.DeepEqual(parent.ParentRef, parentRef) {
 			index = i
 			break
 		}
