@@ -123,8 +123,10 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4Prefixes, v6Prefixes []netip.Pref
 	}
 
 	for cidr := range prefixesToIPNets(v6Prefixes) {
-		if err := n.replaceNodeIPSecInRoute(cidr); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec IN (%q): %w", cidr.IP, err))
+		if !option.Config.EnableEndpointRoutes {
+			if err := n.replaceNodeIPSecInRoute(cidr); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec IN (%q): %w", cidr.IP, err))
+			}
 		}
 
 		if err := n.replaceNodeIPSecOutRoute(cidr); err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -642,7 +643,7 @@ func testNodeChurnXFRMLeaks(t *testing.T, family string) {
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
-	testNodeChurnXFRMLeaksWithConfig(t, s, config)
+	testNodeChurnXFRMLeaksWithConfig(t, s, config, nil)
 }
 
 func TestPrivilegedNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
@@ -660,18 +661,25 @@ func testNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T, family string) {
 	config.EnableIPSec = true
 	config.EnableEncapsulation = true
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
-	testNodeChurnXFRMLeaksWithConfig(t, s, config)
+	testNodeChurnXFRMLeaksWithConfig(t, s, config, nil)
 }
 
 func TestPrivilegedNodeChurnXFRMLeaksSubnetMode(t *testing.T) {
-	testWithFamilies(t, func(t *testing.T, family string) {
-		testNodeChurnXFRMLeaksSubnetMode(t, family)
-	})
+	for _, endpointRoutes := range []bool{false, true} {
+		t.Run(fmt.Sprintf("endpoint-routes=%t", endpointRoutes), func(t *testing.T) {
+			testWithFamilies(t, func(t *testing.T, family string) {
+				testNodeChurnXFRMLeaksSubnetMode(t, family, endpointRoutes)
+			})
+		})
+	}
 }
 
 // Tests the same as linuxPrivilegedBaseTestSuite.TestNodeChurnXFRMLeaks just
 // for the subnet encryption.
-func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
+func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string, endpointRoutes bool) {
+	saveIPsecTestGlobals(t)
+	option.Config.EnableEndpointRoutes = endpointRoutes
+
 	s := setup(t, family)
 
 	externalNodeDevice := "ipsec_interface"
@@ -688,10 +696,15 @@ func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
 	config.IPv4PodSubnets = []ip.Prefix{ip.PrefixFrom(netip.MustParsePrefix("4.4.0.0/16"))}
 	config.IPv6PodSubnets = []ip.Prefix{ip.PrefixFrom(netip.MustParsePrefix("2001:aaaa::/64"))}
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
-	testNodeChurnXFRMLeaksWithConfig(t, s, config)
+	testNodeChurnXFRMLeaksWithConfig(t, s, config, func(t *testing.T) {
+		requireIPsecInStateOutputMarks(t, s.ns, endpointRoutes)
+	})
 }
 
-func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.Config) {
+// testNodeChurnXFRMLeaksWithConfig adds and removes a remote node and checks
+// that no XFRM state or policy is leaked. If non-nil, afterAdd is invoked
+// once the remote node has been added and before it is deleted.
+func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.Config, afterAdd func(t *testing.T)) {
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 
@@ -717,6 +730,10 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 
 	require.NotEmpty(t, tnl.MustXfrmStateList(t, s.ns, netlink.FAMILY_ALL))
 	require.NotEqual(t, 0, countXFRMPolicies(tnl.MustXfrmPolicyList(t, s.ns, netlink.FAMILY_ALL)))
+
+	if afterAdd != nil {
+		afterAdd(t)
+	}
 
 	// Removing the node removes those XFRM states and policies.
 	mustDeleteNode(t, s.ns, lnh, node)
@@ -914,13 +931,32 @@ func mustLookupIPSecOutRoutes(tb testing.TB, ns *netns.NetNS, family int, extDev
 }
 
 func TestPrivilegedNodePodCIDRsChurnIPSec(t *testing.T) {
-	testWithFamilies(t, func(t *testing.T, family string) {
-		testNodePodCIDRsChurnIPSec(t, family)
-	})
+	for _, endpointRoutes := range []bool{false, true} {
+		t.Run(fmt.Sprintf("endpoint-routes=%t", endpointRoutes), func(t *testing.T) {
+			testWithFamilies(t, func(t *testing.T, family string) {
+				testNodePodCIDRsChurnIPSec(t, family, endpointRoutes)
+			})
+		})
+	}
 }
 
-func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
+func testNodePodCIDRsChurnIPSec(t *testing.T, family string, endpointRoutes bool) {
+	saveIPsecTestGlobals(t)
+	option.Config.EnableEndpointRoutes = endpointRoutes
+
 	s := setup(t, family)
+
+	wantDecryptRules := 1
+	if endpointRoutes {
+		wantDecryptRules = 0
+	}
+	requireDecryptRules := func(t *testing.T) {
+		t.Helper()
+		for _, family := range enabledFamilies(s) {
+			require.Equal(t, wantDecryptRules, countMatchingRules(t, s.ns, family, decryptRuleSpec()),
+				"unexpected number of decrypt rules for family %d", family)
+		}
+	}
 
 	remoteNode1IPv4, remoteNode1IPv6 := net.ParseIP("4.4.4.4"), net.ParseIP("face::1")
 	remoteNode1Device := "remote_node_1"
@@ -946,6 +982,7 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	nodeTypes.SetName("local_node")
 
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
+	requireDecryptRules(t)
 
 	// Add local node with multiple pod CIDRs
 	localIPv4AllocCIDRsV1 := []netip.Prefix{
@@ -1095,5 +1132,613 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV2)
 		mustLookupIPSecOutRoutes(t, s.ns, netlink.FAMILY_V6, hostDevice, expectedCIDRs)
 		mustLookupIPSecXFRMPoliciesOut(t, s.ns, netlink.FAMILY_V6, expectedCIDRs)
+	}
+
+	// Local node updates reconcile the host rules again.
+	requireDecryptRules(t)
+
+	if !endpointRoutes {
+		return
+	}
+
+	// Without subnet encryption, the XFRM IN states keep the decrypt output
+	// mark on the decrypted inner packet. With endpoint routes and no decrypt
+	// rule, that packet must be routed by the main-table endpoint route, not
+	// by the local pod CIDR route in the IPsec table.
+	enableForwardingSysctls(t, s)
+	endpointDevice := "endpoint0"
+	mustSetupDevice(t, s.ns, endpointDevice)
+	endpointLink := tnl.MustLinkByName(t, s.ns, endpointDevice)
+
+	type endpointCase struct {
+		family     int
+		localCIDRs []netip.Prefix
+		endpoint   netip.Addr
+		remote     netip.Addr
+	}
+	var endpointCases []endpointCase
+	if s.enableIPv4 {
+		endpointCases = append(endpointCases, endpointCase{
+			family:     netlink.FAMILY_V4,
+			localCIDRs: localIPv4AllocCIDRsV2,
+			endpoint:   netip.MustParseAddr("6.6.6.10"),
+			remote:     netip.MustParseAddr("9.9.9.10"),
+		})
+	}
+	if s.enableIPv6 {
+		endpointCases = append(endpointCases, endpointCase{
+			family:     netlink.FAMILY_V6,
+			localCIDRs: localIPv6AllocCIDRsV2,
+			endpoint:   netip.MustParseAddr("2002:aaaa:bbbb::10"),
+			remote:     netip.MustParseAddr("2005:aaaa:bbbb::10"),
+		})
+	}
+	for _, c := range endpointCases {
+		require.True(t, slices.ContainsFunc(c.localCIDRs, func(p netip.Prefix) bool { return p.Contains(c.endpoint) }),
+			"endpoint %s must be within a local pod CIDR routed by the IPsec table", c.endpoint)
+
+		endpointRoute := &netlink.Route{
+			LinkIndex: endpointLink.Attrs().Index,
+			Dst:       netipx.PrefixIPNet(netip.PrefixFrom(c.endpoint, c.endpoint.BitLen())),
+			Table:     unix.RT_TABLE_MAIN,
+		}
+		if c.family == netlink.FAMILY_V4 {
+			endpointRoute.Scope = netlink.SCOPE_LINK
+		}
+		require.NoError(t, s.ns.Do(func() error {
+			return netlink.RouteAdd(endpointRoute)
+		}))
+
+		routes := mustRouteGetMarked(t, s.ns, c.endpoint, c.remote, linux_defaults.RouteMarkDecrypt)
+		require.Equal(t, unix.RTN_UNICAST, routes[0].Type,
+			"decrypted packet to %s must use the endpoint route, got %+v", c.endpoint, routes[0])
+		require.Equal(t, unix.RT_TABLE_MAIN, routes[0].Table,
+			"decrypted packet to %s must use the main table, got %+v", c.endpoint, routes[0])
+		require.Equal(t, endpointLink.Attrs().Index, routes[0].LinkIndex,
+			"decrypted packet to %s must be routed to %s, got %+v", c.endpoint, endpointDevice, routes[0])
+	}
+}
+
+// saveIPsecTestGlobals restores the global options and the node name that
+// the IPsec routing tests modify once the test completes.
+func saveIPsecTestGlobals(tb testing.TB) {
+	tb.Helper()
+
+	enableIPv4 := option.Config.EnableIPv4
+	enableIPv6 := option.Config.EnableIPv6
+	enableEndpointRoutes := option.Config.EnableEndpointRoutes
+	routingMode := option.Config.RoutingMode
+	bootIDFile := option.Config.BootIDFile
+	nodeName := nodeTypes.GetName()
+	tb.Cleanup(func() {
+		option.Config.EnableIPv4 = enableIPv4
+		option.Config.EnableIPv6 = enableIPv6
+		option.Config.EnableEndpointRoutes = enableEndpointRoutes
+		option.Config.RoutingMode = routingMode
+		option.Config.BootIDFile = bootIDFile
+		nodeTypes.SetName(nodeName)
+	})
+}
+
+func enabledFamilies(s *nodeSuite) []int {
+	var families []int
+	if s.enableIPv4 {
+		families = append(families, netlink.FAMILY_V4)
+	}
+	if s.enableIPv6 {
+		families = append(families, netlink.FAMILY_V6)
+	}
+	return families
+}
+
+// decryptRuleSpec is the complete specification of the IPsec decrypt rule
+// installed by replaceHostRules.
+func decryptRuleSpec() route.Rule {
+	return route.Rule{
+		Priority: 1,
+		Mark:     linux_defaults.RouteMarkDecrypt,
+		Mask:     linux_defaults.RouteMarkMask,
+		Table:    linux_defaults.RouteTableIPSec,
+		Protocol: linux_defaults.RTProto,
+	}
+}
+
+// unrelatedPriorityOneRule shares the priority, mask and protocol of the
+// decrypt rule but has a different mark and table. Decrypt rule
+// reconciliation must never delete it.
+func unrelatedPriorityOneRule() route.Rule {
+	return route.Rule{
+		Priority: 1,
+		Mark:     0xb00,
+		Mask:     linux_defaults.RouteMarkMask,
+		Table:    linux_defaults.RouteTableIPSec + 1,
+		Protocol: linux_defaults.RTProto,
+	}
+}
+
+func mustReplaceRule(tb testing.TB, ns *netns.NetNS, family int, rule route.Rule) {
+	tb.Helper()
+
+	require.NoError(tb, ns.Do(func() error {
+		if family == netlink.FAMILY_V6 {
+			return route.ReplaceRuleIPv6(rule)
+		}
+		return route.ReplaceRule(rule)
+	}))
+}
+
+func mustListRules(tb testing.TB, ns *netns.NetNS, family int) []netlink.Rule {
+	tb.Helper()
+
+	var rules []netlink.Rule
+	require.NoError(tb, ns.Do(func() error {
+		var err error
+		rules, err = route.ListRules(family, nil)
+		return err
+	}))
+	return rules
+}
+
+// countMatchingRules returns the number of rules of the given family that
+// exactly match spec, including the "from all to all" selectors.
+func countMatchingRules(tb testing.TB, ns *netns.NetNS, family int, spec route.Rule) int {
+	tb.Helper()
+
+	n := 0
+	for _, r := range mustListRules(tb, ns, family) {
+		if r.Priority == spec.Priority &&
+			r.Mark == spec.Mark &&
+			r.Mask != nil && *r.Mask == spec.Mask &&
+			r.Table == spec.Table &&
+			r.Protocol == spec.Protocol &&
+			r.Src == nil && r.Dst == nil {
+			n++
+		}
+	}
+	return n
+}
+
+func mustReplaceHostRules(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler) {
+	tb.Helper()
+
+	require.NoError(tb, ns.Do(func() error {
+		lnh.mutex.Lock()
+		defer lnh.mutex.Unlock()
+		return lnh.replaceHostRules()
+	}))
+}
+
+// requireLocalLookupMoved checks that the local table lookup has been moved
+// from priority 0 to RulePriorityLocalLookup, i.e. behind the decrypt rule.
+func requireLocalLookupMoved(tb testing.TB, ns *netns.NetNS, family int) {
+	tb.Helper()
+
+	moved := false
+	for _, r := range mustListRules(tb, ns, family) {
+		if r.Table != unix.RT_TABLE_LOCAL {
+			continue
+		}
+		require.NotEqual(tb, 0, r.Priority, "local table lookup must not remain at priority 0 (family %d)", family)
+		if r.Priority == linux_defaults.RulePriorityLocalLookup {
+			moved = true
+		}
+	}
+	require.True(tb, moved, "local table lookup must be at priority %d (family %d)", linux_defaults.RulePriorityLocalLookup, family)
+}
+
+// enableForwardingSysctls enables forwarding and disables IPv4 reverse path
+// filtering in the test namespace so that input route lookups are
+// well-defined for forwarded and locally delivered packets.
+func enableForwardingSysctls(tb testing.TB, s *nodeSuite) {
+	tb.Helper()
+
+	require.NoError(tb, s.ns.Do(func() error {
+		if s.enableIPv4 {
+			if err := s.sysctl.Enable([]string{"net", "ipv4", "conf", "all", "forwarding"}); err != nil {
+				return err
+			}
+			if err := s.sysctl.Disable([]string{"net", "ipv4", "conf", "all", "rp_filter"}); err != nil {
+				return err
+			}
+			if err := s.sysctl.Disable([]string{"net", "ipv4", "conf", externalDevice, "rp_filter"}); err != nil {
+				return err
+			}
+		}
+		if s.enableIPv6 {
+			if err := s.sysctl.Enable([]string{"net", "ipv6", "conf", "all", "forwarding"}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+}
+
+// requireAddrUsable checks that addr is configured on device and is neither
+// tentative nor failed duplicate address detection.
+func requireAddrUsable(tb testing.TB, ns *netns.NetNS, device string, addr netip.Addr) {
+	tb.Helper()
+
+	link := tnl.MustLinkByName(tb, ns, device)
+	family := netlink.FAMILY_V4
+	if addr.Is6() {
+		family = netlink.FAMILY_V6
+	}
+
+	var addrs []netlink.Addr
+	require.NoError(tb, ns.Do(func() error {
+		var err error
+		addrs, err = netlink.AddrList(link, family)
+		return err
+	}))
+	for _, a := range addrs {
+		ip, ok := netip.AddrFromSlice(a.IP)
+		if !ok || ip.Unmap() != addr {
+			continue
+		}
+		require.Zero(tb, a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED),
+			"address %s on %s is not usable (flags %#x)", addr, device, a.Flags)
+		return
+	}
+	require.Failf(tb, "address not found", "%s is not configured on %s", addr, device)
+}
+
+// mustRouteGetMarked performs an input route lookup, as for a packet received
+// on the external device from src to dst carrying the given mark.
+func mustRouteGetMarked(tb testing.TB, ns *netns.NetNS, dst, src netip.Addr, mark uint32) []netlink.Route {
+	tb.Helper()
+
+	var routes []netlink.Route
+	require.NoError(tb, ns.Do(func() error {
+		var err error
+		routes, err = netlink.RouteGetWithOptions(net.IP(dst.AsSlice()), &netlink.RouteGetOptions{
+			Iif:     externalDevice,
+			SrcAddr: net.IP(src.AsSlice()),
+			Mark:    mark,
+		})
+		return err
+	}), "route get %s from %s iif %s mark %#x", dst, src, externalDevice, mark)
+	require.NotEmpty(tb, routes, "route get %s from %s iif %s mark %#x", dst, src, externalDevice, mark)
+	return routes
+}
+
+// requireMarkedLocalDelivery checks that a packet received on the external
+// device for dst and carrying mark is delivered locally rather than forwarded
+// to the host device through the IPsec table.
+func requireMarkedLocalDelivery(tb testing.TB, ns *netns.NetNS, dst, src netip.Addr, mark uint32) {
+	tb.Helper()
+
+	hostLink := tnl.MustLinkByName(tb, ns, hostDevice)
+	routes := mustRouteGetMarked(tb, ns, dst, src, mark)
+	for _, r := range routes {
+		require.NotEqual(tb, hostLink.Attrs().Index, r.LinkIndex,
+			"packet to %s with mark %#x must not be forwarded to %s, got %+v", dst, mark, hostDevice, r)
+	}
+	require.Equal(tb, unix.RTN_LOCAL, routes[0].Type,
+		"packet to %s with mark %#x must be delivered locally, got %+v", dst, mark, routes[0])
+	require.Equal(tb, unix.RT_TABLE_LOCAL, routes[0].Table,
+		"packet to %s with mark %#x must match the local table, got %+v", dst, mark, routes[0])
+}
+
+func mustUpsertIPsecOutRoute(tb testing.TB, s *nodeSuite, prefix netip.Prefix) {
+	tb.Helper()
+
+	log := hivetest.Logger(tb)
+	require.NoError(tb, s.ns.Do(func() error {
+		return route.Upsert(log, route.Route{
+			Prefix: *netipx.PrefixIPNet(prefix),
+			Device: hostDevice,
+			Table:  linux_defaults.RouteTableIPSec,
+			MTU:    s.mtuCalc.RoutePostEncryptMTU,
+			Proto:  linux_defaults.RTProto,
+		})
+	}))
+}
+
+// requireIPsecOutRoute checks that exactly one unicast route for prefix
+// through the host device exists in the IPsec table, with the post-encryption
+// MTU.
+func requireIPsecOutRoute(tb testing.TB, ns *netns.NetNS, family int, prefix netip.Prefix, mtu int) {
+	tb.Helper()
+
+	link := tnl.MustLinkByName(tb, ns, hostDevice)
+	routes := tnl.MustRouteListFiltered(tb, ns, family, &netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Table:     linux_defaults.RouteTableIPSec,
+	}, netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE)
+
+	var matches []netlink.Route
+	for _, r := range routes {
+		if r.Dst != nil && prefixFromIPNet(tb, r.Dst) == prefix {
+			matches = append(matches, r)
+		}
+	}
+	require.Len(tb, matches, 1, "expected one IPsec OUT route for %s via %s, got %+v", prefix, hostDevice, routes)
+	require.Equal(tb, unix.RTN_UNICAST, matches[0].Type, "IPsec OUT route for %s must be unicast", prefix)
+	require.Equal(tb, linux_defaults.RouteTableIPSec, matches[0].Table)
+	require.Equal(tb, netlink.RouteProtocol(linux_defaults.RTProto), matches[0].Protocol)
+	require.Equal(tb, mtu, matches[0].MTU, "IPsec OUT route for %s must use the post-encryption MTU", prefix)
+}
+
+// requireNoIPsecLocalRoute checks that the IPsec table has no LOCAL route for
+// prefix.
+func requireNoIPsecLocalRoute(tb testing.TB, ns *netns.NetNS, family int, prefix netip.Prefix) {
+	tb.Helper()
+
+	routes := tnl.MustRouteListFiltered(tb, ns, family, &netlink.Route{
+		Table: linux_defaults.RouteTableIPSec,
+	}, netlink.RT_FILTER_TABLE)
+	for _, r := range routes {
+		if r.Type == unix.RTN_LOCAL && r.Dst != nil && prefixFromIPNet(tb, r.Dst) == prefix {
+			require.Failf(tb, "unexpected IPsec IN route", "LOCAL route for %s found in table %d: %+v",
+				prefix, linux_defaults.RouteTableIPSec, r)
+		}
+	}
+}
+
+// requireIPsecInStateOutputMarks checks the output mark of all XFRM IN
+// states: zero with endpoint routes, the decrypt mark otherwise. In both
+// cases the node ID bits are cleared.
+func requireIPsecInStateOutputMarks(tb testing.TB, ns *netns.NetNS, endpointRoutes bool) {
+	tb.Helper()
+
+	wantValue := uint32(linux_defaults.RouteMarkDecrypt)
+	if endpointRoutes {
+		wantValue = 0
+	}
+
+	found := 0
+	for _, state := range tnl.MustXfrmStateList(tb, ns, netlink.FAMILY_ALL) {
+		if state.Mark == nil ||
+			state.Mark.Mask != linux_defaults.IPsecMarkMaskIn ||
+			state.Mark.Value&linux_defaults.RouteMarkMask != linux_defaults.RouteMarkDecrypt {
+			continue
+		}
+		found++
+		require.NotNil(tb, state.OutputMark, "IN state %s has no output mark", state.String())
+		require.Equal(tb, wantValue, state.OutputMark.Value, "unexpected output mark for IN state %s", state.String())
+		require.Equal(tb, uint32(0xffffff00), state.OutputMark.Mask, "unexpected output mark mask for IN state %s", state.String())
+	}
+	require.NotZero(tb, found, "no XFRM IN state found")
+}
+
+func TestPrivilegedIPsecDecryptRules(t *testing.T) {
+	for _, endpointRoutes := range []bool{false, true} {
+		t.Run(fmt.Sprintf("endpoint-routes=%t", endpointRoutes), func(t *testing.T) {
+			testWithFamilies(t, func(t *testing.T, family string) {
+				testIPsecDecryptRules(t, family, endpointRoutes)
+			})
+		})
+	}
+	t.Run("upgrade", func(t *testing.T) {
+		testWithFamilies(t, testIPsecDecryptRulesUpgrade)
+	})
+}
+
+// testIPsecDecryptRules checks that the decrypt rule is installed, exactly
+// once, only when endpoint routes are disabled.
+func testIPsecDecryptRules(t *testing.T, family string, endpointRoutes bool) {
+	saveIPsecTestGlobals(t)
+	s := setup(t, family)
+
+	option.Config.EnableIPv4 = s.enableIPv4
+	option.Config.EnableIPv6 = s.enableIPv6
+	option.Config.EnableEndpointRoutes = endpointRoutes
+
+	want := 1
+	if endpointRoutes {
+		want = 0
+	}
+
+	lnh := newTestNodeHandler(t)
+	cfg := s.nodeConfigTemplate
+	cfg.EnableIPSec = true
+
+	// NodeConfigurationChanged reconciles the host rules every time it is
+	// called; the result must be stable.
+	for range 2 {
+		mustConfigureNode(t, s.ns, lnh, cfg)
+		mustReplaceHostRules(t, s.ns, lnh)
+
+		for _, family := range enabledFamilies(s) {
+			require.Equal(t, want, countMatchingRules(t, s.ns, family, decryptRuleSpec()),
+				"unexpected number of decrypt rules for family %d", family)
+		}
+		if !s.enableIPv4 {
+			require.Zero(t, countMatchingRules(t, s.ns, netlink.FAMILY_V4, decryptRuleSpec()))
+		}
+		if !s.enableIPv6 {
+			require.Zero(t, countMatchingRules(t, s.ns, netlink.FAMILY_V6, decryptRuleSpec()))
+		}
+	}
+}
+
+// testIPsecDecryptRulesUpgrade checks that an agent with endpoint routes
+// enabled removes a decrypt rule left behind by a previous agent, without
+// touching unrelated rules or the IPsec table routes, and that the rule is
+// restored when endpoint routes are disabled again.
+func testIPsecDecryptRulesUpgrade(t *testing.T, family string) {
+	saveIPsecTestGlobals(t)
+	s := setup(t, family)
+
+	option.Config.EnableIPv4 = s.enableIPv4
+	option.Config.EnableIPv6 = s.enableIPv6
+	option.Config.EnableEndpointRoutes = true
+
+	outRoutes := map[int]netip.Prefix{}
+	if s.enableIPv4 {
+		outRoutes[netlink.FAMILY_V4] = netip.MustParsePrefix("9.9.9.0/24")
+	}
+	if s.enableIPv6 {
+		outRoutes[netlink.FAMILY_V6] = netip.MustParsePrefix("2005:aaaa:bbbb::/96")
+	}
+
+	// State left behind by a previous agent.
+	for _, family := range enabledFamilies(s) {
+		mustReplaceRule(t, s.ns, family, decryptRuleSpec())
+		mustReplaceRule(t, s.ns, family, unrelatedPriorityOneRule())
+		mustUpsertIPsecOutRoute(t, s, outRoutes[family])
+
+		require.Equal(t, 1, countMatchingRules(t, s.ns, family, decryptRuleSpec()))
+		require.Equal(t, 1, countMatchingRules(t, s.ns, family, unrelatedPriorityOneRule()))
+		requireIPsecOutRoute(t, s.ns, family, outRoutes[family], s.mtuCalc.RoutePostEncryptMTU)
+	}
+
+	lnh := newTestNodeHandler(t)
+	cfg := s.nodeConfigTemplate
+	cfg.EnableIPSec = true
+
+	requireState := func(t *testing.T, wantDecryptRules int) {
+		t.Helper()
+		for _, family := range enabledFamilies(s) {
+			require.Equal(t, wantDecryptRules, countMatchingRules(t, s.ns, family, decryptRuleSpec()),
+				"unexpected number of decrypt rules for family %d", family)
+			require.Equal(t, 1, countMatchingRules(t, s.ns, family, unrelatedPriorityOneRule()),
+				"unrelated rule must survive for family %d", family)
+			requireIPsecOutRoute(t, s.ns, family, outRoutes[family], s.mtuCalc.RoutePostEncryptMTU)
+		}
+	}
+
+	// Agent restart with endpoint routes: the legacy rule is removed.
+	mustConfigureNode(t, s.ns, lnh, cfg)
+	requireState(t, 0)
+
+	// Repeated reconciliation with the rule already absent must succeed.
+	mustConfigureNode(t, s.ns, lnh, cfg)
+	mustReplaceHostRules(t, s.ns, lnh)
+	requireState(t, 0)
+
+	// Disabling endpoint routes restores the rule, without duplicates.
+	option.Config.EnableEndpointRoutes = false
+	for range 2 {
+		mustConfigureNode(t, s.ns, lnh, cfg)
+		mustReplaceHostRules(t, s.ns, lnh)
+		requireState(t, 1)
+	}
+}
+
+func TestPrivilegedSubnetIPsecRouting(t *testing.T) {
+	for _, endpointRoutes := range []bool{true, false} {
+		t.Run(fmt.Sprintf("endpoint-routes=%t", endpointRoutes), func(t *testing.T) {
+			testWithFamilies(t, func(t *testing.T, family string) {
+				for _, seedLegacyRule := range []bool{false, true} {
+					t.Run(fmt.Sprintf("legacy-rule=%t", seedLegacyRule), func(t *testing.T) {
+						testSubnetIPsecRouting(t, family, endpointRoutes, seedLegacyRule)
+					})
+				}
+			})
+		})
+	}
+}
+
+// testSubnetIPsecRouting exercises the subnet encryption host routing
+// (IPAM modes such as ENI). With endpoint routes, the pod subnet covers the
+// local node address, as with ENI IPv6 prefixes; an incoming ESP packet
+// carrying the decrypt mark must still be delivered locally. Without endpoint
+// routes, the pod subnets are disjoint from the node address and the existing
+// behavior is preserved.
+func testSubnetIPsecRouting(t *testing.T, family string, endpointRoutes, seedLegacyRule bool) {
+	saveIPsecTestGlobals(t)
+	s := setup(t, family)
+
+	option.Config.EnableIPv4 = s.enableIPv4
+	option.Config.EnableIPv6 = s.enableIPv6
+	option.Config.EnableEndpointRoutes = endpointRoutes
+	option.Config.RoutingMode = option.RoutingModeNative
+
+	// Mark of an incoming ESP packet from a remote node: decrypt bits and a
+	// node ID.
+	const espMark = 0x12340d00
+
+	cfg := s.nodeConfigTemplate
+	cfg.EnableIPSec = true
+
+	type familyCase struct {
+		family int
+		nodeIP netip.Addr
+		remote netip.Addr
+		subnet netip.Prefix
+	}
+	var cases []familyCase
+	if s.enableIPv4 {
+		c := familyCase{
+			family: netlink.FAMILY_V4,
+			nodeIP: cfg.NodeIPv4,
+			remote: netip.MustParseAddr("1.1.1.200"),
+			subnet: netip.MustParsePrefix("4.4.0.0/16"),
+		}
+		if endpointRoutes {
+			c.subnet = netip.PrefixFrom(cfg.NodeIPv4, 24).Masked()
+		}
+		cfg.IPv4PodSubnets = []ip.Prefix{ip.PrefixFrom(c.subnet)}
+		cases = append(cases, c)
+	}
+	if s.enableIPv6 {
+		c := familyCase{
+			family: netlink.FAMILY_V6,
+			nodeIP: cfg.NodeIPv6,
+			remote: netip.MustParseAddr("cafe::c8"),
+			subnet: netip.MustParsePrefix("2001:aaaa::/64"),
+		}
+		if endpointRoutes {
+			c.subnet = netip.PrefixFrom(cfg.NodeIPv6, 64).Masked()
+		}
+		cfg.IPv6PodSubnets = []ip.Prefix{ip.PrefixFrom(c.subnet)}
+		cases = append(cases, c)
+	}
+
+	for _, c := range cases {
+		require.Equal(t, endpointRoutes, c.subnet.Contains(c.nodeIP),
+			"pod subnet %s must overlap node address %s only with endpoint routes", c.subnet, c.nodeIP)
+		if endpointRoutes {
+			require.True(t, c.subnet.Contains(c.remote), "remote %s must be within %s", c.remote, c.subnet)
+		}
+		require.NotEqual(t, c.nodeIP, c.remote)
+		require.NotEqual(t, cfg.CiliumInternalIPv4, c.remote)
+		require.NotEqual(t, cfg.CiliumInternalIPv6, c.remote)
+		requireAddrUsable(t, s.ns, externalDevice, c.nodeIP)
+	}
+
+	enableForwardingSysctls(t, s)
+
+	// Move the local table lookup behind the decrypt rule, as the agent does
+	// at startup. Otherwise, local delivery would hide the decrypt rule.
+	require.NoError(t, s.ns.Do(NodeEnsureLocalRoutingRule))
+	for _, c := range cases {
+		requireLocalLookupMoved(t, s.ns, c.family)
+	}
+
+	if seedLegacyRule {
+		for _, c := range cases {
+			mustReplaceRule(t, s.ns, c.family, decryptRuleSpec())
+			require.Equal(t, 1, countMatchingRules(t, s.ns, c.family, decryptRuleSpec()))
+		}
+	}
+
+	wantDecryptRules := 1
+	if endpointRoutes {
+		wantDecryptRules = 0
+	}
+
+	lnh := newTestNodeHandler(t)
+	for range 2 {
+		mustConfigureNode(t, s.ns, lnh, cfg)
+
+		// Local node updates call enableSubnetIPsec; call it directly since
+		// remote node events do not.
+		require.NoError(t, s.ns.Do(func() error {
+			lnh.mutex.Lock()
+			defer lnh.mutex.Unlock()
+			return lnh.enableSubnetIPsec(cfg.GetIPv4PodSubnets(), cfg.GetIPv6PodSubnets())
+		}))
+
+		for _, c := range cases {
+			requireMarkedLocalDelivery(t, s.ns, c.nodeIP, c.remote, espMark)
+			require.Equal(t, wantDecryptRules, countMatchingRules(t, s.ns, c.family, decryptRuleSpec()),
+				"unexpected number of decrypt rules for family %d", c.family)
+			requireIPsecOutRoute(t, s.ns, c.family, c.subnet, cfg.RoutePostEncryptMTU)
+			if endpointRoutes {
+				requireNoIPsecLocalRoute(t, s.ns, c.family, c.subnet)
+			}
+		}
 	}
 }

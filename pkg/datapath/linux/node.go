@@ -847,30 +847,69 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 func (n *linuxNodeHandler) replaceHostRules() error {
 	rule := route.Rule{
 		Priority: 1,
+		Mark:     linux_defaults.RouteMarkDecrypt,
 		Mask:     linux_defaults.RouteMarkMask,
 		Table:    linux_defaults.RouteTableIPSec,
 		Protocol: linux_defaults.RTProto,
 	}
 
+	// With endpoint routes, decrypted packets are delivered through the normal
+	// endpoint routes, so the decrypt rule is not needed. It is also harmful:
+	// when a subnet OUT route in the IPsec table covers the local node
+	// address, the rule can capture incoming outer ESP packets carrying the
+	// decrypt mark and forward them to the host device instead of delivering
+	// them locally. Remove the rule if a previous agent left it behind.
+	install := !option.Config.EnableEndpointRoutes
+
+	var errs error
 	if n.nodeConfig.EnableIPv4 {
-		if !option.Config.EnableEndpointRoutes {
-			rule.Mark = linux_defaults.RouteMarkDecrypt
-			if err := route.ReplaceRule(rule); err != nil {
-				n.log.Error("Replace IPv4 route decrypt rule failed", logfields.Error, err)
-				return err
-			}
-		}
+		errs = errors.Join(errs, n.reconcileDecryptRule(netlink.FAMILY_V4, rule, install))
 	}
-
 	if n.nodeConfig.EnableIPv6 {
-		rule.Mark = linux_defaults.RouteMarkDecrypt
-		if err := route.ReplaceRuleIPv6(rule); err != nil {
-			n.log.Error("Replace IPv6 route decrypt rule failed", logfields.Error, err)
-			return err
-		}
+		errs = errors.Join(errs, n.reconcileDecryptRule(netlink.FAMILY_V6, rule, install))
 	}
 
-	return nil
+	return errs
+}
+
+// reconcileDecryptRule installs or deletes the exact IPsec decrypt rule for
+// the given family. Deletion only targets the rule matching the complete
+// specification and tolerates its absence.
+func (n *linuxNodeHandler) reconcileDecryptRule(family int, rule route.Rule, install bool) error {
+	familyStr := "IPv4"
+	if family == netlink.FAMILY_V6 {
+		familyStr = "IPv6"
+	}
+
+	if install {
+		var err error
+		if family == netlink.FAMILY_V6 {
+			err = route.ReplaceRuleIPv6(rule)
+		} else {
+			err = route.ReplaceRule(rule)
+		}
+		if err != nil {
+			n.log.Error("Replace route decrypt rule failed",
+				logfields.Family, familyStr,
+				logfields.Error, err,
+			)
+			return fmt.Errorf("replace %s decrypt rule: %w", familyStr, err)
+		}
+		return nil
+	}
+
+	err := route.DeleteRule(family, rule)
+	if err == nil || errors.Is(err, syscall.ENOENT) {
+		return nil
+	}
+	if family == netlink.FAMILY_V6 && errors.Is(err, unix.EAFNOSUPPORT) {
+		return nil
+	}
+	n.log.Error("Delete route decrypt rule failed",
+		logfields.Family, familyStr,
+		logfields.Error, err,
+	)
+	return fmt.Errorf("delete %s decrypt rule: %w", familyStr, err)
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
