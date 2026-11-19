@@ -60,6 +60,12 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		}
 	}
 
+	// IPv6 is not yet supported by IPsec in the ENI IPAM mode.
+	if params.IPSecConfig.Enabled() && params.DaemonConfig.IPAMMode() == ipamOption.IPAMENI && params.DaemonConfig.IPv6Enabled() {
+		return fmt.Errorf("IPsec (--%s) does not support IPv6 (--%s) with the ENI IPAM mode (--%s=%s). This is a known limitation, see https://github.com/cilium/cilium/issues/49834",
+			option.EnableIPSec, option.EnableIPv6Name, option.IPAM, ipamOption.IPAMENI)
+	}
+
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
 	// finishKubeProxyReplacementInit(), which is called later after the device
