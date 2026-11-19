@@ -125,11 +125,9 @@ func createADSWatchResponse(t *testing.T, cache xdsnew.Cache, typeURL, version s
 
 // testableEndpointUpdater is a configurable mock implementing endpoint.EndpointUpdater.
 type testableEndpointUpdater struct {
-	id                     uint64
-	ipv4                   string
-	ipv6                   string
-	proxyPolicyRevision    atomic.Uint64
-	proxyPolicyUpdateCount atomic.Uint64
+	id   uint64
+	ipv4 string
+	ipv6 string
 }
 
 func (m *testableEndpointUpdater) GetID() uint64          { return m.id }
@@ -146,10 +144,6 @@ func (m *testableEndpointUpdater) GetPolicyNames() []string {
 	return res
 }
 func (m *testableEndpointUpdater) GetIngressNamedPort(string, u8proto.U8proto) uint16 { return 0 }
-func (m *testableEndpointUpdater) OnProxyPolicyUpdate(revision uint64) {
-	m.proxyPolicyRevision.Store(revision)
-	m.proxyPolicyUpdateCount.Add(1)
-}
 func (m *testableEndpointUpdater) UpdateProxyStatistics(string, string, uint16, uint16, bool, bool, accesslog.FlowVerdict) {
 }
 func (m *testableEndpointUpdater) GetListenerProxyPort(string) uint16 { return 0 }
@@ -186,7 +180,6 @@ func adsDefaultResources() xds.Resources {
 		},
 	}
 	return xds.Resources{
-		PortAllocationCallbacks: make(map[string]func(context.Context) error),
 		Listeners: map[string]*envoy_config_listener.Listener{
 			"listener1": {
 				Name: "listener1",
@@ -260,12 +253,29 @@ func newADSServerFixture(t *testing.T, restorers ...promise.Promise[endpointstat
 	return server, server.cache
 }
 
+// Seed through restoration so resources remain unacknowledged until the test
+// drives their responses. Subsequent updates use the normal server-owned waits.
+func newSeededADSServerFixture(t *testing.T, resources xds.Resources) (*adsServer, xdsnew.Cache) {
+	t.Helper()
+	_, restorer := promise.New[endpointstate.Restorer]()
+	server, cache := newADSServerFixture(t, restorer)
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources))
+	server.markRestoreCompleted()
+	return server, cache
+}
+
 func waitForADSCompletion(t *testing.T, wg *completion.WaitGroup) <-chan error {
 	t.Helper()
 	t.Cleanup(wg.Cancel)
 	done := make(chan error, 1)
 	go func() { done <- wg.Wait() }()
 	return done
+}
+
+func startADSResourceUpdate(server *adsServer, ctx context.Context, old, next xds.Resources) <-chan error {
+	result := make(chan error, 1)
+	go func() { result <- server.UpdateEnvoyResources(ctx, old, next) }()
+	return result
 }
 
 func requireADSCompletionPending(t *testing.T, done <-chan error) {
@@ -308,9 +318,7 @@ func seedADSNetworkPolicy(t *testing.T, server *adsServer, ep *testableEndpointU
 	t.Helper()
 	err, rollback := server.UpdateNetworkPolicy(t.Context(), ep, policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot()), nil)
 	require.NoError(t, err)
-	if rollback != nil {
-		rollback.Finalize()
-	}
+	rollback.Finalize()
 	return cachedNetworkPolicy(t, server.cache, localNodeID, strconv.FormatUint(ep.id, 10))
 }
 
@@ -330,7 +338,7 @@ type blockingNetworkPolicyADSCache struct {
 	continueUpsert chan struct{}
 }
 
-func (c *blockingNetworkPolicyADSCache) ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error)) (xdsnew.Rollback, error) {
+func (c *blockingNetworkPolicyADSCache) ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) (xdsnew.Rollback, error) {
 	if typeURL == typeurl.NetworkPolicy && resource != nil {
 		close(c.upsertStarted)
 		select {
@@ -339,5 +347,5 @@ func (c *blockingNetworkPolicyADSCache) ApplyResourceWithRollback(ctx context.Co
 			return nil, ctx.Err()
 		}
 	}
-	return c.Cache.ApplyResourceWithRollback(ctx, nodeID, typeURL, name, resource, wg, callback)
+	return c.Cache.ApplyResourceWithRollback(ctx, nodeID, typeURL, name, resource, wg)
 }

@@ -775,7 +775,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 
 	require.NoError(b, backend.server.AddListener(
 		b.Context(), "benchmark-l7-listener", policy.ParserTypeHTTP, benchmarkProxyPort,
-		false, false, nil, nil,
+		false, false, nil,
 	))
 	backend.serverStats = &benchmarkObservedXDSServer{
 		XDSServer:              backend.server,
@@ -798,13 +798,15 @@ type benchmarkEndpointProxy struct {
 	xds.XDSServer
 }
 
-func (*benchmarkEndpointProxy) CreateOrUpdateRedirect(context.Context, policy.ProxyPolicy, string, uint16, *completion.WaitGroup) (uint16, error, revert.RevertFunc) {
+func (*benchmarkEndpointProxy) CreateOrUpdateRedirect(policy.ProxyPolicy, string, uint16, *completion.WaitGroup) (uint16, error, revert.RevertFunc) {
 	// A non-zero port makes the redirect realized, as it would be in production.
 	// Incremental L7 selector changes are otherwise skipped before the xDS path.
 	return benchmarkProxyPort, nil, nil
 }
 
 func (*benchmarkEndpointProxy) RemoveRedirect(string) {}
+
+func (*benchmarkEndpointProxy) AckRedirects(context.Context, map[string]uint16) error { return nil }
 
 func (*benchmarkEndpointProxy) UpdateSDP(map[identity.NumericIdentity]policy.SelectorPolicy) {}
 

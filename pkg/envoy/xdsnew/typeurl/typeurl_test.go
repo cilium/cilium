@@ -19,7 +19,7 @@ import (
 )
 
 func TestIndexRoundTrip(t *testing.T) {
-	seen := NewSet()
+	var seen Set
 	for index := range Count {
 		url := index.URL()
 		require.NotEmpty(t, url)
@@ -67,13 +67,8 @@ func TestFromMessage(t *testing.T) {
 	}
 }
 
-func TestFixedMapTracksZeroValuesAndInitialization(t *testing.T) {
+func TestFixedMapTracksZeroValues(t *testing.T) {
 	var values Map[int]
-	require.False(t, values.Known())
-	require.True(t, values.Empty())
-
-	values = NewMap[int]()
-	require.True(t, values.Known())
 	require.True(t, values.Empty())
 
 	values.Set(Listener, 0)
@@ -83,11 +78,10 @@ func TestFixedMapTracksZeroValuesAndInitialization(t *testing.T) {
 	require.Equal(t, 1, values.Len())
 
 	values.Remove(Listener)
-	require.True(t, values.Known())
 	require.True(t, values.Empty())
 }
 
-func TestSetTracksMembershipAndInitialization(t *testing.T) {
+func TestSetTracksMembership(t *testing.T) {
 	var zero Set
 	removedFromZero := zero
 	removedFromZero.Remove(Listener)
@@ -99,26 +93,19 @@ func TestSetTracksMembershipAndInitialization(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		set   Set
-		known bool
 		count int
 	}{
-		{"zero", zero, false, 0},
-		{"remove from zero", removedFromZero, false, 0},
-		{"union of zero sets", zero.Union(zero), false, 0},
-		{"initialized empty", NewSet(), true, 0},
-		{"remove last member", removedLast, true, 0},
-		{"union with initialized empty", zero.Union(NewSet()), true, 0},
-		{"insert into zero", inserted, true, 1},
-		{"union with member", zero.Union(inserted), true, 1},
-		{"all", All(), true, int(Count)},
+		{"zero", zero, 0},
+		{"remove from zero", removedFromZero, 0},
+		{"union of zero sets", zero.Union(zero), 0},
+		{"remove last member", removedLast, 0},
+		{"insert into zero", inserted, 1},
+		{"union with member", zero.Union(inserted), 1},
+		{"all", All(), int(Count)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.known, test.set.Known())
 			require.Equal(t, test.count == 0, test.set.Empty())
 			require.Equal(t, test.count, test.set.Len())
-			if !test.set.Known() {
-				require.Zero(t, test.set.bits)
-			}
 			count := 0
 			for index := range test.set.Members() {
 				require.True(t, test.set.Has(index))

@@ -14,7 +14,9 @@ type Orchestrator interface {
 	Reinitialize(ctx context.Context) error
 
 	DatapathInitialized() <-chan struct{}
-	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) (string, error)
+	// ReloadDatapath calls beforeExpose, if non-nil, after loading and before
+	// making new programs reachable. A hook error aborts publication.
+	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat, beforeExpose func() error) (string, error)
 	EndpointHash(cfg Config) (string, error)
 	WriteEndpointConfig(w io.Writer, cfg Config) error
 	Unload(ep Endpoint)

@@ -23,8 +23,6 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-
-	"github.com/cilium/cilium/pkg/completion"
 )
 
 const (
@@ -295,7 +293,6 @@ func TestAck(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -345,8 +342,8 @@ func TestAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
 	// Expecting a response with that resource.
@@ -357,8 +354,8 @@ func TestAck(t *testing.T) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	callback2, comp2 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
+	comp2WG, comp2 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2WG)
 	require.Condition(t, doesNotCompleteComparison(comp2))
 
 	// Request the next version of resources.
@@ -2595,7 +2592,6 @@ func TestNAck(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -2648,8 +2644,8 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
 	// Expecting a response with that resource.
@@ -2674,10 +2670,8 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 3 with resources 0 and 1.
-	// NACK cancelled the wg, create a new one
-	wg = completion.NewWaitGroup(ctx)
-	callback2, comp2 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
+	comp2WG, comp2 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2WG)
 	require.Condition(t, doesNotCompleteComparison(comp2))
 
 	// Version 2 was NACKed by the last request, so comp1 must NOT be completedInTime ever.
@@ -2735,7 +2729,6 @@ func TestNAckFromTheStart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -2776,8 +2769,8 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
 	// Request the next version of resources.
@@ -2814,16 +2807,13 @@ func TestNAckFromTheStart(t *testing.T) {
 	// Version 2 was NACKed by the last request, so it must NOT be completedInTime successfully.
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
-	// Version 2 did not have a callback, so the completion was completedInTime with an error
+	// The rejected update completes with the proxy's error.
 	require.Error(t, comp1.Err())
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived}, comp1.Err())
 
-	// NACK canceled the WaitGroup, create new one
-	wg = completion.NewWaitGroup(ctx)
-
 	// Create version 3 with resources 0 and 1.
-	callback2, comp2 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
+	comp2WG, comp2 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2WG)
 	require.Condition(t, doesNotCompleteComparison(comp2))
 
 	// Expecting a response with both resources.
@@ -2876,7 +2866,6 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -2897,8 +2886,8 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
 	// Request all resources, with a version higher than the version currently
@@ -2949,7 +2938,6 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -2969,8 +2957,8 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
 	// Close previous stream and create a new one.
@@ -3039,7 +3027,6 @@ func TestNotAckedAfterRestart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -3060,8 +3047,8 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback(logger)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, doesNotCompleteComparison(comp1))
 
 	// Request all resources, with a version higher than the version currently
@@ -3143,7 +3130,6 @@ func TestWaitForAck(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	ldsCache := NewCache(logger)
 	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
@@ -3203,12 +3189,12 @@ func TestWaitForAck(t *testing.T) {
 		}},
 	}
 
-	cdsCallback, cdsComp := newCompCallback(logger)
-	cdsMutator.Upsert(ClusterTypeURL, clusterConf.Name, clusterConf, []string{node0}, wg, cdsCallback)
+	cdsCompWG, cdsComp := newCompletionWait(t, ctx)
+	cdsMutator.Upsert(ClusterTypeURL, clusterConf.Name, clusterConf, []string{node0}, cdsCompWG)
 	require.Condition(t, doesNotCompleteComparison(cdsComp))
 
-	ldsCallback, ldsComp := newCompCallback(logger)
-	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, wg, ldsCallback)
+	ldsCompWG, ldsComp := newCompletionWait(t, ctx)
+	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, ldsCompWG)
 	require.Condition(t, doesNotCompleteComparison(ldsComp))
 
 	// Request listener resources, with a version higher than the version currently
@@ -3310,8 +3296,8 @@ func TestWaitForAck(t *testing.T) {
 	}
 
 	// Wait for the ACKs to have been processed
-	err = wg.Wait()
-	require.NoError(t, err)
+	require.Condition(t, completedComparison(cdsComp))
+	require.Condition(t, completedComparison(ldsComp))
 
 	// Close the streams.
 	cdsCloseStream()
@@ -3346,7 +3332,6 @@ func TestWaitForAckNoClusters(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
 
 	ldsCache := NewCache(logger)
 	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
@@ -3402,8 +3387,8 @@ func TestWaitForAckNoClusters(t *testing.T) {
 		}},
 	}
 
-	ldsCallback, ldsComp := newCompCallback(logger)
-	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, wg, ldsCallback)
+	ldsCompWG, ldsComp := newCompletionWait(t, ctx)
+	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, ldsCompWG)
 	require.Condition(t, doesNotCompleteComparison(ldsComp))
 
 	// Request listener resources, with a version higher than the version currently
@@ -3444,8 +3429,7 @@ func TestWaitForAckNoClusters(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the ACKs to have been processed
-	err = wg.Wait()
-	require.NoError(t, err)
+	require.Condition(t, completedComparison(ldsComp))
 
 	// Close the streams.
 	cdsCloseStream()

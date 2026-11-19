@@ -119,7 +119,7 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 		cmp := completion.NewWaitGroup(context.Background())
 		for i := range numIdentities {
 			addIdentity("peer", fmt.Sprintf("peer%d", i))
-			err, revertible := ep.ApplyPolicyMapChanges(cmp)
+			err, revertible, _ := ep.ApplyPolicyMapChanges(cmp)
 			if !assert.NoError(t, err) {
 				return
 			}

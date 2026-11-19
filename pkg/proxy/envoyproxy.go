@@ -40,26 +40,25 @@ type envoyProxyIntegration struct {
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
-func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGroup, cb func(err error)) (RedirectImplementation, error) {
-	if r.proxyPort.ProxyType == types.ProxyTypeCRD {
+func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
+	if r.proxyType == types.ProxyTypeCRD {
 		// CRD Listeners already exist, create a no-op implementation
 		return &CRDRedirect{Redirect: r}, nil
 	}
 
 	// create an Envoy Listener for Cilium policy enforcement
-	l := r.proxyPort
 	redirect := &envoyRedirect{
 		Redirect:     r,
-		listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.ProxyPort)),
+		listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", r.proxyPort)),
 		xdsServer:    p.xdsServer,
 		adminClient:  p.adminClient,
 	}
 	mayUseOriginalSourceAddr := p.proxyUseOriginalSourceAddress && p.iptablesManager.SupportsOriginalSourceAddr()
 	// Only use original source address for egress
-	if l.Ingress {
+	if r.ingress {
 		mayUseOriginalSourceAddr = false
 	}
-	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, cb)
+	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(r.proxyType), r.proxyPort, r.ingress, mayUseOriginalSourceAddr, wg)
 
 	return redirect, err
 }

@@ -14,13 +14,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -101,10 +101,14 @@ func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTx
 		maps.Copy(merged.Endpoints, res.Resources.Endpoints)
 		maps.Copy(merged.Secrets, res.Resources.Secrets)
 	}
-	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged, nil)
+	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged)
 }
 
 // Delete implements reconciler.Operations.
+// The controller releases CRD listener ports when removing the resource from
+// StateDB and triggers policy updates after commit if any ports were released.
+// Delete handles service redirects and reconciled xDS cleanup, which may be
+// retried without repeating port release or policy notification.
 func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
 	if res.Redirects.Len() > 0 {
 		// Remove redirects from services no longer selected by the CEC
@@ -121,32 +125,14 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 		wtxn.Commit()
 	}
 
-	releasedListeners := sets.New[string]()
-
-	var err error
 	if prev := res.ReconciledResources; prev != nil {
 		// Perform the deletion with the resources that were last successfully reconciled
 		// instead of whatever the latest one is (which would have not been pushed to Envoy).
-		err = ops.xds.DeleteEnvoyResources(ctx, *prev, nil)
-
-		for _, listener := range prev.Listeners {
-			ops.portAllocator.ReleaseProxyPort(listener.Name)
-			releasedListeners.Insert(listener.Name)
+		if err := ops.xds.DeleteEnvoyResources(ctx, *prev); err != nil {
+			return err
 		}
 	}
-
-	// Release the proxy ports of any unreconciled resources
-	for _, listener := range res.Resources.Listeners {
-		if !releasedListeners.Has(listener.Name) {
-			ops.portAllocator.ReleaseProxyPort(listener.Name)
-			releasedListeners.Insert(listener.Name)
-		}
-	}
-
-	if len(releasedListeners) > 0 {
-		ops.policyTrigger.TriggerPolicyUpdates()
-	}
-	return err
+	return nil
 }
 
 // Prune implements reconciler.Operations.
@@ -186,25 +172,28 @@ func isPortBindingErrorMessage(errStr string) bool {
 		strings.Contains(errStr, "has duplicate address")
 }
 
-func (ops *envoyOps) updateEnvoyResources(ctx context.Context, prevResources, resources xds.Resources) error {
-	if len(resources.PortAllocationCallbacks) == 0 {
-		return ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
+// setListenerPort updates the addresses and policy identity of a caller-owned listener.
+func setListenerPort(listener *envoy_config_listener.Listener, port uint16) error {
+	listener.Address, listener.AdditionalAddresses = envoy.GetLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+	// Policy rules identify CRD listeners by their proxy port.
+	for _, filter := range listener.ListenerFilters {
+		if filter.Name != ciliumBPFMetadataListenerFilterName {
+			continue
+		}
+		var metadata cilium.BpfMetadata
+		if err := filter.GetTypedConfig().UnmarshalTo(&metadata); err != nil {
+			return fmt.Errorf("reading BPF metadata for listener %s: %w", listener.Name, err)
+		}
+		metadata.ProxyId = uint32(port)
+		if err := filter.GetTypedConfig().MarshalFrom(&metadata); err != nil {
+			return fmt.Errorf("updating BPF metadata for listener %s: %w", listener.Name, err)
+		}
 	}
-
-	// Port allocation callbacks are fired by the xDS N/ACK path, but only if there is a wait
-	// group. We also need to wait to find out if the allocated port failed to bind so that the
-	// caller may try again with a different port.
-	wg := completion.NewWaitGroup(ctx)
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, wg)
-	if err != nil {
-		wg.Cancel()
-		return err
-	}
-	return wg.Wait()
+	return nil
 }
 
-// retryWithNewPorts reallocates dynamically allocated ports and retries UpdateEnvoyResources.
-func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources xds.Resources) (xds.Resources, error) {
+// retryWithNewPorts reallocates unconfirmed listener ports and retries UpdateEnvoyResources.
+func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources xds.Resources, allocationsToAck set.Set[string]) (xds.Resources, error) {
 	newListeners := make(map[string]*envoy_config_listener.Listener, 0)
 
 	for _, listener := range resources.Listeners {
@@ -215,25 +204,20 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 
 		listenerName := listener.Name
 
-		if resources.PortAllocationCallbacks != nil && resources.PortAllocationCallbacks[listenerName] != nil {
+		if allocationsToAck.Has(listenerName) {
 			newPort, err := ops.portAllocator.ReallocateCRDProxyPort(listenerName)
 			if err != nil || newPort == 0 {
 				return resources, fmt.Errorf("failed to reallocate proxy port for listener %s: %w", listenerName, err)
 			}
 
 			clonedListener := proto.Clone(listener).(*envoy_config_listener.Listener)
-			clonedListener.Address, clonedListener.AdditionalAddresses = envoy.GetLocalListenerAddresses(newPort, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+			if err := setListenerPort(clonedListener, newPort); err != nil {
+				return resources, err
+			}
 
 			ops.log.Info("Reallocated proxy port due to binding failure",
 				logfields.Listener, listenerName,
 				logfields.ProxyPort, newPort)
-
-			if resources.PortAllocationCallbacks == nil {
-				resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
-			}
-			resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error {
-				return ops.portAllocator.AckProxyPortWithReference(ctx, listenerName)
-			}
 
 			newListeners[clonedListener.Name] = clonedListener
 		} else {
@@ -242,7 +226,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 	}
 
 	resources.Listeners = newListeners
-	err := ops.updateEnvoyResources(ctx, prevResources, resources)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
 	return resources, err
 }
 
@@ -256,60 +240,88 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 	var prevResources xds.Resources
 	if res.ReconciledResources != nil {
 		prevResources = *res.ReconciledResources
-
-		// Use previously reconciled listener addresses for dynamically allocated ports.
-		if resources.PortAllocationCallbacks != nil {
-			reconciledListenersByName := make(map[string]*envoy_config_listener.Listener)
-			for _, l := range prevResources.Listeners {
-				reconciledListenersByName[l.Name] = l
-			}
-			for i, l := range resources.Listeners {
-				if _, hasCb := resources.PortAllocationCallbacks[l.Name]; hasCb {
-					if reconciledL, ok := reconciledListenersByName[l.Name]; ok {
-						resources.Listeners[i].Address = reconciledL.Address
-						resources.Listeners[i].AdditionalAddresses = reconciledL.AdditionalAddresses
-					}
-				}
-			}
-		}
 	}
 
-	err := ops.updateEnvoyResources(ctx, prevResources, resources)
-
-	if err != nil && isPortBindingError(err) {
-		hasDynamicallyAllocatedPorts := false
-		if len(resources.PortAllocationCallbacks) > 0 {
-			for _, listener := range resources.Listeners {
-				if listener.GetInternalListener() != nil {
-					continue
-				}
-				if _, exists := resources.PortAllocationCallbacks[listener.Name]; exists {
-					hasDynamicallyAllocatedPorts = true
-					break
-				}
-			}
+	var allocationsToAck set.Set[string]
+	var updatedListeners map[string]*envoy_config_listener.Listener
+	for name := range res.AllocatedListeners.Members() {
+		listener := resources.Listeners[name]
+		if listener == nil {
+			continue
 		}
-
-		if hasDynamicallyAllocatedPorts {
-			ops.log.Warn("Port binding failed, attempting to reallocate ports and retry",
-				logfields.Error, err)
-
-			updatedResources, retryErr := ops.retryWithNewPorts(ctx, prevResources, resources)
-			if retryErr != nil {
-				return fmt.Errorf("failed to reallocate ports after binding failure: %w (original error: %w)", retryErr, err)
-			}
-			resources = updatedResources
-			err = nil
+		// The parsed address may predate a bind retry, including a failed retry.
+		port, err := ops.portAllocator.AllocateCRDProxyPort(name)
+		if err != nil || port == 0 {
+			return fmt.Errorf("listener port allocation for %q failed: %w", name, err)
 		}
+		previous := prevResources.Listeners[name].GetAddress().GetSocketAddress()
+		if !res.ReconciledAllocatedListeners.Has(name) || previous == nil || previous.GetPortValue() != uint32(port) {
+			allocationsToAck.Insert(name)
+		}
+		if listener.GetAddress().GetSocketAddress().GetPortValue() != uint32(port) {
+			if updatedListeners == nil {
+				updatedListeners = maps.Clone(resources.Listeners)
+			}
+			listener = proto.Clone(listener).(*envoy_config_listener.Listener)
+			if err := setListenerPort(listener, port); err != nil {
+				return err
+			}
+			updatedListeners[name] = listener
+		}
+	}
+	if updatedListeners != nil {
+		resources.Listeners = updatedListeners
+	}
+
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
+
+	if err != nil && isPortBindingError(err) && !allocationsToAck.Empty() {
+		ops.log.Warn("Port binding failed, attempting to reallocate ports and retry",
+			logfields.Error, err)
+
+		updatedResources, retryErr := ops.retryWithNewPorts(ctx, prevResources, resources, allocationsToAck)
+		if retryErr != nil {
+			return fmt.Errorf("failed to reallocate ports after binding failure: %w (original error: %w)", retryErr, err)
+		}
+		resources = updatedResources
+		err = nil
 	}
 
 	if err == nil {
-		if prevResources.ListenersAddedOrDeleted(&resources) {
+		portsChanged := false
+		// The update and its required waits have succeeded, including any listener
+		// recreation retries. Only now make the new ports available to redirects.
+		for name := range allocationsToAck.Members() {
+			if ackErr := ops.portAllocator.AckCRDProxyPort(ctx, name); ackErr != nil {
+				err = errors.Join(err, fmt.Errorf("acknowledging proxy port %q: %w", name, ackErr))
+				continue
+			}
+			portsChanged = true
+		}
+		if err != nil {
+			if portsChanged {
+				ops.policyTrigger.TriggerPolicyUpdates()
+			}
+			return err
+		}
+		for name := range res.ReconciledAllocatedListeners.Members() {
+			if !res.AllocatedListeners.Has(name) {
+				if err := ops.portAllocator.ReleaseCRDProxyPort(name); err != nil {
+					ops.log.Warn("Failed to release proxy port",
+						logfields.Listener, name,
+						logfields.Error, err)
+				} else {
+					portsChanged = true
+				}
+			}
+		}
+
+		if portsChanged || prevResources.ListenersAddedOrDeleted(&resources) {
 			ops.policyTrigger.TriggerPolicyUpdates()
 		}
 
 		res.ReconciledResources = &resources
-		res.ReconciledResources.PortAllocationCallbacks = nil
+		res.ReconciledAllocatedListeners = res.AllocatedListeners
 
 		// With the envoy resources successfully pushed to Envoy, set the proxy redirections
 		// for the associated services.
@@ -393,8 +405,8 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
-	DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error
-	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error
+	DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error
+	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error
 }
 
 type policyTrigger interface {

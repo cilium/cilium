@@ -503,14 +503,14 @@ func (o *orchestrator) reinitialize(ctx context.Context, localNodeConfig *config
 	return nil
 }
 
-func (o *orchestrator) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (o *orchestrator) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat, beforeExpose func() error) (string, error) {
 	select {
 	case <-o.dpInitialized:
 	case <-ctx.Done():
 		return "", ctx.Err()
 	}
 
-	return o.params.Loader.ReloadDatapath(ctx, ep, o.latestLocalNodeConfig.Load(), stats)
+	return o.params.Loader.ReloadDatapath(ctx, ep, o.latestLocalNodeConfig.Load(), stats, beforeExpose)
 }
 
 func (o *orchestrator) EndpointHash(cfg endpoint.Config) (string, error) {
