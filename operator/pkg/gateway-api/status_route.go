@@ -280,6 +280,9 @@ func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog
 		} {
 			if cond, invalid := validate(); invalid {
 				for _, parent := range hr.Status.Parents {
+					if string(parent.ControllerName) != m.controllerName {
+						continue
+					}
 					i.SetParentCondition(parent.ParentRef, cond)
 				}
 			}
@@ -349,6 +352,9 @@ func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog
 		} {
 			if cond, invalid := validate(); invalid {
 				for _, parent := range grpcr.Status.Parents {
+					if string(parent.ControllerName) != m.controllerName {
+						continue
+					}
 					i.SetParentCondition(parent.ParentRef, cond)
 				}
 			}
