@@ -5,12 +5,14 @@ package types
 
 import (
 	"net/netip"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-func TestValidateAddressAllocation(t *testing.T) {
+func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  DeviceConfig
@@ -22,6 +24,50 @@ func TestValidateAddressAllocation(t *testing.T) {
 		{
 			name:   "dynamic pool",
 			config: DeviceConfig{IPPool: "pool-a"},
+		},
+		{
+			name:   "dynamic pool at maximum name length",
+			config: DeviceConfig{IPPool: strings.Repeat("a", validation.DNS1123SubdomainMaxLength)},
+		},
+		{
+			name:    "dynamic pool name too long",
+			config:  DeviceConfig{IPPool: strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1)},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with uppercase",
+			config:  DeviceConfig{IPPool: "Test-pool"},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with underscore",
+			config:  DeviceConfig{IPPool: "test_pool"},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with slash",
+			config:  DeviceConfig{IPPool: "test/pool"},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with space",
+			config:  DeviceConfig{IPPool: "test pool"},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with non-ASCII characters",
+			config:  DeviceConfig{IPPool: "p\u00f6\u00f6l"},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with leading hyphen",
+			config:  DeviceConfig{IPPool: "-testpool"},
+			wantErr: true,
+		},
+		{
+			name:    "dynamic pool name with trailing hyphen",
+			config:  DeviceConfig{IPPool: "testpool-"},
+			wantErr: true,
 		},
 		{
 			name: "dual-stack static addresses",
@@ -56,7 +102,7 @@ func TestValidateAddressAllocation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.config.validateAddressAllocation()
+			err := tc.config.Validate()
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
