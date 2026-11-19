@@ -81,6 +81,9 @@ jobs:
 
   auto-labeler:
     name: Auto Labeler
+    # actions/labeler replaces the whole label set, so it must run last.
+    needs: external-contributions
+    if: ${{ !cancelled() }}
     permissions:
       contents: read
       pull-requests: write
