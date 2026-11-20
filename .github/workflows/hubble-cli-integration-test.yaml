@@ -236,7 +236,7 @@ jobs:
           test "$(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length')" -eq "$(jq -r --slurp 'length' flows.json)"
 
       - name: Run common post steps
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
