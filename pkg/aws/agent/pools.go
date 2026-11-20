@@ -24,10 +24,7 @@ var poolAccessor = ipam.PoolSpecAccessors{
 	// Secondary IPs are represented as host-prefix CIDRs (/32 for IPv4, /128 for
 	// IPv6) and delegated prefixes as /28 CIDRs for IPv4 and /80 CIDRs for IPv6.
 	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
-		pools := ipamTypes.IPAMPoolSpec{
-			Requested: node.Spec.IPAM.Pools.Requested,
-			Allocated: node.Spec.IPAM.Pools.Allocated,
-		}
+		pools := node.Spec.IPAM.Pools
 
 		if len(node.Status.ENI.ENIs) == 0 {
 			return pools
