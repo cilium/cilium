@@ -30,6 +30,8 @@ permissions:
   # To be able to request the JWT from GitHub's OIDC provider (AWS, GCP)
   id-token: write
 
+cache-mode: read
+
 concurrency:
   group: |
     ${{ github.workflow }}

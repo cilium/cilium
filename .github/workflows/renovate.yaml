@@ -13,6 +13,8 @@ on:
         description: "Run Renovate With Debug Log Levels"
         default: true
 
+cache-mode: none
+
 jobs:
   renovate:
     name: Run self-hosted Renovate

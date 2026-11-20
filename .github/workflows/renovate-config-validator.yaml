@@ -6,6 +6,8 @@ on:
       # Run on any renovate.json5, not just .github/renovate.json5
       - '**renovate.json5'
 
+cache-mode: none
+
 jobs:
   validate:
     name: Validate Renovate configuration

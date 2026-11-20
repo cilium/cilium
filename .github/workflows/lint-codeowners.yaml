@@ -9,6 +9,8 @@ on:
 
 permissions: read-all
 
+cache-mode: none
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true

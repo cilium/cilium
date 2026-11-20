@@ -5,6 +5,8 @@ on:
   issue_comment:
     types: created
 
+cache-mode: none
+
 jobs:
   applyNeedsAttentionLabel:
     name: Apply Info Complete Label

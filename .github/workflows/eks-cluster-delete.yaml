@@ -20,6 +20,8 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.232.0
 
+cache-mode: none
+
 jobs:
   delete-cluster:
     name: Delete EKS Cluster

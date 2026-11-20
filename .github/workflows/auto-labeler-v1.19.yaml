@@ -9,6 +9,8 @@ on:
       - reopened
 
 
+cache-mode: none
+
 jobs:
   external-contributions:
     if: |

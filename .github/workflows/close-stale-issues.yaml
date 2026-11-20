@@ -8,6 +8,8 @@ permissions:
   issues: write
   pull-requests: write
 
+cache-mode: write
+
 jobs:
   stale:
     name: Close Stale Issues

@@ -37,6 +37,8 @@ permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
 
+cache-mode: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.version }}-${{ inputs.step }}
   cancel-in-progress: true

@@ -10,6 +10,8 @@ on:
       - v1.19
       - v1.18
 
+cache-mode: none
+
 jobs:
   external-contributions:
     if: |

@@ -16,6 +16,8 @@ permissions:
   # To trigger workflows via workflow_dispatch
   actions: write
 
+cache-mode: none
+
 jobs:
   ariane-scheduled:
     name: Run Scheduled Workflows

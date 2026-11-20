@@ -10,6 +10,8 @@ on:
       - '**/fuzz_test.go'
       - 'test/fuzzing/*'
 permissions: read-all
+cache-mode: none
+
 jobs:
   Fuzzing:
     name: Build and Run Fuzzers

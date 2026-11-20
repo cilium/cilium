@@ -7,6 +7,8 @@
       types:
         - closed
 
+  cache-mode: none
+
   jobs:
     call-backport-label-updater:
       name: Update backport labels for upstream PR

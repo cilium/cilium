@@ -24,6 +24,8 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.232.0
 
+cache-mode: none
+
 jobs:
   generate-cleanup-matrix:
     name: Generate Cleanup Matrix

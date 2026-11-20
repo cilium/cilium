@@ -22,6 +22,8 @@ permissions:
   # To be able to set commit status
   statuses: write
 
+cache-mode: none
+
 jobs:
   summary_report:
     name: "Summary Report"
