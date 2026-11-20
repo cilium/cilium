@@ -200,7 +200,7 @@ jobs:
 
   post-push:
     name: Post-push steps
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     needs:
       - setup-charts
       - push-charts

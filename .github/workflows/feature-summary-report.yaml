@@ -82,7 +82,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: summary_report
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Set final commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main

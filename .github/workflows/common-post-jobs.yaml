@@ -67,7 +67,7 @@ jobs:
   commit-status-final:
     if: ${{ always() }}
     name: Commit Status Final
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     permissions:
       statuses: write
     steps:
@@ -80,7 +80,7 @@ jobs:
   fail-workflow:
     if: ${{ inputs.success == false }}
     name: Fail job if result is failure
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Fail job if result is failure
         # Besides reporting in the commit SHA if the test was or not successful,

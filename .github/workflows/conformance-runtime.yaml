@@ -69,7 +69,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -77,7 +77,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -87,7 +87,7 @@ jobs:
   # Wait for the cilium-ci image to be available, as it ships the BPF
   # toolchain (clang/llc/tc) extracted into the test VMs below.
   wait-for-images:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     name: Wait for images
     timeout-minutes: 30
     steps:
@@ -389,7 +389,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: setup-and-test
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Set final commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main

@@ -34,7 +34,7 @@ permissions:
 jobs:
   wait-for-lint:
     name: Wait for lint checks
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - name: Wait for lint workflows to complete

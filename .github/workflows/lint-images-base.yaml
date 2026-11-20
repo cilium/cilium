@@ -36,7 +36,7 @@ concurrency:
 jobs:
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     permissions:
       statuses: write
     steps:

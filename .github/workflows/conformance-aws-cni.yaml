@@ -68,7 +68,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -76,7 +76,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -151,7 +151,7 @@ jobs:
 
   wait-for-images:
     name: Wait for images
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)

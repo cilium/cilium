@@ -53,7 +53,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     permissions: {}
     steps:
       - name: Echo Workflow Dispatch Inputs
@@ -62,7 +62,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-slim
     permissions:
       statuses: write
     steps:
