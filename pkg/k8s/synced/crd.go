@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	qosConfig "github.com/cilium/cilium/pkg/qos/config"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -45,7 +46,7 @@ func CRDResourceName(crd string) string {
 	return "crd:" + crd
 }
 
-func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
+func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig, qosCfg qosConfig.Config) []string {
 	result := []string{
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2alpha1.CPIPName),
@@ -92,6 +93,13 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 	if option.Config.EnableDatapathPlugins {
 		result = append(result, CRDResourceName(v2alpha1.CDPPName))
 	}
+	if qosCfg.EnableQoS {
+		result = append(result,
+			CRDResourceName(v2alpha1.CQMName),
+			CRDResourceName(v2alpha1.CQCName),
+			CRDResourceName(v2alpha1.CQPName),
+		)
+	}
 
 	result = append(result,
 		CRDResourceName(v2.LBIPPoolName),
@@ -106,8 +114,8 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 
 // AgentCRDResourceNames returns a list of all CRD resource names the Cilium
 // agent needs to wait to be registered before initializing any k8s watchers.
-func AgentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
-	result := agentCRDResourceNames(bgpCfg)
+func AgentCRDResourceNames(bgpCfg bgpConfig.BGPConfig, qosCfg qosConfig.Config) []string {
+	result := agentCRDResourceNames(bgpCfg, qosCfg)
 	if option.Config.EnableK8sClusterNetworkPolicy {
 		result = append(result, CRDResourceName(KCNPCRDName))
 	}
@@ -136,8 +144,8 @@ func GatewayAPIResourceNames() []string {
 
 // AllCiliumCRDResourceNames returns a list of all Cilium CRD resource names
 // that the cilium operator or testsuite may register.
-func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
-	res := append(agentCRDResourceNames(bgpCfg), GatewayAPIResourceNames()...)
+func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig, qosCfg qosConfig.Config) []string {
+	res := append(agentCRDResourceNames(bgpCfg, qosCfg), GatewayAPIResourceNames()...)
 	res = append(res,
 		CRDResourceName(v2.CNCName),
 	)

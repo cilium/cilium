@@ -98,6 +98,10 @@ The following options have been introduced in this version of Cilium:
   Operator installs and manages the Kubernetes ``ClusterNetworkPolicy`` CRD. It
   defaults to ``true``. Set it to ``false`` if you prefer to manage the CRD by
   other means.
+* The ``--enable-qos`` option (Helm value ``qos.enabled``) installs and watches
+  the new ``CiliumQoSMechanism``, ``CiliumQoSClass`` and ``CiliumQoSPolicy``
+  CRDs in ``cilium.io/v2alpha1``. It is disabled by default. These resources do
+  not affect traffic yet.
 
 Changed Options
 ###############

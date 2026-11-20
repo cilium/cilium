@@ -84,6 +84,7 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/qos"
 	"github.com/cilium/cilium/pkg/version"
 	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
@@ -222,6 +223,7 @@ var (
 		clustercfgcell.Cell,
 
 		bgp.Cell,
+		qos.Cell,
 		lbipam.Cell,
 		nodeipam.Cell,
 		store.Cell,

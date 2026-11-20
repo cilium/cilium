@@ -107,6 +107,7 @@ cilium-agent hive [flags]
       --enable-no-service-endpoints-routable[=true|false]         Enable routes when service has 0 endpoints (default true)
       --enable-node-ipam[=true|false]                             Enable Node IPAM
       --enable-policy-secrets-sync[=true|false]                   Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
+      --enable-qos[=true|false]                                   Enable the QoS API and the CiliumQoSMechanism, CiliumQoSClass and CiliumQoSPolicy CRDs
       --enable-route-mtu-for-cni-chaining[=true|false]            Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology[=true|false]                      Enable support for service topology aware hints
       --enable-standalone-dns-proxy[=true|false]                  Enables standalone DNS proxy

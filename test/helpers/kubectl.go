@@ -35,6 +35,7 @@ import (
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	qosConfig "github.com/cilium/cilium/pkg/qos/config"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
@@ -4032,7 +4033,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 		}
 
 		crdsToDelete = append(
-			synced.AllCiliumCRDResourceNames(bgpConfig.DefaultConfig),
+			synced.AllCiliumCRDResourceNames(bgpConfig.DefaultConfig, qosConfig.DefaultConfig),
 			synced.CRDResourceName(cnpv2.CLRPName),
 		)
 	)

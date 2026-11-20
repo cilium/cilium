@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	qosConfig "github.com/cilium/cilium/pkg/qos/config"
 )
 
 // opTimeout is the time allowed for each operation to complete. This includes
@@ -55,16 +56,18 @@ func migrateIdentityCmd() *cobra.Command {
 		k8sClient.Cell,
 		cmtypes.ClusterInfoCell,
 		cell.Config(bgpConfig.DefaultConfig),
+		cell.Config(qosConfig.DefaultConfig),
 		cell.Invoke(func(
 			lc cell.Lifecycle,
 			clientset k8sClient.Clientset,
 			shutdowner hive.Shutdowner,
 			bgpCfg bgpConfig.BGPConfig,
+			qosCfg qosConfig.Config,
 			cinfo cmtypes.ClusterInfo,
 		) {
 			lc.Append(cell.Hook{
 				OnStart: func(ctx cell.HookContext) error {
-					return migrateIdentities(ctx, clientset, shutdowner, bgpCfg, cinfo)
+					return migrateIdentities(ctx, clientset, shutdowner, bgpCfg, qosCfg, cinfo)
 				},
 			})
 		}),
@@ -104,6 +107,7 @@ func migrateIdentities(
 	clientset k8sClient.Clientset,
 	shutdowner hive.Shutdowner,
 	bgpCfg bgpConfig.BGPConfig,
+	qosCfg qosConfig.Config,
 	cinfo cmtypes.ClusterInfo,
 ) error {
 	defer shutdowner.Shutdown()
@@ -115,7 +119,7 @@ func migrateIdentities(
 	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreBackend := initKVStore(ctx, initCtx)
 
-	crdBackend, crdAllocator := initK8s(initCtx, clientset, bgpCfg, cinfo)
+	crdBackend, crdAllocator := initK8s(initCtx, clientset, bgpCfg, qosCfg, cinfo)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
@@ -227,12 +231,13 @@ func initK8s(
 	ctx context.Context,
 	clientset k8sClient.Clientset,
 	bgpCfg bgpConfig.BGPConfig,
+	qosCfg qosConfig.Config,
 	cinfo cmtypes.ClusterInfo,
 ) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
 	// Update CRDs to ensure ciliumIdentity is present
-	ciliumClient.CreateCustomResourceDefinitions(ctx, log, clientset, bgpCfg)
+	ciliumClient.CreateCustomResourceDefinitions(ctx, log, clientset, bgpCfg, qosCfg)
 
 	// Create a CRD Backend
 	crdBackend, err := identitybackend.NewCRDBackend(log, identitybackend.CRDBackendConfiguration{
