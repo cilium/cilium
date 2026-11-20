@@ -20,6 +20,7 @@ var Cell = cell.Module(
 		ServiceLoopbackIPv6: "fe80::1",
 	}),
 	cell.Provide(newInfraIPAllocator),
+	cell.Provide(newHostEndpointPromise),
 	cell.Invoke(registerIngressEndpoint),
 	cell.Invoke(registerHostEndpoint),
 )
