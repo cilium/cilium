@@ -104,6 +104,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Set GOPROXY
+        run: |
+          # The trailing slash makes the second entry a retry of proxy.golang.org with its own error cache.
+          echo "GOPROXY=https://proxy.golang.org|https://proxy.golang.org/|direct" >> "$GITHUB_ENV"
       - name: Build all BPF datapath permutations
         env:
           V: 0
@@ -125,6 +129,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Set GOPROXY
+        run: |
+          # The trailing slash makes the second entry a retry of proxy.golang.org with its own error cache.
+          echo "GOPROXY=https://proxy.golang.org|https://proxy.golang.org/|direct" >> "$GITHUB_ENV"
       - name: Run BPF tests
         id: run-tests
         run: |
