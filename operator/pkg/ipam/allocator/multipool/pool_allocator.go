@@ -512,7 +512,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 		for _, c := range allocatedPool.CIDRs {
 			if !c.IsValid() {
 				err = errors.Join(err,
-					fmt.Errorf("invalid CIDR %q in pool %q", c, allocatedPool.Pool))
+					fmt.Errorf("invalid CIDR %q in pool %q", c, ipam.TruncatePoolName(allocatedPool.Pool)))
 				continue
 			}
 			prefix := c.Prefix
@@ -527,7 +527,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 				p.markOrphan(nodeName, allocatedPool.Pool, prefix, allocatedPool.AllowFirstIP, allocatedPool.AllowLastIP)
 				err = errors.Join(err,
 					fmt.Errorf("unable to find pool %s, prefix %s is still allocated to the node but is marked as orphan",
-						allocatedPool.Pool, prefix))
+						ipam.TruncatePoolName(allocatedPool.Pool), prefix))
 			}
 
 			allocatedSet[allocatedPool.Pool][prefix] = struct{}{}
@@ -569,7 +569,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 			if allocErr := p.allocateCIDRs(nodeName, reqPool.Pool, ipam.IPv4, toAllocate); allocErr != nil {
 				err = errors.Join(err,
 					fmt.Errorf("failed to allocate ipv4 address for node %q from pool %q: %w",
-						nodeName, reqPool.Pool, allocErr))
+						nodeName, ipam.TruncatePoolName(reqPool.Pool), allocErr))
 			}
 		}
 		if p.ipv6Enabled {
@@ -579,7 +579,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 			if allocErr := p.allocateCIDRs(nodeName, reqPool.Pool, ipam.IPv6, toAllocate); allocErr != nil {
 				err = errors.Join(err,
 					fmt.Errorf("failed to allocate ipv6 address for node %q from pool %q: %w",
-						nodeName, reqPool.Pool, allocErr))
+						nodeName, ipam.TruncatePoolName(reqPool.Pool), allocErr))
 			}
 		}
 	}
@@ -796,7 +796,7 @@ func (p *PoolAllocator) allocateCIDRs(targetNode, sourcePool string, family ipam
 
 	pool, ok := p.pools[sourcePool]
 	if !ok {
-		return fmt.Errorf("cannot allocate from non-existing pool: %s", sourcePool)
+		return fmt.Errorf("cannot allocate from non-existing pool: %s", ipam.TruncatePoolName(sourcePool))
 	}
 
 	p.logger.Debug(
@@ -835,12 +835,12 @@ func (p *PoolAllocator) occupyCIDR(targetNode, sourcePool string, cidr netip.Pre
 
 	pool, ok := p.pools[sourcePool]
 	if !ok {
-		return fmt.Errorf("cannot reuse from non-existing pool: %s", sourcePool)
+		return fmt.Errorf("cannot reuse from non-existing pool: %s", ipam.TruncatePoolName(sourcePool))
 	}
 
 	err := pool.occupyCIDR(cidr)
 	if err != nil {
-		return fmt.Errorf("unable to reuse from pool %s: %w", sourcePool, err)
+		return fmt.Errorf("unable to reuse from pool %s: %w", ipam.TruncatePoolName(sourcePool), err)
 	}
 
 	p.markAllocated(targetNode, sourcePool, cidr)
@@ -915,12 +915,12 @@ func (p *PoolAllocator) releaseCIDR(targetNode, sourcePool string, cidr netip.Pr
 
 	pool, ok := p.pools[sourcePool]
 	if !ok {
-		return fmt.Errorf("cannot release from non-existing pool: %s", sourcePool)
+		return fmt.Errorf("cannot release from non-existing pool: %s", ipam.TruncatePoolName(sourcePool))
 	}
 
 	err := pool.releaseCIDR(cidr)
 	if err != nil {
-		return fmt.Errorf("unable to release from pool %s: %w", sourcePool, err)
+		return fmt.Errorf("unable to release from pool %s: %w", ipam.TruncatePoolName(sourcePool), err)
 	}
 
 	p.markReleased(targetNode, sourcePool, cidr)
