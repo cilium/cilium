@@ -184,6 +184,8 @@ rules:
   - resource.k8s.io
   resources:
   - resourceclaims/driver
+  resourceNames:
+  - networkdriver.cilium.io
   verbs:
   - associated-node:update
   - associated-node:patch

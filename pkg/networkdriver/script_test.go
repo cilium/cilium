@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/networkdriver/config"
@@ -72,7 +72,6 @@ func TestScript(t *testing.T) {
 
 	const (
 		localNodeName = "test-local-node"
-		driverName    = "test.cilium.k8s.io"
 		deviceName    = "test-device"
 	)
 
@@ -157,7 +156,7 @@ func TestScript(t *testing.T) {
 						logger:          log,
 						kubeClient:      cs,
 						pods:            pods,
-						config:          &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: driverName},
+						config:          &v2alpha1.CiliumNetworkDriverNodeConfigSpec{},
 						db:              db,
 						deviceTable:     deviceTable,
 						allocationTable: allocationTable,
@@ -200,7 +199,7 @@ func scriptCommands(ctx context.Context, driver *Driver, cs *k8sClient.FakeClien
 					return nil, err
 				}
 
-				return nil, checkClaimAddresses(ctx, cs, claim, driver.config.DriverName, args[1], args[2], nodetypes.GetName())
+				return nil, checkClaimAddresses(ctx, cs, claim, args[1], args[2], nodetypes.GetName())
 			},
 		),
 		"driver/ipam/restore-finished": script.Command(
@@ -301,9 +300,9 @@ func toNamespacedName(s string) (kubetypes.NamespacedName, error) {
 	}
 }
 
-func claimDeviceAddresses(claim *resourcev1.ResourceClaim, driverName, deviceName string) ([]netip.Prefix, error) {
+func claimDeviceAddresses(claim *resourcev1.ResourceClaim, deviceName string) ([]netip.Prefix, error) {
 	for _, status := range claim.Status.Devices {
-		if status.Driver != driverName || status.Device != deviceName {
+		if status.Driver != networkDriverName || status.Device != deviceName {
 			continue
 		}
 		if status.NetworkData == nil || len(status.NetworkData.IPs) == 0 {
@@ -353,12 +352,11 @@ func checkClaimAddresses(
 	ctx context.Context,
 	cs *k8sClient.FakeClientset,
 	claim *resourcev1.ResourceClaim,
-	driverName string,
 	deviceName string,
 	poolName string,
 	nodeName string,
 ) error {
-	addresses, err := claimDeviceAddresses(claim, driverName, deviceName)
+	addresses, err := claimDeviceAddresses(claim, deviceName)
 	if err != nil {
 		return err
 	}

@@ -33,12 +33,12 @@ status:
         requests:
         - test-request
         opaque:
-          driver: test.cilium.k8s.io
+          driver: networkdriver.cilium.io
           parameters:
             ipv6Addr: fd00:300:1::1/128
       results:
       - device: test-device
-        driver: test.cilium.k8s.io
+        driver: networkdriver.cilium.io
         pool: test-device-pool
         request: test-request
   reservedFor:
@@ -60,7 +60,7 @@ status:
     devices:
       config:
       - opaque:
-          driver: test.cilium.k8s.io
+          driver: networkdriver.cilium.io
           parameters:
             ipv6Addr: fd00:300:1::1/128
         requests:
@@ -68,7 +68,7 @@ status:
         source: FromClaim
       results:
       - device: test-device
-        driver: test.cilium.k8s.io
+        driver: networkdriver.cilium.io
         pool: test-device-pool
         request: test-request
   devices:
@@ -88,7 +88,7 @@ status:
         Name: test-device
       Manager: dummy
     device: test-device
-    driver: test.cilium.k8s.io
+    driver: networkdriver.cilium.io
     networkData:
       interfaceName: test-device
       ips:

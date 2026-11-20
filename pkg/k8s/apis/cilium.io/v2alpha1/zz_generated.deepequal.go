@@ -642,9 +642,6 @@ func (in *CiliumNetworkDriverNodeConfigSpec) DeepEqual(other *CiliumNetworkDrive
 	if in.DraRegistrationMaxAttempts != other.DraRegistrationMaxAttempts {
 		return false
 	}
-	if in.DriverName != other.DriverName {
-		return false
-	}
 	if ((in.Pools != nil) && (other.Pools != nil)) || ((in.Pools == nil) != (other.Pools == nil)) {
 		in, other := &in.Pools, &other.Pools
 		if other == nil {

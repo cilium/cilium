@@ -125,14 +125,6 @@ type CiliumNetworkDriverNodeConfigSpec struct {
 	// +kubebuilder:default=10
 	DraRegistrationMaxAttempts int64 `json:"draRegistrationMaxAttempts,omitempty"`
 
-	// Driver name used to register to DRA and with the container runtime.
-	// Is also the driver that shows up in the ResourceSlice resources advertised by the node.
-	// Format: FQDN
-	//
-	// +kubebuilder:default=networkdriver.cilium.io
-	// +kubebuilder:validation:Optional
-	DriverName string `json:"driverName"`
-
 	// Definition of device pools to be advertised by the Network Driver.
 	// Pool names must be unique.
 	//

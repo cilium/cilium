@@ -49,12 +49,14 @@ import (
 )
 
 var (
-	defaultDriverPluginPath         = "/var/lib/kubelet/plugins/"
 	minConsumableCapacityK8sVersion = semver.Version{Major: 1, Minor: 34}
 )
 
-func driverPluginPath(driverName string) string {
-	return path.Join(defaultDriverPluginPath, driverName)
+const networkDriverName = "networkdriver.cilium.io"
+
+func driverPluginPath() string {
+	const defaultDriverPluginPath = "/var/lib/kubelet/plugins/"
+	return path.Join(defaultDriverPluginPath, networkDriverName)
 }
 
 // claimConfigModifier augments the opaque device configuration before validation.
@@ -224,12 +226,10 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 
 		// store relevant configuration information for logging purposes.
 		configLogInfo := struct {
-			DriverName                          string
 			DRARegistrationRetryIntervalSeconds int64
 			DRARegistrationTimeoutSeconds       int64
 			DRARegistrationMaxAttempts          int64
 		}{
-			DriverName:                          cfg.DriverName,
 			DRARegistrationRetryIntervalSeconds: cfg.DraRegistrationRetryIntervalSeconds,
 			DRARegistrationTimeoutSeconds:       cfg.DraRegistrationTimeoutSeconds,
 			DRARegistrationMaxAttempts:          cfg.DraRegistrationMaxAttempts,
@@ -844,7 +844,7 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 	}
 
 	for _, devStatus := range claim.Status.Devices {
-		if devStatus.Driver != driver.config.DriverName {
+		if devStatus.Driver != networkDriverName {
 			continue
 		}
 
