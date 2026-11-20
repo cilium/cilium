@@ -390,3 +390,12 @@ static __always_inline bool tc_index_from_egress_proxy(const struct __ctx_buff *
 
 	return tc_index & TC_INDEX_F_FROM_EGRESS_PROXY;
 }
+
+/**
+ * tc_index_from_proxy_reply - returns true if packet originates from a
+ * downstream connection of the proxy, and thus travels back to the client
+ */
+static __always_inline bool tc_index_from_proxy_reply(const struct __ctx_buff *ctx)
+{
+	return ctx->tc_index & TC_INDEX_F_FROM_PROXY_REPLY;
+}
