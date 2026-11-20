@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -754,6 +755,181 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
 	<-events
 	assert.Equal(t, 0, testutil.CollectAndCount(m.NeededIPs))
+}
+
+// fakeCiliumNodeClient stores the CiliumNode last written by the manager,
+// unless err is set.
+type fakeCiliumNodeClient struct {
+	cilium_v2.CiliumNodeInterface
+	node *ciliumv2.CiliumNode
+	err  error
+}
+
+func (f *fakeCiliumNodeClient) Update(_ context.Context, node *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.node = node.DeepCopy()
+	return node, nil
+}
+
+// podCIDRsAccessor mimics cloud IPAM modes, where the CIDRs assigned to the
+// node are not read from the Allocated field written by the agent.
+var podCIDRsAccessor = PoolSpecAccessors{
+	FromResource: func(cn *ciliumv2.CiliumNode) types.IPAMPoolSpec {
+		spec := cn.Spec.IPAM.Pools
+		spec.Allocated = nil
+		if len(cn.Spec.IPAM.PodCIDRs) > 0 {
+			spec.Allocated = []types.IPAMPoolAllocation{{Pool: "default", CIDRs: cn.Spec.IPAM.PodCIDRs}}
+		}
+		return spec
+	},
+	ToResource: MultiPoolAccessor.ToResource,
+}
+
+func newReleasedCIDRsTestManager(t *testing.T) (*MultiPoolManager, *fakeCiliumNodeClient) {
+	cnClient := &fakeCiliumNodeClient{}
+	return &MultiPoolManager{
+		logger:                 hivetest.Logger(t),
+		ipv4Enabled:            true,
+		preallocatedIPsPerPool: preAllocatePerPool{},
+		pendingIPsPerPool:      newPendingAllocationsPerPool(hivetest.Logger(t)),
+		pools:                  map[Pool]*poolPair{},
+		poolsUpdated:           make(chan struct{}, 1),
+		staticIPUpdated:        make(chan struct{}, 1),
+		finishedRestore:        map[Family]bool{IPv4: true},
+		nodeSynced:             true,
+		k8sUpdater:             job.NewTrigger(),
+		cnClient:               cnClient,
+		localNodeUpdateFn:      func() {},
+		poolsAccessor:          podCIDRsAccessor,
+		skipMasqueradeForPool:  func(Pool) (bool, error) { return false, nil },
+		metrics:                NewMultiPoolMetrics(),
+	}, cnClient
+}
+
+func TestMultiPoolManagerAdvertisesReleasedCIDRs(t *testing.T) {
+	cidr1 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.10.0/32"))
+	cidr2 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.11.0/32"))
+	mgr, cnClient := newReleasedCIDRsTestManager(t)
+
+	mgr.ciliumNodeUpdated(&ciliumv2.CiliumNode{
+		Spec: ciliumv2.NodeSpec{IPAM: types.IPAMSpec{PodCIDRs: []iputil.Prefix{cidr1, cidr2}}},
+	})
+	_, err := mgr.AllocateIP(cidr1.Addr(), "pod-a", "default", IPv4, false)
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Equal(t, types.IPAMPoolSpec{
+		Requested: []types.IPAMPoolRequest{{Pool: "default", Needed: types.IPAMPoolDemand{IPv4Addrs: 1}}},
+		Allocated: []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}},
+		Released:  []types.IPAMPoolRelease{{Pool: "default", CIDRs: []iputil.Prefix{cidr2}}},
+	}, cnClient.node.Spec.IPAM.Pools)
+
+	// The echo of our own update still assigns cidr2, so it stays released.
+	mgr.ciliumNodeUpdated(cnClient.node)
+	require.Zero(t, mgr.capacity(IPv4))
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Equal(t, []types.IPAMPoolRelease{{Pool: "default", CIDRs: []iputil.Prefix{cidr2}}}, cnClient.node.Spec.IPAM.Pools.Released)
+
+	// cidr2 is no longer advertised once it is unassigned from the node.
+	detached := cnClient.node.DeepCopy()
+	detached.Spec.IPAM.PodCIDRs = []iputil.Prefix{cidr1}
+	mgr.ciliumNodeUpdated(detached)
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Empty(t, cnClient.node.Spec.IPAM.Pools.Released)
+	require.Equal(t, []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}}, cnClient.node.Spec.IPAM.Pools.Allocated)
+}
+
+func TestMultiPoolManagerAdvertisesReleasedCIDRsInMultiPoolMode(t *testing.T) {
+	cidr1 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.10.0/32"))
+	cidr2 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.11.0/32"))
+	mgr, cnClient := newReleasedCIDRsTestManager(t)
+	mgr.poolsAccessor = MultiPoolAccessor
+
+	mgr.ciliumNodeUpdated(&ciliumv2.CiliumNode{
+		Spec: ciliumv2.NodeSpec{IPAM: types.IPAMSpec{Pools: types.IPAMPoolSpec{
+			Allocated: []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1, cidr2}}},
+		}}},
+	})
+	_, err := mgr.AllocateIP(cidr1.Addr(), "pod-a", "default", IPv4, false)
+	require.NoError(t, err)
+
+	// cidr2 stays released if the update releasing it fails.
+	cnClient.err = k8sErrors.NewConflict(ciliumv2.Resource("ciliumnodes"), "node", errors.New("conflict"))
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	cnClient.err = nil
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Equal(t, types.IPAMPoolSpec{
+		Requested: []types.IPAMPoolRequest{{Pool: "default", Needed: types.IPAMPoolDemand{IPv4Addrs: 1}}},
+		Allocated: []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}},
+		Released:  []types.IPAMPoolRelease{{Pool: "default", CIDRs: []iputil.Prefix{cidr2}}},
+	}, cnClient.node.Spec.IPAM.Pools)
+	released := cnClient.node.DeepCopy()
+
+	// The echo of the update unassigns cidr2, so it is no longer reported.
+	mgr.ciliumNodeUpdated(released)
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Equal(t, []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}}, cnClient.node.Spec.IPAM.Pools.Allocated)
+	require.Empty(t, cnClient.node.Spec.IPAM.Pools.Released)
+
+	// After a restart, the reported cidr2 is not restored as it is no
+	// longer assigned to the node.
+	mgr, cnClient = newReleasedCIDRsTestManager(t)
+	mgr.poolsAccessor = MultiPoolAccessor
+	mgr.finishedRestore[IPv4] = false
+	mgr.ciliumNodeUpdated(released)
+	_, err = mgr.AllocateIP(cidr2.Addr(), "pod-b", "default", IPv4, false)
+	require.Error(t, err)
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Empty(t, cnClient.node.Spec.IPAM.Pools.Released)
+}
+
+func TestMultiPoolManagerRestoresReleasedCIDRs(t *testing.T) {
+	cidr1 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.10.0/32"))
+	cidr2 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.11.0/32"))
+	cidr3 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.12.0/32"))
+	mgr, cnClient := newReleasedCIDRsTestManager(t)
+	mgr.finishedRestore[IPv4] = false
+
+	// cidr3 was unassigned while the agent was down.
+	mgr.ciliumNodeUpdated(&ciliumv2.CiliumNode{
+		Spec: ciliumv2.NodeSpec{IPAM: types.IPAMSpec{
+			PodCIDRs: []iputil.Prefix{cidr1, cidr2},
+			Pools: types.IPAMPoolSpec{
+				Allocated: []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}},
+				Released:  []types.IPAMPoolRelease{{Pool: "default", CIDRs: []iputil.Prefix{cidr2, cidr3}}},
+			},
+		}},
+	})
+	_, err := mgr.AllocateIP(cidr1.Addr(), "pod-a", "default", IPv4, false)
+	require.NoError(t, err)
+	_, err = mgr.AllocateIP(cidr2.Addr(), "pod-b", "default", IPv4, false)
+	require.Error(t, err, "restored released CIDR must not be reused")
+	require.Zero(t, mgr.capacity(IPv4), "restored released CIDR must not be reused")
+
+	require.NoError(t, mgr.updateLocalNode(t.Context()))
+	require.Equal(t, []types.IPAMPoolAllocation{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}}, cnClient.node.Spec.IPAM.Pools.Allocated)
+	require.Equal(t, []types.IPAMPoolRelease{{Pool: "default", CIDRs: []iputil.Prefix{cidr2}}}, cnClient.node.Spec.IPAM.Pools.Released)
+}
+
+func TestMultiPoolManagerRestoresReleasedCIDRsOnlyOnce(t *testing.T) {
+	cidr1 := iputil.PrefixFrom(netip.MustParsePrefix("10.0.10.0/32"))
+	mgr, _ := newReleasedCIDRsTestManager(t)
+
+	node := &ciliumv2.CiliumNode{
+		Spec: ciliumv2.NodeSpec{IPAM: types.IPAMSpec{PodCIDRs: []iputil.Prefix{cidr1}}},
+	}
+	mgr.ciliumNodeUpdated(node)
+
+	// Later updates do not restore released CIDRs: the in-memory state is
+	// authoritative.
+	stale := node.DeepCopy()
+	stale.Spec.IPAM.Pools.Released = []types.IPAMPoolRelease{{Pool: "default", CIDRs: []iputil.Prefix{cidr1}}}
+	mgr.ciliumNodeUpdated(stale)
+	result, err := mgr.AllocateNext("pod-a", "default", IPv4, false)
+	require.NoError(t, err)
+	require.Equal(t, cidr1.Addr(), result.IP)
 }
 
 // Test_MultiPoolManager_ReleaseUnusedCIDR_PreAllocBuffer verifies that when preAlloc > 0
