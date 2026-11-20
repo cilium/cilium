@@ -66,6 +66,6 @@ func (grpcr *GRPCRouteResource) GetWatchHandlers(c client.Client, logger *slog.L
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningGRPCRoute(c, logger, controllerName)}
 }
 
-func (grpcr *GRPCRouteResource) HandleStatus() bool {
+func (grpcr *GRPCRouteResource) HasStatusSubresource() bool {
 	return true
 }

@@ -56,6 +56,6 @@ func (cm *ConfigMapResource) GetWatchHandlers(c client.Client, logger *slog.Logg
 	return handlers
 }
 
-func (cm *ConfigMapResource) HandleStatus() bool {
+func (cm *ConfigMapResource) HasStatusSubresource() bool {
 	return false
 }

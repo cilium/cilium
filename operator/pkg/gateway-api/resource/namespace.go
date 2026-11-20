@@ -55,6 +55,6 @@ func (ns *NamespaceResource) GetWatchHandlers(c client.Client, logger *slog.Logg
 	return handlers
 }
 
-func (ns *NamespaceResource) HandleStatus() bool {
+func (ns *NamespaceResource) HasStatusSubresource() bool {
 	return false
 }

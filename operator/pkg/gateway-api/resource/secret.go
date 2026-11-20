@@ -55,6 +55,6 @@ func (s *SecretResource) GetWatchHandlers(c client.Client, logger *slog.Logger, 
 	return handlers
 }
 
-func (s *SecretResource) HandleStatus() bool {
+func (s *SecretResource) HasStatusSubresource() bool {
 	return false
 }

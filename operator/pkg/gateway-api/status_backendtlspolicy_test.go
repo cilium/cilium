@@ -93,7 +93,7 @@ func TestBackendTLSPolicyStatusForGRPCRoute(t *testing.T) {
 		WithInterceptorFuncs(typeMetaInterceptor(scheme))
 
 	for _, resource := range resourceRegistry.GetResources() {
-		if resource.HandleStatus() {
+		if resource.HasStatusSubresource() {
 			clientBuilder.WithStatusSubresource(resource.GetResource())
 		}
 		if resource.ShouldIndex() {

@@ -69,6 +69,6 @@ func (hr *HTTPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logg
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningHTTPRoute(c, logger, controllerName)}
 }
 
-func (hr *HTTPRouteResource) HandleStatus() bool {
+func (hr *HTTPRouteResource) HasStatusSubresource() bool {
 	return true
 }

@@ -29,7 +29,7 @@ type Watchable interface {
 }
 
 type TrackStatus interface {
-	HandleStatus() bool
+	HasStatusSubresource() bool
 }
 type Resource interface {
 	// GetResource gets the concrete type as a client.Object, which is required
