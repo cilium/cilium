@@ -59,9 +59,35 @@ func sortIPListEntries(entries []*models.IPListEntry) {
 	})
 }
 
+// Keep addresses textual for JSONPath without changing other fields' types or presence.
+type ipListEntryOutput struct {
+	Cidr       string                      `json:"cidr,omitzero"`
+	EncryptKey int64                       `json:"encryptKey,omitempty"`
+	HostIP     string                      `json:"hostIP,omitzero"`
+	Identity   *int64                      `json:"identity"`
+	Metadata   *models.IPListEntryMetadata `json:"metadata,omitempty"`
+}
+
+func formatIPListEntries(entries []*models.IPListEntry) []ipListEntryOutput {
+	if entries == nil {
+		return nil
+	}
+	output := make([]ipListEntryOutput, len(entries))
+	for i, entry := range entries {
+		output[i] = ipListEntryOutput{
+			Cidr:       formatPrefix(entry.Cidr),
+			EncryptKey: entry.EncryptKey,
+			HostIP:     formatAddr(entry.HostIP),
+			Identity:   entry.Identity,
+			Metadata:   entry.Metadata,
+		}
+	}
+	return output
+}
+
 func printIPcacheEntries(entries []*models.IPListEntry) {
 	if command.OutputOption() {
-		if err := command.PrintOutput(entries); err != nil {
+		if err := command.PrintOutput(formatIPListEntries(entries)); err != nil {
 			Fatalf("Unable to provide %s output: %s", command.OutputOptionString(), err)
 		}
 		return
