@@ -62,11 +62,6 @@ func (p *preFilter) WriteConfig(fw io.Writer) {
 
 	fmt.Fprintf(fw, "#define CIDR4_HMAP_ELEMS %d\n", maxHKeys)
 	fmt.Fprintf(fw, "#define CIDR4_LMAP_ELEMS %d\n", maxLKeys)
-
-	fmt.Fprintf(fw, "#define CIDR4_FILTER\n")
-	fmt.Fprintf(fw, "#define CIDR4_LPM_PREFILTER\n")
-	fmt.Fprintf(fw, "#define CIDR6_FILTER\n")
-	fmt.Fprintf(fw, "#define CIDR6_LPM_PREFILTER\n")
 }
 
 func (p *preFilter) dumpOneMap(which preFilterMapType, to []string) []string {
