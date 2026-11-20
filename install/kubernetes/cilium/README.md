@@ -871,8 +871,9 @@ contributors across the globe, there is almost always someone available to help.
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
 | minReadySeconds | int | `0` | Minimum number of seconds for which a newly created agent pod should be ready before it is considered available. Defaults to 0 (pod is considered available as soon as it is ready). ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/ |
-| monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |
-| monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. |
+| monitor | object | `{"enabled":false,"sidecar":false}` | Everything to control the tracking of packets in the datapath, including monitor aggregation. |
+| monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. |
+| monitor.sidecar | bool | `false` | Enable the cilium-monitor sidecar. |
 | name | string | `"cilium"` | Agent daemonset name. |
 | namespaceOverride | string | `""` | namespaceOverride allows to override the destination namespace for Cilium resources. |
 | nat.mapStatsEntries | int | `32` | Number of the top-k SNAT map connections to track in Cilium statedb. |

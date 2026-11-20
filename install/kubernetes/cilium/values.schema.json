@@ -4952,6 +4952,9 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "sidecar": {
+          "type": "boolean"
         }
       },
       "type": "object"
