@@ -372,7 +372,7 @@ func NewGlobalMapSpec(cfg MapConfig) *ebpf.MapSpec {
 		KeySize:    uint32(keySize),
 		ValueSize:  uint32(valueSize),
 		MaxEntries: uint32(m.maxEntries()),
-		Flags:      0,
+		Flags:      bpf.GetMapMemoryFlags(ebpf.LRUHash),
 	}
 }
 
@@ -384,7 +384,7 @@ func newMap(mapName string, m mapType, opts ...MapOption) *Map {
 			m.key(),
 			m.value(),
 			m.maxEntries(),
-			0,
+			bpf.GetMapMemoryFlags(ebpf.LRUHash),
 		),
 		mapType: m,
 	}
