@@ -79,10 +79,55 @@ jobs:
               labels: ["kind/community-contribution"]
             })
 
+  needs-ci-validation:
+    # Exclude renovate PRs from labeling, because we don't yet have a way to
+    # accurately check for end-to-end testing on these PRs without increasing
+    # maintainer workload.
+    if: github.event.pull_request.user.login != 'cilium-renovate[bot]'
+    runs-on: ubuntu-26.04
+    name: Needs CI Validation
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check filepath changes
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        id: filepath_check
+        with:
+          script: |
+            try {
+              const files = await github.paginate(
+                github.rest.pulls.listFiles,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request?.number,
+                  per_page: 100
+                }
+              );
+
+              return files.some(file =>
+                file.filename.startsWith(".github/")
+              );
+            } catch {
+              return true;
+            }
+
+      - name: Set label
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        if: ${{ steps.filepath_check.outputs.result == 'true' }}
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["dont-merge/needs-ci-validation"]
+            })
+
   auto-labeler:
     name: Auto Labeler
     # actions/labeler replaces the whole label set, so it must run last.
-    needs: external-contributions
+    needs: [external-contributions, needs-ci-validation]
     if: ${{ !cancelled() }}
     permissions:
       contents: read
