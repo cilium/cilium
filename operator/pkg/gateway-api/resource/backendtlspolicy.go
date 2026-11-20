@@ -56,6 +56,6 @@ func (btlsp *BackendTLSPolicyResource) GetWatchHandlers(c client.Client, logger 
 	return []handler.TypedEventHandler[client.Object, reconcile.Request]{watchhandlers.EnqueueRequestForBackendTLSPolicy(c, logger, controllerName)}
 }
 
-func (btlsp *BackendTLSPolicyResource) HandleStatus() bool {
+func (btlsp *BackendTLSPolicyResource) HasStatusSubresource() bool {
 	return true
 }

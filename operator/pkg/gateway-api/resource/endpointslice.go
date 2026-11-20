@@ -60,6 +60,6 @@ func (es *EndpointSliceResource) GetWatchHandlers(c client.Client, logger *slog.
 	return handlers
 }
 
-func (es *EndpointSliceResource) HandleStatus() bool {
+func (es *EndpointSliceResource) HasStatusSubresource() bool {
 	return false
 }

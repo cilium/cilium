@@ -66,6 +66,6 @@ func (tcpr *TCPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Log
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningTCPRoute(c, logger, controllerName)}
 }
 
-func (tcpr *TCPRouteResource) HandleStatus() bool {
+func (tcpr *TCPRouteResource) HasStatusSubresource() bool {
 	return true
 }

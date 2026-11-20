@@ -55,6 +55,6 @@ func (n *NodeResource) GetWatchHandlers(c client.Client, logger *slog.Logger, sc
 	return handlers
 }
 
-func (n *NodeResource) HandleStatus() bool {
+func (n *NodeResource) HasStatusSubresource() bool {
 	return false
 }

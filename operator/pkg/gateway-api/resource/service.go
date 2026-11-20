@@ -59,6 +59,6 @@ func (s *ServiceResource) GetWatchHandlers(c client.Client, logger *slog.Logger,
 	return handlers
 }
 
-func (s *ServiceResource) HandleStatus() bool {
+func (s *ServiceResource) HasStatusSubresource() bool {
 	return false
 }

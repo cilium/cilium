@@ -2032,7 +2032,7 @@ func Test_gatewayStatusManager_SetStaticAddressStatus(t *testing.T) {
 
 func addStatusAndIndexersToClient(logger *slog.Logger, clientBuilder *fake.ClientBuilder, resourceRegistry resource.Registry) {
 	for _, resource := range resourceRegistry.GetResources() {
-		if resource.HandleStatus() {
+		if resource.HasStatusSubresource() {
 			clientBuilder.WithStatusSubresource(resource.GetResource())
 		}
 		if resource.ShouldIndex() {

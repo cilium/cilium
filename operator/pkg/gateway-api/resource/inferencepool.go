@@ -50,6 +50,6 @@ func (ip *InferencePoolResource) GetWatchHandlers(c client.Client, logger *slog.
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningInferencePool(c, logger, controllerName)}
 }
 
-func (ip *InferencePoolResource) HandleStatus() bool {
+func (ip *InferencePoolResource) HasStatusSubresource() bool {
 	return true
 }

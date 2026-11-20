@@ -66,6 +66,6 @@ func (tr *TLSRouteResource) GetWatchHandlers(c client.Client, logger *slog.Logge
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningTLSRoute(c, logger, controllerName)}
 }
 
-func (tr *TLSRouteResource) HandleStatus() bool {
+func (tr *TLSRouteResource) HasStatusSubresource() bool {
 	return true
 }

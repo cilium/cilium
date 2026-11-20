@@ -58,6 +58,6 @@ func (lsr *ListenerSetResource) GetWatchHandlers(c client.Client, logger *slog.L
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForListenerSetOwner(c, logger, controllerName)}
 }
 
-func (lsr *ListenerSetResource) HandleStatus() bool {
+func (lsr *ListenerSetResource) HasStatusSubresource() bool {
 	return true
 }

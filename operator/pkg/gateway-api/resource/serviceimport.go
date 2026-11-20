@@ -58,6 +58,6 @@ func (si *ServiceImportResource) GetWatchHandlers(c client.Client, logger *slog.
 	return handlers
 }
 
-func (si *ServiceImportResource) HandleStatus() bool {
+func (si *ServiceImportResource) HasStatusSubresource() bool {
 	return false
 }

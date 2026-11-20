@@ -66,6 +66,6 @@ func (udpr *UDPRouteResource) GetWatchHandlers(c client.Client, logger *slog.Log
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForOwningUDPRoute(c, logger, controllerName)}
 }
 
-func (udpr *UDPRouteResource) HandleStatus() bool {
+func (udpr *UDPRouteResource) HasStatusSubresource() bool {
 	return true
 }

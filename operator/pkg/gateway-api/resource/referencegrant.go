@@ -50,6 +50,6 @@ func (rg *ReferenceGrantResource) GetWatchHandlers(c client.Client, logger *slog
 	return []handler.EventHandler{watchhandlers.EnqueueRequestForReferenceGrant(c, logger)}
 }
 
-func (rg *ReferenceGrantResource) HandleStatus() bool {
+func (rg *ReferenceGrantResource) HasStatusSubresource() bool {
 	return true
 }
