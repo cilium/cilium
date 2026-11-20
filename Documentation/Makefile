@@ -14,7 +14,7 @@ SPHINX_OPTS := "-j=auto"
 
 .PHONY: default clean help cilium-build cmdref epub latex html
 
-DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:2eb8d1105065246f2a708a65ef0000d68acebd36@sha256:590bf3487639f1828ddaed8cf3cbe0fdb8cd14bb40db0e3cb98804d2eb504240
+DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:b6a2c06774bfba4ef626b123f889084d77801714@sha256:cfe802ce5d3e2bf45bec1fe3425b76d9199189472fc34dcc29984b25b17bb74f
 
 .PHONY: update-docs-builder-image
 update-docs-builder-image: DOCS_BUILDER_TAG=$(word 3,$(shell git ls-tree --full-tree HEAD -- $(DOCS_BUILDER_DIR)))
