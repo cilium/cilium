@@ -760,6 +760,14 @@ bpf:
   # Note netkit is incompatible with TPROXY (`bpf.tproxy`).
   # @default -- `veth`
   datapathMode: veth
+# -- Everything to control the tracking of packets in the datapath, including
+# monitor aggregation.
+monitor:
+  # -- Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. To be removed in
+  # v1.22.
+  enabled: false
+  # -- Enable the cilium-monitor sidecar.
+  sidecar: false
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
@@ -2818,10 +2826,6 @@ ipv6NativeRoutingCIDR: ""
 # per enabled IP family in clusterPoolIPv4PodCIDRList /
 # clusterPoolIPv6PodCIDRList.
 nativeRoutingCIDRFromClusterPool: false
-# -- cilium-monitor sidecar.
-monitor:
-  # -- Enable the cilium-monitor sidecar.
-  enabled: false
 # -- Configure service load balancing
 loadBalancer:
   # -- algorithm is the name of the load balancing algorithm for backend

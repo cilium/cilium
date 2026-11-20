@@ -3289,10 +3289,14 @@
      - int
      - ``0``
    * - :spelling:ignore:`monitor`
-     - cilium-monitor sidecar.
+     - Everything to control the tracking of packets in the datapath, including monitor aggregation.
      - object
-     - ``{"enabled":false}``
+     - ``{"enabled":false,"sidecar":false}``
    * - :spelling:ignore:`monitor.enabled`
+     - Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. To be removed in v1.22.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`monitor.sidecar`
      - Enable the cilium-monitor sidecar.
      - bool
      - ``false``
