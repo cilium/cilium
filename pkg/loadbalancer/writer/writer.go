@@ -342,10 +342,42 @@ func (w *Writer) isNodePortConflict(txn statedb.ReadTxn, addr loadbalancer.L3n4A
 // validateFrontends checks that the frontends being added are not already owned by other
 // services.
 func (w *Writer) validateFrontends(txn WriteTxn, fes ...loadbalancer.FrontendParams) error {
+	return w.validateFrontendsForService(txn, nil, fes...)
+}
+
+// canKubernetesServiceReplaceLocalRedirect reports whether an incoming frontend for a
+// Kubernetes service can replace an existing LocalRedirect frontend. This is desirable
+// where an addressMatcher has been configured on an IP address assigned to a Service.
+func canKubernetesServiceReplaceLocalRedirect(
+	svc *loadbalancer.Service,
+	incoming loadbalancer.SVCType,
+	existing loadbalancer.SVCType,
+) bool {
+	if svc == nil || svc.Source != source.Kubernetes {
+		return false
+	}
+
+	switch incoming {
+	case loadbalancer.SVCTypeClusterIP,
+		loadbalancer.SVCTypeLoadBalancer,
+		loadbalancer.SVCTypeExternalIPs,
+		loadbalancer.SVCTypeHostPort,
+		loadbalancer.SVCTypeNodePort:
+		// Only addressMatcher LRPs create frontends of type LocalRedirect.
+		return existing == loadbalancer.SVCTypeLocalRedirect
+	default:
+		return false
+	}
+}
+
+func (w *Writer) validateFrontendsForService(txn WriteTxn, svc *loadbalancer.Service, fes ...loadbalancer.FrontendParams) error {
 	// Validate that the frontends are not owned by other services.
 	for _, params := range fes {
 		fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address))
 		if found && !fe.ServiceName.Equal(params.ServiceName) {
+			if canKubernetesServiceReplaceLocalRedirect(svc, params.Type, fe.Type) {
+				continue
+			}
 			return fmt.Errorf("%w: %s is owned by %s", loadbalancer.ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
 		}
 	}
@@ -372,7 +404,7 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *loadbalancer.Servi
 	}
 	fes = filtered
 
-	if err := w.validateFrontends(txn, fes...); err != nil {
+	if err := w.validateFrontendsForService(txn, svc, fes...); err != nil {
 		return err
 	}
 
