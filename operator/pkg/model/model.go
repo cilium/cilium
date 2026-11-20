@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	// Listeners TLS Options:
-	TLSOptionsDefaultMinVersion = "1.2"
-	TLSOptionsDefaultMaxVersion = "1.3"
-	TLSOptionsMinVersion        = "cilium.io/tls-min-version"
-	TLSOptionsMaxVersion        = "cilium.io/tls-max-version"
+	TLSOptionsDefaultMinVersion   = "1.2"
+	TLSOptionsDefaultMaxVersion   = "1.3"
+	TLSOptionsMinVersion          = "cilium.io/tls-min-version"
+	TLSOptionsMaxVersion          = "cilium.io/tls-max-version"
+	TLSOptionsCipherSuites        = "cilium.io/tls-cipher-suites"
+	TLSOptionsECDHCurves          = "cilium.io/tls-ecdh-curves"
+	TLSOptionsSignatureAlgorithms = "cilium.io/tls-signature-algorithms"
 )
 
 // Model holds an abstracted data model representing the translation
@@ -391,8 +393,11 @@ type FrontendTLSValidation struct {
 
 // TLSOptions hols TLS-specific options.
 type TLSOptions struct {
-	MinVersion string `json:"min_version,omitempty"`
-	MaxVersion string `json:"max_version,omitempty"`
+	MinVersion          string   `json:"min_version,omitempty"`
+	MaxVersion          string   `json:"max_version,omitempty"`
+	CipherSuites        []string `json:"cipher_suites,omitempty"`
+	ECDHCurves          []string `json:"ecdh_curves,omitempty"`
+	SignatureAlgorithms []string `json:"signature_algorithms,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.

@@ -25,35 +25,59 @@ import (
 
 func TestToTransportSocketTLSOptions(t *testing.T) {
 	tests := []struct {
-		name       string
-		options    model.TLSOptions
-		wantParams bool
-		wantMin    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol
-		wantMax    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol
+		name                    string
+		options                 *model.TLSOptions
+		wantParams              bool
+		wantMin                 envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol
+		wantMax                 envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol
+		wantCipherSuites        []string
+		wantECDHCurves          []string
+		wantSignatureAlgorithms []string
 	}{
 		{
 			name: "no options",
 		},
 		{
 			name:       "minimum only",
-			options:    model.TLSOptions{MinVersion: "1.3"},
+			options:    &model.TLSOptions{MinVersion: "1.3"},
 			wantParams: true,
 			wantMin:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3,
 			wantMax:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLS_AUTO,
 		},
 		{
 			name:       "maximum only",
-			options:    model.TLSOptions{MaxVersion: "1.2"},
+			options:    &model.TLSOptions{MaxVersion: "1.2"},
 			wantParams: true,
 			wantMin:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLS_AUTO,
 			wantMax:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
 		},
 		{
 			name:       "minimum and maximum",
-			options:    model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
+			options:    &model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
 			wantParams: true,
 			wantMin:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
 			wantMax:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3,
+		},
+		{
+			name:             "with cipher suites",
+			options:          &model.TLSOptions{MinVersion: "1.2", CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384"}},
+			wantParams:       true,
+			wantMin:          envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
+			wantCipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384"},
+		},
+		{
+			name:           "with ECDH curves",
+			options:        &model.TLSOptions{MinVersion: "1.2", ECDHCurves: []string{"P-256"}},
+			wantParams:     true,
+			wantMin:        envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
+			wantECDHCurves: []string{"P-256"},
+		},
+		{
+			name:                    "with signature algorithms",
+			options:                 &model.TLSOptions{MinVersion: "1.2", SignatureAlgorithms: []string{"ecdsa_secp256r1_sha256", "rsa_pkcs1_sha512"}},
+			wantParams:              true,
+			wantMin:                 envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
+			wantSignatureAlgorithms: []string{"ecdsa_secp256r1_sha256", "rsa_pkcs1_sha512"},
 		},
 	}
 
@@ -77,6 +101,9 @@ func TestToTransportSocketTLSOptions(t *testing.T) {
 			require.NotNil(t, downstreamTLS.CommonTlsContext.TlsParams)
 			assert.Equal(t, tt.wantMin, downstreamTLS.CommonTlsContext.TlsParams.TlsMinimumProtocolVersion)
 			assert.Equal(t, tt.wantMax, downstreamTLS.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion)
+			assert.Equal(t, tt.wantCipherSuites, downstreamTLS.CommonTlsContext.TlsParams.CipherSuites)
+			assert.Equal(t, tt.wantECDHCurves, downstreamTLS.CommonTlsContext.TlsParams.EcdhCurves)
+			assert.Equal(t, tt.wantSignatureAlgorithms, downstreamTLS.CommonTlsContext.TlsParams.SignatureAlgorithms)
 		})
 	}
 }
@@ -1073,7 +1100,7 @@ func Test_toTransportSocketFrontendValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := toTransportSocket(tt.ciliumSecretNamespace, tt.tls, tt.frontendValidation, model.TLSOptions{})
+			ts := toTransportSocket(tt.ciliumSecretNamespace, tt.tls, tt.frontendValidation, nil)
 			require.NotNil(t, ts)
 			assert.Equal(t, tlsTransportSocketType, ts.Name)
 

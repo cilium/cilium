@@ -38,34 +38,6 @@ func TestParseTLSOptions(t *testing.T) {
 			wantOptions: &model.TLSOptions{MaxVersion: "1.2"},
 		},
 		{
-			name: "ignores other domains",
-			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
-				"example.com/tls-option": "foo",
-			},
-		},
-		{
-			name: "supported options",
-			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
-				model.TLSOptionsMinVersion: "1.2",
-				model.TLSOptionsMaxVersion: "1.3",
-			},
-			wantOptions: &model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
-		},
-		{
-			name: "unknown option",
-			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
-				"cilium.io/unknown-option": "foo",
-			},
-			wantErr: true,
-		},
-		{
-			name: "unsupported version",
-			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
-				model.TLSOptionsMinVersion: "2.0",
-			},
-			wantErr: true,
-		},
-		{
 			name: "min bigger than max",
 			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
 				model.TLSOptionsMinVersion: "1.3",
@@ -88,6 +60,101 @@ func TestParseTLSOptions(t *testing.T) {
 				model.TLSOptionsMaxVersion: "1.3",
 			},
 			wantOptions: &model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
+		},
+		{
+			name: "unsupported version",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsMinVersion: "2.0",
+			},
+			wantErr: true,
+		},
+		{
+			name: "cipher suites",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsCipherSuites: "ECDHE-ECDSA-AES128-GCM-SHA256, ECDHE-RSA-AES256-GCM-SHA384",
+			},
+			wantOptions: &model.TLSOptions{
+				CipherSuites: []string{
+					"ECDHE-ECDSA-AES128-GCM-SHA256",
+					"ECDHE-RSA-AES256-GCM-SHA384",
+				},
+			},
+		},
+		{
+			name: "unsupported cipher suite",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsCipherSuites: "TLS_AES_128_GCM_SHA256",
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate cipher suite",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsCipherSuites: "ECDHE-ECDSA-AES128-GCM-SHA256, ECDHE-ECDSA-AES128-GCM-SHA256",
+			},
+			wantErr: true,
+		},
+		{
+			name: "ECDH curves",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsECDHCurves: "P-256, X25519",
+			},
+			wantOptions: &model.TLSOptions{
+				ECDHCurves: []string{"P-256", "X25519"},
+			},
+		},
+		{
+			name: "unsupported ECDH curve",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsECDHCurves: "INVALID",
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate ECDH curve",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsECDHCurves: "X25519, X25519",
+			},
+			wantErr: true,
+		},
+		{
+			name: "signature algorithms",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsSignatureAlgorithms: "ecdsa_secp256r1_sha256, rsa_pss_rsae_sha256",
+			},
+			wantOptions: &model.TLSOptions{
+				SignatureAlgorithms: []string{
+					"ecdsa_secp256r1_sha256",
+					"rsa_pss_rsae_sha256",
+				},
+			},
+		},
+		{
+			name: "unsupported signature algorithm",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsSignatureAlgorithms: "rsa_pss_pss_sha256",
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate signature algorithm",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				model.TLSOptionsSignatureAlgorithms: "ecdsa_secp256r1_sha256, ecdsa_secp256r1_sha256",
+			},
+			wantErr: true,
+		},
+		{
+			name: "ignores other domains",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				"example.com/tls-option": "foo",
+			},
+		},
+		{
+			name: "unknown option",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				"cilium.io/unknown-option": "foo",
+			},
+			wantErr: true,
 		},
 		{
 			name: "passthrough rejects supported Cilium option",
