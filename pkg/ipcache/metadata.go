@@ -192,10 +192,10 @@ func (m *metadata) waitForRevision(ctx context.Context, rev uint64) error {
 	m.injectedRevisionCond.L.Lock()
 	defer m.injectedRevisionCond.L.Unlock()
 	for m.injectedRevision < rev {
-		m.injectedRevisionCond.Wait()
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		m.injectedRevisionCond.Wait()
 	}
 
 	return nil
