@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -93,7 +94,7 @@ func (tes thresholdExceptions) recordFailure(justMsg, line string) bool {
 }
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
-// logs. The error messages are defined in badLogMsgsWithExceptions, which key
+// logs. The error messages are defined in badLogMsgs, which key
 // is an error message, while values is a list of ignored messages.
 func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExceptions []string, externalTarget string, externalOtherTarget string, startTime time.Time) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
@@ -150,6 +151,18 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		warningLogExceptions = append(warningLogExceptions, stringMatcher(exception))
 	}
 
+	return &noErrorsInLogs{
+		errorMsgsWithExceptions: badLogMsgs(ciliumVersion, checkLevels, errorLogExceptions, warningLogExceptions),
+		thresholdExceptions:     warningThresholdExceptions,
+		ScenarioBase:            check.NewScenarioBase(),
+		ciliumVersion:           ciliumVersion,
+		startTime:               startTime,
+	}
+}
+
+// badLogMsgs maps each message that fails the check to the exceptions that
+// still let a line with it pass.
+func badLogMsgs(ciliumVersion semver.Version, checkLevels []string, errorLogExceptions, warningLogExceptions []logMatcher) map[string][]logMatcher {
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -175,12 +188,15 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
-	return &noErrorsInLogs{
-		errorMsgsWithExceptions: errorMsgsWithExceptions,
-		thresholdExceptions:     warningThresholdExceptions,
-		ScenarioBase:            check.NewScenarioBase(),
-		ciliumVersion:           ciliumVersion,
-		startTime:               startTime,
+	return errorMsgsWithExceptions
+}
+
+// LogLineFilter reports whether the check can fail on a log line, so a log
+// follower only needs to keep those lines.
+func LogLineFilter(ciliumVersion semver.Version, checkLevels []string) func(line string) bool {
+	msgs := slices.Collect(maps.Keys(badLogMsgs(ciliumVersion, checkLevels, nil, nil)))
+	return func(line string) bool {
+		return slices.ContainsFunc(msgs, func(msg string) bool { return strings.Contains(line, msg) })
 	}
 }
 
@@ -220,6 +236,8 @@ type podContainers map[string]containerRestarts // Map container name to its res
 type containerRestarts struct {
 	count                uint
 	replacedNeverStarted bool
+	id                   string
+	previousID           string
 }
 type podInfo struct {
 	containers podContainers
@@ -300,20 +318,18 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 					ignore = true
 				}
 
-				var logs bytes.Buffer
-				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
+				logs, err := n.readLogs(ctx, t.Context(), client, pod, container, cr.id, opts)
 				if err != nil {
 					a.Fatalf("Error reading Cilium logs: %s", err)
 				}
-				n.checkErrorsInLogs(id, logs.Bytes(), a, &opts)
+				n.checkErrorsInLogs(id, logs, a, &opts)
 
 				if restarts > 0 && !ignore {
 					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
 
-					logs = bytes.Buffer{}
-					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
+					logs, err := n.readLogs(ctx, t.Context(), client, pod, container, cr.previousID, prevOpts)
 					if err == nil {
-						n.checkErrorsInLogs(id, logs.Bytes(), a, &prevOpts)
+						n.checkErrorsInLogs(id, logs, a, &prevOpts)
 					} else if strings.Contains(err.Error(), "previous terminated container") && strings.Contains(err.Error(), "not found") {
 						// The previous container's logs may already have been
 						// garbage-collected by the kubelet, in which case there
@@ -429,10 +445,15 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 	restarts := func(statuses []corev1.ContainerStatus, name string) containerRestarts {
 		for _, status := range statuses {
 			if status.Name == name {
-				return containerRestarts{
+				cr := containerRestarts{
 					count:                uint(status.RestartCount),
 					replacedNeverStarted: replacedNeverStarted(&status),
+					id:                   status.ContainerID,
 				}
+				if status.LastTerminationState.Terminated != nil {
+					cr.previousID = status.LastTerminationState.Terminated.ContainerID
+				}
+				return cr
 			}
 		}
 		return containerRestarts{}
@@ -553,6 +574,65 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Acti
 		}
 		a.Failf("Found %d logs in %s%s matching list of errors that must be investigated:%s", len(uniqueFailures), id, previous, failures.String())
 	}
+}
+
+// readLogs reads the log of a container. For a container the follower read, it
+// only asks for the lines after the last one the follower read, and puts the
+// lines the follower kept in front of them.
+func (n *noErrorsInLogs) readLogs(ctx context.Context, ct *check.ConnectivityTest, client *k8s.Client, pod podID, container, containerID string, opts corev1.PodLogOptions) ([]byte, error) {
+	followed, last := ct.FollowedLog(containerID)
+	if !last.IsZero() {
+		opts = tailOptions(opts, last)
+	}
+	var logs bytes.Buffer
+	if err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs); err != nil {
+		return nil, err
+	}
+	if last.IsZero() {
+		return logs.Bytes(), nil
+	}
+	return withFollowedLines(followed, logs.Bytes(), n.startTime), nil
+}
+
+// tailOptions narrows opts to the lines from last on, with the timestamps that
+// withFollowedLines needs to tell them apart from the followed ones.
+func tailOptions(opts corev1.PodLogOptions, last time.Time) corev1.PodLogOptions {
+	opts.Timestamps = true
+	if opts.SinceTime == nil || last.After(opts.SinceTime.Time) {
+		opts.SinceTime = &metav1.Time{Time: last}
+	}
+	return opts
+}
+
+// withFollowedLines strips the timestamps the kubelet prefixed to the lines of
+// logs, and puts the followed lines from before the first of them, which the
+// kubelet rotated away, back in front.
+func withFollowedLines(followed []check.LogLine, logs []byte, since time.Time) []byte {
+	var served bytes.Buffer
+	var first time.Time
+	for line := range bytes.Lines(logs) {
+		ts, text, ok := bytes.Cut(line, []byte(" "))
+		t, err := time.Parse(time.RFC3339Nano, string(ts))
+		if !ok || err != nil {
+			served.Write(line)
+			continue
+		}
+		if first.IsZero() {
+			first = t
+		}
+		served.Write(text)
+	}
+
+	var out bytes.Buffer
+	for _, l := range followed {
+		if l.Time.Before(since) || (!first.IsZero() && !l.Time.Before(first)) {
+			continue
+		}
+		out.WriteString(l.Text)
+		out.WriteByte('\n')
+	}
+	out.Write(served.Bytes())
+	return out.Bytes()
 }
 
 const (
