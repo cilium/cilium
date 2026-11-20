@@ -186,19 +186,33 @@ func TestServiceEndpointReflectorPreservesSyntheticServices(t *testing.T) {
 
 	testCases := []struct {
 		serviceName loadbalancer.ServiceName
-		isSynthetic bool
+		src         source.Source
+		kept        bool
 	}{
 		{
 			serviceName: loadbalancer.NewServiceName("test", "pod-hostport"+hostPortServiceNameInfix+"8080-tcp"),
-			isSynthetic: true,
+			src:         source.Kubernetes,
+			kept:        true,
 		},
 		{
 			serviceName: loadbalancer.NewServiceName("test", "lrp-service"+types.LRPServiceNameSuffix),
-			isSynthetic: true,
+			src:         source.Kubernetes,
+			kept:        true,
 		},
 		{
 			serviceName: loadbalancer.NewServiceName("test", "ordinary-service"),
-			isSynthetic: false,
+			src:         source.Kubernetes,
+			kept:        false,
+		},
+		{
+			serviceName: loadbalancer.NewServiceName("test", "file-service"),
+			src:         source.LocalAPI,
+			kept:        true,
+		},
+		{
+			serviceName: loadbalancer.NewServiceName("test", "ordinary-service:healthserver"),
+			src:         source.Local,
+			kept:        true,
 		},
 	}
 
@@ -207,7 +221,7 @@ func TestServiceEndpointReflectorPreservesSyntheticServices(t *testing.T) {
 	for _, tc := range testCases {
 		_, err := p.Writer.UpsertService(wtxn, &loadbalancer.Service{
 			Name:   tc.serviceName,
-			Source: source.Kubernetes,
+			Source: tc.src,
 		})
 		require.NoError(t, err)
 	}
@@ -231,11 +245,10 @@ func TestServiceEndpointReflectorPreservesSyntheticServices(t *testing.T) {
 		func(writer.WriteTxn) {},
 	))
 
-	// Verify that synthetic services have been left in place, while non-synthetic
-	// services have been classed as orphan and deleted.
+	// The sync deletes only the non-synthetic Kubernetes service.
 	rtxn := p.DB.ReadTxn()
 	for _, tc := range testCases {
 		_, _, found := p.Writer.Services().Get(rtxn, loadbalancer.ServiceByName(tc.serviceName))
-		assert.Equalf(t, tc.isSynthetic, found, "Synthetic service missing: %v", tc.serviceName)
+		assert.Equalf(t, tc.kept, found, "Unexpected orphan handling: %v (%s)", tc.serviceName, tc.src)
 	}
 }
