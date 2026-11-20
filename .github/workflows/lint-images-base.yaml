@@ -29,6 +29,8 @@ on:
       - main
       - ft/main/**
 
+cache-mode: none
+
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after }}
   cancel-in-progress: true

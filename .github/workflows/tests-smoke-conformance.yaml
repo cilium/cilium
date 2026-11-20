@@ -43,6 +43,8 @@ permissions:
   # To be able to request the JWT from GitHub's OIDC provider
   id-token: write
 
+cache-mode: none
+
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after || github.event.merge_group && github.run_id }}
   cancel-in-progress: ${{ !github.event.merge_group }}

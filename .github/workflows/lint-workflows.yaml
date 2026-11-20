@@ -230,6 +230,43 @@ jobs:
           done
           exit ${EXIT}
 
+      - name: Validate Cache Mode of Ariane Workflows
+        shell: bash
+        run: |
+          EXIT=0
+          WRITE_IF="github.event_name == 'push' || github.event_name == 'schedule'"
+          cd src/github.com/cilium/cilium/.github/workflows
+          # has() misses keys that a job takes through an alias, so lint expanded copies.
+          EXPANDED=$(mktemp -d)
+          for FILE in *.yaml *.yml; do
+            # yq expands a merge key over earlier keys, against the YAML spec.
+            if [ "$(yq '[.. | select(key == "<<")] | length' "$FILE")" != "0" ]; then
+                echo "merge keys are not allowed in file $FILE"
+                EXIT=1
+            fi
+            yq 'explode(.)' "$FILE" > "$EXPANDED/$FILE"
+          done
+          cd "$EXPANDED"
+          for FILE in *.yaml *.yml; do
+            IS_ARIANE_DISPATCH=$(yq '.on.workflow_dispatch.inputs.PR-number' "$FILE")
+            if [ "$IS_ARIANE_DISPATCH" == "null" ]; then
+                continue
+            fi
+            CACHE_MODE=$(yq '.cache-mode' "$FILE")
+            if [ "$CACHE_MODE" != "read" ] && [ "$CACHE_MODE" != "none" ]; then
+                echo "top-level cache-mode must be set to read or none in file $FILE"
+                EXIT=1
+            fi
+            # Only a job that runs on push and schedule alone may write.
+            JOBS=$(WRITE_IF="$WRITE_IF" yq '.jobs | to_entries | .[] | select(.value | has("cache-mode")) | select(.value.cache-mode != "write" or .value.if != strenv(WRITE_IF)) | .key' "$FILE")
+            if [[ ${JOBS} =~ [^[:space:]] ]]; then
+                echo "cache-mode on a job must be write, with if: $WRITE_IF, in file $FILE:"
+                echo "${JOBS}" | awk '{print "  " $1}'
+                EXIT=1
+            fi
+          done
+          exit ${EXIT}
+
       - name: Validate Absence of Trailing Spaces
         shell: bash
         working-directory: src/github.com/cilium/cilium/

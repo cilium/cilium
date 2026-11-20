@@ -36,6 +36,8 @@ permissions:
   # To be able to set commit status
   statuses: write
 
+cache-mode: none
+
 concurrency:
   # Structure:
   # - Workflow name
