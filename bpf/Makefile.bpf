@@ -31,6 +31,9 @@ else ifeq ($(CROSS_ARCH),amd64)
   HOST_STRIP = x86_64-linux-gnu-strip
 endif
 
+HOST_GIT_DIR := $(shell git rev-parse --absolute-git-dir 2>/dev/null)
+HOST_GIT_COMMON_DIR := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+
 # Define all at the top here so that Makefiles which include this one will hit
 # the 'all' target first (which we expect to be overridden by the includer).
 all:
@@ -64,8 +67,11 @@ checkpatch:
 	$(QUIET) $(CONTAINER_ENGINE) container run --rm \
 		--workdir /workspace \
 		--volume $(CURDIR)/..:/workspace \
+		--volume $(HOST_GIT_COMMON_DIR):/git-common-dir:ro \
 		--user "$(shell id -u):$(shell id -g)" \
 		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) -e GITHUB_TOKEN=$(GITHUB_TOKEN) \
+		--env GIT_WORK_TREE=/workspace \
+		--env GIT_DIR=/git-common-dir$(patsubst $(HOST_GIT_COMMON_DIR)%,%,$(HOST_GIT_DIR)) \
 		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
 
 coccicheck:
