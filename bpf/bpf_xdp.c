@@ -167,23 +167,19 @@ static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
 	struct iphdr *ipv4_hdr = data + sizeof(struct ethhdr);
-	struct lpm_v4_key pfx __maybe_unused;
+	struct lpm_v4_key pfx;
 
 	if (ctx_no_room(ipv4_hdr + 1, data_end))
 		return CTX_ACT_DROP;
 
-#ifdef CIDR4_FILTER
 	pfx.addr = ipv4_hdr->saddr;
 	pfx.lpm.prefixlen = 32;
 
-#ifdef CIDR4_LPM_PREFILTER
 	if (map_lookup_elem(&cilium_cidr_v4_dyn, &pfx))
 		return CTX_ACT_DROP;
-#endif /* CIDR4_LPM_PREFILTER */
 
 	if (map_lookup_elem(&cilium_cidr_v4_fix, &pfx))
 		return CTX_ACT_DROP;
-#endif /* CIDR4_FILTER */
 
 	return 0;
 }
@@ -237,24 +233,20 @@ static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
 	struct ipv6hdr *ipv6_hdr = data + sizeof(struct ethhdr);
-	struct lpm_v6_key pfx __maybe_unused;
+	struct lpm_v6_key pfx;
 
 	if (ctx_no_room(ipv6_hdr + 1, data_end))
 		return CTX_ACT_DROP;
 
-#ifdef CIDR6_FILTER
 	ipv6_addr_copy_unaligned((union v6addr *)&pfx.addr,
 				 (union v6addr *)&ipv6_hdr->saddr);
 	pfx.lpm.prefixlen = 128;
 
-#ifdef CIDR6_LPM_PREFILTER
 	if (map_lookup_elem(&cilium_cidr_v6_dyn, &pfx))
 		return CTX_ACT_DROP;
-#endif /* CIDR6_LPM_PREFILTER */
 
 	if (map_lookup_elem(&cilium_cidr_v6_fix, &pfx))
 		return CTX_ACT_DROP;
-#endif /* CIDR6_FILTER */
 
 	return 0;
 }
