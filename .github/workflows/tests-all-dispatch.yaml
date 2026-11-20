@@ -1,0 +1,124 @@
+name: Test All Dispatch
+
+# Called by tests-all.yaml and tests-all-cloud-scheduled.yaml.
+on:
+  workflow_call:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+        type: string
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+        type: string
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+        type: string
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+        type: string
+        default: ''
+      cloud-full:
+        description: "Also run the AKS, EKS and GKE workflows with their scheduled matrices."
+        required: false
+        type: boolean
+        default: false
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To dispatch the workflows under test
+  actions: write
+  # To tell fork PRs apart
+  pull-requests: read
+
+jobs:
+  dispatch:
+    name: Dispatch workflows
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.context-ref }}
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
+      - name: Dispatch workflows
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.PR-number }}
+          CONTEXT_REF: ${{ inputs.context-ref }}
+          SHA: ${{ inputs.SHA }}
+          BASE_SHA: ${{ inputs.base-SHA }}
+          CLOUD_FULL: ${{ inputs.cloud-full }}
+        run: |
+          if ! fork=$(gh pr view "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --json isCrossRepository -q .isCrossRepository) || [ -z "${fork}" ]; then
+            echo "::error::Cannot tell whether PR ${PR_NUMBER} comes from a fork"
+            exit 1
+          fi
+          # A dispatch on a branch that moved would test SHA under the new tip's head_sha.
+          if [ "${fork}" = "false" ] && [ "$(git ls-remote origin "refs/heads/${CONTEXT_REF}" | cut -f1)" != "${SHA}" ]; then
+            echo "::error::${CONTEXT_REF} no longer points to ${SHA}, post the trigger again"
+            exit 1
+          fi
+
+          # tests-all-cloud-scheduled.yaml sets cloud-full to give these their scheduled matrix.
+          cloud=" conformance-aks.yaml conformance-eks.yaml conformance-gke.yaml conformance-ipsec.yaml conformance-kpr-aks.yaml conformance-kpr-eks.yaml conformance-kpr-gke.yaml "
+
+          # jq looks the keys up literally, yq would glob on the '*' of '/test\s*'.
+          readarray -t workflows < <(yq -o=json '.' .github/ariane-config.yaml | \
+            jq -r '(.triggers["/test\\s*"].workflows // [])[], (.schedule.nightly.workflows // [])[]' | \
+            grep -v '^tests-all' | sort -u)
+
+          failed=()
+          echo "| Workflow | extra-args | Run |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          for wf in "${workflows[@]}"; do
+            if ! state=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}" -q .state); then
+              echo "::error::Failed to read the state of ${wf}"
+              failed+=("${wf}")
+              continue
+            fi
+            if [ "${state}" != "active" ]; then
+              echo "::notice::Skipping ${wf}, its state is ${state}"
+              continue
+            fi
+            args='{"full":true}'
+            if [ "${CLOUD_FULL}" != "true" ] && [[ "${cloud}" == *" ${wf} "* ]]; then
+              args='{}'
+            fi
+            if out=$(gh workflow run "${wf}" --repo "${GITHUB_REPOSITORY}" --ref "${CONTEXT_REF}" \
+                -f PR-number="${PR_NUMBER}" \
+                -f context-ref="${CONTEXT_REF}" \
+                -f SHA="${SHA}" \
+                -f base-SHA="${BASE_SHA}" \
+                -f extra-args="${args}" 2>&1) && \
+               id=$(grep -oE 'actions/runs/[0-9]+' <<< "${out}" | tail -1 | cut -d/ -f3) && [ -n "${id}" ]; then
+              echo "| ${wf} | \`${args}\` | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${id} |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error::Failed to dispatch ${wf}: ${out}"
+              failed+=("${wf}")
+            fi
+          done
+
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::error::Failed to dispatch: ${failed[*]}"
+            exit 1
+          fi

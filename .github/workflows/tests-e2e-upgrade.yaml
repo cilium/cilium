@@ -123,6 +123,7 @@ jobs:
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
       timeout: ${{ steps.generate-matrix.outputs.timeout }}
+      full: ${{ steps.generate-matrix.outputs.full }}
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -142,8 +143,13 @@ jobs:
 
       - name: Generate Matrix
         id: generate-matrix
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
           cd /tmp/generated/e2e
+
+          FULL=$(jq -Rsr '. as $raw | (try fromjson catch $raw) | if type == "object" then (.full == true or .full == "true") else false end | tostring' <<< "${EXTRA_ARGS}")
+          echo "full=${FULL}" >> $GITHUB_OUTPUT
 
           # On development branches (VERSION ends with "-dev"), there is no
           # preceding patch release to downgrade to, so we skip generating
@@ -157,7 +163,7 @@ jobs:
 
           # When test-l7-only is true: filter to only test-l7: true configs
           # When test-l7-only is false (default):
-          #   - On schedule (direct trigger, not workflow_call): include all configs (with L3/L4 AND L7)
+          #   - On schedule or with a full extra-arg (direct trigger, not workflow_call): include all configs (with L3/L4 AND L7)
           #   - On workflow_dispatch on stable branches (acts as scheduled run by ariane): include all configs (with L3/L4 AND L7)
           #   - Otherwise: include only test-l7: false configs (L3/L4 only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
@@ -165,7 +171,7 @@ jobs:
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
             echo "timeout=90" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
+          elif { [ "${{ github.event_name }}" = "schedule" ] || [ "${FULL}" = "true" ]; } && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             jq --argjson modes "$MODES" '[.[] | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
@@ -307,13 +313,13 @@ jobs:
 
           # When test-l7-only is true: run ONLY L7 tests (exclude L3/L4 tests)
           # When test-l7-only is false (default):
-          #   - On schedule (direct trigger, not workflow_call): run full test suite (L3/L4 AND L7 tests together)
+          #   - On schedule or with a full extra-arg (direct trigger, not workflow_call): run full test suite (L3/L4 AND L7 tests together)
           #   - Otherwise: exclude L7 tests (L3/L4 traffic only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             # L7-only mode: run only L7 tests
             CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS}${L7_FILTER},no-unexpected-packet-drops,check-log-errors"
             echo "::notice::Running L7-only tests ${L7_FILTER}"
-          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
+          elif { [ "${{ github.event_name }}" = "schedule" ] || [ "${{ needs.generate-matrix.outputs.full }}" = "true" ]; } && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             # Scheduled run (direct trigger): full test suite (L3/L4 AND L7)
             echo "::notice::Running full test suite (L3/L4 AND L7 tests)"
           else
@@ -476,9 +482,9 @@ jobs:
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
 
           # Determine if L7 traffic testing should be enabled for conn-disrupt-test
-          # Only enable when test-l7-only is true or on scheduled runs
+          # Only enable when test-l7-only is true, on scheduled runs, or with a full extra-arg
           INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="false"
-          if [ "${{ inputs.test-l7-only }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "${{ inputs.test-l7-only }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ] || [ "${{ needs.generate-matrix.outputs.full }}" = "true" ]; then
             INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="true"
           fi
           echo include_conn_disrupt_test_l7_traffic=${INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC} >> $GITHUB_OUTPUT
