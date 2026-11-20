@@ -274,7 +274,7 @@ func TestIsParentAttachable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsParentAttachable(tt.reconcileParent, tt.route, tt.parents, nil)
+			got := IsParentAttachable(tt.reconcileParent, tt.route, tt.parents, "example.com/controller", nil)
 			if tt.want != got {
 				t.Errorf("IsParentAttachable() = %v, want %v", got, tt.want)
 			}
@@ -335,7 +335,8 @@ func parentStatus(parentName string, parentNS *string, status bool) []gatewayv1.
 
 	return []gatewayv1.RouteParentStatus{
 		{
-			ParentRef: parentRef,
+			ParentRef:      parentRef,
+			ControllerName: "example.com/controller",
 			Conditions: []metav1.Condition{
 				{
 					Type:   "Accepted",
