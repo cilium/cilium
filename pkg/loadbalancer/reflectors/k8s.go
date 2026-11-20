@@ -288,9 +288,8 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 
 			orphans := sets.New[loadbalancer.ServiceName]()
 			for svc := range p.Writer.Services().All(txn) {
-				// Synthetic Services are not in the Kubernetes Service reflector
-				// sync result. Don't mark them as orphan.
-				if !isSyntheticKubernetesService(svc) {
+				// Only non-synthetic Kubernetes Services can be orphans of this sync.
+				if svc.Source == source.Kubernetes && !isSyntheticKubernetesService(svc) {
 					orphans.Insert(svc.Name)
 				}
 			}
