@@ -37,14 +37,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
-			port := insecureHost
-			if len(l.TLS) > 0 {
-				if m.NeedsPerPortListeners() {
-					port = fmt.Sprintf("%d", l.Port)
-				} else {
-					port = secureHost
-				}
-			}
+			port := routeConfigKey(m, l)
 
 			if len(r.Hostnames) == 0 {
 				hnr := hostnameRedirect{
@@ -144,6 +137,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 							HostNames:                    []string{h.hostname},
 							HTTPSRedirect:                true,
 							ListenerPort:                 m.HTTP[0].Port,
+							DefaultPortOnly:              servesDefaultPortOnly(m, port),
 							AllAuthFilters:               allAuthFilters,
 							AllEndpointPickers:           allEPPs,
 							StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
@@ -167,6 +161,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				HostNames:                    []string{h.hostname},
 				HTTPSRedirect:                false,
 				ListenerPort:                 m.HTTP[0].Port,
+				DefaultPortOnly:              servesDefaultPortOnly(m, port),
 				AllAuthFilters:               allAuthFilters,
 				AllEndpointPickers:           allEPPs,
 				StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
@@ -223,4 +218,31 @@ func routeConfiguration(name string, virtualhosts []*envoy_config_route_v3.Virtu
 		VirtualHosts: virtualhosts,
 	}
 	return toXdsResource(routeConfig, envoy.RouteTypeURL)
+}
+
+// routeConfigKey returns the key of the route configuration that serves listener l: insecureHost
+// for HTTP, secureHost or the port for HTTPS.
+func routeConfigKey(m *model.Model, l model.HTTPListener) string {
+	if len(l.TLS) == 0 {
+		return insecureHost
+	}
+	if m.NeedsPerPortListeners() {
+		return fmt.Sprintf("%d", l.Port)
+	}
+	return secureHost
+}
+
+// servesDefaultPortOnly reports whether every listener served by the route configuration key is
+// on the default port of its scheme (80 for HTTP, 443 for HTTPS). HTTP listeners share one route
+// configuration, so a virtual host can receive requests on any of their ports.
+func servesDefaultPortOnly(m *model.Model, key string) bool {
+	for _, l := range m.HTTP {
+		if routeConfigKey(m, l) != key {
+			continue
+		}
+		if (len(l.TLS) == 0 && l.Port != 80) || (len(l.TLS) > 0 && l.Port != 443) {
+			return false
+		}
+	}
+	return true
 }

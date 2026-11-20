@@ -84,7 +84,6 @@ spec:
                     ignoreCase: true
               redirect:
                 hostRedirect: example.org
-                portRedirect: 443
                 responseCode: FOUND
                 schemeRedirect: https
             - match:
@@ -96,7 +95,6 @@ spec:
                     exact: https
                     ignoreCase: true
               redirect:
-                portRedirect: 443
                 schemeRedirect: https
             - match:
                 pathSeparatedPrefix: /scheme-and-host
@@ -108,7 +106,6 @@ spec:
                     ignoreCase: true
               redirect:
                 hostRedirect: example.org
-                portRedirect: 443
                 schemeRedirect: https
             - match:
                 pathSeparatedPrefix: /scheme
@@ -119,7 +116,6 @@ spec:
                     exact: https
                     ignoreCase: true
               redirect:
-                portRedirect: 443
                 schemeRedirect: https
   services:
     - listener: ""
