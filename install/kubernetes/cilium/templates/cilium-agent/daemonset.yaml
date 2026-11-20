@@ -451,7 +451,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- include "cilium-agent.volumeMounts.extra" . | nindent 8 }}
-      {{- if .Values.monitor.enabled }}
+      {{- if or .Values.monitor.enabled .Values.monitor.sidecar }}
       - name: cilium-monitor
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}

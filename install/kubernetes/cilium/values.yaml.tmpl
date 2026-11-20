@@ -684,12 +684,15 @@ bpf:
   mapDynamicSizeRatio: ~
   # -- Configure the level of aggregation for monitor notifications.
   # Valid options are none, low, medium, maximum.
+  # Deprecated in favor of monitor.aggregation.
   monitorAggregation: medium
   # -- Configure the typical time between monitor notifications for
   # active connections.
+  # Deprecated in favor of monitor.aggregationInterval.
   monitorInterval: "5s"
   # -- Configure which TCP flags trigger notifications when seen for the
   # first time in a connection.
+  # Deprecated in favor of monitor.aggregationFlags.
   monitorFlags: "all"
   # -- (bool) Allow cluster external access to ClusterIP services.
   # @default -- `false`
@@ -739,8 +742,7 @@ bpf:
   # @default -- `[]`
   vlanBypass: ~
   # -- Configure the IP tracing option type.
-  # This option is used to specify the IP option type to use for tracing.
-  # The value must be an integer between 0 and 255.
+  # Deprecated in favor of monitor.traceIPOption.
   # @schema
   # type: [null, integer]
   # minimum: 0
@@ -758,6 +760,31 @@ bpf:
   # Note netkit is incompatible with TPROXY (`bpf.tproxy`).
   # @default -- `veth`
   datapathMode: veth
+# -- Everything to control the tracking of packets in the datapath, including
+# monitor aggregation.
+monitor:
+  # -- Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar.
+  enabled: false
+  # -- Enable the cilium-monitor sidecar.
+  sidecar: false
+  # -- Configure the level of aggregation for monitor notifications.
+  # Valid options are none, low, medium, maximum.
+  aggregation: medium
+  # -- Configure the typical time between monitor notifications for
+  # active connections.
+  aggregationInterval: "5s"
+  # -- Configure which TCP flags trigger notifications when seen for the
+  # first time in a connection.
+  aggregationFlags: "all"
+  # -- Configure the IP tracing option type.
+  # This option is used to specify the IP option type to use for tracing.
+  # The value must be an integer between 0 and 255.
+  # @schema
+  # type: [null, integer]
+  # minimum: 0
+  # maximum: 255
+  # @schema
+  traceIPOption: 0
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
@@ -2816,10 +2843,6 @@ ipv6NativeRoutingCIDR: ""
 # per enabled IP family in clusterPoolIPv4PodCIDRList /
 # clusterPoolIPv6PodCIDRList.
 nativeRoutingCIDRFromClusterPool: false
-# -- cilium-monitor sidecar.
-monitor:
-  # -- Enable the cilium-monitor sidecar.
-  enabled: false
 # -- Configure service load balancing
 loadBalancer:
   # -- algorithm is the name of the load balancing algorithm for backend
