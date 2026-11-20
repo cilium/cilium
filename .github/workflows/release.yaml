@@ -430,7 +430,7 @@ jobs:
           echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
 
       - name: Sign quay.io OCI helm chart
-        uses: ./.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "quay.io/${{ github.repository_owner }}/charts/cilium@${{ steps.helm_digests.outputs.quay_digest }}"
           generate_sbom: 'false'

@@ -116,7 +116,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           login-host: ${{ vars.DOCKER_READ_HOST }}
@@ -243,7 +243,7 @@ jobs:
       - name: Provision K8s on LVH VM
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: lvh-kind
-        uses: ./.github/actions/lvh-kind
+        uses: $/.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           dependency-list-sha: ${{ needs.lvh-cache-key.outputs.dependency-list-sha }}
@@ -370,7 +370,7 @@ jobs:
 
       - name: Start unencrypted packets check
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           # Only check for DNS proxy traffic if IPv4 is enabled.
           # If it isn't, we will skip the proxy tests and won't have any such traffic.
@@ -405,11 +405,11 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Start unencrypted packets check for key rotation
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           # As we are not testing with proxy connections during key rotation,
@@ -428,7 +428,7 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked during key rotation
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
@@ -439,7 +439,7 @@ jobs:
 
       - name: Start unencrypted packets check for tests
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/start
+        uses: $/.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
@@ -471,7 +471,7 @@ jobs:
 
       - name: Assert that no unencrypted packets are leaked during tests
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: ./.github/actions/bpftrace/check
+        uses: $/.github/actions/bpftrace/check
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.kvstore.outcome == 'success' }}
@@ -483,7 +483,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
           job_status: "${{ job.status }}"

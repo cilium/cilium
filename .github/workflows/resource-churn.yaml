@@ -224,7 +224,7 @@ jobs:
 
       - name: Create EKS cluster
         id: deploy-cluster
-        uses: ./.github/actions/setup-eks-cluster
+        uses: $/.github/actions/setup-eks-cluster
         with:
           create-cluster: "true"
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -533,7 +533,7 @@ jobs:
 
       - name: Publish baseline results
         if: ${{ always() && steps.run-baseline.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "baseline-${{ steps.vars.outputs.scenario }}"
           job_status: "${{ job.status }}"
@@ -601,7 +601,7 @@ jobs:
 
       - name: Publish test tag results
         if: ${{ always() && steps.run-test.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "test-${{ steps.vars.outputs.scenario }}"
           job_status: "${{ job.status }}"
@@ -729,7 +729,7 @@ jobs:
     needs: resource-churn
     steps:
       - name: Merge Sysdumps
-        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -737,7 +737,7 @@ jobs:
           separate-directories: false
 
       - name: Merge Logs
-        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-logs
           pattern: cilium-logs-*

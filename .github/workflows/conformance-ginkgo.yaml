@@ -237,7 +237,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}${{ needs.setup-vars.outputs.image_tag_suffix }}
           login-host: ${{ vars.DOCKER_READ_HOST }}
@@ -662,7 +662,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           capture_features_tested: 'false'
           capture_sysdump: 'false'

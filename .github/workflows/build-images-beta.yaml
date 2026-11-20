@@ -151,7 +151,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Generate SBOM, Sign Images, and Attach Attestations
-        uses: ./.github/actions/cosign
+        uses: $/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}"
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}"
