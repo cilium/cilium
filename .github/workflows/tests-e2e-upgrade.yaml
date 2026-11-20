@@ -309,12 +309,15 @@ jobs:
           # When test-l7-only is false (default):
           #   - On schedule (direct trigger, not workflow_call): run full test suite (L3/L4 AND L7 tests together)
           #   - Otherwise: exclude L7 tests (L3/L4 traffic only)
+          L7_TESTS="false"
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             # L7-only mode: run only L7 tests
             CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS}${L7_FILTER},no-unexpected-packet-drops,check-log-errors"
+            L7_TESTS="true"
             echo "::notice::Running L7-only tests ${L7_FILTER}"
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             # Scheduled run (direct trigger): full test suite (L3/L4 AND L7)
+            L7_TESTS="true"
             echo "::notice::Running full test suite (L3/L4 AND L7 tests)"
           else
             # Default mode: L3/L4 tests only, exclude L7
@@ -327,7 +330,7 @@ jobs:
           # Determine if proxy traffic check should be enabled
           # Disable if: L7 tests are excluded OR ipv4 is explicitly false
           ENABLE_PROXY_CHECK="true"
-          if [[ "${{ inputs.test-l7-only }}" != "true" || "${{ matrix.ipv4 }}" == "false" ]]; then
+          if [[ "${L7_TESTS}" != "true" || "${{ matrix.ipv4 }}" == "false" ]]; then
             ENABLE_PROXY_CHECK="false"
           fi
           echo enable_proxy_check=${ENABLE_PROXY_CHECK} >> $GITHUB_OUTPUT
@@ -474,14 +477,6 @@ jobs:
                                       ${EXTRA_CLI_FLAGS[*]@Q}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
-
-          # Determine if L7 traffic testing should be enabled for conn-disrupt-test
-          # Only enable when test-l7-only is true or on scheduled runs
-          INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="false"
-          if [ "${{ inputs.test-l7-only }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
-            INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="true"
-          fi
-          echo include_conn_disrupt_test_l7_traffic=${INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC} >> $GITHUB_OUTPUT
 
       - name: Setup bootid file
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -681,7 +676,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-setup
         with:
           # cilium-agent only restart should not result in L7 traffic failures.
-          include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
+          include-conn-disrupt-test-l7-traffic: true
 
       - name: Restart Cilium Agent
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -700,7 +695,7 @@ jobs:
         with:
           job-name: cilium-restart-${{ matrix.name }}-${{ matrix.mode }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
-          include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
+          include-conn-disrupt-test-l7-traffic: true
 
       - name: Features tested before downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
