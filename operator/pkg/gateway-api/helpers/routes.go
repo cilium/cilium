@@ -22,9 +22,13 @@ func IsParentAttachable(
 	reconcileParent metav1.Object,
 	route metav1.Object,
 	parents []gatewayv1.RouteParentStatus,
+	controllerName string,
 	attachedListenerSets []gatewayv1.ListenerSet,
 ) bool {
 	for _, rps := range parents {
+		if string(rps.ControllerName) != controllerName {
+			continue
+		}
 		parentNS := NamespaceDerefOr(rps.ParentRef.Namespace, route.GetNamespace())
 		parentName := string(rps.ParentRef.Name)
 

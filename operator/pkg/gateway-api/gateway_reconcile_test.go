@@ -498,7 +498,7 @@ func Test_Conformance(t *testing.T) {
 				translator:                    gatewayAPITranslator,
 				inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, resourceConfig),
 				gatewayStatusManager:          NewGatewayStatusManager(c, logger, tt.nodeLabelSelector),
-				listenerStatusManager:         NewListenerStatusManager(c, logger, resourceConfig),
+				listenerStatusManager:         NewListenerStatusManager(c, logger, defaultControllerName, resourceConfig),
 				routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, resourceConfig, nil),
 				backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
 				logger:                        logger,
@@ -893,7 +893,7 @@ func Test_gatewayReconciler_Reconcile_GRPCRouteOrdering(t *testing.T) {
 		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, helpers.ResourceConfig{}),
 		translator:                    gatewayApiTranslation.NewTranslator(translation.NewCECTranslator(config), config),
 		gatewayStatusManager:          NewGatewayStatusManager(c, logger),
-		listenerStatusManager:         NewListenerStatusManager(c, logger, resourceConfig),
+		listenerStatusManager:         NewListenerStatusManager(c, logger, defaultControllerName, resourceConfig),
 		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, resourceConfig, nil),
 		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
 		resourceRegistry:              resource.NewGatewayRegistry(resourceConfig),
@@ -1035,7 +1035,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
 				gatewayStatusManager:  NewGatewayStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))),
-				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), resourceConfig),
+				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), defaultControllerName, resourceConfig),
 				logger:                hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				controllerName:        defaultControllerName,
 			}
@@ -1101,7 +1101,7 @@ func Test_gatewayReconciler_Reconcile_deletesOwnedCECWithoutListeners(t *testing
 		client:                        c,
 		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, helpers.ResourceConfig{}),
 		gatewayStatusManager:          NewGatewayStatusManager(c, logger),
-		listenerStatusManager:         NewListenerStatusManager(c, logger, resourceConfig),
+		listenerStatusManager:         NewListenerStatusManager(c, logger, defaultControllerName, resourceConfig),
 		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, resourceConfig, nil),
 		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
 		logger:                        logger,
@@ -1383,7 +1383,7 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 				TCPRouteUDPRouteSupport: true,
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			}
-			r.listenerStatusManager = NewListenerStatusManager(r.client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), resourceConfig)
+			r.listenerStatusManager = NewListenerStatusManager(r.client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), defaultControllerName, resourceConfig)
 			gotStatus, err := r.listenerStatusManager.setGatewayListenerStatus(
 				t.Context(),
 				gw,
@@ -1628,7 +1628,7 @@ func Test_setListenerStatus_FrontendTLSConfigMapReferenceGrant(t *testing.T) {
 				WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 				WithObjects(objects...).
 				Build()
-			manager := NewListenerStatusManager(c, hivetest.Logger(t), helpers.ResourceConfig{})
+			manager := NewListenerStatusManager(c, hivetest.Logger(t), defaultControllerName, helpers.ResourceConfig{})
 			gw := &gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "gateway",
@@ -1732,7 +1732,7 @@ func testReconcilerWithTCPRouteAndUDPRoute(t *testing.T, obj ...client.Object) (
 		logger:                        logger,
 		controllerName:                defaultControllerName,
 		gatewayStatusManager:          NewGatewayStatusManager(fakeClient, logger),
-		listenerStatusManager:         NewListenerStatusManager(fakeClient, logger, resourceConfig),
+		listenerStatusManager:         NewListenerStatusManager(fakeClient, logger, defaultControllerName, resourceConfig),
 		routeStatusManager:            NewRouteStatusManager(fakeClient, logger, defaultControllerName, resourceConfig, nil),
 		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(fakeClient, defaultControllerName),
 		resourceRegistry:              resourceRegistry,
