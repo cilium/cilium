@@ -1969,6 +1969,11 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY)
 		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
 
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_PROXY_REPLY)
+		ctx->tc_index |= TC_INDEX_F_FROM_PROXY_REPLY;
+	else
+		ctx->tc_index &= ~TC_INDEX_F_FROM_PROXY_REPLY;
+
 	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
 		use_redirect_peer = true;
 
@@ -2270,6 +2275,11 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY)
 		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_PROXY_REPLY)
+		ctx->tc_index |= TC_INDEX_F_FROM_PROXY_REPLY;
+	else
+		ctx->tc_index &= ~TC_INDEX_F_FROM_PROXY_REPLY;
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
 		use_redirect_peer = true;
