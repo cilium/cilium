@@ -129,6 +129,12 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				nil,
 				eRule.ToGroups)
 
+			// Same as for Egress above: an unresolved ToServices must select
+			// nothing rather than deny all destinations on the given ports.
+			if len(eRule.ToServices) > 0 && len(l3) == 0 {
+				l3 = nil
+			}
+
 			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
 			l4 = append(l4, portDenyRulesToPortRules(eRule.ToPorts)...)
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)

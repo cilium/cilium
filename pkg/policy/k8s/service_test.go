@@ -735,6 +735,149 @@ func TestPolicyWatcher_updateToServicesPoliciesUnresolvedWithToPorts(t *testing.
 	assert.Contains(t, p.cnpByServiceID[svcID], key)
 }
 
+// TestPolicyWatcher_updateToServicesPoliciesEgressDeny checks that ToServices in
+// EgressDeny rules are translated the same way as in Egress rules, and that an
+// unresolved ToServices deny rule never widens into an L3 wildcard deny.
+func TestPolicyWatcher_updateToServicesPoliciesEgressDeny(t *testing.T) {
+	policyAdd := make(chan policytypes.PolicyEntries, 1)
+	policyImporter := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			policyAdd <- upd.Rules
+		},
+	}
+
+	fooSvcID := loadbalancer.NewServiceName("foo-ns", "foo-svc")
+	fooSvcSelector := map[string]string{"app": "foo"}
+
+	barSvcID := loadbalancer.NewServiceName("bar-ns", "bar-svc")
+	barSvcLabels := map[string]string{"app": "bar"}
+	barEpAddr := cmtypes.MustParseAddrCluster("10.1.1.1")
+
+	cnp := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "cilium.io/v2",
+				Kind:       "CiliumNetworkPolicy",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc-deny",
+				Namespace: "test",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				EgressDeny: []api.EgressDenyRule{
+					{
+						// Selects foo-svc (with selector) by name, with ports
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{
+									K8sService: &api.K8sServiceNamespace{
+										ServiceName: fooSvcID.Name(),
+										Namespace:   fooSvcID.Namespace(),
+									},
+								},
+							},
+						},
+						ToPorts: api.PortDenyRules{
+							{Ports: []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}},
+						},
+					},
+					{
+						// Selects bar-svc (selector-less) by label, without ports
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{
+									K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+										Selector: api.ServiceSelector(api.NewESFromMatchRequirements(barSvcLabels, nil)),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	key := resource.NewKey(cnp)
+	resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
+
+	servicesFixture := newServicesFixture(t)
+	p := &policyWatcher{
+		log:                hivetest.Logger(t),
+		config:             &option.DaemonConfig{},
+		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
+		k8sAPIGroups:       &k8sSynced.APIGroups{},
+		policyImporter:     policyImporter,
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
+		cnpCache:           map[resource.Key]*types.SlimCNP{},
+		toServicesPolicies: map[resource.Key]struct{}{},
+		cnpByServiceID:     map[loadbalancer.ServiceName]map[resource.Key]struct{}{},
+		metricsManager:     NewCNPMetricsNoop(),
+	}
+
+	// No services are known yet: both deny rules must select nothing. In
+	// particular the rule with ToPorts must not become an L3 wildcard deny.
+	require.NoError(t, p.onUpsert(cnp, key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, nil))
+	rules := <-policyAdd
+	require.Len(t, rules, 2)
+	assert.Equal(t, policytypes.Deny, rules[0].Verdict)
+	assert.Nil(t, rules[0].L3)
+	assert.NotEmpty(t, rules[0].L4)
+	assert.Equal(t, policytypes.Deny, rules[1].Verdict)
+	assert.Nil(t, rules[1].L3)
+
+	// The policy must be tracked as a ToServices policy
+	assert.Equal(t, map[resource.Key]struct{}{key: {}}, p.toServicesPolicies)
+	assert.Empty(t, p.cnpByServiceID)
+
+	// Add foo-svc with a selector: expect a generated ToEndpoints in the deny rule
+	fooEv := servicesFixture.upsertService(fooSvcID, nil, fooSvcSelector, nil, nil)
+	p.updateToServicesPolicies(fooEv)
+	rules = <-policyAdd
+	require.Len(t, rules, 2)
+	assert.Equal(t, policytypes.Deny, rules[0].Verdict)
+	require.Len(t, rules[0].L3, 1)
+	fooEndpointSelector := newEndpointSelectorForServiceSelector(fooSvcID.Namespace(), fooSvcSelector)
+	assert.Equal(t, fooEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
+	assert.NotEmpty(t, rules[0].L4)
+	assert.Nil(t, rules[1].L3)
+
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
+		fooSvcID: {key: {}},
+	}, p.cnpByServiceID)
+
+	// Add selector-less bar-svc with a backend: expect a generated ToCIDRSet in the deny rule
+	barEv := servicesFixture.upsertService(barSvcID, barSvcLabels, nil, []cmtypes.AddrCluster{barEpAddr}, nil)
+	p.updateToServicesPolicies(barEv)
+	rules = <-policyAdd
+	require.Len(t, rules, 2)
+	require.Len(t, rules[0].L3, 1)
+	assert.Equal(t, policytypes.Deny, rules[1].Verdict)
+	assert.Equal(t, api.CIDRRuleSlice{
+		addrToCIDRRule(barEpAddr.Addr()),
+	}, rules[1].L3.CIDRRules())
+
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
+		fooSvcID: {key: {}},
+		barSvcID: {key: {}},
+	}, p.cnpByServiceID)
+
+	// Remove bar-svc labels: the policy no longer selects it and the generated
+	// ToCIDRSet must be dropped again.
+	barEv = servicesFixture.upsertService(barSvcID, nil, nil, []cmtypes.AddrCluster{barEpAddr}, &barEv)
+	p.updateToServicesPolicies(barEv)
+	rules = <-policyAdd
+	require.Len(t, rules, 2)
+	require.Len(t, rules[0].L3, 1)
+	assert.Nil(t, rules[1].L3)
+
+	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
+		fooSvcID: {key: {}},
+	}, p.cnpByServiceID)
+}
+
 func Test_hasMatchingToServices(t *testing.T) {
 	type args struct {
 		spec *api.Rule
@@ -1022,6 +1165,71 @@ func Test_hasMatchingToServices(t *testing.T) {
 				ev: serviceEvent{
 					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
 					labels: labels.NewLabelsFromSortedList("baz=qux,foo=bar"),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "egress deny by name and namespace",
+			args: args{
+				spec: &api.Rule{EgressDeny: []api.EgressDenyRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{K8sService: &api.K8sServiceNamespace{
+									ServiceName: "test-svc",
+									Namespace:   "test-ns",
+								}},
+							},
+						},
+					},
+				}},
+				ev: serviceEvent{
+					name: loadbalancer.NewServiceName("test-ns", "test-svc"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "egress deny by label",
+			args: args{
+				spec: &api.Rule{EgressDeny: []api.EgressDenyRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+									Selector: api.ServiceSelector(api.NewESFromMatchRequirements(map[string]string{
+										"foo": "bar",
+									}, nil)),
+								}},
+							},
+						},
+					},
+				}},
+				ev: serviceEvent{
+					name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
+					labels: labels.NewLabelsFromSortedList("baz=qux;foo=bar"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "egress deny by name does not match other service",
+			args: args{
+				spec: &api.Rule{EgressDeny: []api.EgressDenyRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{K8sService: &api.K8sServiceNamespace{
+									ServiceName: "test-svc",
+									Namespace:   "test-ns",
+								}},
+							},
+						},
+					},
+				}},
+				ev: serviceEvent{
+					name: loadbalancer.NewServiceName("test-ns", "other-svc"),
 				},
 			},
 			want: false,
