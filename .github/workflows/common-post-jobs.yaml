@@ -22,6 +22,11 @@ on:
         required: false
         type: boolean
         default: true
+      merge-features:
+        description: "Whether to merge and upload features-tested-* artifacts. Set to false for workflows that do not collect feature status and therefore produce no such artifact (e.g. perf tests)."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -51,6 +56,7 @@ jobs:
           separate-directories: true
 
       - name: Merge Features tested
+        if: ${{ inputs.merge-features }}
         uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: features-tested
