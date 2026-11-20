@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
@@ -25,12 +25,12 @@ type MonitorFormatter struct {
 	Verbosity  monitorAPI.Verbosity
 	Numeric    bool
 
-	linkMonitor getters.LinkGetter
+	linkMonitor resolverTypes.LinkGetter
 	buf         *bufio.Writer
 }
 
 // NewMonitorFormatter returns a new formatter with default configuration.
-func NewMonitorFormatter(verbosity monitorAPI.Verbosity, linkMonitor getters.LinkGetter, w io.Writer) *MonitorFormatter {
+func NewMonitorFormatter(verbosity monitorAPI.Verbosity, linkMonitor resolverTypes.LinkGetter, w io.Writer) *MonitorFormatter {
 	return &MonitorFormatter{
 		Hex:         false,
 		EventTypes:  monitorAPI.MessageTypeFilter{},

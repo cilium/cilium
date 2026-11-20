@@ -10,10 +10,10 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/hubble/resolver"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -22,14 +22,14 @@ import (
 // Parser is a parser for debug payloads
 type Parser struct {
 	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	linkMonitor    getters.LinkGetter
+	endpointGetter resolverTypes.EndpointGetter
+	linkMonitor    resolverTypes.LinkGetter
 
 	debugMsgDecoder options.DebugMsgDecoderFunc
 }
 
 // New creates a new parser
-func New(log *slog.Logger, endpointGetter getters.EndpointGetter, opts ...options.Option) (*Parser, error) {
+func New(log *slog.Logger, endpointGetter resolverTypes.EndpointGetter, opts ...options.Option) (*Parser, error) {
 	args := &options.Options{
 		DebugMsgDecoder: func(data []byte) (*monitor.DebugMsg, error) {
 			dbg := &monitor.DebugMsg{}
@@ -91,7 +91,7 @@ func (p *Parser) decodeEndpoint(id uint16) *flowpb.Endpoint {
 				Identity:    uint32(ep.GetIdentity()),
 				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value,
 				Namespace:   ep.GetK8sNamespace(),
-				Labels:      common.SortAndFilterLabels(p.log, labels.GetModel(), ep.GetIdentity()),
+				Labels:      resolver.SortAndFilterLabels(p.log, labels.GetModel(), ep.GetIdentity()),
 				PodName:     ep.GetK8sPodName(),
 				PodUid:      ep.GetK8sPodUID(),
 			}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package getters
+package types
 
 import (
 	"net/netip"
@@ -16,7 +16,17 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// DNSGetter ...
+// DatapathContext carries the datapath information of the flow whose
+// endpoints are being resolved.
+type DatapathContext struct {
+	SrcIP                 netip.Addr
+	SrcLabelID            uint32
+	DstIP                 netip.Addr
+	DstLabelID            uint32
+	TraceObservationPoint flowpb.TraceObservationPoint
+}
+
+// DNSGetter resolves IP addresses to the FQDNs known to an endpoint.
 type DNSGetter interface {
 	// GetNamesOf fetches FQDNs of a given IP from the perspective of
 	// the endpoint with ID sourceEpID. The returned names must not have
@@ -24,15 +34,18 @@ type DNSGetter interface {
 	GetNamesOf(sourceEpID uint32, ip netip.Addr) (names []string)
 }
 
-// EndpointGetter ...
+// EndpointGetter looks up and resolves endpoints.
 type EndpointGetter interface {
 	// GetEndpointInfo looks up endpoint by IP address.
 	GetEndpointInfo(ip netip.Addr) (endpoint EndpointInfo, ok bool)
-	// GetEndpointInfo looks up endpoint by id
+	// GetEndpointInfoByID looks up endpoint by id.
 	GetEndpointInfoByID(id uint16) (endpoint EndpointInfo, ok bool)
+	// ResolveEndpoint resolves an endpoint based on the given IP address,
+	// datapath security identity, and datapath context.
+	ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context DatapathContext) *flowpb.Endpoint
 }
 
-// IdentityGetter ...
+// IdentityGetter looks up security identities.
 type IdentityGetter interface {
 	// GetIdentity fetches a full identity object given a numeric security id.
 	GetIdentity(id uint32) (*identity.Identity, error)
@@ -61,6 +74,13 @@ type LinkGetter interface {
 	// Name returns the name of an interface, or returns a string
 	// containing the ifindex if the link name cannot be determined.
 	Name(ifIndex uint32) string
+}
+
+// LocalNodeGetter returns information about the node Hubble is running on.
+type LocalNodeGetter interface {
+	// NodeInfo returns the absolute node name and the sorted key=val node
+	// labels, read atomically.
+	NodeInfo() (name string, labels []string)
 }
 
 // PodMetadataGetter returns pod metadata based on identifiers received from

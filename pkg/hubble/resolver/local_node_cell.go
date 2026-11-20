@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package parser
+package resolver
 
 import (
 	"context"
@@ -9,22 +9,20 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/node"
 )
 
-// LocalNodeWatcherCell provides the LocalNodeWatcher. It manages the
-// LocalNodeStore subscription via a job.OneShot and provides the watcher
-// to the PayloadParser for populating the flow's node_labels field.
-var LocalNodeWatcherCell = cell.Provide(newLocalNodeWatcher)
-
-type localNodeWatcherParams struct {
+type localNodeGetterParams struct {
 	cell.In
 
 	JobGroup       job.Group
 	NodeLocalStore *node.LocalNodeStore
 }
 
-func newLocalNodeWatcher(params localNodeWatcherParams) *LocalNodeWatcher {
+// NewLocalNodeGetter returns a LocalNodeGetter kept up to date with the
+// LocalNodeStore by a job.OneShot.
+func NewLocalNodeGetter(params localNodeGetterParams) types.LocalNodeGetter {
 	watcher := &LocalNodeWatcher{}
 
 	params.JobGroup.Add(job.OneShot(

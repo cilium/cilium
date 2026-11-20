@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package common
+package resolver
 
 import (
 	"net/netip"
@@ -9,45 +9,39 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/endpoint"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func TestResolveEndpointPodMetadata(t *testing.T) {
 	ip := netip.MustParseAddr("10.0.0.1")
 
 	t.Run("local endpoint", func(t *testing.T) {
-		endpointGetter := &testutils.FakeEndpointGetter{
-			OnGetEndpointInfo: func(netip.Addr) (getters.EndpointInfo, bool) {
-				return &testutils.FakeEndpointInfo{PodUID: "local-pod-uid"}, true
+		endpointGetter := &testutils.FakeEndpointManager{
+			OnLookupIP: func(ip netip.Addr) *endpoint.Endpoint {
+				return &endpoint.Endpoint{K8sUID: "local-pod-uid"}
 			},
 		}
-		resolver := NewEndpointResolver(hivetest.Logger(t), endpointGetter, nil, nil)
+		resolver := NewEndpointGetter(hivetest.Logger(t), nil, nil, endpointGetter)
 
-		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
+		endpoint := resolver.ResolveEndpoint(ip, 0, resolverTypes.DatapathContext{})
 
 		assert.Equal(t, "local-pod-uid", endpoint.GetPodUid())
 	})
 
 	t.Run("local endpoint Pod fallback", func(t *testing.T) {
-		endpointGetter := &testutils.FakeEndpointGetter{
-			OnGetEndpointInfo: func(netip.Addr) (getters.EndpointInfo, bool) {
-				return &testutils.FakeEndpointInfo{Pod: &slim_corev1.Pod{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						UID: k8sTypes.UID("cached-pod-uid"),
-					},
-				}}, true
+		endpointGetter := &testutils.FakeEndpointManager{
+			OnLookupIP: func(ip netip.Addr) *endpoint.Endpoint {
+				return &endpoint.Endpoint{K8sUID: "cached-pod-uid"}
 			},
 		}
-		resolver := NewEndpointResolver(hivetest.Logger(t), endpointGetter, nil, nil)
+		resolver := NewEndpointGetter(hivetest.Logger(t), nil, nil, endpointGetter)
 
-		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
+		endpoint := resolver.ResolveEndpoint(ip, 0, resolverTypes.DatapathContext{})
 
 		assert.Equal(t, "cached-pod-uid", endpoint.GetPodUid())
 	})
@@ -67,18 +61,18 @@ func TestResolveEndpointPodMetadata(t *testing.T) {
 				return ipcache.Identity{}, false
 			},
 		}
-		resolver := NewEndpointResolver(hivetest.Logger(t), nil, nil, ipGetter)
+		resolver := NewEndpointGetter(hivetest.Logger(t), nil, ipGetter, nil)
 
-		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
+		endpoint := resolver.ResolveEndpoint(ip, 0, resolverTypes.DatapathContext{})
 
 		assert.Equal(t, "remote-pod-uid", endpoint.GetPodUid())
 		assert.Equal(t, []*flowpb.Workload{{Name: "remote-workload", Kind: "Deployment"}}, endpoint.GetWorkloads())
 	})
 
 	t.Run("unknown UID", func(t *testing.T) {
-		resolver := NewEndpointResolver(hivetest.Logger(t), nil, nil, nil)
+		resolver := NewEndpointGetter(hivetest.Logger(t), nil, nil, nil)
 
-		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
+		endpoint := resolver.ResolveEndpoint(ip, 0, resolverTypes.DatapathContext{})
 
 		assert.Empty(t, endpoint.GetPodUid())
 	})
