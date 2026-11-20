@@ -12,8 +12,6 @@
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
 
-#define ENCAP_IFINDEX		25
-
 #define FRONTEND_IP		v4_svc_one
 #define FRONTEND_PORT		__bpf_htons(80)
 
@@ -56,6 +54,7 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 
 #include "lib/bpf_host.h"
 
+ASSIGN_CONFIG(__u32, encap_ifindex, 25)
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 

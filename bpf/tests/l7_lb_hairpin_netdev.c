@@ -18,7 +18,6 @@
 
 #define DEFAULT_IFACE		24
 #define CILIUM_NET_IFINDEX	10
-#define ENCAP_IFINDEX		0
 
 #define PROXY_PORT		10000
 
@@ -70,6 +69,8 @@ ASSIGN_CONFIG(bool, proxy_redirect_via_cilium_net, true)
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_l7_lb, true)
+
+ASSIGN_CONFIG(__u32, encap_ifindex, 0)
 
 /* Test 1: IPv4 L7 LB on bridge device. Ensure packets is hairpinned via cilium_net. */
 PKTGEN(PROG_TYPE, "l7_lb_hairpin_v4")

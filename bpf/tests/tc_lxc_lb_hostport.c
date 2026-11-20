@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
-#define ENCAP_IFINDEX		42
 
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_IPV6		v6_pod_one
@@ -66,6 +65,7 @@ ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP })
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

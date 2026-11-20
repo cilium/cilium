@@ -6,7 +6,6 @@
 #include "mock_skb_metadata.h"
 #include "pktgen.h"
 
-#define ENCAP_IFINDEX 1
 #define ENABLE_IPV4 1
 #define TUNNEL_MODE 1
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -20,6 +19,8 @@ ASSIGN_CONFIG(bool, enable_nodeport, true)
 #define NODEPORT_PORT_MIN_NAT_EXT 32767
 ASSIGN_CONFIG(__u16, nodeport_port_min_nat_ext, NODEPORT_PORT_MIN_NAT_EXT)
 ASSIGN_CONFIG(__u16, nodeport_port_max_nat_ext, NODEPORT_PORT_MIN_NAT_EXT)
+
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 #define CLIENT_IFINDEX		12345
 #define CLIENT_MAC		mac_one

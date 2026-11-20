@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define ENCAP_IFINDEX		1
-
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 
@@ -15,3 +13,4 @@ ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_OPT })
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)

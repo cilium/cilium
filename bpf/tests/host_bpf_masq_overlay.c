@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #define TUNNEL_MODE	1
-#define ENCAP_IFINDEX	42
 
 #include "host_bpf_masq.h"
+
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)

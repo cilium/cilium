@@ -408,7 +408,6 @@ func Test_getCiliumHostIPsFromFile(t *testing.T) {
 #define IPCACHE_MAP_SIZE 512000
 #define POLICY_PROG_MAP_SIZE 65535
 #define TRACE_PAYLOAD_LEN 128ULL
-#define ENCAP_IFINDEX 358
 `)
 
 	type args struct {

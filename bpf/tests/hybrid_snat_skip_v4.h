@@ -7,7 +7,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
-#define ENCAP_IFINDEX 1
 #define TUNNEL_MODE 1
 #define ENABLE_BPF_MASQUERADE 1
 
@@ -20,6 +19,7 @@ ASSIGN_CONFIG(bool, enable_remote_node_masquerade, ENABLE_REMOTE_NODE_MASQUERADE
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, ENABLE_HYBRID_ROUTING)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 #include "lib/clear.h"
 #include "lib/endpoint.h"
