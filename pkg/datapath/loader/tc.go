@@ -22,24 +22,23 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// attachSKBProgram attaches prog to device using tcx if available and enabled,
-// or legacy tc as a fallback.
+// attachSKBProgram attaches prog to device using a netkit link if device is a netkit device.
+// Otherwise, it uses tcx if available and enabled, or legacy tc as a fallback.
 func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
 	if prog == nil {
 		return fmt.Errorf("program %s is nil", progName)
 	}
 
-	if tcxEnabled {
-		// If the device is a netkit device, we know that netkit links are
-		// supported, therefore use netkit instead of tcx. For all others like
-		// host devices, rely on tcx.
-		if device.Type() == "netkit" {
-			if err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent); err != nil {
-				return fmt.Errorf("attaching netkit program %s: %w", progName, err)
-			}
-			return nil
+	// A netkit device can only be programmed through a netkit link, never
+	// through tcx or legacy tc.
+	if device.Type() == "netkit" {
+		if err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent); err != nil {
+			return fmt.Errorf("attaching netkit program %s: %w", progName, err)
 		}
+		return nil
+	}
 
+	if tcxEnabled {
 		// Attach using tcx if available. This is seamless on interfaces with
 		// existing tc programs since attaching tcx disables legacy tc evaluation.
 		err := upsertTCXProgram(logger, device, prog, progName, bpffsDir, parent)
@@ -67,8 +66,7 @@ func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progr
 	}
 
 	// Legacy tc attached, make sure tcx is detached in case of downgrade.
-	// netkit can only be used in combination with tcx, but never legacy tc,
-	// hence for netkit detaching here would be irrelevant.
+	// netkit devices never reach this point, so only tcx can be stale here.
 	if err := detachGeneric(logger, bpffsDir, progName, "tcx"); err != nil {
 		return fmt.Errorf("tcx cleanup after attaching legacy tc program %s: %w", progName, err)
 	}
