@@ -68,6 +68,26 @@ type poolPair struct {
 	allowLastIP  bool
 }
 
+func (p *poolPair) releasedCIDRs() []iputil.Prefix {
+	var cidrs []iputil.Prefix
+	if p.v4 != nil {
+		cidrs = append(cidrs, p.v4.releasedCIDRs()...)
+	}
+	if p.v6 != nil {
+		cidrs = append(cidrs, p.v6.releasedCIDRs()...)
+	}
+	return cidrs
+}
+
+func (p *poolPair) restoreReleased(cidrs []iputil.Prefix) {
+	if p.v4 != nil {
+		p.v4.restoreReleased(cidrs)
+	}
+	if p.v6 != nil {
+		p.v6.restoreReleased(cidrs)
+	}
+}
+
 type preAllocatePerPool map[Pool]int
 
 func ParseMultiPoolPreAllocMap(conf map[string]string) (preAllocatePerPool, error) {
@@ -474,8 +494,20 @@ func (m *MultiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
-	for _, pool := range m.poolsAccessor.FromResource(newNode).Allocated {
+	spec := m.poolsAccessor.FromResource(newNode)
+	for _, pool := range spec.Allocated {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP)
+	}
+
+	// On the first observation, restore the CIDRs released by a previous
+	// agent run so that they are not handed out again. Afterwards, the
+	// in-memory state is authoritative.
+	if m.getNode() == nil {
+		for _, release := range spec.Released {
+			if pool, ok := m.pools[Pool(release.Pool)]; ok {
+				pool.restoreReleased(release.CIDRs)
+			}
+		}
 	}
 
 	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
@@ -650,6 +682,7 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	newNode := curNode.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
+	var released []types.IPAMPoolRelease
 
 	expiredPools := m.pendingIPsPerPool.removeExpiredEntries()
 	neededIPsPerPool := m.computeNeededIPsPerPoolLocked()
@@ -700,6 +733,13 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 			continue
 		}
 
+		if releasedCIDRs := pool.releasedCIDRs(); len(releasedCIDRs) > 0 {
+			released = append(released, types.IPAMPoolRelease{
+				Pool:  poolName.String(),
+				CIDRs: releasedCIDRs,
+			})
+		}
+
 		// Emit per-pool, per-family IPAM metrics for the surviving pool.
 		if v4Pool := pool.v4; v4Pool != nil {
 			used := v4Pool.inUseIPCount()
@@ -748,9 +788,13 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	sort.Slice(allocated, func(i, j int) bool {
 		return allocated[i].Pool < allocated[j].Pool
 	})
+	sort.Slice(released, func(i, j int) bool {
+		return released[i].Pool < released[j].Pool
+	})
 
 	var newPoolsSpec types.IPAMPoolSpec
 	newPoolsSpec.Requested = requested
+	newPoolsSpec.Released = released
 
 	// Only update Allocated once local pools have been populated. Before
 	// that, the agent has no CIDRs of its own and updating with an empty

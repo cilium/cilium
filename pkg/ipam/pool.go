@@ -160,6 +160,38 @@ func (p *cidrPool) inUseCIDRsLocked() []iputil.Prefix {
 	return CIDRs
 }
 
+func (p *cidrPool) releasedCIDRs() []iputil.Prefix {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	CIDRs := make([]iputil.Prefix, 0, len(p.released))
+	for prefix := range p.released {
+		CIDRs = append(CIDRs, iputil.PrefixFrom(prefix))
+	}
+	slices.SortFunc(CIDRs, func(a, b iputil.Prefix) int { return a.Prefix.Compare(b.Prefix) })
+	return CIDRs
+}
+
+// restoreReleased marks the given CIDRs as released again after an agent
+// restart. CIDRs no longer assigned to the pool are ignored.
+func (p *cidrPool) restoreReleased(cidrs []iputil.Prefix) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	retainedAllocators := p.ipAllocators[:0]
+	for _, ipAllocator := range p.ipAllocators {
+		cidr := ipAllocator.CIDR()
+		if ipAllocator.Used() == 0 && slices.ContainsFunc(cidrs, func(c iputil.Prefix) bool {
+			return c.IsValid() && c.Prefix.Masked() == cidr
+		}) {
+			p.released[cidr] = struct{}{}
+			continue
+		}
+		retainedAllocators = append(retainedAllocators, ipAllocator)
+	}
+	p.ipAllocators = retainedAllocators
+}
+
 func (p *cidrPool) dump() (allocated sets.Set[netip.Addr], usedIPs, freeIPs, numCIDRs int, err error) {
 	// TODO(gandro): Use the Snapshot interface to avoid locking during dump
 	p.mutex.Lock()
