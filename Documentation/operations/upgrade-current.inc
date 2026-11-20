@@ -59,6 +59,13 @@ Informational Notes
   warning log. Existing empty policies already present in the cluster are not
   affected, but any create or update that results in an empty policy will be
   rejected.
+* The ``spec.ipam.max-above-watermark`` field of the ``CiliumNode`` CRD is
+  deprecated, no longer has any effect, and will be removed in v1.22. The
+  operator no longer allocates additional IPs beyond ``spec.ipam.pre-allocate``
+  and ``spec.ipam.min-allocate``. On nodes where this field was set and excess
+  IP release is enabled, IPs previously kept because of this field are
+  released after the upgrade. Use ``spec.ipam.pre-allocate`` instead to keep a
+  larger buffer of free IPs.
 * The Azure IPAM status on ``CiliumNode`` now tracks the subnet at the
   interface level, matching the AWS and AlibabaCloud IPAM representations.
   All IP configurations on an Azure NIC must share a subnet, so the new
@@ -271,5 +278,7 @@ The following obsolete fields have been removed from the ``CiliumNode`` CRD:
 * ``spec.eni.instance-id``: Use ``spec.instance-id`` instead. Deprecated since v1.8.
 * ``spec.eni.min-allocate``: Use ``spec.ipam.min-allocate`` instead. Deprecated since v1.8.
 * ``spec.eni.pre-allocate``: Use ``spec.ipam.pre-allocate`` instead. Deprecated since v1.8.
-* ``spec.eni.max-above-watermark``: Use ``spec.ipam.max-above-watermark`` instead. Deprecated since v1.8.
+* ``spec.eni.max-above-watermark``: Deprecated since v1.8. The max-above-watermark
+  functionality as a whole is now deprecated, and ``spec.ipam.max-above-watermark``
+  no longer has any effect.
 * ``status.azure.interfaces[].GatewayIP``: Use ``status.azure.interfaces[].gateway`` instead. Deprecated since v1.10.

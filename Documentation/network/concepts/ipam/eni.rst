@@ -237,8 +237,8 @@ allocation:
 ``spec.ipam.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
   bootstrapped. It defines the minimum base socket of addresses that must be
-  available. After reaching this watermark, the PreAllocate and
-  MaxAboveWatermark logic takes over to continue allocating IPs.
+  available. After reaching this watermark, the PreAllocate logic takes over
+  to continue allocating IPs.
 
   If unspecified, no minimum number of IPs is required.
 
@@ -362,8 +362,8 @@ in `Operational Details`_:
   ``Ipv6PrefixCount``) or to an existing ENI using the ``AssignIpv6Addresses``
   EC2 API call. Because a single ``/80`` provides an enormous address space, no
   further IPv6 prefixes are requested for the node.
-* **No watermarks.** The ``pre-allocate``, ``min-allocate``,
-  ``max-allocate`` and ``max-above-watermark`` settings, as well as the deficit
+* **No watermarks.** The ``pre-allocate``, ``min-allocate`` and
+  ``max-allocate`` settings, as well as the deficit
   and excess calculations, apply to IPv4 only. IPv6 has a simple boolean demand:
   request one prefix if the agent needs IPv6 and none is present.
 * **No release.** IPv6 prefixes are never released by
@@ -459,15 +459,8 @@ For excess IPv4 calculation:
 .. code-block:: go
 
      // availableIPs and usedIPs are as defined above.
-     upperBound := spec.ipam.min-allocate + spec.ipam.max-above-watermark
-     switch {
-     case availableIPs <= upperBound:
-       excessIPs = 0
-     case usedIPs <= upperBound && usedIPs + spec.ipam.pre-allocate <= upperBound:
-       excessIPs = availableIPs - upperBound
-     default:
-       excessIPs = max(availableIPs - usedIPs - upperBound, 0)
-     }
+     upperBound := max(spec.ipam.min-allocate, usedIPs + spec.ipam.pre-allocate)
+     excessIPs = max(availableIPs - upperBound, 0)
 
 Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the
@@ -506,7 +499,7 @@ The following formula is used to determine how many IPs are allocated on the ENI
 .. code-block:: go
 
       // surgeAllocate kicks in if numPendingPods is greater than NeededAddresses
-      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.ipam.max-above-watermark + surgeAllocate))
+      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + surgeAllocate))
 
 .. note::
 
