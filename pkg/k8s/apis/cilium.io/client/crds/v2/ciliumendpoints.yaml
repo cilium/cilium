@@ -38,6 +38,10 @@ spec:
       jsonPath: .status.state
       name: Endpoint State
       type: string
+    - description: Endpoint Node Name
+      jsonPath: .status.nodeName
+      name: Node
+      type: string
     - description: Endpoint IPv4 address
       jsonPath: .status.networking.addressing[0].ipv4
       name: IPv4
@@ -274,6 +278,9 @@ spec:
                 required:
                 - addressing
                 type: object
+              nodeName:
+                description: NodeName is the name of the Node hosting this endpoint
+                type: string
               policy:
                 description: |-
                   EndpointPolicy represents the endpoint's policy by listing all allowed
@@ -500,6 +507,8 @@ spec:
         required:
         - metadata
         type: object
+    selectableFields:
+    - jsonPath: .status.nodeName
     served: true
     storage: true
     subresources: {}

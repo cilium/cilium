@@ -2067,6 +2067,9 @@ func (in *EndpointStatus) DeepEqual(other *EndpointStatus) bool {
 	if in.ID != other.ID {
 		return false
 	}
+	if in.NodeName != other.NodeName {
+		return false
+	}
 	if ((in.Controllers != nil) && (other.Controllers != nil)) || ((in.Controllers == nil) != (other.Controllers == nil)) {
 		in, other := &in.Controllers, &other.Controllers
 		if other == nil || !in.DeepEqual(other) {

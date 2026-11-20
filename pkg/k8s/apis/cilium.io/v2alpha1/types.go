@@ -39,6 +39,9 @@ type CoreCiliumEndpoint struct {
 	// PodUID is the UID of the Pod that owns this endpoint.
 	// +kubebuilder:validation:Optional
 	PodUID string `json:"pod-uid,omitempty"`
+	// NodeName is the name of the Node hosting this endpoint
+	// +kubebuilder:validation:Optional
+	NodeName string `json:"nodeName,omitempty"`
 	// Networking is the networking properties of the endpoint.
 
 	// +kubebuilder:validation:Optional

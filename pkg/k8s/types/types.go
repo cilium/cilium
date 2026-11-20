@@ -28,6 +28,7 @@ type CiliumEndpoint struct {
 	Networking     *v2.EndpointNetworking
 	Encryption     *v2.EncryptionSpec
 	NamedPorts     models.NamedPorts
+	NodeName       string
 	ServiceAccount string
 	Workload       *v2.EndpointWorkload
 }

@@ -28,8 +28,10 @@ type IPv4orIPv6CIDR string
 // +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.state",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=string,priority=1
 // +kubebuilder:printcolumn:JSONPath=".status.policy.egress.state",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=string,priority=1
 // +kubebuilder:printcolumn:JSONPath=".status.state",description="Endpoint current state",name="Endpoint State",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.nodeName",description="Endpoint Node Name",name="Node",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv6",description="Endpoint IPv6 address",name="IPv6",type=string
+// +kubebuilder:selectablefield:JSONPath=".status.nodeName"
 // +kubebuilder:storageversion
 
 // CiliumEndpoint is the status of a Cilium policy rule.
@@ -66,6 +68,11 @@ type EndpointStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	ID int64 `json:"id,omitempty"`
+
+	// NodeName is the name of the Node hosting this endpoint
+	//
+	// +kubebuilder:validation:Optional
+	NodeName string `json:"nodeName,omitempty"`
 
 	// Controllers is the list of failing controllers for this endpoint.
 	//

@@ -95,6 +95,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 
 	status := &cilium_v2.EndpointStatus{
 		ID:                  int64(e.ID),
+		NodeName:            ln.Name,
 		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
 		Networking:          e.getEndpointNetworking(logger, e.getModelNetworkingRLocked()),

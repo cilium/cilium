@@ -59,6 +59,7 @@ func TransformToCiliumEndpoint(cep *cilium_v2.CiliumEndpoint) (*types.CiliumEndp
 		Identity:       cep.Status.Identity,
 		Networking:     cep.Status.Networking,
 		NamedPorts:     cep.Status.NamedPorts,
+		NodeName:       cep.Status.NodeName,
 		ServiceAccount: cep.Status.ServiceAccount,
 		Workload:       cep.Status.Workload,
 	}, nil
@@ -81,6 +82,7 @@ func ConvertCEPToCoreCEP(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCil
 		Name:           cep.GetName(),
 		IdentityID:     identityID,
 		PodUID:         getPodUIDFromOwnerRefs(cep.OwnerReferences),
+		NodeName:       cep.Status.NodeName,
 		Networking:     epNetworking,
 		Encryption:     cep.Status.Encryption,
 		NamedPorts:     cep.Status.NamedPorts.DeepCopy(),
@@ -124,6 +126,7 @@ func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCi
 		Identity: &cilium_v2.EndpointIdentity{
 			ID: ccep.IdentityID,
 		},
+		NodeName:       ccep.NodeName,
 		Networking:     ccep.Networking,
 		NamedPorts:     ccep.NamedPorts,
 		ServiceAccount: ccep.ServiceAccount,
