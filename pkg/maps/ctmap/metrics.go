@@ -77,7 +77,7 @@ func (g gcProtocol) String() string {
 func statStartGc(m *Map) gcStats {
 	result := gcStats{
 		logger:    m.Logger,
-		DumpStats: bpf.NewDumpStats(&m.Map),
+		DumpStats: bpf.NewDumpStats(m.Map),
 	}
 	if m.mapType.isIPv6() {
 		result.family = gcFamilyIPv6
