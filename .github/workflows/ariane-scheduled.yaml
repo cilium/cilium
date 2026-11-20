@@ -3,7 +3,8 @@ name: Ariane scheduled workflows
 on:
   # Run every 1 hours
   # Tests are only run when current GITHUB_RUN_NUMBER % 6 corresponds to the branch runModulo value in the matrix,
-  # meaning we run every branch roughly every six hours.
+  # meaning we check every branch roughly every six hours. A branch whose HEAD was already dispatched in the
+  # last 20 hours is skipped, so an unchanged branch is tested once a day and a new HEAD within six hours.
   # We run this at :30, to avoid running at the same time as the default branch scheduled workflows (that mostly run
   # at the top of the hour).
   schedule:
@@ -54,6 +55,21 @@ jobs:
 
           REF="${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
+
+          # Skip if this HEAD was already dispatched by this workflow in the last 20 hours, so an
+          # unchanged branch still gets one run per day. Ariane /test runs from fork PRs also use
+          # the stable branch HEAD as head_sha, hence the triggering_actor filter.
+          since=$(date --utc --date='-20 hours' +%Y-%m-%dT%H:%M:%SZ)
+          if ! recent=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/runs?event=workflow_dispatch&branch=${REF}&head_sha=${SHA}&created=>=${since}&per_page=100" \
+            --jq '.workflow_runs[] | select(.triggering_actor.login == "github-actions[bot]") | .id' | wc -l); then
+            echo "::warning::Could not look up previous runs for ${REF}, dispatching anyway"
+            recent=0
+          fi
+          if (( recent > 0 )); then
+            echo "Skipping branch ${REF}: ${SHA} already dispatched ${recent} run(s) since ${since}"
+            exit 0
+          fi
           # /test for 1.18 branch and lower
           # /test\s* for 1.19 branch and higher
           readarray workflows < <((
