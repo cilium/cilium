@@ -7,13 +7,19 @@
 #include "config.h"
 #include "clustermesh.h"
 
+/*
+ * This value is mainly used for BPF tests.
+ * The userspace will override this default value at load time.
+ */
+#define CT_DEFAULT_MAX_ENTRIES 4096
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CT_MAP_SIZE_TCP);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+	__uint(map_flags, 0);
 } cilium_ct6_global __section_maps_btf;
 
 struct {
@@ -21,8 +27,8 @@ struct {
 	__type(key, struct ipv6_ct_tuple);
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CT_MAP_SIZE_ANY);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+	__uint(map_flags, 0);
 } cilium_ct_any6_global __section_maps_btf;
 
 /*
@@ -47,8 +53,8 @@ struct {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);
 		__type(value, struct ct_entry);
-		__uint(max_entries, CT_MAP_SIZE_TCP);
-		__uint(map_flags, LRU_MEM_FLAVOR);
+		__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+		__uint(map_flags, 0);
 	});
 } cilium_per_cluster_ct_tcp6 __section_maps_btf;
 
@@ -62,8 +68,8 @@ struct {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);
 		__type(value, struct ct_entry);
-		__uint(max_entries, CT_MAP_SIZE_ANY);
-		__uint(map_flags, LRU_MEM_FLAVOR);
+		__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+		__uint(map_flags, 0);
 	});
 } cilium_per_cluster_ct_any6 __section_maps_btf;
 
@@ -106,8 +112,8 @@ struct {
 	__type(key, struct ipv4_ct_tuple);
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CT_MAP_SIZE_TCP);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+	__uint(map_flags, 0);
 } cilium_ct4_global __section_maps_btf;
 
 struct {
@@ -115,16 +121,16 @@ struct {
 	__type(key, struct ipv4_ct_tuple);
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CT_MAP_SIZE_ANY);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+	__uint(map_flags, 0);
 } cilium_ct_any4_global __section_maps_btf;
 
 struct per_cluster_ct_map4_inner_map {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv4_ct_tuple);
 		__type(value, struct ct_entry);
-		__uint(max_entries, CT_MAP_SIZE_TCP);
-		__uint(map_flags, LRU_MEM_FLAVOR);
+		__uint(max_entries, CT_DEFAULT_MAX_ENTRIES);
+		__uint(map_flags, 0);
 #ifndef BPF_TEST
 };
 #else
