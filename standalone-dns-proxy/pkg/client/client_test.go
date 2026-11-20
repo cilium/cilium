@@ -463,23 +463,29 @@ func TestUpdateDNSRules(t *testing.T) {
 	}
 }
 
-func updateMapping(t *testing.T, client *GRPCClient, id uint64, ident identity.NumericIdentity, ip string) {
+func updateMapping(t *testing.T, client *GRPCClient, id uint64, ident identity.NumericIdentity, ips ...string) {
 	t.Helper()
-	ipAddr, err := netip.ParseAddr(ip)
-	require.NoError(t, err)
+
+	epIPs := make([][]byte, 0, len(ips))
+	for _, ip := range ips {
+		ipAddr, err := netip.ParseAddr(ip)
+		require.NoError(t, err)
+		epIPs = append(epIPs, ipAddr.AsSlice())
+	}
+
 	input := []*pb.IdentityToEndpointMapping{
 		{
 			Identity: ident.Uint32(),
 			EndpointInfo: []*pb.EndpointInfo{
 				{
 					Id: id,
-					Ip: [][]byte{ipAddr.AsSlice()},
+					Ip: epIPs,
 				},
 			},
 		},
 	}
 
-	err = client.updateIPToEndpoint(input)
+	err := client.updateIPToEndpoint(input)
 	require.NoError(t, err)
 }
 
@@ -491,7 +497,7 @@ func checkMapping(t *testing.T, client *GRPCClient, ip string, expectedID uint64
 	mapping, _, found := client.ipToEndpointTable.Get(rtxn, IdIPToEndpointIndex.Query(addr))
 	if shouldExist {
 		require.True(t, found)
-		require.Equal(t, []netip.Addr{addr}, mapping.IP)
+		require.Contains(t, mapping.IPs, addr)
 		require.Equal(t, expectedIdent, mapping.Identity)
 		require.Equal(t, expectedID, mapping.ID)
 	} else {
@@ -536,6 +542,11 @@ func TestNewIPtoIdentityTable(t *testing.T) {
 	// Update mapping - modify existing entry
 	updateMapping(t, client, 200, identity.NumericIdentity(3), "192.168.1.2")
 	checkMapping(t, client, "192.168.1.2", 200, identity.NumericIdentity(3), true)
+
+	// Dual stack endpoint(both ipv4 and ipv6 addresses)
+	updateMapping(t, client, 100, identity.NumericIdentity(4), "192.168.1.1", "fd00::ffff:c0a8:101")
+	checkMapping(t, client, "192.168.1.1", 100, identity.NumericIdentity(4), true)
+	checkMapping(t, client, "fd00::ffff:c0a8:101", 100, identity.NumericIdentity(4), true)
 }
 
 func checkPrefixMapping(t *testing.T, client *GRPCClient, prefix string, expectedIdent identity.NumericIdentity, shouldExist bool) {

@@ -210,3 +210,44 @@ func TestUpdateDNSRulesRevert(t *testing.T) {
 	check(t, sdp, epID1, pp, dstID1, "cilium.io.", true)
 	check(t, sdp, epID2, pp, dstID1, "example.com.", true)
 }
+
+func TestUpdateDNSRulesCleanup(t *testing.T) {
+	sdp := setupTestEnv(t)
+
+	port53UDP := restore.MakeV2PortProto(53, u8proto.UDP)
+	port1553UDP := restore.MakeV2PortProto(1553, u8proto.UDP)
+
+	// Insert DNS allowed rules for ep1/port53 and ep1/port1553
+	addDataToDNSTable(t, sdp, epID1, port53UDP, identity.NumericIdentitySlice{dstID1}, []string{"p53.example.com."})
+	addDataToDNSTable(t, sdp, epID1, port1553UDP, identity.NumericIdentitySlice{dstID1}, []string{"p1553.example.com."})
+	rules := sdp.dnsRulesTable.All(sdp.db.ReadTxn())
+	require.NoError(t, sdp.updateDNSRules(rules))
+
+	// Both entries are allowed.
+	check(t, sdp, epID1, port53UDP, dstID1, "p53.example.com.", true)
+	check(t, sdp, epID1, port1553UDP, dstID1, "p1553.example.com.", true)
+
+	// Replace the DNS rules with port 1553 rule removed and new pattern for port 53.
+	wtxn := sdp.db.WriteTxn(sdp.dnsRulesTable)
+	sdp.dnsRulesTable.DeleteAll(wtxn)
+	wtxn.Commit()
+	addDataToDNSTable(t, sdp, epID1, port53UDP, identity.NumericIdentitySlice{dstID1}, []string{"p53-v2.example.com."})
+	rules = sdp.dnsRulesTable.All(sdp.db.ReadTxn())
+	require.NoError(t, sdp.updateDNSRules(rules))
+
+	check(t, sdp, epID1, port53UDP, dstID1, "p53-v2.example.com.", true)
+	check(t, sdp, epID1, port53UDP, dstID1, "p53.example.com.", false)
+	check(t, sdp, epID1, port1553UDP, dstID1, "p1553.example.com.", false)
+
+	// Remove all DNS rules.
+	wtxn = sdp.db.WriteTxn(sdp.dnsRulesTable)
+	sdp.dnsRulesTable.DeleteAll(wtxn)
+	wtxn.Commit()
+	rules = sdp.dnsRulesTable.All(sdp.db.ReadTxn())
+	require.NoError(t, sdp.updateDNSRules(rules))
+
+	// Everything must be denied.
+	check(t, sdp, epID1, port53UDP, dstID1, "p53.example.com.", false)
+	check(t, sdp, epID1, port53UDP, dstID1, "p53-v2.example.com.", false)
+	check(t, sdp, epID1, port1553UDP, dstID1, "p1553.example.com.", false)
+}
