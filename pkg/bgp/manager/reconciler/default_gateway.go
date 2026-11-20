@@ -146,28 +146,32 @@ func (r *DefaultGatewayReconciler) Reconcile(ctx context.Context, p ReconcilePar
 	return nil
 }
 
-// getDefaultGateway returns the default gateway address with lower priority using route and device
-// statedb tables and the provided default gateway configuration.
-func (r *DefaultGatewayReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway) (string, error) {
-	var defaultRoute netip.Prefix
-	switch defaultGateway.AddressFamily {
+// defaultRoute pairs a default route with the device it egresses.
+type defaultRoute struct {
+	route *tables.Route
+	dev   *tables.Device
+}
+
+// activeDefaultRoutes returns the node's default routes for the given address family whose
+// egress device is present in the device table, ordered by ascending priority (metric), so the
+// most preferred route comes first. Filtering on the route's gateway and on the state of the
+// device is left to the caller, as it differs per auto-discovery mode.
+func activeDefaultRoutes(txn statedb.ReadTxn, routeTable statedb.Table[*tables.Route], deviceTable statedb.Table[*tables.Device], addressFamily string) ([]defaultRoute, error) {
+	var defaultPrefix netip.Prefix
+	switch addressFamily {
 	case "ipv4":
-		defaultRoute = ipv4Default
+		defaultPrefix = ipv4Default
 	case "ipv6":
-		defaultRoute = ipv6Default
+		defaultPrefix = ipv6Default
 	default:
-		return "", fmt.Errorf("invalid address family %s", defaultGateway.AddressFamily)
+		return nil, fmt.Errorf("invalid address family %s", addressFamily)
 	}
 
-	txn := r.DB.ReadTxn()
 	// get routes from statedb route table
 	// TODO: add RoutePrefixIndex Query to lookup routes by prefix
-	routes := r.routeTable.All(txn)
-	activeDefaultRoutes := []*tables.Route{}
-
-	for route := range routes {
-		// ignore routes that are not default routes or do not have a valid gateway
-		if !route.Gw.IsValid() || route.Dst != defaultRoute {
+	var routes []defaultRoute
+	for route := range routeTable.All(txn) {
+		if route.Dst != defaultPrefix {
 			continue
 		}
 		// Only the main table holds the node's default gateway. Other tables
@@ -180,28 +184,49 @@ func (r *DefaultGatewayReconciler) getDefaultGateway(defaultGateway *v2.DefaultG
 		if route.Table != tables.RT_TABLE_MAIN || route.Type != tables.RTN_UNICAST {
 			continue
 		}
-		dev, _, found := r.deviceTable.Get(txn, tables.DeviceByIndex(route.LinkIndex))
-		// ignore routes if the link through which it is reachable is not up
-		if !found || dev.OperStatus != "up" {
+		dev, _, found := deviceTable.Get(txn, tables.DeviceByIndex(route.LinkIndex))
+		if !found {
 			continue
 		}
-		if route.Gw.IsLinkLocalUnicast() {
+		routes = append(routes, defaultRoute{route: route, dev: dev})
+	}
+
+	slices.SortStableFunc(routes, func(r0, r1 defaultRoute) int {
+		return cmp.Compare(r0.route.Priority, r1.route.Priority)
+	})
+
+	return routes, nil
+}
+
+// getDefaultGateway returns the default gateway address with lower priority using route and device
+// statedb tables and the provided default gateway configuration.
+func (r *DefaultGatewayReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway) (string, error) {
+	routes, err := activeDefaultRoutes(r.DB.ReadTxn(), r.routeTable, r.deviceTable, defaultGateway.AddressFamily)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dr := range routes {
+		// ignore routes that do not have a valid gateway
+		if !dr.route.Gw.IsValid() {
+			continue
+		}
+		// ignore routes if the link through which it is reachable is not up
+		if dr.dev.OperStatus != linkOperStateUp {
+			continue
+		}
+		if dr.route.Gw.IsLinkLocalUnicast() {
 			r.logger.Warn("link local address is not supported for default gateway mode of bgp auto-discovery",
-				logfields.Gateway, route.Gw,
+				logfields.Gateway, dr.route.Gw,
 			)
 			continue
 		}
-		activeDefaultRoutes = append(activeDefaultRoutes, route)
+		// routes are ordered by priority, so the first match is the gateway of
+		// the most preferred default route
+		return dr.route.Gw.String(), nil
 	}
 
-	if len(activeDefaultRoutes) == 0 {
-		return "", fmt.Errorf("no active default route found")
-	}
-
-	// return the gateway address with lowest priority
-	return slices.MinFunc(activeDefaultRoutes, func(r0, r1 *tables.Route) int {
-		return cmp.Compare(r0.Priority, r1.Priority)
-	}).Gw.String(), nil
+	return "", fmt.Errorf("no active default route found")
 }
 
 // routeChangeTrackerObserver triggers BGP reconciliation when there is a change in IPv4 or IPv6 default route
