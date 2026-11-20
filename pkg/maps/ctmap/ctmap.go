@@ -139,7 +139,7 @@ func InitMapInfo(nat4 nat.NatMap4, nat6 nat.NatMap6) {
 // Map represents an instance of a BPF connection tracking map.
 // It also implements the CtMap interface.
 type Map struct {
-	bpf.Map
+	*bpf.Map
 
 	mapType mapType
 
@@ -293,9 +293,9 @@ func (m *Map) DumpEntriesWithTimeDiff(clockSource *models.ClockSource) (string, 
 // Count batch dumps the Map m and returns the count of the entries.
 func (m *Map) Count(ctx context.Context) (count int, err error) {
 	if m.mapType.isIPv4() {
-		return bpf.CountAll[tuple.TupleKey4, CtEntry](ctx, &m.Map)
+		return bpf.CountAll[tuple.TupleKey4, CtEntry](ctx, m.Map)
 	} else {
-		return bpf.CountAll[tuple.TupleKey6, CtEntry](ctx, &m.Map)
+		return bpf.CountAll[tuple.TupleKey6, CtEntry](ctx, m.Map)
 	}
 }
 
@@ -379,7 +379,7 @@ func NewGlobalMapSpec(cfg MapConfig) *ebpf.MapSpec {
 // newMap creates a new CT map of the specified type with the specified name.
 func newMap(mapName string, m mapType, opts ...MapOption) *Map {
 	result := &Map{
-		Map: *bpf.NewMap(mapName,
+		Map: bpf.NewMap(mapName,
 			ebpf.LRUHash,
 			m.key(),
 			m.value(),
@@ -492,7 +492,7 @@ func (m *Map) purgeCtEntry(key CtKey, tupleKey tupleKeyAccessor, scratch *CtEntr
 
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
 	ctx := context.Background()
-	seq, errFn := bpf.BatchIterate[KT, VT, KP, VP](ctx, &m.Map)
+	seq, errFn := bpf.BatchIterate[KT, VT, KP, VP](ctx, m.Map)
 	for k, v := range seq {
 		filterCallback(k, v)
 	}

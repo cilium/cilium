@@ -10,7 +10,10 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/maps"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -21,25 +24,62 @@ var Cell = cell.Module(
 	"eBPF map which manages connection tracking",
 
 	cell.Provide(newCTMaps),
+	cell.Invoke(configure),
 )
 
-func newCTMaps(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, registry *metrics.Registry, natMap4 nat.NatMap4, natMap6 nat.NatMap6) bpf.MapOut[CTMaps] {
+func newCTMapFromRegistry(
+	reg *mapregistry.MapRegistry,
+	mapName string,
+	m mapType,
+	metrics *metrics.Registry,
+) (*Map, error) {
+	bpfMap, err := bpf.NewMapFromRegistry(reg, mapName, m.key(), m.value())
+	if err != nil {
+		return nil, fmt.Errorf("create CT map %s from registry: %w", mapName, err)
+	}
+	bpfMap.WithPressureMetric(metrics)
+
+	result := &Map{Map: bpfMap, mapType: m}
+	return result, nil
+}
+
+func newCTMaps(
+	lifecycle cell.Lifecycle,
+	daemonConfig *option.DaemonConfig,
+	metrics *metrics.Registry,
+	reg *mapregistry.MapRegistry,
+	natMap4 nat.NatMap4,
+	natMap6 nat.NatMap6,
+) bpf.MapOut[CTMaps] {
 	InitMapInfo(natMap4, natMap6)
 
 	ctMaps := &ctMaps{}
 
-	if daemonConfig.IPv4Enabled() {
-		ctMaps.v4AnyMap = newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal, WithRegistry(registry))
-		ctMaps.v4TCPMap = newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal, WithRegistry(registry))
-	}
-
-	if daemonConfig.IPv6Enabled() {
-		ctMaps.v6AnyMap = newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, WithRegistry(registry))
-		ctMaps.v6TCPMap = newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal, WithRegistry(registry))
-	}
-
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			if daemonConfig.IPv4Enabled() {
+				var err error
+				ctMaps.v4AnyMap, err = newCTMapFromRegistry(reg, maps.CiliumCTAny4Global, mapTypeIPv4AnyGlobal, metrics)
+				if err != nil {
+					return err
+				}
+				ctMaps.v4TCPMap, err = newCTMapFromRegistry(reg, maps.CiliumCT4Global, mapTypeIPv4TCPGlobal, metrics)
+				if err != nil {
+					return err
+				}
+			}
+
+			if daemonConfig.IPv6Enabled() {
+				var err error
+				ctMaps.v6AnyMap, err = newCTMapFromRegistry(reg, maps.CiliumCTAny6Global, mapTypeIPv6AnyGlobal, metrics)
+				if err != nil {
+					return err
+				}
+				ctMaps.v6TCPMap, err = newCTMapFromRegistry(reg, maps.CiliumCT6Global, mapTypeIPv6TCPGlobal, metrics)
+				if err != nil {
+					return err
+				}
+			}
 			return ctMaps.init()
 		},
 		OnStop: func(context cell.HookContext) error {
@@ -48,6 +88,35 @@ func newCTMaps(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, regi
 	})
 
 	return bpf.NewMapOut(CTMaps(ctMaps))
+}
+
+func configure(daemonConfig *option.DaemonConfig, reg *mapregistry.MapRegistry) error {
+	tcpMapSize := option.CTMapEntriesGlobalTCPDefault
+	if daemonConfig.CTMapEntriesGlobalTCP != 0 {
+		tcpMapSize = daemonConfig.CTMapEntriesGlobalTCP
+	}
+	anyMapSize := option.CTMapEntriesGlobalAnyDefault
+	if daemonConfig.CTMapEntriesGlobalAny != 0 {
+		anyMapSize = daemonConfig.CTMapEntriesGlobalAny
+	}
+
+	for _, patch := range []struct {
+		name       string
+		maxEntries int
+	}{
+		{name: maps.CiliumCTAny4Global, maxEntries: anyMapSize},
+		{name: maps.CiliumCTAny6Global, maxEntries: anyMapSize},
+		{name: maps.CiliumCT4Global, maxEntries: tcpMapSize},
+		{name: maps.CiliumCT6Global, maxEntries: tcpMapSize},
+	} {
+		if err := reg.Modify(patch.name, func(m *mapregistry.MapSpecPatch) {
+			m.MaxEntries = uint32(patch.maxEntries)
+			m.Flags = bpf.GetMapMemoryFlags(ebpf.LRUHash)
+		}); err != nil {
+			return fmt.Errorf("configure %s inner map: %w", patch.name, err)
+		}
+	}
+	return nil
 }
 
 // CTMaps provides access to the active connection tracking BPF maps.
