@@ -77,6 +77,8 @@ type fakeNetlinkOps struct {
 	linkSetVfVlanErr error
 	// linkByNameErr, if set, is returned by every LinkByName call.
 	linkByNameErr error
+	// linkListErr, if set, is returned by every LinkList call.
+	linkListErr error
 }
 
 // vlanCall records a single LinkSetVfVlan invocation.
@@ -96,6 +98,9 @@ func (f *fakeNetlinkOps) addLink(l netlink.Link) {
 }
 
 func (f *fakeNetlinkOps) LinkList() ([]netlink.Link, error) {
+	if f.linkListErr != nil {
+		return nil, f.linkListErr
+	}
 	return f.links, nil
 }
 
@@ -731,6 +736,26 @@ func TestPciDevice_SetupFree(t *testing.T) {
 // sysfs net/ entry is gone). This is the unit-testable equivalent of
 // sriov-test.sh's TC-8.
 // ----------------------------------------------------------------------------
+
+func TestPciDevice_FindLink(t *testing.T) {
+	nl := newFakeNetlink()
+	nl.addLink(newFakeLink("mypf", "0000:02:00.0", nil))
+	// The VF is found by PCI address whatever its name.
+	nl.addLink(newFakeLink("net1", "0000:02:00.1", nil))
+	nl.addLink(newFakeLink("lo", "", nil))
+
+	l, err := (&PciDevice{Addr: "0000:02:00.1", KernelIfaceName: "myvf", nl: nl}).FindLink()
+	require.NoError(t, err)
+	require.Equal(t, "net1", l.Attrs().Name)
+
+	_, err = (&PciDevice{Addr: "0000:02:00.2", nl: nl}).FindLink()
+	require.ErrorIs(t, err, types.ErrLinkNotFound)
+	require.ErrorContains(t, err, "0000:02:00.2")
+
+	nl.linkListErr = fmt.Errorf("boom")
+	_, err = (&PciDevice{Addr: "0000:02:00.1", nl: nl}).FindLink()
+	require.ErrorContains(t, err, "boom")
+}
 
 func TestPciDevice_Merge(t *testing.T) {
 	t.Run("carries KernelIfName forward when fresh scan found none", func(t *testing.T) {
