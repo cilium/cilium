@@ -229,6 +229,9 @@ type Config struct {
 	// device and to cilium_wg0.
 	EnableWireguard bool
 
+	// EnableNodeEncryption enables encryption for host-originated, non-pod traffic.
+	EnableNodeEncryption bool
+
 	// EnableBandwidthManager enables BPF bandwidth manager (EDT)
 	EnableBandwidthManager bool
 
@@ -240,9 +243,6 @@ type Config struct {
 
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
-
-	// EncryptNode enables encrypting NodeIP traffic
-	EncryptNode bool
 
 	// EnablePolicyAccounting enables maintaining packet and byte counters for every
 	// network endpoint.

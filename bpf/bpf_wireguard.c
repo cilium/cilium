@@ -278,7 +278,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	 * Since neither of these conditions are met, we can return CTX_ACT_OK.
 	 */
 	if (is_defined(TUNNEL_MODE) &&
-	    !(NODEPORT_ENABLED && is_defined(ENABLE_NODE_ENCRYPTION)))
+	    !(NODEPORT_ENABLED && CONFIG(enable_node_encryption)))
 		return CTX_ACT_OK;
 
 	switch (proto) {

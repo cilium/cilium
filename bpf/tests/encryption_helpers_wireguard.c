@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define ENABLE_NODE_ENCRYPTION 1
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
@@ -24,6 +23,7 @@ ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(__u32, wg_ifindex, 42)
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 ASSIGN_CONFIG(bool, enable_wireguard, true)
+ASSIGN_CONFIG(bool, enable_node_encryption, true)
 
 CHECK(PROG_TYPE, "ctx_is_encrypt_success")
 int check2(struct __ctx_buff *ctx)
