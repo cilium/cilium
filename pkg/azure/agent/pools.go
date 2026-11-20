@@ -17,10 +17,7 @@ import (
 
 var poolAccessor = ipam.PoolSpecAccessors{
 	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
-		pools := ipamTypes.IPAMPoolSpec{
-			Requested: node.Spec.IPAM.Pools.Requested,
-			Allocated: node.Spec.IPAM.Pools.Allocated,
-		}
+		pools := node.Spec.IPAM.Pools
 
 		if len(node.Status.Azure.Interfaces) == 0 {
 			return pools
