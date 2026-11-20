@@ -48,7 +48,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
-#ifdef ENABLE_NODE_ENCRYPTION
+
 		/* Previously, ICMPv6 NA (reply to NS) was sent over cilium_wg0,
 		 * which resulted in neigh entry not being created due to
 		 * IFF_POINTOPOINT | IFF_NOARP set on cilium_wg0. Therefore,
@@ -57,7 +57,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * Note: We account for this in connectivity tests leak checks
 		 * by filtering out icmpv6 NA.
 		 */
-		if (ip6->nexthdr == IPPROTO_ICMPV6) {
+		if (CONFIG(enable_node_encryption) && ip6->nexthdr == IPPROTO_ICMPV6) {
 			struct icmp6hdr *icmp6 = (void *)ip6 + sizeof(*ip6);
 
 			if ((void *)icmp6 + sizeof(*icmp6) > data_end)
@@ -66,7 +66,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			if (icmp6->icmp6_type == ICMPV6_NA_MSG)
 				goto out;
 		}
-#endif
+
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
 		if (src_sec_identity == UNKNOWN_ID) {
@@ -98,18 +98,19 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		goto out;
 	}
 
-#ifndef ENABLE_NODE_ENCRYPTION
-	/* We want to encrypt all proxy traffic. Looking at the packet mark is
-	 * needed for non-transparent connections.
-	 *
-	 * For connections by the egress proxy (MARK_MAGIC_PROXY_EGRESS) we
-	 * can rely on the provided source identity.
-	 */
-	magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-	if (magic == MARK_MAGIC_PROXY_INGRESS ||
-	    magic == MARK_MAGIC_SKIP_TPROXY)
-		goto maybe_encrypt;
-#endif /* !ENABLE_NODE_ENCRYPTION */
+	if (!CONFIG(enable_node_encryption)) {
+		/* We want to encrypt all proxy traffic. Looking at the packet mark is
+		 * needed for non-transparent connections.
+		 *
+		 * For connections by the egress proxy (MARK_MAGIC_PROXY_EGRESS) we
+		 * can rely on the provided source identity.
+		 */
+		magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+		if (magic == MARK_MAGIC_PROXY_INGRESS ||
+		    magic == MARK_MAGIC_SKIP_TPROXY)
+			goto maybe_encrypt;
+	}
+
 
 	if (!encrypt_src_matches_policy(src_sec_identity))
 		goto out;

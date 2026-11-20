@@ -36,6 +36,8 @@ DECLARE_CONFIG(struct strict_encryption_cfg, strict_egress_encryption,
 	       "Strict encryption mode drops all unencrypted pod-to-pod egress traffic")
 #endif
 
+DECLARE_CONFIG(bool, enable_node_encryption, "Encrypt host-originated, non-pod traffic")
+
 static __always_inline void
 set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 {
@@ -92,7 +94,6 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 /* checks whether the source endpoint matches the encryption policy */
 static __always_inline bool
 encrypt_src_matches_policy(__u32 src_sec_identity) {
-#ifndef ENABLE_NODE_ENCRYPTION
 	/* Unless node encryption is enabled, we don't want to encrypt
 	 * traffic from the hostns.
 	 *
@@ -100,9 +101,8 @@ encrypt_src_matches_policy(__u32 src_sec_identity) {
 	 * This means that the packet won't be encrypted. This is fine,
 	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
 	 */
-	if (src_sec_identity == HOST_ID)
+	if (!CONFIG(enable_node_encryption) && src_sec_identity == HOST_ID)
 		return false;
-#endif /* !ENABLE_NODE_ENCRYPTION */
 
 	/* We don't want to encrypt any traffic that originates from outside
 	 * the cluster. This check excludes DSR traffic from the LB node to a remote backend.

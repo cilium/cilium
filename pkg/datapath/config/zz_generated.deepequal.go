@@ -154,6 +154,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnableWireguard != other.EnableWireguard {
 		return false
 	}
+	if in.EnableNodeEncryption != other.EnableNodeEncryption {
+		return false
+	}
 	if in.EnableBandwidthManager != other.EnableBandwidthManager {
 		return false
 	}
@@ -164,9 +167,6 @@ func (in *Config) deepEqual(other *Config) bool {
 		return false
 	}
 	if in.EnableIPSec != other.EnableIPSec {
-		return false
-	}
-	if in.EncryptNode != other.EncryptNode {
 		return false
 	}
 	if in.EnablePolicyAccounting != other.EnablePolicyAccounting {
