@@ -53,7 +53,7 @@ type TranslationInputs struct {
 func (r *TranslationInputs) AttachedHTTPRoutes(gw *gatewayv1.Gateway) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range r.HTTPRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, string(r.GatewayClass.Spec.ControllerName), r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -63,7 +63,7 @@ func (r *TranslationInputs) AttachedHTTPRoutes(gw *gatewayv1.Gateway) []gatewayv
 func (r *TranslationInputs) AttachedGRPCRoutes(gw *gatewayv1.Gateway) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range r.GRPCRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, string(r.GatewayClass.Spec.ControllerName), r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -73,7 +73,7 @@ func (r *TranslationInputs) AttachedGRPCRoutes(gw *gatewayv1.Gateway) []gatewayv
 func (r *TranslationInputs) AttachedTLSRoutes(gw *gatewayv1.Gateway) []gatewayv1.TLSRoute {
 	var filtered []gatewayv1.TLSRoute
 	for _, route := range r.TLSRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, string(r.GatewayClass.Spec.ControllerName), r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -83,7 +83,7 @@ func (r *TranslationInputs) AttachedTLSRoutes(gw *gatewayv1.Gateway) []gatewayv1
 func (r *TranslationInputs) AttachedTCPRoutes(gw *gatewayv1.Gateway) []gatewayv1.TCPRoute {
 	var filtered []gatewayv1.TCPRoute
 	for _, route := range r.TCPRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, string(r.GatewayClass.Spec.ControllerName), r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -93,7 +93,7 @@ func (r *TranslationInputs) AttachedTCPRoutes(gw *gatewayv1.Gateway) []gatewayv1
 func (r *TranslationInputs) AttachedUDPRoutes(gw *gatewayv1.Gateway) []gatewayv1.UDPRoute {
 	var filtered []gatewayv1.UDPRoute
 	for _, route := range r.UDPRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, string(r.GatewayClass.Spec.ControllerName), r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}

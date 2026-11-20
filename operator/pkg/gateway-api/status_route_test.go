@@ -213,7 +213,7 @@ func TestRouteValidationPreservesForeignParentStatuses(t *testing.T) {
 				)
 			}
 			c := fake.NewClientBuilder().
-				WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
+				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 				WithStatusSubresource(route).
 				WithObjects(objects...).
 				Build()
@@ -227,7 +227,7 @@ func TestRouteValidationPreservesForeignParentStatuses(t *testing.T) {
 				foreign = *r.Status.Parents[0].DeepCopy()
 				inputs.GRPCRoutes = []gatewayv1.GRPCRoute{*r}
 			}
-			m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, helpers.ResourceConfig{}, nil)
+			m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, RouteStatusManagerConfig{})
 			require.NoError(t, m.SetRouteStatuses(t.Context(), slog.Default(), inputs))
 			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), route))
 			var actual []gatewayv1.RouteParentStatus

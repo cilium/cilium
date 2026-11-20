@@ -75,6 +75,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		listenerStatusManager: NewListenerStatusManager(
 			mgr.GetClient(),
 			scopedLog,
+			controllerName,
 			ListenerStatusManagerConfig{
 				TCPUDPRouteSupport:      tcpUDPRouteSupport,
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
