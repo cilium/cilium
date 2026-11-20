@@ -215,7 +215,21 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		}
 	}
 
-	return info.installRoutes(ifindex, tableID)
+	if err := info.installRoutes(ifindex, tableID); err != nil {
+		return err
+	}
+
+	// The IP may have been used before on another interface of this node, for
+	// example an ENI IP that was released and later assigned to a different
+	// ENI, while the teardown of its previous endpoint was missed. Its egress
+	// rule then still points at the old interface's table. Rules with the same
+	// priority are evaluated in insertion order, so that stale rule would keep
+	// routing the endpoint through the wrong interface. Remove it now that the
+	// desired table is usable.
+	if err := deleteStaleEgressRules(family, &ipWithMask, egressPriority, tableID); err != nil {
+		return fmt.Errorf("unable to remove stale egress rules: %w", err)
+	}
+	return nil
 }
 
 func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
@@ -535,6 +549,30 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	}
 
 	return link.Attrs().Index, nil
+}
+
+// deleteStaleEgressRules removes the Cilium egress rules of ip at
+// egressPriority that point at a table other than tableID.
+func deleteStaleEgressRules(family int, ip *net.IPNet, egressPriority, tableID int) error {
+	rules, err := route.ListRules(family, &route.Rule{
+		Priority: egressPriority,
+		From:     ip,
+	})
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for i := range rules {
+		rule := rules[i]
+		if rule.Table == tableID || rule.Protocol != linux_defaults.RTProto || rule.Mark != 0 {
+			continue
+		}
+		if err := netlink.RuleDel(&rule); err != nil && !errors.Is(err, unix.ENOENT) {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // computeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
