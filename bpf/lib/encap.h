@@ -11,10 +11,6 @@
 #include "trace.h"
 #include "vtep.h"
 
-#ifndef ENCAP_IFINDEX
-#define ENCAP_IFINDEX 0
-#endif
-
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    const struct remote_endpoint_info *info, __u32 seclabel,
@@ -30,7 +26,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		seclabel = LOCAL_NODE_ID;
 
 #if __ctx_is == __ctx_skb
-	*ifindex = ENCAP_IFINDEX;
+	*ifindex = CONFIG(encap_ifindex);
 #else
 	*ifindex = 0;
 #endif

@@ -121,6 +121,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnableEncapsulation != other.EnableEncapsulation {
 		return false
 	}
+	if in.EncapIfIndex != other.EncapIfIndex {
+		return false
+	}
 	if in.Encap4IfIndex != other.Encap4IfIndex {
 		return false
 	}

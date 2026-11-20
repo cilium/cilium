@@ -9,7 +9,6 @@
  * Datapath configuration settings to setup tunneling with VXLan
  * and nodeport
  */
-#define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
@@ -42,6 +41,7 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 /*
  * Include test helpers

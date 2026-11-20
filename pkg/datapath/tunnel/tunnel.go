@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
@@ -230,26 +229,6 @@ func (cfg Config) DeviceBufferMargins() (uint16, uint16, error) {
 // ShouldAdaptMTU returns whether we should adapt the MTU calculation to
 // account for encapsulation.
 func (cfg Config) ShouldAdaptMTU() bool { return cfg.shouldAdaptMTU }
-
-func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut) {
-	defines := make(dpcfgdef.Map)
-	definesFn := func() (dpcfgdef.Map, error) { return nil, nil }
-
-	if cfg.EncapProtocol() != Disabled {
-		definesFn = func() (dpcfgdef.Map, error) {
-			tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
-			if err != nil {
-				return nil, fmt.Errorf("failed to retrieve device info for %q: %w", cfg.DeviceName(), err)
-			}
-
-			return dpcfgdef.Map{
-				"ENCAP_IFINDEX": fmt.Sprintf("%d", tunnelDev.Attrs().Index),
-			}, nil
-		}
-	}
-
-	return dpcfgdef.NodeOut{NodeDefines: defines}, dpcfgdef.NewNodeFnOut(definesFn)
-}
 
 // EnablerOut allows requesting to enable tunneling functionalities.
 type EnablerOut struct {

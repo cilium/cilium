@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define ENCAP_IFINDEX		        42
-
 #include "encrypt_host.h"
 
 ASSIGN_CONFIG(bool, enable_ipsec, true)
@@ -13,3 +11,5 @@ ASSIGN_CONFIG(struct strict_encryption_cfg, strict_egress_encryption, {
 	.ipv4_net = { .be32 = IPV4(192, 168, 0, 0) },
 	.ipv4_net_size = 16,
 });
+
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)

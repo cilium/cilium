@@ -226,5 +226,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableTunnelMode = option.Config.TunnelingEnabled()
 
+	node.EncapIfIndex = uint32(lnc.EncapIfIndex)
+
 	return node
 }

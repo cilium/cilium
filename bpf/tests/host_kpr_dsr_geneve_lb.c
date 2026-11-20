@@ -3,7 +3,6 @@
 
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
-#define ENCAP_IFINDEX		42
 
 #include "kpr_dsr_lb.h"
 
@@ -17,3 +16,4 @@ ASSIGN_CONFIG(struct dsr_config, dsr_cfg, {
 	.enable_icmp_errors = true,
 	.dispatch_mode = DSR_DISPATCH_GENEVE,
 })
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
