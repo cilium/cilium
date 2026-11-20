@@ -169,7 +169,7 @@ func TestLoadLoadsOnlyReferencedServices(t *testing.T) {
 		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
 		Build()
 
-	loader := NewTranslationInputLoader(c, logger, "io.cilium/gateway-controller", TranslationInputLoaderConfig{
+	loader := NewTranslationInputLoader(c, logger, "io.cilium/gateway-controller", helpers.ResourceConfig{
 		IncludeServiceImports: true,
 	})
 

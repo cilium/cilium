@@ -178,7 +178,7 @@ func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentRefere
 				}
 				continue
 			}
-			svcName, err := helpers.GetBackendServiceName(input.GetClient(), ns, be.BackendObjectReference)
+			svcName, err := helpers.GetBackendServiceName(ns, be.BackendObjectReference, input.GetResourceConfig())
 			if err != nil {
 				// Service Import does not exist, update the status for all the parents
 				// The `Accepted` condition on a route only describes whether
@@ -282,7 +282,6 @@ func CheckSessionPersistence(input Input, parentRef gatewayv1.ParentReference) (
 		}
 
 		if cc := sp.CookieConfig; cc != nil {
-
 			if cc.LifetimeType != nil && *cc.LifetimeType != gatewayv1.SessionCookieLifetimeType {
 				setUnsupportedValue(input, parentRef, "Cilium only supports session cookie persistence")
 				continueChecks = false

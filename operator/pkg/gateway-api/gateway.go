@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -14,13 +15,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/loading"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/predicates"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -51,76 +52,64 @@ type gatewayReconciler struct {
 	inferencePoolStatusManager          *InferencePoolStatusManager
 	logger                              *slog.Logger
 	controllerName                      string
-	tcpUDPRouteSupport                  bool
-	tcpUDPUnsupportedReason             string
-	hostNetworkEnabled                  bool
-	hostNetworkLabel                    metav1.LabelSelector
 	gatewayAPIInferenceExtensionEnabled bool
+	resourceRegistry                    resource.Registry
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
-	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
-	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
-	tcpUDPRouteSupport := !hostNetworkEnabled
+
+	resourceConfig := helpers.ResourceConfig{
+		IncludeTCPRoutes:        helpers.HasTCPRouteSupport(mgr.GetScheme()),
+		IncludeUDPRoutes:        helpers.HasUDPRouteSupport(mgr.GetScheme()),
+		IncludeServiceImports:   helpers.HasServiceImportSupport(mgr.GetScheme()),
+		IncludeListenerSets:     helpers.HasListenerSetSupport(mgr.GetScheme()),
+		IncludeInferencePools:   helpers.HasInferencePoolSupport(mgr.GetScheme()),
+		TCPRouteUDPRouteSupport: !hostNetworkEnabled,
+		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		OwningGatewayLabel:      owningGatewayLabel,
+	}
 
 	return &gatewayReconciler{
-		client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		translator: translator,
-		inputLoader: loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, loading.TranslationInputLoaderConfig{
-			IncludeTCPRoutes:      includeTCPRoutes,
-			IncludeUDPRoutes:      includeUDPRoutes,
-			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
-			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
-			IncludeInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
-		}),
+		client:               mgr.GetClient(),
+		scheme:               mgr.GetScheme(),
+		translator:           translator,
+		inputLoader:          loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, resourceConfig),
 		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
 			mgr.GetClient(),
 			scopedLog,
-			ListenerStatusManagerConfig{
-				TCPUDPRouteSupport:      tcpUDPRouteSupport,
-				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-			},
+			resourceConfig,
 		),
 		routeStatusManager: NewRouteStatusManager(
 			mgr.GetClient(),
 			scopedLog,
 			controllerName,
-			RouteStatusManagerConfig{
-				IncludeTCPRoutes:        includeTCPRoutes,
-				IncludeUDPRoutes:        includeUDPRoutes,
-				TCPUDPRouteSupport:      tcpUDPRouteSupport,
-				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
-			},
+			resourceConfig,
+			nil,
 		),
 		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
 		inferencePoolStatusManager:          NewInferencePoolStatusManager(mgr.GetClient(), controllerName),
 		logger:                              scopedLog,
 		controllerName:                      controllerName,
-		tcpUDPRouteSupport:                  tcpUDPRouteSupport,
-		tcpUDPUnsupportedReason:             hostNetworkTCPUDPRouteUnsupportedReason,
-		hostNetworkEnabled:                  hostNetworkEnabled,
-		hostNetworkLabel:                    hostNetworkLabel,
 		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
+		resourceRegistry:                    resource.NewGatewayRegistry(resourceConfig),
 	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Determine which optional CRDs are enabled. The scheme is registered from
-	// the autodetected CRDs, so Recognizes() reflects what is installed.
-	scheme := r.client.Scheme()
-	tcpRouteEnabled := helpers.HasTCPRouteSupport(scheme)
-	udpRouteEnabled := helpers.HasUDPRouteSupport(scheme)
-	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
-	listenerSetEnabled := helpers.HasListenerSetSupport(scheme)
-	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
-
-	if err := r.inputLoader.SetupIndexes(mgr); err != nil {
-		return err
+	// Add Indexes for managed resources.
+	// Note that ordering is apparently important here, this must happen before the controller setup begins.
+	for _, resource := range r.resourceRegistry.GetResources() {
+		if resource.ShouldIndex() {
+			for indexName, indexer := range resource.GetIndexers(r.logger) {
+				if err := mgr.GetFieldIndexer().IndexField(context.Background(), resource.GetResource(), indexName, indexer); err != nil {
+					return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+				}
+			}
+		}
 	}
 
 	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.client, r.controllerName, r.logger)
@@ -132,62 +121,32 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.GatewayClass{},
 			watchhandlers.EnqueueRequestForOwningGatewayClass(r.client, *r.logger),
 			builder.WithPredicates(predicates.GatewayClassOwnedByController(r.controllerName))).
-		// Watch related backend Service for status
-		// LB Services are handled by the Owns call later.
-		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.client, r.scheme, *r.logger, r.controllerName)).
-		// Watch HTTPRoute linked to Gateway
-		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.client, r.logger, r.controllerName)).
-		// Watch GRPCRoute linked to Gateway
-		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForOwningGRPCRoute(r.client, r.logger, r.controllerName)).
-		// Watch TLSRoute linked to Gateway
-		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.client, r.logger, r.controllerName)).
-		// Watch related secrets used to configure TLS
-		Watches(&corev1.Secret{},
-			watchhandlers.EnqueueRequestForTLSSecret(r.client, r.controllerName, r.logger)).
-		// Watch related namespace in allowed namespaces
-		Watches(&corev1.Namespace{},
-			watchhandlers.EnqueueRequestForAllowedNamespace(r.client, r.logger)).
-		// Watch for changes to Reference Grants
-		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForReferenceGrant(r.client, r.logger)).
-		// Watch for changes to BackendTLSPolicy
-		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.client, r.logger, r.controllerName)).
-		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.client, r.logger, r.controllerName)).
-		// Watch for changes to Gateway Frontend TLS Validation ConfigMaps
-		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForFrontendTLSConfigMap(r.client, r.logger, r.controllerName)).
-		// Watch for changes to node in order to populate gateway ip addresses if svc of type NodePort
-		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.client, r.logger, owningGatewayLabel, r.controllerName)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
+		// This handles Services _owned_ by the reconciler, or in other words, LB Services.
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
 
-	if tcpRouteEnabled {
-		// Watch TCPRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.TCPRoute{}, watchhandlers.EnqueueRequestForOwningTCPRoute(r.client, r.logger, r.controllerName))
+	// Gateways don't fit in the current Resource Registry
+	// TODO(youngnick): Decide if we will change things to make them fit.
+	// Note that this _must_ happen after controller setup begins.
+	gatewayIndexFuncs := resource.IndexerFuncMap{
+		indexers.ImplementationGatewayIndex: indexers.GenerateIndexerGatewayByImplementation(r.client, gatewayv1.GatewayController(r.controllerName)),
+		helpers.GatewaySecretIndex:          indexers.IndexGatewayBySecret,
+	}
+	for indexName, indexFunc := range gatewayIndexFuncs {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, indexName, indexFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
 	}
 
-	if udpRouteEnabled {
-		// Watch UDPRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.UDPRoute{}, watchhandlers.EnqueueRequestForOwningUDPRoute(r.client, r.logger, r.controllerName))
-	}
-
-	if listenerSetEnabled {
-		// Watch ListenerSet linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.ListenerSet{}, watchhandlers.EnqueueRequestForListenerSetOwner(r.client, r.logger, r.controllerName))
-	}
-
-	if serviceImportEnabled {
-		// Watch for changes to Backend Service Imports
-		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.client, *r.logger, r.controllerName))
-	}
-
-	if inferencePoolEnabled {
-		// Watch for changes to InferencePool and shadow service
-		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
-			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName)).
-			// watch shadow service owned by an InferencePool
-			Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForOwningShadowService(r.client, r.logger, r.controllerName))
-
+	// For all non-Gateway resources, add Watches per the Resource.
+	for _, resource := range r.resourceRegistry.GetResources() {
+		if resource.ShouldWatch() {
+			for _, handler := range resource.GetWatchHandlers(r.client, r.logger, r.scheme, r.controllerName) {
+				gatewayBuilder.Watches(resource.GetResource(), handler)
+			}
+		}
 	}
 	return gatewayBuilder.Complete(r)
 }
