@@ -1,0 +1,42 @@
+name: Trace and probe the AKS node underlay
+description: Traces neighbor discovery on eth0 of every node, pings every node pair over each InternalIP and, after a failure, dumps the Azure network state.
+inputs:
+  mode:
+    description: "'start' before Cilium install, or 'stop' at the end of the job."
+    required: true
+  job_status:
+    description: "Status of the job, used in stop mode to probe again after a failure."
+    default: ""
+  resource_group:
+    description: "Resource group of the AKS cluster, used in stop mode."
+    default: ""
+  cluster_name:
+    description: "Name of the AKS cluster, used in stop mode."
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Start the trace and ping every node pair
+      if: ${{ inputs.mode == 'start' }}
+      shell: bash
+      env:
+        PHASE: before Cilium install
+      run: |
+        timeout 60 kubectl apply -f "${GITHUB_ACTION_PATH}/daemonset.yaml" &&
+          timeout 150 kubectl -n kube-system rollout status daemonset/node-underlay --timeout=120s || true
+        bash "${GITHUB_ACTION_PATH}/probe.sh"
+
+    - name: Ping every node pair after the failure
+      if: ${{ inputs.mode == 'stop' && inputs.job_status == 'failure' }}
+      shell: bash
+      env:
+        PHASE: after the job failed
+      run: bash "${GITHUB_ACTION_PATH}/probe.sh"
+
+    - name: Dump the Azure network state
+      if: ${{ always() && inputs.mode == 'stop' && inputs.job_status == 'failure' }}
+      shell: bash
+      env:
+        RESOURCE_GROUP: ${{ inputs.resource_group }}
+        CLUSTER_NAME: ${{ inputs.cluster_name }}
+      run: bash "${GITHUB_ACTION_PATH}/azure-state.sh"

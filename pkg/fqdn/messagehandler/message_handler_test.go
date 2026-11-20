@@ -13,6 +13,8 @@ import (
 
 	ciliumdns "github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -24,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -150,6 +154,45 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 			})
 		}
 		wg.Wait()
+	}
+}
+
+func TestNotifyOnDNSMsgObservesAnswerWithoutIPs(t *testing.T) {
+	logger := hivetest.Logger(t)
+	upstreamTime := metric.NewHistogramVec(metric.HistogramOpts{
+		Namespace: metrics.Namespace,
+		Name:      "proxy_upstream_reply_seconds",
+	}, []string{"error", metrics.LabelProtocolL7, metrics.LabelScope})
+	oldUpstreamTime := metrics.ProxyUpstreamTime
+	metrics.ProxyUpstreamTime = upstreamTime
+	t.Cleanup(func() { metrics.ProxyUpstreamTime = oldUpstreamTime })
+
+	handler := NewDNSMessageHandler(DNSMessageHandlerParams{
+		Logger:            logger,
+		ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}, node.NewTestLocalNodeStore(node.LocalNode{})),
+	})
+	ep := &endpoint.Endpoint{
+		ID:               1,
+		IPv4:             netip.MustParseAddr("10.96.0.1"),
+		SecurityIdentity: &identity.Identity{ID: 1000},
+	}
+	ep.UpdateLogger(nil)
+
+	// An AAAA query for an IPv4-only name gets a NOERROR answer with no records.
+	noData := &dnsproxy.MsgDetails{
+		QName:    dns.FQDN("cilium.io"),
+		RCode:    ciliumdns.RcodeSuccess,
+		QTypes:   []uint16{ciliumdns.TypeAAAA},
+		Response: true,
+	}
+	srvAddr := netip.MustParseAddrPort("10.96.64.1:53")
+	require.NoError(t, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.0.1:12345", 0, srvAddr, noData, "udp", true, &dnsproxy.ProxyRequestContext{}))
+
+	for _, scope := range []string{totalTime, epLookupTime, serverLookupTime, requestNotifyTime} {
+		var m dto.Metric
+		h := upstreamTime.ObserverVec.WithLabelValues(metricErrorAllow, metrics.L7DNS, scope).(prometheus.Histogram)
+		require.NoError(t, h.Write(&m))
+		require.Equal(t, uint64(1), m.GetHistogram().GetSampleCount(), "scope %s", scope)
 	}
 }
 
