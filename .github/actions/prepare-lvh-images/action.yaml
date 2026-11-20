@@ -1,0 +1,169 @@
+name: Prepare images for LVH
+description: Export images and their reference map to a temporary directory without exposing registry credentials to the VM.
+
+inputs:
+  images:
+    required: true
+    description: 'Space-separated list of Docker image references to pull and export on the runner host'
+  arch:
+    required: false
+    description: 'Architecture of the LVH VM: amd64 or arm64'
+    default: 'amd64'
+  dockerhub-mirror:
+    required: false
+    description: 'Optional registry/path prefix for docker.io images, preserving their tags and digests'
+    default: ''
+  auth-required:
+    required: false
+    description: 'Whether the runner host must authenticate before pulling images'
+    default: 'false'
+  login-host:
+    required: false
+    description: 'Registry host to authenticate to on the runner host'
+    default: ''
+  login-username:
+    required: false
+    description: 'Username for the host registry login'
+    default: ''
+  login-password:
+    required: false
+    description: 'Password or token for the host registry login'
+    default: ''
+
+outputs:
+  images-dir:
+    description: 'Temporary directory containing the image archive and reference map'
+    value: ${{ steps.export-images.outputs.images-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare temporary registry config
+      id: registry-config
+      if: ${{ inputs.auth-required == 'true' }}
+      shell: bash
+      env:
+        LOGIN_HOST: ${{ inputs.login-host }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$LOGIN_HOST" ]]; then
+          echo "::error::Registry authentication requires login-host"
+          exit 1
+        fi
+
+        # Keep credentials outside the workspace mounted into the VM.
+        registry_config=$(mktemp -d "${RUNNER_TEMP}/lvh-docker-config.XXXXXX")
+        echo "path=$registry_config" >> "$GITHUB_OUTPUT"
+
+    - name: Login to docker registry
+      if: ${{ inputs.auth-required == 'true' }}
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      env:
+        DOCKER_CONFIG: ${{ steps.registry-config.outputs.path }}
+      with:
+        registry: ${{ inputs.login-host }}
+        username: ${{ inputs.login-username }}
+        password: ${{ inputs.login-password }}
+        # Remove the temporary config below, before VM provisioning, instead
+        # of waiting for the action's post-job logout.
+        logout: false
+
+    - name: Pull and export images on the runner host
+      id: export-images
+      shell: bash
+      env:
+        IMAGES: ${{ inputs.images }}
+        ARCH: ${{ inputs.arch }}
+        DOCKERHUB_MIRROR: ${{ inputs.dockerhub-mirror }}
+        REGISTRY_CONFIG: ${{ steps.registry-config.outputs.path }}
+      run: |
+        set -euo pipefail
+
+        case "$ARCH" in
+          amd64|arm64) ;;
+          *) echo "::error::Unsupported LVH architecture: $ARCH"; exit 1 ;;
+        esac
+
+        if [[ "$DOCKERHUB_MIRROR" == -* || "$DOCKERHUB_MIRROR" == *://* || "$DOCKERHUB_MIRROR" =~ [[:space:]] ]]; then
+          echo "::error::dockerhub-mirror must be a registry/path prefix without a scheme or whitespace"
+          exit 1
+        fi
+
+        read -r -a image_refs <<< "${IMAGES//$'\n'/ }"
+        if [[ ${#image_refs[@]} -eq 0 ]]; then
+          echo "::error::images must contain at least one image reference"
+          exit 1
+        fi
+        for image in "${image_refs[@]}"; do
+          if [[ "$image" == -* ]]; then
+            echo "::error::Image references must not start with a dash"
+            exit 1
+          fi
+        done
+
+        # lvh-kind reads both files on the host and pipes the archive to the VM.
+        images_dir=$(mktemp -d "${RUNNER_TEMP}/lvh-images.XXXXXX")
+        exported=false
+        cleanup() {
+          if [[ "$exported" != true ]]; then
+            rm -rf -- "$images_dir"
+          fi
+        }
+        trap cleanup EXIT
+
+        if [[ -n "$REGISTRY_CONFIG" ]]; then
+          export DOCKER_CONFIG="$REGISTRY_CONFIG"
+        fi
+
+        # Registry access happens here, so retries inside the VM cannot help.
+        retry() {
+          local attempt
+          for attempt in {1..5}; do
+            if "$@"; then
+              return 0
+            fi
+            if (( attempt < 5 )); then
+              echo "Image pull attempt ${attempt}/5 failed; retrying in 5s..." >&2
+              sleep 5
+            fi
+          done
+          echo "::error::Image pull failed after 5 attempts" >&2
+          return 1
+        }
+
+        # The caller explicitly selects a Docker Hub mirror prefix; login-host
+        # only selects where to authenticate. Preserve pinned tags/digests.
+        # Use local tags for the archive because save/load restores tags, not
+        # necessarily the original registry digest references.
+        image_map='{}'
+        for image in "${image_refs[@]}"; do
+          pull_image="$image"
+          if [[ -n "$DOCKERHUB_MIRROR" && "$image" == docker.io/* ]]; then
+            pull_image="${DOCKERHUB_MIRROR%/}/${image#docker.io/}"
+          fi
+          retry docker image pull --platform="linux/$ARCH" "$pull_image"
+          image_id=$(docker image inspect --format '{{.Id}}' "$pull_image")
+          local_image="lvh-preloaded:${image_id#sha256:}"
+          docker image tag "$image_id" "$local_image"
+          printf 'Prepared image: %s -> %s\n' "$image" "$local_image"
+          image_map=$(jq -c --arg image "$image" --arg local_image "$local_image" \
+            '. + {($image): $local_image}' <<< "$image_map")
+        done
+
+        # Different references can resolve to the same image. Export it once.
+        local_refs=$(jq -r '[.[]] | unique[]' <<< "$image_map")
+        mapfile -t local_images <<< "$local_refs"
+        docker image save --output "$images_dir/images.tar" "${local_images[@]}"
+        printf '%s\n' "$image_map" > "$images_dir/image-map.json"
+
+        echo "images-dir=$images_dir" >> "$GITHUB_OUTPUT"
+        exported=true
+
+    - name: Remove temporary registry config
+      if: ${{ always() && steps.registry-config.outputs.path != '' }}
+      shell: bash
+      env:
+        REGISTRY_CONFIG: ${{ steps.registry-config.outputs.path }}
+      run: |
+        rm -rf -- "$REGISTRY_CONFIG"
