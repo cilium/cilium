@@ -42,6 +42,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
 		cfg.WGPort = wgtypes.ListenPort
 	}
+	cfg.EnableNodeEncryption = lnc.EnableNodeEncryption
 
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
@@ -107,6 +108,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
 		cfg.WGPort = wgtypes.ListenPort
 	}
+	cfg.EnableNodeEncryption = lnc.EnableNodeEncryption
 
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
@@ -181,6 +183,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		cfg.WGIfIndex = lnc.WireguardIfIndex
 		cfg.WGPort = wgtypes.ListenPort
 	}
+	cfg.EnableNodeEncryption = lnc.EnableNodeEncryption
 
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
