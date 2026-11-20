@@ -16,8 +16,8 @@ runs:
         new_key=$(cilium encrypt key-status)
         echo "New IPsec key: $new_key"
 
-        # We have two keys per node, per direction, per IP family.
-        # So a two-nodes IPv4-only cluster will have four keys.
+        # We have two keys per remote node, per direction, per IP family, plus
+        # one more set for the underlay family when tunneling is enabled.
         exp_nb_keys=$(cilium encrypt status -o json | jq -r '."ipsec-expected-key-count"')
         echo "Expected IPsec key count: $exp_nb_keys"
 

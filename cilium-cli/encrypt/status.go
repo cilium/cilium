@@ -210,15 +210,17 @@ func ipsecExpectedKeyCount(ciliumVersion semver.Version, cm *corev1.ConfigMap, n
 	} else {
 		expectedKeys *= 2
 	}
-	if fs[features.Tunnel].Enabled {
-		// If running in tunneling mode, then we have twice the amount of states
-		// and keys to handle encrypted overlay traffic.
-		expectedKeys *= 2
-	}
+
+	families := 1
 	if fs[features.IPv6].Enabled && fs[features.IPv4].Enabled {
-		// multiply by 2 because of dual stack: IPv4 & IPv6
-		expectedKeys *= 2
+		families = 2
 	}
+	if fs[features.Tunnel].Enabled {
+		// Encrypted overlay traffic adds one more set of states and keys,
+		// but only for the family of the tunnel underlay, not for both.
+		families++
+	}
+	expectedKeys *= families
 	return expectedKeys, nil
 }
 
