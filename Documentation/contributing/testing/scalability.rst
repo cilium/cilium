@@ -44,7 +44,7 @@ Test based on EKS:
 
 Whenever developing a new test, consider if you want to add a test to an already existing workflow,
 create a new one, or extend some existing test.
-If you are unsure, you can always ask in the ``#sig-scalabilty`` `Slack channel <SLACK_CHANNEL_>`_.
+If you are unsure, you can always ask in the ``#sig-scalability`` `Slack channel <SLACK_CHANNEL_>`_.
 For example, if you want to run a test on a large cluster,
 you might consider adding it as a separate test scenario to the already existing 100-nodes scale test
 to reduce the cost of CI, because spinning up a new cluster and tearing it down is quite a long process.

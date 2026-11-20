@@ -166,7 +166,7 @@ To check if cluster is created successfully, ssh into the bastion host with the 
 
 .. code-block:: shell-session
 
-  $ # Get information about the basiton host
+  $ # Get information about the bastion host
   $ cat ssh-bastion.conf
   $ ssh -i ~/path/to/ec2-key-file.pem core@public_ip_of_bastion_host
 
