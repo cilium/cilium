@@ -22,3 +22,7 @@ func (*MTU) IsEnableRouteMTUForCNIChaining() bool {
 func (*MTU) PacketizationLayerPMTUDMode() string {
 	return ""
 }
+
+func (*MTU) PacketizationLayerPMTUDProbeFloor() int {
+	return 48
+}

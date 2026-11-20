@@ -2515,6 +2515,10 @@ func init() {
           "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
           "type": "string"
         },
+        "packetizationLayerPMTUDProbeFloor": {
+          "description": "Specifies the probe floor for PLPMTUD probing on the pod netns.",
+          "type": "integer"
+        },
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
@@ -7946,6 +7950,10 @@ func init() {
         "packetizationLayerPMTUDMode": {
           "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
           "type": "string"
+        },
+        "packetizationLayerPMTUDProbeFloor": {
+          "description": "Specifies the probe floor for PLPMTUD probing on the pod netns.",
+          "type": "integer"
         },
         "realized": {
           "description": "Currently applied configuration",
