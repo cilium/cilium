@@ -26,6 +26,7 @@ import (
 type ListenerStatusManager struct {
 	client                  client.Client
 	logger                  *slog.Logger
+	controllerName          string
 	tcpUDPRouteSupport      bool
 	tcpUDPUnsupportedReason string
 }
@@ -85,10 +86,11 @@ const (
 	ListenersStatusAllValid                     ListenersStatus = "AllValid"
 )
 
-func NewListenerStatusManager(client client.Client, logger *slog.Logger, cfg ListenerStatusManagerConfig) *ListenerStatusManager {
+func NewListenerStatusManager(client client.Client, logger *slog.Logger, controllerName string, cfg ListenerStatusManagerConfig) *ListenerStatusManager {
 	return &ListenerStatusManager{
 		client:                  client,
 		logger:                  logger,
+		controllerName:          controllerName,
 		tcpUDPRouteSupport:      cfg.TCPUDPRouteSupport,
 		tcpUDPUnsupportedReason: cfg.TCPUDPUnsupportedReason,
 	}
@@ -783,7 +785,7 @@ func (m *ListenerStatusManager) filterHTTPRoutesByListener(gw *gatewayv1.Gateway
 	lsNS := m.listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, m.controllerName, attachedListenerSets) &&
 			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
@@ -797,7 +799,7 @@ func (m *ListenerStatusManager) filterGRPCRoutesByListener(gw *gatewayv1.Gateway
 	lsNS := m.listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, m.controllerName, attachedListenerSets) &&
 			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
@@ -811,7 +813,7 @@ func (m *ListenerStatusManager) filterTLSRoutesByListener(gw *gatewayv1.Gateway,
 	lsNS := m.listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1.TLSRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, m.controllerName, attachedListenerSets) &&
 			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
@@ -825,7 +827,7 @@ func (m *ListenerStatusManager) filterTCPRoutesByListener(gw *gatewayv1.Gateway,
 	lsNS := m.listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1.TCPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, m.controllerName, attachedListenerSets) &&
 			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -838,7 +840,7 @@ func (m *ListenerStatusManager) filterUDPRoutesByListener(gw *gatewayv1.Gateway,
 	lsNS := m.listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1.UDPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, attachedListenerSets) &&
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, m.controllerName, attachedListenerSets) &&
 			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
 			m.parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
