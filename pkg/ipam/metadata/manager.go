@@ -128,8 +128,8 @@ func validatePoolName(pool string) error {
 		return nil
 	}
 
-	return fmt.Errorf("pool name %q is not a valid CiliumPodIPPool name: %s", pool, strings.Join(errs, "; "))
-
+	return fmt.Errorf("pool name %q is not a valid CiliumPodIPPool name: %s",
+		ipam.TruncatePoolName(pool), strings.Join(errs, "; "))
 }
 
 func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
