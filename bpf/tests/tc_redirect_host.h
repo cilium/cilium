@@ -280,6 +280,56 @@ int tc_redirect_host_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/* A reply of a downstream proxy connection carries the bare proxy mark, as
+ * opposed to the upstream ones that also carry the client's identity. With
+ * endpoint routes the mark that reaches cil_to_container must stay bare,
+ * even though the source has an identity in the ipcache, so that the lxc
+ * program can tell the packet apart. Reuse the packets of tc_redirect_host_ipv4.
+ */
+PKTGEN(PROG_TYPE, "tc_redirect_host_proxy_reply_ipv4")
+int tc_redirect_host_proxy_reply_ipv4_pktgen(struct __ctx_buff *ctx)
+{
+	return tc_redirect_host_ipv4_pktgen(ctx);
+}
+
+SETUP(PROG_TYPE, "tc_redirect_host_proxy_reply_ipv4")
+int tc_redirect_host_proxy_reply_ipv4_setup(struct __ctx_buff *ctx)
+{
+	ctx->mark = MARK_MAGIC_PROXY_EGRESS;
+
+	return tc_redirect_host_ipv4_setup(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_redirect_host_proxy_reply_ipv4")
+int tc_redirect_host_proxy_reply_ipv4_check(const struct __ctx_buff *ctx)
+{
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
+	const __u32 expected_mark = MARK_MAGIC_PROXY_EGRESS;
+#else
+	/* The policy tail-call gets the flag through CB_DELIVERY_FLAGS. */
+	const __u32 expected_mark = 0;
+#endif
+
+	void *data = (void *)(long)ctx->data;
+	void *data_end = (void *)(long)ctx->data_end;
+
+	test_init();
+
+	endpoint_v4_del_entry(v4_pod_one);
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	assert(*(__u32 *)data == CTX_ACT_REDIRECT);
+
+	test_log(TEST_DRIVER_NAME ": mark 0x%lx", ctx->mark);
+	if (ctx->mark != expected_mark)
+		test_fatal(TEST_DRIVER_NAME ": Incorrect skb mark: 0x%lx != 0x%x",
+			   ctx->mark, expected_mark);
+
+	test_finish();
+}
+
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py */
 const __u8 tc_redirect_host_ipv6_pre[] = {
 	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_pre)
