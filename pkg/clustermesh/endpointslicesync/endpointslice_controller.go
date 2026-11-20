@@ -58,14 +58,14 @@ type endpointSliceReconciler struct {
 	namespaceConfig           cmnamespace.Config
 }
 
-func localEndpointSliceName(remoteEndpointSlice *endpointslicetypes.ClusterEndpointSlice) string {
-	// This hash exist to prevent some potential collision with EndpointSlice names and cluster
-	// if we were to allow the "." character in cluster names in the future. This also
-	// greatly reduce the risk of any collision with local EndpointSlice for instance in
-	// normal scenarios.
-	hash := shortener.Hash(remoteEndpointSlice.Name + "@" + remoteEndpointSlice.Cluster)
+func qualifyNameWithRemoteCluster(name, cluster string) string {
+	// This hash exist to prevent some potential collision if there is an overlap
+	// between name and cluster strings if we were to allow the "." character in
+	// cluster names in the future. This also greatly reduce the risk of any
+	// collision in normal scenarios.
+	hash := shortener.Hash(name + "@" + cluster)
 
-	return shortener.ShortenDNSSubdomainK8sName(remoteEndpointSlice.Name + "." + remoteEndpointSlice.Cluster + "." + hash)
+	return shortener.ShortenDNSSubdomainK8sName(name + ".cilium-cm." + cluster + "." + hash)
 }
 
 func remoteEndpointSliceReconcileKey(remoteEndpointSlice *endpointslicetypes.ClusterEndpointSlice) types.NamespacedName {
@@ -284,7 +284,7 @@ func (r *endpointSliceReconciler) updateLocalEndpointSlice(
 	localEndpointSlice.AddressType = discoveryv1.AddressType(remoteEndpointSlice.AddressType)
 
 	// Beware those are shallow copies, content of the struct should not be modified
-	localEndpointSlice.Endpoints = convertEndpoints(remoteEndpointSlice.Endpoints)
+	localEndpointSlice.Endpoints = convertEndpoints(remoteEndpointSlice.Endpoints, remoteEndpointSlice.Cluster)
 	localEndpointSlice.Ports = convertPorts(remoteEndpointSlice.Ports)
 }
 
@@ -292,7 +292,7 @@ func (r *endpointSliceReconciler) newLocalEndpointSlice(
 	remoteEndpointSlice *endpointslicetypes.ClusterEndpointSlice, svc *corev1.Service,
 ) *discoveryv1.EndpointSlice {
 	localEndpointSlice := &discoveryv1.EndpointSlice{ObjectMeta: metav1.ObjectMeta{
-		Name:      localEndpointSliceName(remoteEndpointSlice),
+		Name:      qualifyNameWithRemoteCluster(remoteEndpointSlice.Name, remoteEndpointSlice.Cluster),
 		Namespace: remoteEndpointSlice.Namespace,
 	}}
 
@@ -300,7 +300,7 @@ func (r *endpointSliceReconciler) newLocalEndpointSlice(
 	return localEndpointSlice
 }
 
-func convertEndpoints(in []slimdiscoveryv1.Endpoint) []discoveryv1.Endpoint {
+func convertEndpoints(in []slimdiscoveryv1.Endpoint, cluster string) []discoveryv1.Endpoint {
 	out := make([]discoveryv1.Endpoint, 0, len(in))
 	for _, remoteEndpoint := range in {
 		endpoint := discoveryv1.Endpoint{
@@ -312,8 +312,10 @@ func convertEndpoints(in []slimdiscoveryv1.Endpoint) []discoveryv1.Endpoint {
 			},
 			Hostname:           remoteEndpoint.Hostname,
 			DeprecatedTopology: remoteEndpoint.DeprecatedTopology,
-			NodeName:           remoteEndpoint.NodeName,
 			Zone:               remoteEndpoint.Zone,
+		}
+		if remoteEndpoint.NodeName != nil && *remoteEndpoint.NodeName != "" {
+			endpoint.NodeName = new(qualifyNameWithRemoteCluster(*remoteEndpoint.NodeName, cluster))
 		}
 		if remoteEndpoint.Hints != nil {
 			endpoint.Hints = &discoveryv1.EndpointHints{
