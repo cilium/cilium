@@ -159,10 +159,13 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
  * veth and netkit, stamping the identity mark. (Without it, only the policy
  * tail-call runs and the mark stays 0.)
  */
-#define TEST_SRC_IDENTITY 0xCAFE
+#define TEST_SRC_IDENTITY (CIDR_IDENTITY_RANGE_START + 0xCAFE)
 
 #ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
-#define TEST_SKB_MARK (__u32)((TEST_SRC_IDENTITY << 16) | MARK_MAGIC_IDENTITY)
+#define TEST_SKB_MARK (__u32)(((TEST_SRC_IDENTITY & IDENTITY_LOCAL_MAX) << 16) | \
+			      ((TEST_SRC_IDENTITY >> MARK_IDENTITY_LOCAL_SCOPE_SHIFT) & \
+			       MARK_IDENTITY_LOCAL_SCOPE_MASK) | \
+			      MARK_MAGIC_IDENTITY)
 #else
 #define TEST_SKB_MARK (__u32)0x0
 #endif
