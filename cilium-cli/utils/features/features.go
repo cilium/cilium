@@ -9,11 +9,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/blang/semver/v4"
 	v1 "k8s.io/api/core/v1"
 
 	ciliumdef "github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -22,7 +20,6 @@ const (
 	L7Proxy            Feature = "l7-proxy"
 	HostFirewall       Feature = "host-firewall"
 	ICMPPolicy         Feature = "icmp-policy"
-	L7PortRanges       Feature = "l7-port-ranges"
 	Tunnel             Feature = "tunnel"
 	TunnelPort         Feature = "tunnel-port"
 	EndpointRoutes     Feature = "endpoint-routes"
@@ -269,18 +266,6 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 		Feature:          feature,
 		requireModeIsNot: true,
 		mode:             mode,
-	}
-}
-
-// ExtractFromCiliumVersion extracts features based on Cilium version.
-func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
-	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
-}
-
-func ExtractL7PortRanges(ciliumVersion semver.Version) Status {
-	enabled := versioncheck.MustCompile(">=1.17.0")(ciliumVersion)
-	return Status{
-		Enabled: enabled,
 	}
 }
 

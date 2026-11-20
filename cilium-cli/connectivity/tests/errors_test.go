@@ -62,17 +62,6 @@ time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2 source=/go/src/githu
 			wantFilePath: "pkg/datapath/linux/node.go",
 		},
 		{
-			levels:  defaults.LogCheckLevels,
-			version: semver.MustParse("1.16.99"),
-			wantLen: 3,
-			wantLogsCount: map[string]int{
-				`bar`: 2,
-				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
-				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
-			},
-			wantFilePath: "pkg/datapath/linux/node.go",
-		},
-		{
 			levels:  []string{defaults.LogLevelError},
 			version: semver.MustParse("1.17.0"),
 			wantLen: 3,

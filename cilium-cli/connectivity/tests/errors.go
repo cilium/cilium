@@ -172,7 +172,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	if slices.Contains(checkLevels, defaults.LogLevelError) {
 		errorMsgsWithExceptions["level=error"] = errorLogExceptions
 	}
-	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
+	if slices.Contains(checkLevels, defaults.LogLevelWarning) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
 	return &noErrorsInLogs{
@@ -250,13 +250,10 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 			restarts := cr.count
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
-				// Do not check for container restarts for Cilium v1.16 and earlier.
-				ignore := n.ciliumVersion.LT(semver.MustParse("1.17.0"))
-
 				// Ignore Cilium operator restarts for the moment, as they can
 				// legitimately happen in case it loses the leader election due
 				// to temporary control plane blips.
-				ignore = ignore || container == "cilium-operator"
+				ignore := container == "cilium-operator"
 
 				// The hubble relay container can currently be restarted by the
 				// startup probe if it fails to connect to Cilium. However, this
