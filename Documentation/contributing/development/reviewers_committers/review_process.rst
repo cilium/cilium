@@ -113,6 +113,27 @@ Review process
    overall issues for a contributor to consider and/or encouragement for what a
    contributor is already doing well.
 
+#. After reviewing the code, if the contributor is not a member of the Cilium
+   organization, trigger the testsuite using the ``/test`` command in a comment.
+   This should be done after inspecting the code to ensure that the PR content
+   is reasonable and not attempting to subvert the Cilium infrastructure for
+   purposes unrelated to development of the Cilium project.
+
+#. If any testsuite fails, ensure that the contributor understands their
+   responsibility to investigate and resolve those failures; refer them to the
+   :ref:`ci_failure_triage` documentation as needed.
+
+#. If the label ``dont-merge/needs-ci-validation`` is set on the PR, confirm
+   that any GitHub workflow changes have been sufficiently tested. Depending on
+   how the PR modifies GitHub configuration, testing may require either cloning
+   the pull request into a branch in the main Cilium repository and triggering
+   the tests against the cloned PR, or the author may need to temporarily
+   modify the workflow to trigger the workflow code. If in doubt about how to
+   ensure that workflow changes are tested, ask in the `#testing Slack channel
+   <https://cilium.slack.com/archives/C7PE7V806>`_ or ask the code owner group
+   ``@cilium/ci-structure`` for assistance. Once the changes have been tested
+   sufficiently, you may remove the ``dont-merge/needs-ci-validation`` label.
+
 #. When all review objectives for all ``CODEOWNERS`` are met, all CI tests have
    passed, and all reviewers have approved the requested changes, you can merge
    the PR by clicking on the "Rebase and merge" button.
