@@ -75,7 +75,7 @@ jobs:
 
   installation-and-connectivity:
     name: "Installation and Connectivity Test (${{ matrix.name }})"
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
