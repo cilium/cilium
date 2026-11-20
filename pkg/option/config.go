@@ -339,6 +339,10 @@ const (
 	// EnableTCX enables attaching endpoint programs using tcx if the kernel supports it
 	EnableTCX = "enable-tcx"
 
+	// CleanTCBPFState removes all tc datapath pins under <bpffs>/tc/globals on
+	// agent startup, forcing a clean rebuild of tc/tcx attachments and maps.
+	CleanTCBPFState = "clean-tc-bpf-state"
+
 	ProcFs = "procfs"
 
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
@@ -1172,6 +1176,7 @@ type DaemonConfig struct {
 	ExternalEnvoyProxy bool   // Whether Envoy is deployed as external DaemonSet or not
 	EnableXDPPrefilter bool   // Enable XDP-based prefiltering
 	EnableTCX          bool   // Enable attaching endpoint programs using tcx if the kernel supports it
+	CleanTCBPFState    bool   // Remove tc datapath pins on startup, forcing a clean tc datapath rebuild
 	EncryptNode        bool   // Set to true for encrypting node IP traffic
 
 	DatapathMode string // Datapath mode
@@ -2351,6 +2356,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.L2AnnouncerRetryPeriod = vp.GetDuration(L2AnnouncerRetryPeriod)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.EnableTCX = vp.GetBool(EnableTCX)
+	c.CleanTCBPFState = vp.GetBool(CleanTCBPFState)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)

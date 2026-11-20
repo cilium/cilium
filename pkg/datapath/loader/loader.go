@@ -83,6 +83,7 @@ type Params struct {
 
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
+	cleanTCGlobalsOnStart(p.Logger)
 	registerRouteInitializer(p)
 	collLoader := newBPFCollectionLoader(
 		option.Config.EnableDatapathPlugins,
