@@ -1,6 +1,7 @@
 - hostname: "*"
   name: http
   port: 80
+  protocol: HTTP
   routes:
   - direct_response:
       status_code: 500
@@ -15,6 +16,7 @@
 - hostname: "*"
   name: grpc
   port: 81
+  protocol: HTTP
   routes:
   - direct_response:
       status_code: 500
@@ -29,6 +31,7 @@
 - hostname: "*"
   name: tls
   port: 443
+  protocol: TLS
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway

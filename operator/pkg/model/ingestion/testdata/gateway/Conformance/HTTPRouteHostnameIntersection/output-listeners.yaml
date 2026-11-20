@@ -1,6 +1,7 @@
 - hostname: very.specific.com
   name: listener-1
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v1
@@ -31,6 +32,7 @@
 - hostname: "*.wildcard.io"
   name: listener-2
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v2
@@ -53,6 +55,7 @@
 - hostname: "*.anotherwildcard.io"
   name: listener-3
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v1

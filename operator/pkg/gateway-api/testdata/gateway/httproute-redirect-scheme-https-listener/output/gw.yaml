@@ -1,0 +1,80 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gw
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - hostname: example.com
+      name: http-apex
+      port: 80
+      protocol: HTTP
+    - hostname: example.com
+      name: https-apex
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - name: example-tls
+        mode: Terminate
+status:
+  conditions:
+    - lastTransitionTime: "2026-10-06T00:00:00Z"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-10-06T00:00:00Z"
+      message: Gateway waiting for address
+      reason: AddressNotAssigned
+      status: "False"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2026-10-06T00:00:00Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2026-10-06T00:00:00Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-10-06T00:00:00Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: http-apex
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2026-10-06T00:00:00Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2026-10-06T00:00:00Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-10-06T00:00:00Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: https-apex
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
