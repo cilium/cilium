@@ -130,6 +130,18 @@ ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 #endif
 
+/* With endpoint routes, a plain redirect() into the lxc device is followed by
+ * cil_to_container. The policy tail-call must flag that it has enforced
+ * ingress policy already.
+ */
+#if defined(__CONFIG_ENABLE_NETKIT) && defined(__CONFIG_ENABLE_ENDPOINT_ROUTES)
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+#define TEST_SKB_MARK (__u32)MARK_MAGIC_POLICY_DONE
+#else
+ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
+#define TEST_SKB_MARK (__u32)0x0
+#endif
+
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -223,6 +235,9 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
 
+	if (ctx->mark != TEST_SKB_MARK)
+		test_fatal(TEST_DRIVER_NAME ": Incorrect skb mark: 0x%lx != 0x%lx",
+			   ctx->mark, TEST_SKB_MARK);
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
 		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
@@ -330,6 +345,9 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
 
+	if (ctx->mark != TEST_SKB_MARK)
+		test_fatal(TEST_DRIVER_NAME ": Incorrect skb mark: 0x%lx != 0x%lx",
+			   ctx->mark, TEST_SKB_MARK);
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
 		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
@@ -345,3 +363,45 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
+/* Test that cil_to_container doesn't enforce ingress policy again for a packet
+ * that the policy tail-call has redirected into the lxc device. There is no
+ * policy entry, so the packet would be dropped otherwise.
+ */
+PKTGEN(PROG_TYPE, "tc_redirect_lxc_policy_done")
+int tc_redirect_lxc_policy_done_pktgen(struct __ctx_buff *ctx)
+{
+	return tc_redirect_lxc_ipv4_pktgen(ctx);
+}
+
+SETUP(PROG_TYPE, "tc_redirect_lxc_policy_done")
+int tc_redirect_lxc_policy_done_setup(struct __ctx_buff *ctx)
+{
+	ctx->mark = MARK_MAGIC_POLICY_DONE;
+
+	return pod_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_redirect_lxc_policy_done")
+int tc_redirect_lxc_policy_done_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+	assert(!ctx->mark);
+
+	test_finish();
+}
+#endif /* __CONFIG_ENABLE_ENDPOINT_ROUTES */

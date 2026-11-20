@@ -1998,9 +1998,20 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (do_redirect)
+		if (do_redirect) {
+			/* A plain redirect() into the lxc device runs
+			 * cil_to_container when endpoint routes are enabled.
+			 * Ingress policy must not be enforced a second time
+			 * there: a reply that was just RevDNATed no longer
+			 * matches its CT entry and would be handled as a new
+			 * connection.
+			 */
+			if (CONFIG(enable_endpoint_routes) && !use_redirect_peer)
+				ctx->mark = MARK_MAGIC_POLICY_DONE;
+
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
 					  use_redirect_peer, from_tunnel);
+		}
 		break;
 	default:
 		break;
@@ -2309,9 +2320,20 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (do_redirect)
+		if (do_redirect) {
+			/* A plain redirect() into the lxc device runs
+			 * cil_to_container when endpoint routes are enabled.
+			 * Ingress policy must not be enforced a second time
+			 * there: a reply that was just RevDNATed no longer
+			 * matches its CT entry and would be handled as a new
+			 * connection.
+			 */
+			if (CONFIG(enable_endpoint_routes) && !use_redirect_peer)
+				ctx->mark = MARK_MAGIC_POLICY_DONE;
+
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
 					  use_redirect_peer, from_tunnel);
+		}
 		break;
 	default:
 		break;
@@ -2586,6 +2608,14 @@ int cil_to_container(struct __ctx_buff *ctx)
 		ret = tail_call_egress_policy(ctx, lxc_id);
 		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
 					ret, METRIC_INGRESS);
+	}
+
+	/* Ingress policy was already enforced by the policy tail-call, see
+	 * tail_ipv{4,6}_policy().
+	 */
+	if (ctx->mark == MARK_MAGIC_POLICY_DONE) {
+		ctx->mark = 0;
+		return CTX_ACT_OK;
 	}
 
 	magic = inherit_identity_from_host(ctx, &identity);

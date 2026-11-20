@@ -171,13 +171,11 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	if (CONFIG(enable_endpoint_routes) && !use_redirect_peer &&
 	    /* We need to enforce policies at the source in case of netkit
 	     * devices because we can't redirect to proxy from bpf_lxc. That
-	     * needs a fix upstream. This must stay in sync with the predicate
-	     * in should_redirect_peer(): whenever we fall through to the policy
-	     * tail-call below and then do a plain redirect() into the lxc device
-	     * (should_redirect_peer() == false), endpoint routes would enforce
-	     * ingress policy a second time. On netkit that case is phys/host
-	     * ingress (ingress_ifindex > 0); there we must enforce at the source
-	     * here instead.
+	     * needs a fix upstream. As should_redirect_peer() is false for
+	     * netkit Pod -> Pod, the policy tail-call below then does a plain
+	     * redirect() into the lxc device, where cil_to_container would
+	     * enforce ingress policy a second time. The tail-call flags such
+	     * packets with MARK_MAGIC_POLICY_DONE to prevent that.
 	     */
 	    (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0)) {
 		set_identity_mark(ctx, seclabel, magic);
