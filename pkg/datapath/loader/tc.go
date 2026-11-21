@@ -196,10 +196,10 @@ func removeStaleTCFilters(logger *slog.Logger, device netlink.Link, parent uint3
 	return nil
 }
 
-// removeTCFilters removes all tc filters from the given interface.
+// removeTCFilters removes all Cilium-managed tc filters from the given interface.
 // Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via parent.
 func removeTCFilters(device netlink.Link, parent uint32) error {
-	filters, err := safenetlink.FilterList(device, parent)
+	filters, err := ListCiliumTCFilters(device, parent)
 	if err != nil {
 		return err
 	}
