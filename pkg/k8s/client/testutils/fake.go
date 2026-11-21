@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/rest"
 	k8sTesting "k8s.io/client-go/testing"
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	policy_clientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
 	policy_fake "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/fake"
 	k8sYaml "sigs.k8s.io/yaml"
 
@@ -79,13 +80,13 @@ type FakeClientset struct {
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
-	*PolicyFakeClientset
 	*dynamic_fake.FakeDynamicClient
 	k8sclient.ClientsetGetters
 
 	ot *statedbObjectTracker
 
-	SlimFakeClientset *SlimFakeClientset
+	SlimFakeClientset   *SlimFakeClientset
+	PolicyFakeClientset *PolicyFakeClientset
 
 	trackers []struct {
 		domain  string
@@ -101,6 +102,10 @@ func (c *FakeClientset) Slim() slim_clientset.Interface {
 
 func (c *FakeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesFakeClientset.Discovery()
+}
+
+func (c *FakeClientset) NetworkPolicyAPI() policy_clientset.Interface {
+	return c.PolicyFakeClientset
 }
 
 func (c *FakeClientset) IsEnabled() bool {

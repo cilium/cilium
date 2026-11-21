@@ -72,13 +72,13 @@ If you prefer to manage the installation of the Kubernetes ClusterNetworkPolicy 
 
 .. code-block:: shell-session
 
-    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.1/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.3.0/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
 
 To use experimental features, apply the experimental-channel CRD instead. The Cilium Operator only installs and upgrades the standard-channel CRD. It never replaces an experimental-channel CRD with the standard-channel one, so you must upgrade it yourself:
 
 .. code-block:: shell-session
 
-    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.1/config/crd/experimental/policy.networking.k8s.io_clusternetworkpolicies.yaml
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.3.0/config/crd/experimental/policy.networking.k8s.io_clusternetworkpolicies.yaml
 
 .. note::
 

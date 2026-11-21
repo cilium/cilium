@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -59,7 +59,7 @@ type policyWatcher struct {
 	ciliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	ciliumCIDRGroups                 resource.Resource[*cilium_v2.CiliumCIDRGroup]
 	networkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
-	clusterNetworkPolicies           resource.Resource[*policyv1alpha2.ClusterNetworkPolicy]
+	clusterNetworkPolicies           resource.Resource[*policyv1beta1.ClusterNetworkPolicy]
 
 	// cnpCache contains both CNPs and CCNPs, stored using a common intermediate
 	// representation (*types.SlimCNP). The cache is indexed on resource.Key,
@@ -133,7 +133,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 	go func() {
 		var (
 			knpEvents       <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
-			kcnpEvents      <-chan resource.Event[*policyv1alpha2.ClusterNetworkPolicy]
+			kcnpEvents      <-chan resource.Event[*policyv1beta1.ClusterNetworkPolicy]
 			cnpEvents       <-chan resource.Event[*cilium_v2.CiliumNetworkPolicy]
 			ccnpEvents      <-chan resource.Event[*cilium_v2.CiliumClusterwideNetworkPolicy]
 			cidrGroupEvents <-chan resource.Event[*cilium_v2.CiliumCIDRGroup]
@@ -211,11 +211,11 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				switch event.Kind {
 				case resource.Upsert:
 					err = p.addK8sClusterNetworkPolicy(
-						event.Object, k8sAPIGroupPolicyNetworkingV1Alpha2, kcnpDone,
+						event.Object, k8sAPIGroupPolicyNetworkingV1Beta1, kcnpDone,
 						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.clusterInfo.Name),
 					)
 				case resource.Delete:
-					err = p.deleteK8sClusterNetworkPolicy(event.Object, k8sAPIGroupPolicyNetworkingV1Alpha2, kcnpDone)
+					err = p.deleteK8sClusterNetworkPolicy(event.Object, k8sAPIGroupPolicyNetworkingV1Beta1, kcnpDone)
 				}
 				event.Done(err)
 			case event, ok := <-cnpEvents:

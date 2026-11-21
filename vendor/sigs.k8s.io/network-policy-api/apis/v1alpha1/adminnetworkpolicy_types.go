@@ -287,7 +287,7 @@ type AdminNetworkPolicyEgressPeer struct {
 //     "latest.blog.kubernetes.io" match, however "kubernetes.io", and
 //     "wikipedia.org" do not.
 //
-// +kubebuilder:validation:Pattern=`^(\*\.)?([a-zA-z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.)+[a-zA-z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.?$`
+// +kubebuilder:validation:Pattern=`^(\*\.)?([a-zA-Z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([-a-zA-Z0-9_]*[a-zA-Z0-9])?\.?$`
 type DomainName string
 
 const (

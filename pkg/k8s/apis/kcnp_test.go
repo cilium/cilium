@@ -127,7 +127,7 @@ func newOutdatedKCNPCRD(t *testing.T) *apiextensionsv1.CustomResourceDefinition 
 	target, err := getPregeneratedKCNPCRD()
 	require.NoError(t, err)
 	require.Equal(t, synced.KCNPCRDName, target.Name)
-	require.Equal(t, "v0.2.1", target.Annotations[kcnpBundleVersionAnnotation])
+	require.Equal(t, "v0.3.0", target.Annotations[kcnpBundleVersionAnnotation])
 	require.Equal(t, "standard", target.Annotations[kcnpChannelAnnotation])
 	require.Equal(t, []string{"kcnp"}, target.Spec.Names.ShortNames)
 
@@ -149,7 +149,7 @@ func TestCreateKCNPCRD(t *testing.T) {
 
 	updated, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(t.Context(), synced.KCNPCRDName, metav1.GetOptions{})
 	require.NoError(t, err)
-	require.Equal(t, "v0.2.1", updated.Annotations[kcnpBundleVersionAnnotation])
+	require.Equal(t, "v0.3.0", updated.Annotations[kcnpBundleVersionAnnotation])
 }
 
 func TestNewKCNPCRDs(t *testing.T) {
@@ -163,7 +163,7 @@ func TestNewKCNPCRDs(t *testing.T) {
 			name:        "installs the CRD when enabled",
 			enabled:     true,
 			installCRDs: true,
-			wantVersion: "v0.2.1",
+			wantVersion: "v0.3.0",
 		},
 		{
 			name:        "does not touch the CRD when installation is disabled",
