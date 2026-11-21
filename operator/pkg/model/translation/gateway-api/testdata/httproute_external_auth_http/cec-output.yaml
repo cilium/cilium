@@ -41,6 +41,9 @@ spec:
               '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
               emitFilterState: true
               enableUpstreamStats: true
+          - name: envoy.filters.http.cors
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
           - name: envoy.filters.http.ext_authz/HTTP:default:auth-service:8888:pp:/auth:arh:X-Custom-Token:esh:X-Auth-User
             typedConfig:
               '@type': type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
@@ -115,6 +118,12 @@ spec:
       routes:
       - match:
           prefix: /
+        typedPerFilterConfig:
+          envoy.filters.http.cors:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy
+            allowCredentials: false
+            forwardNotMatchingPreflights: false
+            maxAge: '0'
         route:
           cluster: default:my-service:8080
           maxStreamDuration:

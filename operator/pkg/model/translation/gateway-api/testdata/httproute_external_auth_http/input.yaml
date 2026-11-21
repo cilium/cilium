@@ -8,6 +8,7 @@ http:
       namespace: default
       port:
         port: 8080
+    cors: {}
     external_auth:
       allowed_request_headers:
       - X-Custom-Token
