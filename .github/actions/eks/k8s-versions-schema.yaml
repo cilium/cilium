@@ -7,3 +7,4 @@ includeItem:
   ipsec: bool(required=False)
   kpr: bool(required=False)
   aws-eni-pd: bool(required=False)
+  ip-family: str(required=False)
