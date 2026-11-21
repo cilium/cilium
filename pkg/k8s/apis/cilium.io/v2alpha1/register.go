@@ -92,6 +92,11 @@ const (
 	CRNCPluralName     = "ciliumresourcenetworkconfigs"
 	CRNCKindDefinition = "CiliumResourceNetworkConfig"
 	CRNCName           = CRNCPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumEnvoyExtProcFilter (CEEPF)
+	CEEPFPluralName     = "ciliumenvoyextprocfilters"
+	CEEPFKindDefinition = "CiliumEnvoyExtProcFilter"
+	CEEPFName           = CEEPFPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -161,6 +166,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumResourceIPPoolList{},
 		&CiliumResourceNetworkConfig{},
 		&CiliumResourceNetworkConfigList{},
+
+		&CiliumEnvoyExtProcFilter{},
+		&CiliumEnvoyExtProcFilterList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

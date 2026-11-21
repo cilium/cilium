@@ -1,0 +1,91 @@
+# Four routes exercising two distinct ext_proc filters:
+#   /first   – proc-alpha only   → proc-beta  disabled per-route
+#   /second  – proc-beta  only   → proc-alpha disabled per-route
+#   /both    – both filters      → neither disabled (no typedPerFilterConfig)
+#   /neither – no ext_proc       → both proc-alpha and proc-beta disabled
+http:
+  - hostname: "*"
+    name: prod-web-gw
+    port: 80
+    routes:
+      - backends:
+          - TLS: null
+            name: service-a
+            namespace: default
+            port:
+              port: 8080
+        extension_ref_filters:
+          - backend:
+              TLS: null
+              name: ext-proc-alpha
+              namespace: default
+              port:
+                port: 4317
+            config: CjkKNwogZ3JwYzpkZWZhdWx0OmV4dC1wcm9jLWFscGhhOjQzMTcSE2V4dC1wcm9jLWFscGhhOjQzMTdCG2NlZXBmLmRlZmF1bHQucHJvY18yZGFscGhhLg==
+            name: envoy.filters.http.ext_proc/default/proc-alpha
+            type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+        path_match:
+          prefix: /first
+        timeout: {}
+      - backends:
+          - TLS: null
+            name: service-b
+            namespace: default
+            port:
+              port: 8080
+        extension_ref_filters:
+          - backend:
+              TLS: null
+              name: ext-proc-beta
+              namespace: default
+              port:
+                port: 4317
+            config: CjcKNQofZ3JwYzpkZWZhdWx0OmV4dC1wcm9jLWJldGE6NDMxNxISZXh0LXByb2MtYmV0YTo0MzE3QhpjZWVwZi5kZWZhdWx0LnByb2NfMmRiZXRhLg==
+            name: envoy.filters.http.ext_proc/default/proc-beta
+            type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+        path_match:
+          prefix: /second
+        timeout: {}
+      - backends:
+          - TLS: null
+            name: service-both
+            namespace: default
+            port:
+              port: 8080
+        extension_ref_filters:
+          - backend:
+              TLS: null
+              name: ext-proc-alpha
+              namespace: default
+              port:
+                port: 4317
+            config: CjkKNwogZ3JwYzpkZWZhdWx0OmV4dC1wcm9jLWFscGhhOjQzMTcSE2V4dC1wcm9jLWFscGhhOjQzMTdCG2NlZXBmLmRlZmF1bHQucHJvY18yZGFscGhhLg==
+            name: envoy.filters.http.ext_proc/default/proc-alpha
+            type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          - backend:
+              TLS: null
+              name: ext-proc-beta
+              namespace: default
+              port:
+                port: 4317
+            config: CjcKNQofZ3JwYzpkZWZhdWx0OmV4dC1wcm9jLWJldGE6NDMxNxISZXh0LXByb2MtYmV0YTo0MzE3QhpjZWVwZi5kZWZhdWx0LnByb2NfMmRiZXRhLg==
+            name: envoy.filters.http.ext_proc/default/proc-beta
+            type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+        path_match:
+          prefix: /both
+        timeout: {}
+      - backends:
+          - TLS: null
+            name: public-service
+            namespace: default
+            port:
+              port: 8080
+        path_match:
+          prefix: /neither
+        timeout: {}
+    sources:
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        name: my-gateway
+        namespace: default
+        version: v1

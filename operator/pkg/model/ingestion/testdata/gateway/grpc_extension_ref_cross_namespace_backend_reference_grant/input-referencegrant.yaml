@@ -1,0 +1,14 @@
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: ReferenceGrant
+  metadata:
+    name: allow-ext-proc
+    namespace: ext-proc
+  spec:
+    from:
+      - group: cilium.io
+        kind: CiliumEnvoyExtProcFilter
+        namespace: default
+    to:
+      - group: ""
+        kind: Service
+        name: ext-proc-service
