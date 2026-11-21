@@ -29,7 +29,6 @@
 /*
  * Datapath configuration settings to setup tunneling with VXLan
  */
-#define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #define TUNNEL_MODE 1
@@ -74,6 +73,7 @@ ASSIGN_CONFIG(union macaddr, cilium_net_mac, cilium_net_mac)
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 static __always_inline int
 pktgen_from_host(struct __ctx_buff *ctx, bool v4)

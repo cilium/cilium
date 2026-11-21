@@ -25,9 +25,6 @@
  * Datapath configurations
  */
 
-/* Set dummy ifindex for tunnel device */
-#define ENCAP_IFINDEX 1
-
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4 1
 
@@ -60,6 +57,9 @@ ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u32, security_label, 0x10042)
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+
+/* Set dummy ifindex for tunnel device */
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

@@ -89,6 +89,8 @@ type Node struct {
 	Encap4IfIndex uint32 `config:"encap4_ifindex"`
 	// Interface index of the IPv6 IPIP encapsulation device.
 	Encap6IfIndex uint32 `config:"encap6_ifindex"`
+	// Interface index of the VXLAN/GENEVE encapsulation device.
+	EncapIfIndex uint32 `config:"encap_ifindex"`
 	// Enable strict encryption for ingress traffic.
 	EncryptionStrictIngress bool `config:"encryption_strict_ingress"`
 	// Maximum number of messages that can be written to BPF events map in 1
@@ -167,7 +169,7 @@ func NewNode() *Node {
 		false, false, false, 0x0, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, 0x0, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

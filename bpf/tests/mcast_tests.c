@@ -3,7 +3,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_MULTICAST 1
-#define ENCAP_IFINDEX 1
 
 #include "bpf/ctx/skb.h"
 #include <bpf/config/node.h>
@@ -18,6 +17,7 @@
 #include "../lib/mcast.h"
 
 ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 static __always_inline int default_packet(struct __ctx_buff *ctx)
 {

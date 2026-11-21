@@ -9,7 +9,6 @@
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 #define ENABLE_EGRESS_GATEWAY		1
-#define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
 
 #define ctx_redirect mock_ctx_redirect
@@ -36,6 +35,7 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_host_firewall, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
@@ -47,7 +47,7 @@ static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {
-	if (ifindex == ENCAP_IFINDEX)
+	if (ifindex == CONFIG(encap_ifindex))
 		return CTX_ACT_REDIRECT;
 	if (ifindex == SECONDARY_IFACE_IFINDEX)
 		return CTX_ACT_REDIRECT;
@@ -59,7 +59,7 @@ static __always_inline __maybe_unused int
 mock_redirect_neigh(int ifindex, struct bpf_redir_neigh *params __maybe_unused,
 		    int plen __maybe_unused, __u32 flags __maybe_unused)
 {
-	if (ifindex == ENCAP_IFINDEX)
+	if (ifindex == CONFIG(encap_ifindex))
 		return CTX_ACT_REDIRECT;
 	if (ifindex == SECONDARY_IFACE_IFINDEX)
 		return CTX_ACT_REDIRECT;

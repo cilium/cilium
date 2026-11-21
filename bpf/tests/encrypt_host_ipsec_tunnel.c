@@ -2,8 +2,8 @@
 /* Copyright Authors of Cilium */
 
 #define TUNNEL_MODE		        1
-#define ENCAP_IFINDEX		        42
 
 #include "encrypt_host.h"
 
 ASSIGN_CONFIG(bool, enable_ipsec, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)

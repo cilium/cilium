@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 
-#define ENCAP_IFINDEX		42
 #define TUNNEL_MODE 1
 
 #define CLIENT_IP		v4_ext_one
@@ -79,6 +78,7 @@ ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_GENEVE })
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)

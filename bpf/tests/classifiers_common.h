@@ -4,7 +4,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #define TUNNEL_MODE 1
-#define ENCAP_IFINDEX   1
 
 /* For testing L2/L3 devices, we make use of ETH_HLEN:
  * IS_BPF_WIREGUARD -> 0
@@ -32,6 +31,7 @@ ASSIGN_CONFIG(__u32, trace_payload_len_overlay, 20UL);
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_ipsec, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
 /* Defining checks for packets from L3 devices as a macro for reusability. */
 #define L3_DEVICE_CHECK(flags, is_ipv4)                                      \

@@ -373,7 +373,7 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 			return 1;
 		}
 
-		ifindex = ENCAP_IFINDEX;
+		ifindex = CONFIG(encap_ifindex);
 	} else {
 		ifindex = sub->ifindex;
 	}

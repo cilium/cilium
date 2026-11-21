@@ -9,7 +9,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #define TUNNEL_MODE	1
-#define ENCAP_IFINDEX	42
 
 #define TEST_IP_LOCAL		v4_pod_one
 #define TEST_IP_REMOTE		v4_pod_two
@@ -35,6 +34,7 @@
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 static volatile const __u8 *node_mac = mac_two;
 

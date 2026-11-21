@@ -220,5 +220,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableL7LB = option.Config.EnableEnvoyConfig
 
+	node.EncapIfIndex = uint32(lnc.EncapIfIndex)
+
 	return node
 }

@@ -36,12 +36,8 @@
 #define ENABLE_EGRESS_GATEWAY_COMMON 1
 #endif
 
-#ifndef ENCAP_IFINDEX
-#define ENCAP_IFINDEX 0
-#endif
-
 /* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
-#define HAVE_ENCAP ((ENCAP_IFINDEX != 0) || is_defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
+#define HAVE_ENCAP ((CONFIG(encap_ifindex) != 0) || is_defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
 	is_defined(TUNNEL_MODE) || \
 	(CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE))
 
