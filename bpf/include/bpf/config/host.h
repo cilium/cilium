@@ -33,3 +33,5 @@ struct vlan_filter_config {
 
 DECLARE_CONFIG(struct vlan_filter_config, vlan_filter,
 	       "VLAN IDs allowed to bypass filtering on this device")
+
+DECLARE_CONFIG(bool, ipip_use_outer_dst, "Use the ipip outer dst address as the service backend")
