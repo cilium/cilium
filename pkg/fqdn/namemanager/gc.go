@@ -46,6 +46,7 @@ func (n *manager) doGC(ctx context.Context) error {
 		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
 		activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 	)
+	activeConnections.DisableCleanupTrack()
 	namesToClean := make(sets.Set[string])
 	initialNames := n.cache.DumpNames()
 
