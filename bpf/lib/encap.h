@@ -81,7 +81,6 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 						NOT_VTEP_DST, trace, proto);
 }
 
-#if defined(TUNNEL_MODE)
 /* encap_and_redirect_lxc returns CTX_ACT_REDIRECT on successful redirect, and
  * a DROP_* reason on error.
  */
@@ -91,7 +90,6 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, const struct remote_endpoint_info
 {
 	return encap_and_redirect_with_nodeid(ctx, info, seclabel, dstid, trace, proto);
 }
-#endif /* TUNNEL_MODE */
 
 static __always_inline __be16
 tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)

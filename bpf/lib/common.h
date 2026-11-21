@@ -42,7 +42,7 @@
 
 /* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
 #define HAVE_ENCAP ((ENCAP_IFINDEX != 0) || is_defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
-	is_defined(TUNNEL_MODE) || \
+	CONFIG(enable_tunnel_mode) || \
 	(CONFIG(dsr_cfg).dispatch_mode == DSR_DISPATCH_GENEVE))
 
 /* XFER_FLAGS that get transferred from XDP to SKB */

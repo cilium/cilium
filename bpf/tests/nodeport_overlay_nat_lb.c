@@ -9,7 +9,6 @@
 #define ENABLE_IPV4 1
 
 #define ENCAP_IFINDEX		42
-#define TUNNEL_MODE		1
 
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -105,6 +104,7 @@ ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
 /* Test that a SVC request to an intermediate LB node gets DNATed and SNATed,
  * and flows back out on the overlay interface to a remote backend

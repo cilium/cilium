@@ -251,3 +251,5 @@ NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
 NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")
 
 NODE_CONFIG(bool, enable_bandwidth_manager, "Enable bandwidth manager")
+
+NODE_CONFIG(bool, enable_tunnel_mode, "Enable tunnel mode, routing over some overlay network")

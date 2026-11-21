@@ -742,8 +742,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	}
 
 	/* The packet goes to a peer not managed by this agent instance */
-#ifdef TUNNEL_MODE
-	if (ct_state->from_tunnel || !skip_tunnel) {
+	if (CONFIG(enable_tunnel_mode) && (ct_state->from_tunnel || !skip_tunnel)) {
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (!NODEPORT_ENABLED && CONFIG(enable_host_firewall) &&
 		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
@@ -755,7 +754,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 						      dst_sec_identity, trace,
 						      bpf_htons(ETH_P_IPV6));
 	}
-#endif
+
 	if (CONFIG(enable_bpf_host_routing)) {
 		int oif = 0;
 		__u32 tbid = CONFIG(rt_info);
@@ -1246,11 +1245,10 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		}
 	}
 
-#if defined(TUNNEL_MODE)
 	/* If the connection was established over the tunnel, ignore the
 	 * destination's `skip_tunnel` flag.
 	 */
-	if (ct_state->from_tunnel || !skip_tunnel) {
+	if (CONFIG(enable_tunnel_mode) && (ct_state->from_tunnel || !skip_tunnel)) {
 		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
 
@@ -1297,7 +1295,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			return ret;
 		}
 	}
-#endif /* TUNNEL_MODE */
 
 	if (CONFIG(enable_bpf_host_routing)) {
 		int oif = 0;

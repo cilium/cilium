@@ -23,16 +23,15 @@ nodeport_has_nat_conflict_ipv6(const struct __ctx_buff *ctx __maybe_unused,
 			       const struct ipv6hdr *ip6 __maybe_unused,
 			       struct ipv6_nat_target *target __maybe_unused)
 {
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr router_ip = CONFIG(router_ipv6);
 
-	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
+	if (CONFIG(enable_tunnel_mode) && is_defined(IS_BPF_OVERLAY) &&
+	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
 		ipv6_addr_copy(&target->addr, &router_ip);
 		target->needs_ct = true;
 
 		return true;
 	}
-#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(IS_BPF_HOST)
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
@@ -298,14 +297,13 @@ nodeport_has_nat_conflict_ipv4(const struct __ctx_buff *ctx __maybe_unused,
 			       const struct iphdr *ip4 __maybe_unused,
 			       struct ipv4_nat_target *target __maybe_unused)
 {
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	if (ip4->saddr == CONFIG(router_ipv4).be32) {
+	if (CONFIG(enable_tunnel_mode) && is_defined(IS_BPF_OVERLAY) &&
+	    ip4->saddr == CONFIG(router_ipv4).be32) {
 		target->addr = ip4->saddr;
 		target->needs_ct = true;
 
 		return true;
 	}
-#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(IS_BPF_HOST)
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
@@ -379,17 +377,16 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		goto apply_snat;
 
 	ret = NAT_PUNT_TO_STACK;
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-# if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-	if (args->target.cluster_id != 0 &&
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+	if (CONFIG(enable_tunnel_mode) && is_defined(IS_BPF_OVERLAY) &&
+	    args->target.cluster_id != 0 &&
 	    args->target.cluster_id != CONFIG(cluster_id)) {
 		args->target.addr = CONFIG(ipv4_inter_cluster_snat).be32;
 		args->target.from_local_endpoint = true;
 
 		ret = NAT_NEEDED;
 	}
-# endif
-#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
+#endif
 
 #if defined(IS_BPF_HOST)
 	if (CONFIG(enable_masquerade_ipv4))
