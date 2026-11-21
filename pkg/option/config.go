@@ -451,6 +451,9 @@ const (
 	// MonitorAggregationFlags configures TCP flags used by monitor aggregation.
 	MonitorAggregationFlags = "monitor-aggregation-flags"
 
+	// EnableNetdevTracing is the name for the option to enable tracing in bpf_host attached to native devices
+	EnableNetdevTracing = "trace-netdev"
+
 	// ciliumEnvPrefix is the prefix used for environment variables
 	ciliumEnvPrefix = "CILIUM_"
 
@@ -1251,6 +1254,9 @@ type DaemonConfig struct {
 	// aggregation ensures reports are generated for when monitor-aggregation
 	// is enabled.
 	MonitorAggregationFlags uint8
+
+	// EnableNetdevTracing enables tracing of packet at the native devices.
+	EnableNetdevTracing bool
 
 	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
 	// BPF events map. This limit is defined for all types of events except dbg.
@@ -2406,6 +2412,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
+	c.EnableNetdevTracing = vp.GetBool(EnableNetdevTracing)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.ProcFs = vp.GetString(ProcFs)
 	c.RestoreState = vp.GetBool(Restore)
