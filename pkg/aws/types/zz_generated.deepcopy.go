@@ -41,6 +41,13 @@ func (in *AwsVPC) DeepCopyInto(out *AwsVPC) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.IPv6CIDRs != nil {
+		in, out := &in.IPv6CIDRs, &out.IPv6CIDRs
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

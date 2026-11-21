@@ -562,6 +562,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 				if len(vpc.CIDRs) > 0 {
 					eni.VPC.CIDRs = slices.Clone(vpc.CIDRs)
 				}
+				eni.VPC.IPv6CIDRs = slices.Clone(vpc.IPv6CIDRs)
 			}
 		}
 	}
@@ -741,10 +742,61 @@ func (c *Client) GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNe
 			}
 		}
 
+		// Malformed IPv6 association metadata must not break the otherwise
+		// working IPv4 inventory: warn and publish no IPv6 CIDRs for this VPC.
+		ipv6CIDRs, err := parseVPCIPv6CIDRs(v)
+		if err != nil {
+			c.logger.Warn("Unable to parse VPC IPv6 CIDR block associations, ignoring them",
+				logfields.VPCID, vpc.ID,
+				logfields.Error, err,
+			)
+		} else {
+			vpc.IPv6CIDRs = ipv6CIDRs
+		}
+
 		vpcs[vpc.ID] = vpc
 	}
 
 	return vpcs, nil
+}
+
+// parseVPCIPv6CIDRs returns the masked, deduplicated and sorted IPv6 CIDR
+// blocks currently associated with the VPC. Associations in any state other
+// than associated (or without a state) are skipped. Any malformed associated
+// entry fails the whole list, so that a misleading partial list is never
+// published.
+func parseVPCIPv6CIDRs(v ec2_types.Vpc) ([]iputil.Prefix, error) {
+	var cidrs []netip.Prefix
+	for _, a := range v.Ipv6CidrBlockAssociationSet {
+		if a.Ipv6CidrBlockState == nil || a.Ipv6CidrBlockState.State != ec2_types.VpcCidrBlockStateCodeAssociated {
+			continue
+		}
+		s := aws.ToString(a.Ipv6CidrBlock)
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse VPC IPv6 CIDR %q of association %q: %w",
+				s, aws.ToString(a.AssociationId), err)
+		}
+		if !p.Addr().Is6() || p.Addr().Is4In6() {
+			return nil, fmt.Errorf("VPC IPv6 CIDR %q of association %q is not a native IPv6 prefix",
+				s, aws.ToString(a.AssociationId))
+		}
+		cidrs = append(cidrs, p.Masked())
+	}
+
+	slices.SortFunc(cidrs, func(a, b netip.Prefix) int {
+		if c := a.Addr().Compare(b.Addr()); c != 0 {
+			return c
+		}
+		return a.Bits() - b.Bits()
+	})
+	cidrs = slices.Compact(cidrs)
+
+	var out []iputil.Prefix
+	for _, p := range cidrs {
+		out = append(out, iputil.PrefixFrom(p))
+	}
+	return out, nil
 }
 
 // describeSubnets lists the subnets in the vpcID, or all subnets if the vpcID is empty

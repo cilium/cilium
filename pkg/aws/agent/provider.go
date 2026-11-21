@@ -15,6 +15,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
+	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -43,9 +44,10 @@ type providerParams struct {
 	Node           agentK8s.LocalCiliumNodeResource
 	LocalNodeStore *node.LocalNodeStore
 
-	Conf   *option.DaemonConfig
-	MTU    mtu.MTU
-	Sysctl sysctl.Sysctl
+	Conf        *option.DaemonConfig
+	IPsecConfig ipsecTypes.Config
+	MTU         mtu.MTU
+	Sysctl      sysctl.Sysctl
 }
 
 // provider is the AWS customization of the agent's multi-pool allocator.
@@ -71,7 +73,7 @@ func (p *provider) PoolSpecAccessors() ipam.PoolSpecAccessors {
 // in the CiliumNode status. Neither blocks.
 func (p *provider) Initialize() (ipam.RoutingMetadataResolver, error) {
 	startDeviceConfigurator(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.MTU, p.params.Sysctl)
-	p.nativeRoutingCIDRReady = startNativeRoutingCIDRSync(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.LocalNodeStore, p.params.Conf)
+	p.nativeRoutingCIDRReady = startNativeRoutingCIDRSync(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.LocalNodeStore, p.params.Conf, p.params.IPsecConfig.Enabled())
 
 	return &resolver{}, nil
 }
@@ -90,14 +92,14 @@ func (p *provider) WaitReady(ctx context.Context) error {
 		case <-p.nativeRoutingCIDRReady:
 			return nil
 		case <-deadline:
-			return fmt.Errorf("timed out after %s waiting for the operator to report the VPC CIDRs of the node in Status.ENI.ENIs[].VPC. %s",
-				waitForNativeRoutingCIDRTimeout, operatorHelpMessage)
+			return fmt.Errorf("timed out after %s waiting for the VPC CIDRs of the node in status.eni.enis.*.vpc (ENI IPsec with IPv6 also needs IPv6 scope). %s %s",
+				waitForNativeRoutingCIDRTimeout, operatorHelpMessage, ipv6ScopeHelpMessage)
 		case <-ctx.Done():
-			return fmt.Errorf("waiting for the operator to report the VPC CIDRs of the node in Status.ENI.ENIs[].VPC: %w", ctx.Err())
+			return fmt.Errorf("waiting for the VPC CIDRs of the node in status.eni.enis.*.vpc: %w", ctx.Err())
 		case <-time.After(5 * time.Second):
 			p.params.Logger.Info(
-				"Waiting for the operator to report the VPC CIDRs of the node, needed to determine the native routing CIDR",
-				logfields.HelpMessage, operatorHelpMessage,
+				"Waiting for the VPC CIDRs of the node in status.eni.enis.*.vpc, needed to determine the native routing CIDR (ENI IPsec with IPv6 also needs IPv6 scope)",
+				logfields.HelpMessage, operatorHelpMessage+" "+ipv6ScopeHelpMessage,
 			)
 		}
 	}
@@ -108,6 +110,11 @@ const waitForNativeRoutingCIDRTimeout = 5 * time.Minute
 // operatorHelpMessage points at the operator, which is what WaitReady is
 // waiting on.
 const operatorHelpMessage = "Check if the cilium-operator pod is running and does not have any warnings or error messages."
+
+// ipv6ScopeHelpMessage is the remedy when ENI IPsec with IPv6 is waiting for
+// the IPv6 encryption scope.
+const ipv6ScopeHelpMessage = "Upgrade cilium-operator and the CiliumNode CRD to publish ipv6-cidrs, or set --" +
+	option.IPv6PodSubnets + " (or --" + option.IPv6NativeRoutingCIDR + ") to cover all cluster pod IPv6 ranges."
 
 // resolver reports the ENI routing metadata of the addresses the multi-pool
 // allocator hands out. It is stateless: everything it reports is derived from

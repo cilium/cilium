@@ -681,6 +681,7 @@ func (e *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 						eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
 					}
 					eni.VPC.CIDRs = slices.Clone(vpc.CIDRs)
+					eni.VPC.IPv6CIDRs = slices.Clone(vpc.IPv6CIDRs)
 				}
 			}
 
@@ -737,6 +738,7 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 						eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
 					}
 					eni.VPC.CIDRs = slices.Clone(vpc.CIDRs)
+					eni.VPC.IPv6CIDRs = slices.Clone(vpc.IPv6CIDRs)
 				}
 			}
 

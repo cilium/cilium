@@ -775,6 +775,13 @@ spec:
                             id:
                               description: / ID is the ID of a VPC
                               type: string
+                            ipv6-cidrs:
+                              description: IPv6CIDRs is the list of associated IPv6
+                                CIDR blocks of the VPC.
+                              items:
+                                format: cidr
+                                type: string
+                              type: array
                             primary-cidr:
                               description: PrimaryCIDR is the primary CIDR of the
                                 VPC

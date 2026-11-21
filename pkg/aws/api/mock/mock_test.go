@@ -82,6 +82,46 @@ func TestMock(t *testing.T) {
 	require.Equal(t, types.SecurityGroupMap{"sg1": sg1, "sg2": sg2}, sgMap)
 }
 
+func TestGetInstancesVPCIPv6CIDRs(t *testing.T) {
+	api := NewAPI(nil, nil, nil, nil)
+	api.UpdateENIs(map[string]ENIMap{
+		"i-1": {"eni-1": {ID: "eni-1", VPC: types.AwsVPC{ID: "vpc-1"}}},
+	})
+
+	vpcIPv6CIDRs := []ip.Prefix{
+		ip.PrefixFrom(netip.MustParsePrefix("2600:1f14:1111:2200::/56")),
+		ip.PrefixFrom(netip.MustParsePrefix("2600:1f14:abcd:ef00::/56")),
+	}
+	vpcs := ipamTypes.VirtualNetworkMap{
+		"vpc-1": {
+			ID:          "vpc-1",
+			PrimaryCIDR: ip.PrefixFrom(netip.MustParsePrefix("192.168.0.0/16")),
+			IPv6CIDRs:   vpcIPv6CIDRs,
+		},
+	}
+	want := []ip.Prefix{
+		ip.PrefixFrom(netip.MustParsePrefix("2600:1f14:1111:2200::/56")),
+		ip.PrefixFrom(netip.MustParsePrefix("2600:1f14:abcd:ef00::/56")),
+	}
+	other := ip.PrefixFrom(netip.MustParsePrefix("2001:db8::/56"))
+
+	instance, err := api.GetInstance(t.Context(), vpcs, nil, "i-1")
+	require.NoError(t, err)
+	eni := instance.Interfaces["eni-1"].(*types.ENI)
+	require.Equal(t, want, eni.VPC.IPv6CIDRs)
+	eni.VPC.IPv6CIDRs[0] = other
+	require.Equal(t, want, vpcIPv6CIDRs)
+
+	instances, err := api.GetInstances(t.Context(), vpcs, nil)
+	require.NoError(t, err)
+	iface, ok := instances.GetInterface("i-1", "eni-1")
+	require.True(t, ok)
+	eni = iface.(*types.ENI)
+	require.Equal(t, want, eni.VPC.IPv6CIDRs)
+	eni.VPC.IPv6CIDRs[0] = other
+	require.Equal(t, want, vpcIPv6CIDRs)
+}
+
 func TestSetMockError(t *testing.T) {
 	api := NewAPI([]*ipamTypes.Subnet{}, []*ipamTypes.VirtualNetwork{}, []*types.SecurityGroup{}, []*ipamTypes.RouteTable{})
 	require.NotNil(t, api)

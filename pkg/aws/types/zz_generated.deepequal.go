@@ -56,6 +56,23 @@ func (in *AwsVPC) DeepEqual(other *AwsVPC) bool {
 		}
 	}
 
+	if ((in.IPv6CIDRs != nil) && (other.IPv6CIDRs != nil)) || ((in.IPv6CIDRs == nil) != (other.IPv6CIDRs == nil)) {
+		in, other := &in.IPv6CIDRs, &other.IPv6CIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }
 

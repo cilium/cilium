@@ -278,4 +278,9 @@ type AwsVPC struct {
 	//
 	// +optional
 	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
+
+	// IPv6CIDRs is the list of associated IPv6 CIDR blocks of the VPC.
+	//
+	// +optional
+	IPv6CIDRs []iputil.Prefix `json:"ipv6-cidrs,omitempty"`
 }
