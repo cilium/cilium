@@ -301,6 +301,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 						scopedLog.Debug("storing CEP UID after create", logfields.CEPUID, localCEP.UID)
 						e.SetCiliumEndpointUID(localCEP.UID)
+						e.SyncEndpointHeaderFile()
 
 						// continue the execution so we update the endpoint
 						// status immediately upon endpoint creation
@@ -503,13 +504,15 @@ func (epSync *EndpointSynchronizer) updateCEPUID(ctx context.Context, scopedLog 
 	}
 
 	// If the endpoint has a CEP UID, which does not match the current CEP, we cannot take
-	// ownership.
-	if cepUID != "" && cepUID != localCEP.GetUID() {
+	// ownership unless the CEP belongs to the exact same active Pod and CNI attachment
+	// (which happens when a CEP was recreated with a new UID before the updated CEP UID
+	// was flushed to ep_config.json).
+	if cepUID != "" && cepUID != localCEP.GetUID() && !isCEPOwnedByEndpoint(e, cepOwner, localCEP) {
 		return fmt.Errorf("endpoint sync could not take ownership of CEP %q, endpoint UID (%q) did not match CEP UID: %q",
 			localCEP.GetNamespace()+"/"+localCEP.GetName(), cepUID, localCEP.GetUID())
 	}
 
-	if cepUID := e.GetCiliumEndpointUID(); cepUID == "" {
+	if cepUID != localCEP.GetUID() {
 		scopedLog.Debug(
 			"updating CEP UID and syncing endpoint header file",
 			logfields.Node, types.GetName(),
@@ -520,6 +523,31 @@ func (epSync *EndpointSynchronizer) updateCEPUID(ctx context.Context, scopedLog 
 		e.SyncEndpointHeaderFile()
 	}
 	return nil
+}
+
+// isCEPOwnedByEndpoint returns true if the endpoint is active, localCEP's
+// OwnerReferences contain the endpoint's CEP owner UID, and when CNI attachment
+// IDs are populated on both, they match the same sandbox attachment.
+func isCEPOwnedByEndpoint(e *endpoint.Endpoint, cepOwner endpoint.CEPOwnerInterface, localCEP *cilium_v2.CiliumEndpoint) bool {
+	if !e.IsAlive() {
+		return false
+	}
+	ownerUID := cepOwner.GetUID()
+	if ownerUID == "" {
+		return false
+	}
+	identifiers := localCEP.Status.ExternalIdentifiers
+	if identifiers != nil && identifiers.CniAttachmentID != "" {
+		if epAttachID := e.GetCNIAttachmentID(); epAttachID != "" && identifiers.CniAttachmentID != epAttachID {
+			return false
+		}
+	}
+	for _, ownerRef := range localCEP.GetOwnerReferences() {
+		if ownerRef.UID == ownerUID {
+			return true
+		}
+	}
+	return false
 }
 
 // DeleteK8sCiliumEndpointSync replaces the endpoint controller to remove the

@@ -6,6 +6,7 @@ package controlplane_test
 import (
 	"testing"
 
+	_ "github.com/cilium/cilium/test/controlplane/endpoint"
 	_ "github.com/cilium/cilium/test/controlplane/node"
 	_ "github.com/cilium/cilium/test/controlplane/node/ciliumnodes"
 	"github.com/cilium/cilium/test/controlplane/suite"
