@@ -2,6 +2,25 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
+
+static __u64 mock_full_len;
+static __u32 mock_gso_size;
+
+static __always_inline __maybe_unused __u64
+mock_ctx_full_len(const struct __sk_buff *ctx __maybe_unused)
+{
+	return mock_full_len;
+}
+
+static __always_inline __maybe_unused __u32
+mock_ctx_gso_size(const struct __sk_buff *ctx __maybe_unused)
+{
+	return mock_gso_size;
+}
+
+#define ctx_full_len mock_ctx_full_len
+#define ctx_gso_size mock_ctx_gso_size
+
 #define ENABLE_IPV4		      1
 #define ENABLE_IPV6		      1
 #define SKIP_ICMPV6_HOPLIMIT_HANDLING 1
@@ -40,21 +59,26 @@ long mock_redirect_neigh(__maybe_unused int ifindex,
 
 struct fib_lookup_recorder {
 	__u32 flags;
+	__u16 tot_len;
+	int result;
 } fib_lookup_recorder = {0};
 
 void reset_fib_lookup_recorder(struct fib_lookup_recorder *r)
 {
 	r->flags = 0;
+	r->tot_len = 0;
+	r->result = BPF_FIB_LKUP_RET_SUCCESS;
 }
 
 #define fib_lookup mock_fib_lookup
 
 long mock_fib_lookup(void *ctx __maybe_unused,
-		     struct bpf_fib_lookup *params __maybe_unused,
+		     const struct bpf_fib_lookup *params __maybe_unused,
 		     int plen __maybe_unused, __u32 flags __maybe_unused)
 {
 	fib_lookup_recorder.flags = flags;
-	return 0;
+	fib_lookup_recorder.tot_len = params->tot_len;
+	return fib_lookup_recorder.result;
 }
 
 #include "lib/dbg.h"
@@ -201,6 +225,84 @@ int test2_check(struct __ctx_buff *ctx)
 				   fib_lookup_recorder.flags);
 
 		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
+	TEST("fib_redirect_frag_needed", {
+		struct bpf_fib_lookup_padded params = { 0 };
+		int oif = 0;
+		__s8 ext_err = 0;
+		int ret;
+
+		fib_lookup_recorder.result = BPF_FIB_LKUP_RET_FRAG_NEEDED;
+		ret = fib_redirect(ctx, false, &params, true, &ext_err, &oif);
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+
+		if (ret != DROP_FRAG_NEEDED)
+			test_fatal("expected DROP_FRAG_NEEDED, got %d", ret);
+		if (ext_err != BPF_FIB_LKUP_RET_FRAG_NEEDED)
+			test_fatal("expected FRAG_NEEDED ext_err, got %d", ext_err);
+	});
+
+	TEST("ip_wire_len_header_and_context", {
+		struct iphdr hdr = { 0 };
+		struct ipv6hdr hdr6 = { 0 };
+		const __u32 header_len = 1400;
+		const __u32 context_len = 1600;
+		const int l3_off = ETH_HLEN;
+
+		hdr.tot_len = bpf_htons(header_len);
+		hdr6.payload_len = bpf_htons(header_len - sizeof(hdr6));
+		mock_full_len = context_len;
+
+		if (ipv4_wire_len(ctx, &hdr, l3_off) != header_len)
+			test_fatal("IPv4 wire length did not prefer the header");
+		if (ipv6_wire_len(ctx, &hdr6, l3_off) != header_len)
+			test_fatal("IPv6 wire length did not prefer the header");
+
+		hdr.tot_len = 0;
+		hdr6.payload_len = 0;
+		if (ipv4_wire_len(ctx, &hdr, l3_off) != context_len - l3_off)
+			test_fatal("IPv4 zero length did not fall back to the context");
+		if (ipv6_wire_len(ctx, &hdr6, l3_off) != context_len - l3_off)
+			test_fatal("IPv6 zero length did not fall back to the context");
+
+		mock_full_len = 0;
+	});
+
+	/* Preserve the skb helper contract for GSO/BIG TCP: a zero tot_len makes
+	 * the kernel validate the skb with is_skb_forwardable(), which honors GSO.
+	 */
+	TEST("fib_redirect_skb_gso_tot_len", {
+		struct iphdr hdr = { 0 };
+		struct ipv6hdr hdr6 = { 0 };
+		__u16 v4_tot_len;
+		__u16 v6_tot_len;
+		int oif = 0;
+		__s8 ext_err;
+
+		hdr.ihl = 5;
+		hdr.tot_len = bpf_htons(9000);
+		hdr.ttl = 64;
+		hdr.protocol = IPPROTO_TCP;
+		hdr6.payload_len = bpf_htons(8960);
+		hdr6.nexthdr = IPPROTO_TCP;
+		hdr6.hop_limit = 64;
+
+		mock_gso_size = 1400;
+
+		fib_redirect_v4(ctx, 0, &hdr, true, true, &ext_err, &oif, 0);
+		v4_tot_len = fib_lookup_recorder.tot_len;
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+
+		fib_redirect_v6(ctx, 0, &hdr6, true, true, &ext_err, &oif, 0);
+		v6_tot_len = fib_lookup_recorder.tot_len;
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+		mock_gso_size = 0;
+
+		if (v4_tot_len != 0)
+			test_fatal("IPv4 skb FIB tot_len must be zero, got %u", v4_tot_len);
+		if (v6_tot_len != 0)
+			test_fatal("IPv6 skb FIB tot_len must be zero, got %u", v6_tot_len);
 	});
 
 	TEST("fib_redirect_v4", {
