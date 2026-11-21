@@ -94,7 +94,7 @@ func isObsoleteDev(dev string, devices []string) bool {
 // before 1.13, most filters were named e.g. bpf_host.o:[to-host], to be changed to
 // cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
 // function only cleans up filters following the current naming scheme.
-func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
+func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string, collLoader *bpfCollectionLoader) error {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("retrieving all netlink devices: %w", err)
@@ -177,6 +177,8 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 				logfields.Path, statePath,
 			)
 		}
+
+		collLoader.Unload(attachmentContextHost(l.Attrs().Name))
 	}
 
 	return nil
