@@ -123,6 +123,42 @@ func Test_httpClusterWithTLSOriginationAllowsTLS13(t *testing.T) {
 	require.Equal(t, envoy_config_tls.TlsParameters_TLSv1_3, tlsContext.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion)
 }
 
+func Test_desiredEnvoyCluster_sharedHTTPAndTLSRouteBackend(t *testing.T) {
+	httpBackend := model.Backend{
+		Namespace: "default", Name: "shared", Port: &model.BackendPort{Port: 8080},
+		TLS: &model.BackendTLSOrigination{
+			SNI:       "backend.example.test",
+			CACertRef: &model.FullyQualifiedResource{Name: "ca-cert", Namespace: "default"},
+		},
+	}
+	tcpBackend := model.Backend{Namespace: "default", Name: "shared", Port: &model.BackendPort{Port: 8080}}
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{Routes: []model.HTTPRoute{{Backends: []model.Backend{httpBackend}}}}},
+		TLS:  []model.TLSListener{{Routes: []model.TLSRoute{{Backends: []model.Backend{tcpBackend}}}}},
+	}
+
+	c := &cecTranslator{}
+	resources, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+	require.Len(t, resources, 2)
+	clusters := map[string]*envoy_config_cluster_v3.Cluster{}
+	for _, resource := range resources {
+		cluster := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(resource.Value, cluster))
+		require.NotContains(t, clusters, cluster.Name)
+		clusters[cluster.Name] = cluster
+	}
+	httpCluster := clusters["default:shared:8080"]
+	tcpCluster := clusters["tcp:default:shared:8080"]
+	require.NotNil(t, httpCluster)
+	require.NotNil(t, tcpCluster)
+	require.Equal(t, httpCluster.GetEdsClusterConfig().GetServiceName(), tcpCluster.GetEdsClusterConfig().GetServiceName())
+	require.Contains(t, httpCluster.TypedExtensionProtocolOptions, httpProtocolOptionsType)
+	require.NotNil(t, httpCluster.TransportSocket)
+	require.Empty(t, tcpCluster.TypedExtensionProtocolOptions)
+	require.Nil(t, tcpCluster.TransportSocket)
+}
+
 func Test_withTLSOrigination(t *testing.T) {
 	tls := &model.BackendTLSOrigination{
 		SNI: "my-backend.svc.cluster.local",
