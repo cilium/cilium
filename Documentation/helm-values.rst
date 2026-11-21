@@ -1853,9 +1853,9 @@
      - object
      - ``{}``
    * - :spelling:ignore:`envoy.rollOutPods`
-     - Roll out cilium envoy pods automatically when configmap is updated.
-     - bool
-     - ``false``
+     - Roll out envoy pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.securityContext.capabilities.envoy`
      - Capabilities for the ``cilium-envoy`` container. Even though granted to the container, the cilium-envoy-starter wrapper drops all capabilities after forking the actual Envoy process. ``NET_BIND_SERVICE`` is the only capability that can be passed to the Envoy process by setting ``envoy.securityContext.capabilities.keepCapNetBindService=true`` (in addition to granting the capability to the container). Note: In case of embedded envoy, the capability must  be granted to the cilium-agent container.
      - list
@@ -2461,9 +2461,9 @@
      - string
      - ``nil``
    * - :spelling:ignore:`hubble.relay.rollOutPods`
-     - Roll out Hubble Relay pods automatically when configmap is updated.
-     - bool
-     - ``false``
+     - Roll out Hubble Relay pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
@@ -2753,9 +2753,9 @@
      - int
      - ``1``
    * - :spelling:ignore:`hubble.ui.rollOutPods`
-     - Roll out Hubble-ui pods automatically when configmap is updated.
-     - bool
-     - ``false``
+     - Roll out Hubble-ui pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.ui.securityContext`
      - Security context to be added to Hubble UI pods
      - object
@@ -3649,9 +3649,9 @@
      - object
      - ``{}``
    * - :spelling:ignore:`operator.rollOutPods`
-     - Roll out cilium-operator pods automatically when configmap is updated.
-     - bool
-     - ``false``
+     - Roll out cilium-operator pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+     - string
+     - ``nil``
    * - :spelling:ignore:`operator.securityContext`
      - Security context to be added to cilium-operator pods
      - object
@@ -4043,7 +4043,7 @@
    * - :spelling:ignore:`standaloneDnsProxy`
      - Standalone DNS Proxy Configuration Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration for DNS settings (proxyPort, enableDnsCompression) to ensure consistency.
      - object
-     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"minReadySeconds":5,"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
+     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"minReadySeconds":5,"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":null,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
    * - :spelling:ignore:`standaloneDnsProxy.annotations`
      - Standalone DNS proxy annotations
      - object
@@ -4073,9 +4073,9 @@
      - object
      - ``{"kubernetes.io/os":"linux"}``
    * - :spelling:ignore:`standaloneDnsProxy.rollOutPods`
-     - Roll out Standalone DNS proxy automatically when configmap is updated.
-     - bool
-     - ``false``
+     - Roll out Standalone DNS proxy pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+     - string
+     - ``nil``
    * - :spelling:ignore:`standaloneDnsProxy.serverPort`
      - Standalone DNS proxy server port
      - int

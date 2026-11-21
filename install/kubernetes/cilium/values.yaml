@@ -1962,8 +1962,11 @@ hubble:
   relay:
     # -- Enable Hubble Relay (requires hubble.enabled=true)
     enabled: false
-    # -- Roll out Hubble Relay pods automatically when configmap is updated.
-    rollOutPods: false
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Roll out Hubble Relay pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+    rollOutPods: ~
     # -- Hubble-relay container image.
     image:
       # @schema
@@ -2237,8 +2240,11 @@ hubble:
         #           path: client.key
         #         - key: ca.crt
         #           path: hubble-relay-ca.crt
-    # -- Roll out Hubble-ui pods automatically when configmap is updated.
-    rollOutPods: false
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Roll out Hubble-ui pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+    rollOutPods: ~
     # -- Additional init containers added to the hubble-ui Deployment.
     extraInitContainers: []
     tls:
@@ -3134,8 +3140,11 @@ envoy:
       # type: [integer, string]
       # @schema
       maxUnavailable: 2
-  # -- Roll out cilium envoy pods automatically when configmap is updated.
-  rollOutPods: false
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Roll out envoy pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+  rollOutPods: ~
   # -- ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a `bootstrap-config.json` key.
   # When specified, Envoy will use this ConfigMap instead of the default provided by the chart.
   # WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to
@@ -3496,8 +3505,11 @@ etcd:
 operator:
   # -- Enable the cilium-operator component (required).
   enabled: true
-  # -- Roll out cilium-operator pods automatically when configmap is updated.
-  rollOutPods: false
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Roll out cilium-operator pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+  rollOutPods: ~
   # -- cilium-operator image.
   image:
     # @schema
@@ -4649,8 +4661,11 @@ enableLBIPAM: true
 standaloneDnsProxy:
   # -- Enable standalone DNS proxy (alpha feature)
   enabled: false
-  # -- Roll out Standalone DNS proxy automatically when configmap is updated.
-  rollOutPods: false
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Roll out Standalone DNS proxy pods automatically when configmap is updated. If not supplied, defaults to the value of .rollOutCiliumPods
+  rollOutPods: ~
   # -- Standalone DNS proxy annotations
   annotations: {}
   # -- Standalone DNS proxy debug mode

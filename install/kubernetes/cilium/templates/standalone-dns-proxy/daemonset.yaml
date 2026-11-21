@@ -32,7 +32,7 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if .Values.standaloneDnsProxy.rollOutPods }}
+        {{- if ((kindIs "invalid" .Values.standaloneDnsProxy.rollOutPods) | ternary .Values.rollOutCiliumPods .Values.standaloneDnsProxy.rollOutPods) }}
         # ensure pods roll when configmap updates
         cilium.io/standalone-dns-proxy-configmap-checksum: {{ include (print $.Template.BasePath "/standalone-dns-proxy/configmap.yaml") . | sha256sum | quote }}
         {{- end }}
