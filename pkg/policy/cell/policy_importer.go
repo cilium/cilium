@@ -166,7 +166,8 @@ func (i *Importer) updatePrefixes(ctx context.Context, updates []*policytypes.Po
 		for _, prefix := range newPrefixes {
 			// If we already allocated this prefix, remove it from the prune list
 			// and don't bother upserting it again in to the ipcache
-			if oldSet.Remove(prefix) {
+			if oldSet.Has(prefix) {
+				oldSet.Remove(prefix)
 				continue
 			}
 
