@@ -12,6 +12,7 @@ import (
 	"maps"
 	"math/big"
 	"math/bits"
+	mrand "math/rand/v2"
 	"net/netip"
 
 	"golang.org/x/crypto/hkdf"
@@ -24,24 +25,23 @@ import (
 // more memory usage. No artificial limits are placed on the range of the allocator other than inherent
 // resource limits.
 //
-// Every IP is mapped to a index from [0, n) which is a bijection.
-// Feistal always computes permutaions for 2^n values hence, for every value outside out range [0, m) we do cycle walking to reach in range permutation
-// Due to this implementation, the AllocAny is O(n) and Get, Update, Free, Alloc methods are all O(1), these are expected to be the most
-// commonly called methods.
+// Every IP is mapped to an index from [0, n) which is a bijection (a Feistel permutation with cycle walking,
+// since a Feistel network always permutes 2^k values and we need [0, n)).
+//
+// Free indexes are kept as blocks (ranges) of indexes in a binary search tree (a treap) ordered by the start of the
+// block. Every block is also linked to its left and right neighbour in index order, so adjacent blocks can be merged
+// without searching. AllocAny always takes the lowest free index (the head of the list), which is O(1) apart from
+// the Feistel rounds. Alloc and Free are O(log b) where b is the number of free blocks.
 type RandomAllocator[T any] struct {
 	mu lock.Mutex
 
 	start netip.Addr
 	stop  netip.Addr
 
-	// Current number of allocations
-	allocSize    uint128
-	maxAllocSize uint128
-	index        uint128
-
 	peakAllocations int
 	randomizer      feistelRandomizer
 	allocations     map[netip.Addr]T
+	freeIndexes     *freeIndexTree
 }
 
 var _ Allocator[bool] = (*RandomAllocator[bool])(nil)
@@ -63,57 +63,49 @@ func NewRandomAllocator[T any](start, stop netip.Addr, caphint int) (*RandomAllo
 		return nil, fmt.Errorf("'start' must be less then or equal to 'stop'")
 	}
 
+	// number of IPs in the range, indexes are [0, maxAllocSize)
 	maxAllocSize := addrDiff(start, stop).add(uint128{lo: 1})
 
 	// seed for Feistel Cycle
 	seed, err := newRandomSeed()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create a random seed")
+		return nil, fmt.Errorf("failed to create a random seed: %w", err)
 	}
 
 	alloc := &RandomAllocator[T]{
-		start:        start,
-		stop:         stop,
-		randomizer:   newFeistelRandomizer(seed, maxAllocSize),
-		allocations:  make(map[netip.Addr]T, caphint),
-		allocSize:    uint128{},
-		maxAllocSize: maxAllocSize,
-		index:        uint128{},
+		start:       start,
+		stop:        stop,
+		randomizer:  newFeistelRandomizer(seed, maxAllocSize),
+		allocations: make(map[netip.Addr]T, caphint),
+		// initially the whole index range is one free block
+		freeIndexes: newFreeIndexTree(uint128{}, maxAllocSize.sub(uint128{lo: 1})),
 	}
 
 	return alloc, nil
 }
 
 // AllocAny allocates an available IP and associates value `val` to it. The caller has no control over the
-// exact IP that is allocated, which is decided from the Feistel cycle value corresponding to next free index.
-// The chosen IP is returned or error is non-nil.
+// exact IP that is allocated, which is decided from the Feistel permutation of the lowest free index.
+// The chosen IP is returned, or the error is non-nil (ErrFull if every IP in the range is in use).
 func (a *RandomAllocator[T]) AllocAny(val T) (netip.Addr, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if !a.allocSize.less(a.maxAllocSize) {
+	if a.freeIndexes.head == nil {
 		return netip.Addr{}, ErrFull
 	}
 
-	// Take the IP corresponding to the current index in possible range.
-
-	ip := a.randomizer.toIP(a.index, a.start)
-
-	for _, ok := a.allocations[ip]; ok; _, ok = a.allocations[ip] {
-		a.index = a.index.add(uint128{lo: 1})
-		ip = a.randomizer.toIP(a.index, a.start)
+	// Taking the first index of the first block only shrinks that block, it never splits it.
+	index := a.freeIndexes.head.from
+	ip := a.randomizer.toIP(index, a.start)
+	if err := a.freeIndexes.take(index); err != nil {
+		return netip.Addr{}, err
 	}
 
 	a.allocations[ip] = val
 	if a.peakAllocations < len(a.allocations) {
 		a.peakAllocations = len(a.allocations)
 	}
-
-	a.index = a.index.add(uint128{lo: 1})
-	if a.index == a.maxAllocSize {
-		a.index = uint128{lo: 0}
-	}
-	a.allocSize = a.allocSize.add(uint128{lo: 1})
 	return ip, nil
 }
 
@@ -131,17 +123,19 @@ func (a *RandomAllocator[T]) Alloc(ip netip.Addr, val T) error {
 		return ErrInUse
 	}
 
-	if !a.allocSize.less(a.maxAllocSize) {
+	if a.freeIndexes.head == nil {
 		return ErrFull
+	}
+
+	index := a.randomizer.toIndex(ip, a.start)
+	if err := a.freeIndexes.take(index); err != nil {
+		return err
 	}
 
 	a.allocations[ip] = val
 	if a.peakAllocations < len(a.allocations) {
 		a.peakAllocations = len(a.allocations)
 	}
-
-	a.allocSize = a.allocSize.add(uint128{lo: 1})
-	a.index = a.index.add(uint128{lo: 1})
 	return nil
 }
 
@@ -168,6 +162,11 @@ func (a *RandomAllocator[T]) Free(ip netip.Addr) error {
 		return ErrNotFound
 	}
 
+	index := a.randomizer.toIndex(ip, a.start)
+	if err := a.freeIndexes.put(index); err != nil {
+		return err
+	}
+
 	delete(a.allocations, ip)
 
 	// If the current number of allocations is less then 1/3 of the peak, we can shrink the map
@@ -181,7 +180,6 @@ func (a *RandomAllocator[T]) Free(ip netip.Addr) error {
 		a.peakAllocations = len(a.allocations)
 	}
 
-	a.allocSize = a.allocSize.sub(uint128{lo: 1})
 	return nil
 }
 
@@ -234,6 +232,220 @@ func (a *RandomAllocator[T]) ForEach(fn func(addr netip.Addr, val T) error) erro
 	return nil
 }
 
+// indexBlock is a range [from, to] of free indexes. It is a node in a treap ordered by `from` (left, right),
+// and also a node of a doubly linked list in index order (prev, next).
+type indexBlock struct {
+	from uint128
+	to   uint128
+
+	// treap heap-priority, random so the tree stays balanced in expectation
+	prio        uint32
+	left, right *indexBlock
+
+	// neighbours in index order
+	prev, next *indexBlock
+}
+
+func newIndexBlock(from, to uint128) *indexBlock {
+	return &indexBlock{from: from, to: to, prio: mrand.Uint32()}
+}
+
+// freeIndexTree keeps disjoint, non-adjacent blocks of free indexes. `head` is the block with the lowest indexes.
+type freeIndexTree struct {
+	root *indexBlock
+	head *indexBlock
+}
+
+func newFreeIndexTree(from, to uint128) *freeIndexTree {
+	b := newIndexBlock(from, to)
+	return &freeIndexTree{root: b, head: b}
+}
+
+// find returns the block containing `index` or nil.
+func (t *freeIndexTree) find(index uint128) *indexBlock {
+	n := t.root
+	for n != nil {
+		switch {
+		case index.less(n.from):
+			n = n.left
+		case index.more(n.to):
+			n = n.right
+		default:
+			return n
+		}
+	}
+	return nil
+}
+
+// take removes `index` from the free indexes by shrinking a block, or splitting it in two if `index` is in the
+// middle of the block. ErrInUse is returned if the index is not free.
+func (t *freeIndexTree) take(index uint128) error {
+	b := t.find(index)
+	if b == nil {
+		return ErrInUse
+	}
+
+	one := uint128{lo: 1}
+	switch {
+	case b.from == b.to:
+		t.remove(b)
+	case b.from == index:
+		// key changes but stays ordered, blocks are disjoint
+		b.from = b.from.add(one)
+	case b.to == index:
+		b.to = b.to.sub(one)
+	default:
+		right := newIndexBlock(index.add(one), b.to)
+		b.to = index.sub(one)
+		t.insertAfter(b, right)
+	}
+	return nil
+}
+
+// put returns `index` to the free indexes by growing a block, merging two blocks or adding a new block.
+func (t *freeIndexTree) put(index uint128) error {
+	// find the free blocks directly before and after index
+	var pred, succ *indexBlock
+	n := t.root
+	for n != nil {
+		switch {
+		case index.less(n.from):
+			succ = n
+			n = n.left
+		case index.more(n.to):
+			pred = n
+			n = n.right
+		default:
+			return fmt.Errorf("index is already free")
+		}
+	}
+
+	one := uint128{lo: 1}
+	adjPred := pred != nil && pred.to.add(one) == index
+	adjSucc := succ != nil && index.add(one) == succ.from
+
+	switch {
+	case adjPred && adjSucc:
+		pred.to = succ.to
+		t.remove(succ)
+	case adjPred:
+		pred.to = index
+	case adjSucc:
+		succ.from = index
+	default:
+		b := newIndexBlock(index, index)
+		if pred != nil {
+			t.insertAfter(pred, b)
+		} else {
+			b.next = t.head
+			if t.head != nil {
+				t.head.prev = b
+			}
+			t.head = b
+			t.root = insertNode(t.root, b)
+		}
+	}
+	return nil
+}
+
+// insertAfter links `b` after `after` in the list and adds it to the tree.
+func (t *freeIndexTree) insertAfter(after, b *indexBlock) {
+	b.prev = after
+	b.next = after.next
+	if after.next != nil {
+		after.next.prev = b
+	}
+	after.next = b
+	t.root = insertNode(t.root, b)
+}
+
+// remove deletes `b` from the tree and the list. Must be called before `b.from` is changed.
+func (t *freeIndexTree) remove(b *indexBlock) {
+	t.root = eraseNode(t.root, b.from)
+
+	if b.prev != nil {
+		b.prev.next = b.next
+	} else {
+		t.head = b.next
+	}
+	if b.next != nil {
+		b.next.prev = b.prev
+	}
+	b.prev, b.next, b.left, b.right = nil, nil, nil, nil
+}
+
+func cmp128(a, b uint128) int {
+	switch {
+	case a.less(b):
+		return -1
+	case a.more(b):
+		return 1
+	}
+	return 0
+}
+
+// splitNode splits the treap into blocks with from < key and blocks with from >= key.
+func splitNode(n *indexBlock, key uint128) (l, r *indexBlock) {
+	if n == nil {
+		return nil, nil
+	}
+	if n.from.less(key) {
+		a, b := splitNode(n.right, key)
+		n.right = a
+		return n, b
+	}
+	a, b := splitNode(n.left, key)
+	n.left = b
+	return a, n
+}
+
+// mergeNodes joins two treaps where every key in a is smaller than every key in b.
+func mergeNodes(a, b *indexBlock) *indexBlock {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	if a.prio > b.prio {
+		a.right = mergeNodes(a.right, b)
+		return a
+	}
+	b.left = mergeNodes(a, b.left)
+	return b
+}
+
+func insertNode(root, n *indexBlock) *indexBlock {
+	if root == nil {
+		return n
+	}
+	if n.prio > root.prio {
+		n.left, n.right = splitNode(root, n.from)
+		return n
+	}
+	if n.from.less(root.from) {
+		root.left = insertNode(root.left, n)
+	} else {
+		root.right = insertNode(root.right, n)
+	}
+	return root
+}
+
+func eraseNode(root *indexBlock, key uint128) *indexBlock {
+	if root == nil {
+		return nil
+	}
+	switch cmp128(key, root.from) {
+	case -1:
+		root.left = eraseNode(root.left, key)
+	case 1:
+		root.right = eraseNode(root.right, key)
+	default:
+		return mergeNodes(root.left, root.right)
+	}
+	return root
+}
+
 type feistelRandomizer struct {
 	// total number of bits to permute, calculated from size of cycle
 	totalBitCount uint
@@ -255,10 +467,8 @@ func newFeistelRandomizer(seed uint128, size uint128) feistelRandomizer {
 
 	maxIdx := size.sub(uint128{lo: 1})
 	if maxIdx.hi != 0 {
-		// if seed is more than 2^64
 		randomizer.totalBitCount = 64 + uint(bits.Len64(maxIdx.hi))
 	} else {
-		// if seed is less than or equal to 2^64
 		randomizer.totalBitCount = uint(bits.Len64(maxIdx.lo))
 	}
 
@@ -293,12 +503,24 @@ func (fr *feistelRandomizer) toIP(index uint128, baseIP netip.Addr) netip.Addr {
 	// re-encrypt until the value lands back in [0, size).
 	res := fr.encryptBlock(index)
 
-	// keep conitinuing the cycle
-	for res.more(fr.size.sub(uint128{lo: 1})) {
+	maxIdx := fr.size.sub(uint128{lo: 1})
+	for res.more(maxIdx) {
 		res = fr.encryptBlock(res)
 	}
 	addr := uint128FromAddr(baseIP).add(res)
 	return uint128ToAddr(addr)
+}
+
+// toIndex is the inverse of toIP. Requires ip to be inside the range.
+func (fr *feistelRandomizer) toIndex(ip, baseIP netip.Addr) uint128 {
+	v := uint128FromAddr(ip).sub(uint128FromAddr(baseIP))
+	v = fr.decryptBlock(v)
+
+	maxIdx := fr.size.sub(uint128{lo: 1})
+	for v.more(maxIdx) {
+		v = fr.decryptBlock(v)
+	}
+	return v
 }
 
 func lowMask(width uint) uint64 { return uint64(1)<<width - 1 }
@@ -311,7 +533,7 @@ func (fr *feistelRandomizer) split(v uint128) (left, right uint64) {
 	return
 }
 
-// joints the number split by `split` back
+// join puts the number split by `split` back together
 func (fr *feistelRandomizer) join(left, right uint64) uint128 {
 	rb := fr.lowBitCount
 	return uint128{hi: left >> (64 - rb), lo: left<<rb | right}
@@ -327,6 +549,20 @@ func (fr *feistelRandomizer) encryptBlock(v uint128) uint128 {
 		left, right = right, left^out
 
 		// reverse it for next round
+		leftBits, rightBits = rightBits, leftBits
+	}
+	return fr.join(left, right)
+}
+
+// Decrypts a value encrypted by encryptBlock, running the rounds in reverse
+func (fr *feistelRandomizer) decryptBlock(v uint128) uint128 {
+	leftBits, rightBits := fr.highBitCount, fr.lowBitCount
+	left, right := fr.split(v)
+
+	for i := len(fr.roundKeys) - 1; i >= 0; i-- {
+		out := mix64(left+fr.roundKeys[i]) & lowMask(rightBits)
+		left, right = right^out, left
+
 		leftBits, rightBits = rightBits, leftBits
 	}
 	return fr.join(left, right)
