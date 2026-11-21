@@ -1125,6 +1125,8 @@ gatewayAPI:
   # Note that this value will be ignored when `hostNetwork.enabled == true`.
   # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
   externalTrafficPolicy: Cluster
+  # -- Rotation interval for operator-managed shared TLS session ticket keys. Set a positive duration (for example, 1h) to enable cross-Envoy session resumption. Zero disables shared keys.
+  sessionTicketKeyRotationInterval: 0s
   gatewayClass:
     # @schema
     # type: [boolean, string]

@@ -71,29 +71,35 @@ func withProxyProtocol() ListenerMutator {
 	}
 }
 
-func withAlpn() ListenerMutator {
-	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
-		for _, filterChain := range listener.FilterChains {
-			transportSocket := filterChain.GetTransportSocket()
-			if transportSocket == nil {
-				continue
-			}
+func applyTLSConfig(listener *envoy_config_listener.Listener, useAlpn bool, secret *model.TLSSecret) error {
+	for _, filterChain := range listener.FilterChains {
+		transportSocket := filterChain.GetTransportSocket()
+		if transportSocket == nil || transportSocket.Name != tlsTransportSocketType {
+			continue
+		}
 
-			downstreamContext := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
-			err := proto.Unmarshal(transportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downstreamContext)
-			if err != nil {
-				continue
-			}
-
-			// Use `h2,http/1.1` to support both HTTP/2 and HTTP/1.1
+		downstreamContext := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+		if err := transportSocket.GetTypedConfig().UnmarshalTo(downstreamContext); err != nil {
+			return fmt.Errorf("decode listener %q TLS context: %w", listener.Name, err)
+		}
+		if useAlpn {
 			downstreamContext.CommonTlsContext.AlpnProtocols = []string{"h2,http/1.1"}
-
-			transportSocket.ConfigType = &envoy_config_core_v3.TransportSocket_TypedConfig{
-				TypedConfig: toAny(downstreamContext),
+		}
+		if secret != nil {
+			downstreamContext.SessionTicketKeysType = &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext_SessionTicketKeysSdsSecretConfig{
+				SessionTicketKeysSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+					Name: syncnames.SourceSDSSecretName(types.NamespacedName{
+						Namespace: secret.Namespace,
+						Name:      secret.Name,
+					}),
+				},
 			}
 		}
-		return listener
+		transportSocket.ConfigType = &envoy_config_core_v3.TransportSocket_TypedConfig{
+			TypedConfig: toAny(downstreamContext),
+		}
 	}
+	return nil
 }
 
 func withUseRemoteAddress(useRemoteAddress bool) ListenerMutator {
@@ -321,8 +327,9 @@ func (i *cecTranslator) desiredEnvoyListenerCombined(m *model.Model) ([]ciliumv2
 		},
 	}
 
-	for _, fn := range i.listenerMutators(m) {
-		listener = fn(listener)
+	listener, err = i.applyListenerMutators(listener, m, m.AllPorts())
+	if err != nil {
+		return nil, err
 	}
 
 	res, err := toXdsResource(listener, envoy.ListenerTypeURL)
@@ -494,8 +501,9 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		}
 		goslices.Sort(basePorts)
 		basePorts = goslices.Compact(basePorts)
-		for _, fn := range i.listenerMutatorsForPorts(m, basePorts) {
-			insecureListener = fn(insecureListener)
+		insecureListener, err := i.applyListenerMutators(insecureListener, m, basePorts)
+		if err != nil {
+			return nil, err
 		}
 		res, err := toXdsResource(insecureListener, envoy.ListenerTypeURL)
 		if err != nil {
@@ -528,8 +536,9 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 				},
 			},
 		}
-		for _, fn := range i.listenerMutatorsForPorts(m, []uint32{port}) {
-			httpsListener = fn(httpsListener)
+		httpsListener, err = i.applyListenerMutators(httpsListener, m, []uint32{port})
+		if err != nil {
+			return nil, err
 		}
 		res, err := toXdsResource(httpsListener, envoy.ListenerTypeURL)
 		if err != nil {
@@ -560,8 +569,9 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 					},
 				},
 			}
-			for _, fn := range i.listenerMutatorsForPorts(m, []uint32{port}) {
-				tlsListener = fn(tlsListener)
+			tlsListener, err := i.applyListenerMutators(tlsListener, m, []uint32{port})
+			if err != nil {
+				return nil, err
 			}
 			res, err := toXdsResource(tlsListener, envoy.ListenerTypeURL)
 			if err != nil {
@@ -574,9 +584,36 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 	return allResources, nil
 }
 
-// listenerMutators returns a list of listener mutators to apply to the listener.
-func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
-	return i.listenerMutatorsForPorts(m, m.AllPorts())
+func (i *cecTranslator) applyListenerMutators(listener *envoy_config_listener.Listener, m *model.Model, ports []uint32) (*envoy_config_listener.Listener, error) {
+	for _, mutate := range i.listenerMutatorsForPorts(m, ports) {
+		listener = mutate(listener)
+	}
+	var secret *model.TLSSecret
+	if namespace := i.Config.ListenerConfig.SessionTicketKeysNamespace; namespace != "" && !m.IsGamma() {
+		for _, sourceListener := range m.GetListeners() {
+			for _, source := range sourceListener.GetSources() {
+				if source.Kind == "Gateway" {
+					secret = &model.TLSSecret{
+						Namespace: namespace,
+						Name:      syncnames.GatewaySessionTicketSecretName(types.UID(source.UID)),
+					}
+					break
+				}
+			}
+			if secret != nil {
+				break
+			}
+		}
+		if secret == nil {
+			return nil, fmt.Errorf("Gateway source is required for managed session ticket keys")
+		}
+	}
+	if i.Config.ListenerConfig.UseAlpn || secret != nil {
+		if err := applyTLSConfig(listener, i.Config.ListenerConfig.UseAlpn, secret); err != nil {
+			return nil, err
+		}
+	}
+	return listener, nil
 }
 
 // listenerMutatorsForPorts returns listener mutators for the given port subset.
@@ -590,10 +627,6 @@ func (i *cecTranslator) listenerMutatorsForPorts(m *model.Model, ports []uint32)
 	}
 	if i.Config.ListenerConfig.UseProxyProtocol && !m.IsGamma() {
 		res = append(res, withProxyProtocol())
-	}
-
-	if i.Config.ListenerConfig.UseAlpn {
-		res = append(res, withAlpn())
 	}
 
 	if i.Config.HostNetworkConfig.Enabled {
