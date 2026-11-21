@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/k8s/internal"
 	"github.com/cilium/cilium/pkg/k8s/portforward"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type ExecParameters struct {
@@ -95,10 +96,66 @@ func (c *Client) execInPodWithWriters(connCtx, killCmdCtx context.Context, p Exe
 		defer stdin.Close()
 	}
 
-	return exec.StreamWithContext(connCtx, remotecommand.StreamOptions{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-		Tty:    p.TTY,
-	})
+	// The SPDY executor reads the upgrade response without honoring connCtx,
+	// so an unresponsive kubelet blocks StreamWithContext indefinitely. Run
+	// the stream in a goroutine and give up on it once connCtx is done. The
+	// abandoned stream keeps running until that read returns, so its writers
+	// are detached to keep it from writing to the caller's writers afterwards.
+	detachedStdout, detachedStderr := newDetachableWriter(stdout), newDetachableWriter(stderr)
+	defer detachedStdout.detach()
+	defer detachedStderr.detach()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- exec.StreamWithContext(connCtx, remotecommand.StreamOptions{
+			Stdin:  stdin,
+			Stdout: detachedStdout.writer(),
+			Stderr: detachedStderr.writer(),
+			Tty:    p.TTY,
+		})
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-connCtx.Done():
+		return context.Cause(connCtx)
+	}
+}
+
+// detachableWriter forwards writes to w until it is detached, and drops them
+// afterwards.
+type detachableWriter struct {
+	mu lock.Mutex
+	w  io.Writer
+}
+
+func newDetachableWriter(w io.Writer) *detachableWriter {
+	return &detachableWriter{w: w}
+}
+
+// Write implements io.Writer. It returns io.ErrClosedPipe once detached.
+func (d *detachableWriter) Write(p []byte) (int, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.w == nil {
+		return 0, io.ErrClosedPipe
+	}
+	return d.w.Write(p)
+}
+
+// writer returns d, or nil if d wraps a nil writer. The executor only sets up
+// a stream for a non-nil writer, so a nil writer must stay nil.
+func (d *detachableWriter) writer() io.Writer {
+	if d.w == nil {
+		return nil
+	}
+	return d
+}
+
+// detach stops forwarding writes. It waits for a write in progress to finish.
+func (d *detachableWriter) detach() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.w = nil
 }
