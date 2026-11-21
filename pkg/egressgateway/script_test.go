@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -64,7 +65,7 @@ func TestPrivilegedScripts(t *testing.T) {
 				daemonk8s.ResourcesCell,
 				k8sTables.NamespaceTableCell,
 				agent.Cell,
-
+				registry.Cell,
 				Cell,
 				sysctl.Cell,
 				tables.NodeAddressCell,
@@ -167,6 +168,7 @@ var testCell = cell.Group(
 		egressmap.CreatePrivatePolicyMap4V2,
 		egressmap.CreatePrivatePolicyMap6,
 	),
+	egressmap.ConfigurePolicyMapsCell,
 )
 
 type mockNodeSync struct{}
