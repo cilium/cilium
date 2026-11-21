@@ -303,6 +303,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-request-header-modifier", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-request-header-modifier-backend-weights", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-request-mirror", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-request-mirror-backendtlspolicy", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-request-multiple-mirrors", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-request-percentage-mirror", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-response-header-modifier", gateway: []gwDetails{gatewaySameNamespace}},
