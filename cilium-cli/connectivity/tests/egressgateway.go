@@ -792,15 +792,21 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				hostIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
+				if ipFam == features.IPFamilyV6 && !ipv6Enabled {
+					return
+				}
+
+				egressIP := egressGatewayNodeInternalIP
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
+					egressIP = egressGatewayNodeInternalIPv6
+				}
+
+				clientNodeIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
+				if ipFam == features.IPFamilyV6 {
 					for _, addr := range client.Pod.Status.HostIPs {
-						ip, err := netip.ParseAddr(addr.IP)
-						if err == nil && ip.Unmap().Is6() {
-							hostIP = ip
+						parsed, err := netip.ParseAddr(addr.IP)
+						if err == nil && parsed.Unmap().Is6() {
+							clientNodeIP = parsed
 							break
 						}
 					}
@@ -808,7 +814,24 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					validateEgressGatewayClientIP(a, hostIP)
+					if a.Failed() {
+						return
+					}
+
+					clientIP, err := extractClientIPFromResponse(a.CmdOutput())
+					if err != nil {
+						a.Failf("Cannot extract client IP from response %q: %s", a.CmdOutput(), err)
+						return
+					}
+
+					// If the egress IP would be the same as the client's node IP then
+					// we don't know whether it was masqueraded locally due to exclusion
+					// or due to egress-gateway.
+					if clientNodeIP != egressIP &&
+						ip.CompareUnmap(clientIP, egressIP) == 0 {
+						a.Failf("Excluded-CIDR traffic was masqueraded with egress gateway IP %s for pod %s/%s (actual: %s); exclusion did not take effect",
+							egressIP, client.Pod.Namespace, client.Pod.Name, clientIP)
+					}
 				})
 			})
 			i++
