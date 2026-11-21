@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	mrand "math/rand/v2"
 	"net/netip"
 	"testing"
 
@@ -335,6 +336,155 @@ func BenchmarkRandAlloc_AllocPerStage(b *testing.B) {
 
 				err = alloc.Alloc(ip, true)
 				if err != nil && !errors.Is(err, ErrInUse) {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func rangeOf(start netip.Addr, size int) (netip.Addr, netip.Addr) {
+	stop := start
+	for i := 1; i < size; i++ {
+		stop = stop.Next()
+	}
+	return start, stop
+}
+
+func TestRandAlloc_AllocAnyCoversRange(t *testing.T) {
+	var testStarts = []string{"10.0.0.0", "2001:db8::", "2001:db8::ffff:ffff:ffff:fff0"}
+	for _, s := range testStarts {
+		for size := 1; size <= 300; size++ {
+			start, stop := rangeOf(netip.MustParseAddr(s), size)
+			a, err := NewRandomAllocator[bool](start, stop, size)
+			require.NoError(t, err)
+
+			seen := map[netip.Addr]bool{}
+			for i := 0; i < size; i++ {
+				ip, err := a.AllocAny(true)
+				require.NoError(t, err, "start=%s size=%d i=%d", s, size, i)
+				require.False(t, ip.Less(start) || stop.Less(ip), "out of range: %s", ip)
+				require.False(t, seen[ip], "duplicate %s", ip)
+				seen[ip] = true
+			}
+			_, err = a.AllocAny(true)
+			require.ErrorIs(t, err, ErrFull)
+		}
+	}
+}
+
+func TestRandAlloc_MixedOpsAgainstModel(t *testing.T) {
+	var testStarts = []string{"10.0.0.0", "2001:db8::", "2001:db8::ffff:ffff:ffff:fff0"}
+
+	r := mrand.New(mrand.NewPCG(1, 2))
+	for _, s := range testStarts {
+		for size := 1; size <= 64; size++ {
+			start, stop := rangeOf(netip.MustParseAddr(s), size)
+			a, err := NewRandomAllocator[bool](start, stop, 0)
+			require.NoError(t, err)
+			model := map[netip.Addr]bool{}
+
+			for range 2000 {
+				switch r.IntN(3) {
+				case 0: // specific
+					ip := start
+					for i := r.IntN(size); i > 0; i-- {
+						ip = ip.Next()
+					}
+					err := a.Alloc(ip, true)
+					switch {
+					case model[ip]:
+						require.ErrorIs(t, err, ErrInUse)
+					case len(model) == size:
+						require.ErrorIs(t, err, ErrFull)
+					default:
+						require.NoError(t, err)
+						model[ip] = true
+					}
+				case 1: // any
+					ip, err := a.AllocAny(true)
+					if len(model) == size {
+						require.ErrorIs(t, err, ErrFull)
+						continue
+					}
+					require.NoError(t, err)
+					require.False(t, model[ip], "AllocAny returned used IP %s", ip)
+					require.False(t, ip.Less(start) || stop.Less(ip))
+					model[ip] = true
+				case 2: // free
+					for ip := range model {
+						require.NoError(t, a.Free(ip))
+						delete(model, ip)
+						break
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestRandAlloc_FullSpecificThenFreeThenAny(t *testing.T) {
+	// targets index drift: Alloc advances index past size
+	start, stop := rangeOf(netip.MustParseAddr("10.0.0.0"), 4)
+	a, _ := NewRandomAllocator[bool](start, stop, 4)
+	for ip := start; ip.Compare(stop) <= 0; ip = ip.Next() {
+		require.NoError(t, a.Alloc(ip, true))
+	}
+	require.NoError(t, a.Free(netip.MustParseAddr("10.0.0.2")))
+	ip, err := a.AllocAny(true)
+	require.NoError(t, err)
+	require.Equal(t, netip.MustParseAddr("10.0.0.2"), ip)
+}
+
+func BenchmarkRandAlloc_ChurnAtFill(b *testing.B) {
+	const size = 1 << 24
+	start, stop := rangeOf(netip.MustParseAddr("10.0.0.0"), size)
+
+	for _, fill := range []float64{0.10, 0.50, 0.90, 0.99} {
+		b.Run(fmt.Sprintf("fill=%.0f%%", fill*100), func(bb *testing.B) {
+			a, err := NewRandomAllocator[bool](start, stop, size)
+			if err != nil {
+				bb.Fatal(err)
+			}
+			live := make([]netip.Addr, 0, size)
+			for len(live) < int(fill*size) {
+				ip, err := a.AllocAny(true)
+				if err != nil {
+					bb.Fatal(err)
+				}
+				live = append(live, ip)
+			}
+			r := mrand.New(mrand.NewPCG(1, 2))
+			bb.ResetTimer()
+			for i := 0; i < bb.N; i++ {
+				j := r.IntN(len(live))
+				if err := a.Free(live[j]); err != nil {
+					bb.Fatal(err)
+				}
+				ip, err := a.AllocAny(true)
+				if err != nil {
+					bb.Fatal(err)
+				}
+				live[j] = ip
+			}
+		})
+	}
+}
+
+func BenchmarkRandAlloc_AllocAnyFrag(b *testing.B) {
+	for _, frag := range []int{0, 10_000, 100_000} {
+		b.Run(fmt.Sprintf("frag=%d", frag), func(b *testing.B) {
+			a, _ := NewRandomAllocator[bool](
+				netip.MustParseAddr("0.0.0.0"),
+				netip.MustParseAddr("0.255.255.255"), b.N+frag)
+			rng := mrand.New(mrand.NewPCG(1, 2))
+			for range frag {
+				v := rng.Uint32() & 0x00ffffff
+				_ = a.Alloc(netip.AddrFrom4([4]byte{0, byte(v >> 16), byte(v >> 8), byte(v)}), true)
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := a.AllocAny(true); err != nil {
 					b.Fatal(err)
 				}
 			}

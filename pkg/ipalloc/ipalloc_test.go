@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	mrand "math/rand/v2"
 	"net/netip"
 	"sort"
 	"testing"
@@ -462,7 +463,8 @@ func BenchmarkHashAlloc_AllocFullRand(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	for i := 0; b.Loop(); i++ {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		ip, ok := netip.AddrFromSlice(buf[i*4 : (i+1)*4])
 		if !ok {
 			b.Fatal("can't convert IP")
@@ -576,7 +578,7 @@ func BenchmarkHashAlloc_AllocPerStage(b *testing.B) {
 
 			bb.ResetTimer()
 
-			for i := 0; bb.Loop(); i++ {
+			for i := 0; i < bb.N; i++ {
 				ip, ok := netip.AddrFromSlice(append([]byte{0}, buf[i*3:(i+1)*3]...))
 				if !ok {
 					b.Fatal("can't convert IP")
@@ -584,6 +586,62 @@ func BenchmarkHashAlloc_AllocPerStage(b *testing.B) {
 
 				err = alloc.Alloc(ip, true)
 				if err != nil && !errors.Is(err, ErrInUse) {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkHashAlloc_ChurnAtFill(b *testing.B) {
+	const size = 1 << 24
+	start, stop := rangeOf(netip.MustParseAddr("10.0.0.0"), size)
+
+	for _, fill := range []float64{0.10, 0.50, 0.90, 0.99} {
+		b.Run(fmt.Sprintf("fill=%.0f%%", fill*100), func(bb *testing.B) {
+			a, err := NewHashAllocator[bool](start, stop, size)
+			if err != nil {
+				bb.Fatal(err)
+			}
+			live := make([]netip.Addr, 0, size)
+			for len(live) < int(fill*size) {
+				ip, err := a.AllocAny(true)
+				if err != nil {
+					bb.Fatal(err)
+				}
+				live = append(live, ip)
+			}
+			r := mrand.New(mrand.NewPCG(1, 2))
+			bb.ResetTimer()
+			for i := 0; i < bb.N; i++ {
+				j := r.IntN(len(live))
+				if err := a.Free(live[j]); err != nil {
+					bb.Fatal(err)
+				}
+				ip, err := a.AllocAny(true)
+				if err != nil {
+					bb.Fatal(err)
+				}
+				live[j] = ip
+			}
+		})
+	}
+}
+
+func BenchmarkHashAlloc_AllocAnyFrag(b *testing.B) {
+	for _, frag := range []int{0, 10_000, 100_000} {
+		b.Run(fmt.Sprintf("frag=%d", frag), func(b *testing.B) {
+			a, _ := NewHashAllocator[bool](
+				netip.MustParseAddr("0.0.0.0"),
+				netip.MustParseAddr("0.255.255.255"), b.N+frag)
+			rng := mrand.New(mrand.NewPCG(1, 2))
+			for range frag {
+				v := rng.Uint32() & 0x00ffffff
+				_ = a.Alloc(netip.AddrFrom4([4]byte{0, byte(v >> 16), byte(v >> 8), byte(v)}), true)
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := a.AllocAny(true); err != nil {
 					b.Fatal(err)
 				}
 			}
