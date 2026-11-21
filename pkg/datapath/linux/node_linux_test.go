@@ -526,6 +526,62 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	}
 }
 
+func TestPrivilegedNodeUpdateRoutingMode(t *testing.T) {
+	testWithFamilies(t, func(t *testing.T, family string) {
+		s := setup(t, family)
+		lnh := newTestNodeHandler(t)
+		lnh.nodePolicy.SetEnableEncapsulation(func(n *nodeTypes.Node) bool {
+			return n.Annotations["test-routing-mode"] == "tunnel"
+		})
+		mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
+		n := nodeTypes.Node{
+			Name: "remote",
+			IPAddresses: []nodeTypes.Address{
+				nodeTypes.NewAddress(nodeaddressing.NodeInternalIP, netip.MustParseAddr("4.4.4.4")),
+			},
+		}
+		if s.enableIPv4 {
+			n.IPv4AllocCIDR = nodeTypes.PrefixFrom(netip.MustParsePrefix("5.5.5.0/24"))
+		}
+		if s.enableIPv6 {
+			n.IPv6AllocCIDR = nodeTypes.PrefixFrom(netip.MustParsePrefix("2001:aaaa::/96"))
+		}
+		mustAddNode(t, s.ns, lnh, n)
+		nodeID := lnh.getNodeIDForNode(&n)
+		require.NotZero(t, nodeID)
+		for _, mode := range []string{"tunnel", "tunnel", "native", "native", "tunnel", "native"} {
+			next := *n.DeepCopy()
+			next.Annotations = map[string]string{"test-routing-mode": mode}
+			mustUpdateNode(t, s.ns, lnh, n, next)
+			require.Equal(t, nodeID, lnh.getNodeIDForNode(&next))
+			for _, prefix := range append(next.GetIPv4AllocCIDRs(), next.GetIPv6AllocCIDRs()...) {
+				rt := mustGetNodeRoute(t, s.ns, lnh, prefix)
+				if mode == "tunnel" {
+					require.NotNil(t, rt)
+				} else {
+					require.Nil(t, rt)
+				}
+			}
+			n = next
+		}
+		// A failed native update can remove routes before another operation
+		// fails. Returning to tunnel mode must restore unchanged prefixes.
+		tunneled := *n.DeepCopy()
+		tunneled.Annotations = map[string]string{"test-routing-mode": "tunnel"}
+		mustUpdateNode(t, s.ns, lnh, n, tunneled)
+		lnh.nodeMap = &failOnceNodeMap{MapV2: lnh.nodeMap, fail: true}
+		n.EncryptionKey++
+		require.Error(t, s.ns.Do(func() error {
+			return (&linuxNodeOps{handler: lnh}).Update(t.Context(), nil, 0, &node.Node{Node: n})
+		}))
+		mustUpdateNode(t, s.ns, lnh, n, tunneled)
+		for _, prefix := range append(tunneled.GetIPv4AllocCIDRs(), tunneled.GetIPv6AllocCIDRs()...) {
+			require.NotNil(t, mustGetNodeRoute(t, s.ns, lnh, prefix))
+		}
+		mustDeleteNode(t, s.ns, lnh, tunneled)
+	})
+}
+
 func TestPrivilegedNodeUpdateIDs(t *testing.T) {
 	testWithFamilies(t, func(t *testing.T, family string) {
 		testNodeUpdateIDs(t, family)
