@@ -31,6 +31,8 @@ type BPFLXC struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
+	// Enable multicast support.
+	EnableMulticast bool `config:"enable_multicast"`
 	// Enable NAT46/NAT64 translation for NodePort services.
 	EnableNAT46X64 bool `config:"enable_nat_46x64"`
 	// Enable NAT46/NAT64 gateway for NodePort services.
@@ -100,7 +102,7 @@ type BPFLXC struct {
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x0, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
