@@ -25,6 +25,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
 * [cilium-dbg build-config](cilium-dbg_build-config.md)	 - Resolve all of the configuration sources that apply to this node
 * [cilium-dbg cgroups](cilium-dbg_cgroups.md)	 - Cgroup metadata
+* [cilium-dbg cni-uninstall](cilium-dbg_cni-uninstall.md)	 - Remove the active Cilium CNI configurations from the host
 * [cilium-dbg completion](cilium-dbg_completion.md)	 - Output shell completion code
 * [cilium-dbg config](cilium-dbg_config.md)	 - Cilium configuration options
 * [cilium-dbg debuginfo](cilium-dbg_debuginfo.md)	 - Request available debugging information from agent
