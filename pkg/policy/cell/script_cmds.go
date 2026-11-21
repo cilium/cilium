@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/cilium/hive/script"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -77,7 +77,7 @@ func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
 				policy.ObjectMeta.Namespace,
 				policy.ObjectMeta.Name,
 			)
-		case *policyv1alpha2.ClusterNetworkPolicy:
+		case *policyv1beta1.ClusterNetworkPolicy:
 			rules, err = k8s.ParseClusterNetworkPolicy(p.log, cmtypes.PolicyAnyCluster, policy)
 			if err != nil {
 				return nil, "", fmt.Errorf("cluster network policy parse: %w", err)

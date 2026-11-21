@@ -37,15 +37,15 @@ type ClusterNetworkPolicyEgressRuleApplyConfiguration struct {
 	// for any applied policies.
 	Name *string `json:"name,omitempty"`
 	// Action specifies the effect this rule will have on matching
-	// traffic.  Currently the following actions are supported:
+	// traffic. Currently, the following actions are supported:
 	//
-	// - Accept: Accepts the selected traffic, allowing it to
-	// egress. No further ClusterNetworkPolicy or NetworkPolicy
-	// rules will be processed.
+	// - Accept: Accepts the selected traffic, including replies to that
+	// traffic and related ICMP traffic. No further egress
+	// ClusterNetworkPolicy or NetworkPolicy rules will be processed
+	// but any ingress rules at the destination do apply.
 	//
-	// - Deny: Drops the selected traffic. No further
-	// ClusterNetworkPolicy or NetworkPolicy rules will be
-	// processed.
+	// - Deny: Drops the selected traffic. No further ClusterNetworkPolicy or
+	// NetworkPolicy rules will be processed.
 	//
 	// - Pass: Skips all further ClusterNetworkPolicy rules in the
 	// current tier for the selected traffic, and passes

@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/crdhelpers"
@@ -41,7 +41,7 @@ const (
 //go:embed crds/policy.networking.k8s.io_clusternetworkpolicies.yaml
 var kcnpCRDBytes []byte
 
-var kcnpGVK = policyv1alpha2.SchemeGroupVersion.WithKind("clusternetworkpolicies")
+var kcnpGVK = policyv1beta1.SchemeGroupVersion.WithKind("clusternetworkpolicies")
 
 type kcnpCRDConfig struct {
 	// K8sClusterNetworkPolicyInstallCRDs controls whether to automatically

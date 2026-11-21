@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -200,15 +200,15 @@ func NetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.
 	return resource.New[*slim_networkingv1.NetworkPolicy](lc, lw, mp, resource.WithMetric("NetworkPolicy")), nil
 }
 
-func ClusterNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*policyv1alpha2.ClusterNetworkPolicy], error) {
+func ClusterNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*policyv1beta1.ClusterNetworkPolicy], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*policyv1alpha2.ClusterNetworkPolicyList](params.ClientSet.PolicyV1alpha2().ClusterNetworkPolicies()),
+		utils.ListerWatcherFromTyped[*policyv1beta1.ClusterNetworkPolicyList](params.ClientSet.NetworkPolicyAPI().PolicyV1beta1().ClusterNetworkPolicies()),
 		opts...,
 	)
-	return resource.New[*policyv1alpha2.ClusterNetworkPolicy](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("ClusterNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*policyv1beta1.ClusterNetworkPolicy](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("ClusterNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
 func CiliumNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {

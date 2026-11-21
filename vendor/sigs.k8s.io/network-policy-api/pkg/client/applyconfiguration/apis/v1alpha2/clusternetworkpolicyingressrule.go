@@ -35,11 +35,11 @@ type ClusterNetworkPolicyIngressRuleApplyConfiguration struct {
 	// for any applied policies.
 	Name *string `json:"name,omitempty"`
 	// Action specifies the effect this rule will have on matching
-	// traffic. Currently the following actions are supported:
+	// traffic. Currently, the following actions are supported:
 	//
-	// - Accept: Accepts the selected traffic, allowing it into
-	// the destination. No further ClusterNetworkPolicy or
-	// NetworkPolicy rules will be processed.
+	// - Accept: Accepts the selected traffic, including replies to that
+	// traffic and related ICMP traffic. No further ingress
+	// ClusterNetworkPolicy or NetworkPolicy rules will be processed.
 	//
 	// Note: while Accept ensures traffic is accepted by
 	// Kubernetes network policy, it is still possible that the

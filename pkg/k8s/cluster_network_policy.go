@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -64,7 +64,7 @@ func kcnpProcessNamespaceSelector(namespaces *metav1.LabelSelector) *slim_metav1
 // which selects all the specified pods in the specified namespaces. If a
 // cluster name is provided and the pod selector does not already explicitly
 // target a cluster, a selector targeting the named cluster will be added.
-func kcnpParseNamespacedPod(clusterName string, peer policyv1alpha2.NamespacedPod) *types.LabelSelector {
+func kcnpParseNamespacedPod(clusterName string, peer policyv1beta1.NamespacedPod) *types.LabelSelector {
 	podSelector := toSlimLabelSelector(&peer.PodSelector)
 	es := api.NewESFromK8sLabelSelector(
 		labels.LabelSourceK8sKeyPrefix,
@@ -100,7 +100,7 @@ func kcnpProcessNodeSelector(clusterName string, nodeSelector *metav1.LabelSelec
 	return types.ToSelectors(esHost, esRemoteNode)
 }
 
-func kcnpParseCIDRSelectors(cidrs []policyv1alpha2.CIDR) types.Selectors {
+func kcnpParseCIDRSelectors(cidrs []policyv1beta1.CIDR) types.Selectors {
 	result := types.Selectors{}
 	for _, cidr := range cidrs {
 		result = append(result, types.ToSelector(api.CIDR(string(cidr))))
@@ -118,7 +118,7 @@ func kcnpParseCIDRSelectors(cidrs []policyv1alpha2.CIDR) types.Selectors {
 // L7 proxy to intercept and enforce policy based on the domain names.
 //
 // Returns an error if the domain name or pattern is not formatted correctly.
-func kcnpParseFQDNSelectors(fqdns []policyv1alpha2.DomainName) (types.Selectors, api.PortRulesDNS, error) {
+func kcnpParseFQDNSelectors(fqdns []policyv1beta1.DomainName) (types.Selectors, api.PortRulesDNS, error) {
 	peerSelectors := types.Selectors{}
 	dnsRules := api.PortRulesDNS{}
 	for _, fqdn := range fqdns {
@@ -157,12 +157,12 @@ func kcnpParseFQDNSelectors(fqdns []policyv1alpha2.DomainName) (types.Selectors,
 // Exactly one of PortNumber, PortRange or NamedPort in each slice value must be non-nil,
 // which is ensured through CRD validation. Returns an error if the protocol specification
 // can not be parsed.
-func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol) (api.PortRules, error) {
+func kcnpParseProtocols(protocols []policyv1beta1.ClusterNetworkPolicyProtocol) (api.PortRules, error) {
 	portRules := api.PortRules{}
 	for _, proto := range protocols {
 		var (
 			pp   api.PortProtocol
-			port *policyv1alpha2.Port
+			port *policyv1beta1.Port
 		)
 
 		// Only one of TCP, UDP, SCTP or DestinationNamedPort can be specified.
@@ -199,7 +199,7 @@ func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol)
 // It uses the name from the Cilium annotation if present. If the policy's
 // annotations do not contain the Cilium annotation, the policy's name field
 // is used instead.
-func GetKCNPPolicyLabels(logger *slog.Logger, cnp *policyv1alpha2.ClusterNetworkPolicy) labels.LabelArray {
+func GetKCNPPolicyLabels(logger *slog.Logger, cnp *policyv1beta1.ClusterNetworkPolicy) labels.LabelArray {
 	if cnp == nil {
 		logger.Warn("unable to extract policy labels because provided ClusterNetworkPolicy is nil")
 		return nil
@@ -215,11 +215,11 @@ func GetKCNPPolicyLabels(logger *slog.Logger, cnp *policyv1alpha2.ClusterNetwork
 	return k8sCiliumUtils.GetPolicyLabels("", policyName, policyUID, resourceTypeClusterNetworkPolicy)
 }
 
-func actionToVerdict(action policyv1alpha2.ClusterNetworkPolicyRuleAction) types.Verdict {
+func actionToVerdict(action policyv1beta1.ClusterNetworkPolicyRuleAction) types.Verdict {
 	switch action {
-	case policyv1alpha2.ClusterNetworkPolicyRuleActionDeny:
+	case policyv1beta1.ClusterNetworkPolicyRuleActionDeny:
 		return types.Deny
-	case policyv1alpha2.ClusterNetworkPolicyRuleActionPass:
+	case policyv1beta1.ClusterNetworkPolicyRuleActionPass:
 		return types.Pass
 	default:
 		return types.Allow
@@ -229,7 +229,7 @@ func actionToVerdict(action policyv1alpha2.ClusterNetworkPolicyRuleAction) types
 // ParseClusterNetworkPolicy parses a k8s ClusterNetworkPolicy. Returns a list of
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
-func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *policyv1alpha2.ClusterNetworkPolicy) (types.PolicyEntries, error) {
+func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *policyv1beta1.ClusterNetworkPolicy) (types.PolicyEntries, error) {
 	if cnp == nil {
 		return nil, errors.New("cannot parse ClusterNetworkPolicy because it is nil")
 	}
@@ -239,7 +239,7 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 
 	basePriority := float64(cnp.Spec.Priority)
 	tier := types.Admin
-	if cnp.Spec.Tier == policyv1alpha2.BaselineTier {
+	if cnp.Spec.Tier == policyv1beta1.BaselineTier {
 		tier = types.Baseline
 	}
 

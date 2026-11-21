@@ -31,6 +31,8 @@ import (
 	fakepolicyv1alpha1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
 	fakepolicyv1alpha2 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2/fake"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
+	fakepolicyv1beta1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -82,7 +84,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-// IsWatchListSemanticsSupported informs the reflector that this client
+// IsWatchListSemanticsUnSupported informs the reflector that this client
 // doesn't support WatchList semantics.
 //
 // This is a synthetic method whose sole purpose is to satisfy the optional
@@ -146,4 +148,9 @@ func (c *Clientset) PolicyV1alpha1() policyv1alpha1.PolicyV1alpha1Interface {
 // PolicyV1alpha2 retrieves the PolicyV1alpha2Client
 func (c *Clientset) PolicyV1alpha2() policyv1alpha2.PolicyV1alpha2Interface {
 	return &fakepolicyv1alpha2.FakePolicyV1alpha2{Fake: &c.Fake}
+}
+
+// PolicyV1beta1 retrieves the PolicyV1beta1Client
+func (c *Clientset) PolicyV1beta1() policyv1beta1.PolicyV1beta1Interface {
+	return &fakepolicyv1beta1.FakePolicyV1beta1{Fake: &c.Fake}
 }
