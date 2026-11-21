@@ -32,6 +32,8 @@ type EC2API interface {
 	GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error)
 	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetSubnets(ctx context.Context, vpcID string) (ipamTypes.SubnetMap, error)
+	// Deprecated: only feeds the deprecated ENI.VPC status field.
+	// TODO(1.22): Remove GetVpcs, along with the vpcs arguments in the above methods.
 	GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNetworkMap, error)
 	GetRouteTables(ctx context.Context, vpcID string) (ipamTypes.RouteTableMap, error)
 	GetSecurityGroups(ctx context.Context, vpcID string) (types.SecurityGroupMap, error)

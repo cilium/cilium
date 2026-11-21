@@ -709,6 +709,11 @@ func (c *Client) describeVpcs(ctx context.Context, vpcID string) ([]ec2_types.Vp
 }
 
 // GetVpcs retrieves and returns the VPC based on vpcID, or all VPCs if the vpcID is empty.
+//
+// Deprecated: the only use of the returned map is to populate the deprecated
+// ENI.VPC status field in parseENI, which no longer has any reader.
+//
+// TODO(1.22): Remove this method and the associated ec2:DescribeVpcs IAM permission requirement
 func (c *Client) GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNetworkMap, error) {
 	vpcs := ipamTypes.VirtualNetworkMap{}
 
