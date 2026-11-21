@@ -465,7 +465,7 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return SYS_PROCEED;
 
 	if (sock_is_health_check(ctx)) {
@@ -528,7 +528,7 @@ int cil_sock4_post_bind(struct bpf_sock *ctx)
 {
 	int err;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return SYS_PROCEED;
 
 	err = __sock4_post_bind(ctx, ctx);
@@ -573,7 +573,7 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 {
 	int ret = SYS_PROCEED;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return ret;
 	if (!sock_proto_enabled(ctx_protocol(ctx)) ||
 	    !ctx_in_hostns(ctx, NULL))
@@ -637,7 +637,7 @@ int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return SYS_PROCEED;
 
 	err = __sock4_xlate_fwd(ctx, ctx, true, false);
@@ -652,7 +652,7 @@ int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 __section("cgroup/recvmsg4")
 int cil_sock4_recvmsg(struct bpf_sock_addr *ctx)
 {
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return SYS_PROCEED;
 
 	__sock4_xlate_rev(ctx, ctx);
@@ -662,7 +662,7 @@ int cil_sock4_recvmsg(struct bpf_sock_addr *ctx)
 __section("cgroup/getpeername4")
 int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 {
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return SYS_PROCEED;
 
 	__sock4_xlate_rev(ctx, ctx);
@@ -869,7 +869,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx,
 	union v6addr addr6;
 	int ret;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return -ENXIO;
 
 	ctx_get_v6_address(ctx, &addr6);
@@ -898,7 +898,7 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
 	struct bpf_sock fake_ctx;
 	union v6addr addr6;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return 0;
 
 	ctx_get_v6_src_address(ctx, &addr6);
@@ -966,7 +966,7 @@ sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx)
 	union v6addr addr6;
 	int ret;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return 0;
 
 	ctx_get_v6_address(ctx, &addr6);
@@ -1186,7 +1186,7 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx)
 	union v6addr addr6;
 	int ret;
 
-	if (!is_defined(ENABLE_IPV4))
+	if (!CONFIG(enable_ipv4))
 		return -ENXIO;
 
 	ctx_get_v6_address(ctx, &addr6);
@@ -1288,7 +1288,7 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 __section("cgroup/sock_release")
 int cil_sock_release(struct bpf_sock *ctx)
 {
-	if (is_defined(ENABLE_IPV4) && ctx->family == AF_INET) {
+	if (CONFIG(enable_ipv4) && ctx->family == AF_INET) {
 		if (!sock4_delete_revnat(ctx, ctx))
 			update_metrics(0, METRIC_EGRESS,
 				       REASON_LB_REVNAT_DELETE);
@@ -1297,7 +1297,7 @@ int cil_sock_release(struct bpf_sock *ctx)
 		union v6addr addr6;
 
 		ctx_get_v6_dst_address(ctx, &addr6);
-		if (is_defined(ENABLE_IPV4) && is_v4_in_v6(&addr6)) {
+		if (CONFIG(enable_ipv4) && is_v4_in_v6(&addr6)) {
 			struct bpf_sock fake_ctx;
 
 			memset(&fake_ctx, 0, sizeof(fake_ctx));

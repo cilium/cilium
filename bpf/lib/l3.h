@@ -72,7 +72,7 @@ static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx, __be16 proto)
 		}
 		break;
 	case ETH_P_IP:
-		if (is_defined(ENABLE_IPV4)) {
+		if (CONFIG(enable_ipv4)) {
 			void *data, *data_end;
 			struct iphdr *ip4;
 
@@ -81,7 +81,7 @@ static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx, __be16 proto)
 		}
 		break;
 	case ETH_P_ARP:
-		if (is_defined(ENABLE_IPV4)) {
+		if (CONFIG(enable_ipv4)) {
 			void *data, *data_end;
 			struct arp_eth *arp;
 

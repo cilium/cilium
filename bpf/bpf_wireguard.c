@@ -304,7 +304,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 								CTX_ACT_OK, METRIC_INGRESS);
 
 	case bpf_htons(ETH_P_IP):
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			break;
 
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))

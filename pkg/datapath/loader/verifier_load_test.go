@@ -22,8 +22,13 @@ func setDebugOptions(t *config.Node, v bool) {
 	t.Debug, t.DebugLB, t.DebugTagged = v, v, v
 }
 
+// disableIPv4 is meant to be the last permuted option, so that loads with IPv4 enabled come first.
+func disableIPv4(t *config.Node, v bool) {
+	// Invert it so we get the IPv4-enabled permutations first.
+	t.EnableIPv4 = !v
+}
+
 func setBasePermutations(t *config.Node) {
-	t.EnableIPv4 = true
 	t.EnableIPv6 = true
 	t.EnableBPFHostRouting = true
 	t.IPv4SNATExclusion.DstAddr.Addr = [4]byte{0xff, 0xff, 0x00, 0x00}
@@ -107,6 +112,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		}),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFLXC, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFLXC, v bool) { disableIPv4(&t.Node, v) }),
 	)
 	return b
 }
@@ -162,6 +168,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 			}
 		}),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFHost, v bool) { disableIPv4(&t.Node, v) }),
 	)
 	return b
 }
@@ -190,6 +197,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 				t.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchIPIP
 			}
 		}),
+		Permute(func(t *config.BPFOverlay, v bool) { disableIPv4(&t.Node, v) }),
 	)
 	return b
 }
@@ -217,6 +225,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 		}),
 		IncrementOrPermute(func(t *config.BPFSock, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFSock, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFSock, v bool) { disableIPv4(&t.Node, v) }),
 	)
 	return b
 }
@@ -247,6 +256,7 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 			}
 		}),
 		Increment(func(t *config.BPFWireguard, v bool) { setDebugOptions(&t.Node, v) }),
+		Permute(func(t *config.BPFWireguard, v bool) { disableIPv4(&t.Node, v) }),
 	)
 	return b
 }
@@ -277,6 +287,7 @@ func baseXDPPermutations() *loadPermutationBuilder {
 				t.DSRCfg.DispatchMode = types.DSRDispatchModeDSRDispatchIPIP
 			}
 		}),
+		Permute(func(t *config.BPFXDP, v bool) { disableIPv4(&t.Node, v) }),
 	)
 	return b
 }

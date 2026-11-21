@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4			1
 
 #define POD_SEC_IDENTITY		112233
 

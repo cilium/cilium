@@ -11,7 +11,6 @@
  * conflicts
  */
 
-#define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
 /* IPv4 test addresses */

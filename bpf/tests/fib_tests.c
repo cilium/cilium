@@ -2,7 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
-#define ENABLE_IPV4		      1
 #define ENABLE_IPV6		      1
 #define SKIP_ICMPV6_HOPLIMIT_HANDLING 1
 #include "common.h"

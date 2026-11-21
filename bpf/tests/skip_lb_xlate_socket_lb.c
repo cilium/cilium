@@ -7,7 +7,6 @@
 
 #define TEST_BPF_SOCK 1
 
-#define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
 #define BACKEND_PORT 7000

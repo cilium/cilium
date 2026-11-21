@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4			1
 
 #define NODE_IP				v4_node_one
 #define NODE_IP2			v4_node_two

@@ -269,7 +269,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IP):
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			break;
 
 		if (CONFIG(enable_xdp_prefilter)) {

@@ -11,7 +11,6 @@
  */
 
 /* Enable code paths under test */
-#define ENABLE_IPV4 1
 #define TUNNEL_MODE 1
 
 #define FRONTEND_IP_REMOTE	v4_svc_two

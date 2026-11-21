@@ -5,7 +5,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
 #define HOST_NETNS_COOKIE 42

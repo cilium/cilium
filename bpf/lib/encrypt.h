@@ -54,7 +54,7 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IP):
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			return true;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))

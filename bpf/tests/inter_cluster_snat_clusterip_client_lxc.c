@@ -29,7 +29,6 @@
 #define ENCAP_IFINDEX 1
 
 /* Overlapping PodCIDR is only supported for IPv4 for now */
-#define ENABLE_IPV4 1
 
 /* Overlapping PodCIDR depends on tunnel */
 #define TUNNEL_MODE 1
