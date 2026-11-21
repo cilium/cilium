@@ -9,6 +9,8 @@ import (
 	"net/netip"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 )
 
@@ -32,6 +34,11 @@ func (d *DeviceConfig) Validate() error {
 
 	if err := d.validateAddressAllocation(); err != nil {
 		return fmt.Errorf("invalid address allocation: %w", err)
+	}
+
+	// empty pool name is allowed, otherwise validate as DNS1123 subdomain
+	if errs := validation.IsDNS1123Subdomain(d.IPPool); d.IPPool != "" && len(errs) > 0 {
+		return fmt.Errorf("invalid pool name: %v", strings.Join(errs, "; "))
 	}
 
 	return nil

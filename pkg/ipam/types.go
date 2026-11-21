@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -195,6 +196,11 @@ type Pool string
 
 func (p Pool) String() string {
 	return string(p)
+}
+
+// TruncatePoolName limits a pool name to 253 bytes for use in error messages.
+func TruncatePoolName(name string) string {
+	return name[:min(len(name), validation.DNS1123SubdomainMaxLength)]
 }
 
 // poolIP identifies an IP within a pool. Both members are comparable, so it
