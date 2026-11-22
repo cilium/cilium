@@ -37,6 +37,10 @@ type ModifyVpcEncryptionControlInput struct {
 	// This member is required.
 	VpcEncryptionControlId *string
 
+	// Specifies whether to exclude Amazon API Gateway V2 traffic from encryption
+	// enforcement.
+	ApiGatewayV2Exclusion types.VpcEncryptionControlExclusionStateInput
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
@@ -50,6 +54,10 @@ type ModifyVpcEncryptionControlInput struct {
 	// Specifies whether to exclude Elastic File System traffic from encryption
 	// enforcement.
 	ElasticFileSystemExclusion types.VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude AWS Global Accelerator traffic from encryption
+	// enforcement.
+	GlobalAcceleratorExclusion types.VpcEncryptionControlExclusionStateInput
 
 	// Specifies whether to exclude internet gateway traffic from encryption
 	// enforcement.

@@ -81,6 +81,12 @@ type DescribeVolumeStatusInput struct {
 	//
 	//   - action.event-id - The event ID associated with the action.
 	//
+	//   - attachment-status.instance-id - The ID of the instance that the volume is
+	//   attached to.
+	//
+	//   - attachment-status.io-performance - The I/O performance status of the
+	//   volume's attachment to the instance.
+	//
 	//   - availability-zone - The Availability Zone of the instance.
 	//
 	//   - event.description - A description of the event.

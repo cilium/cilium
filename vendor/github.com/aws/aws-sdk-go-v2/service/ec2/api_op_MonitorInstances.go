@@ -43,6 +43,11 @@ type MonitorInstancesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The IDs of the metric categories to associate with the instances. The specified
+	// metric categories are added to any metric categories that are already associated
+	// with the instances.
+	MetricCategoryIds []string
+
 	noSmithyDocumentSerde
 }
 

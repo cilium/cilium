@@ -748,6 +748,8 @@ type NetlinkSocket struct {
 	sync.Mutex
 }
 
+// getNetlinkSocket opens a new non-blocking netlink socket for protocol, binds it and enables
+// extended ACK reporting when EnableErrorMessageReporting is set.
 func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
 	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, protocol)
 	if err != nil {
@@ -766,6 +768,36 @@ func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
 		unix.Close(fd)
 		return nil, err
 	}
+
+	if EnableErrorMessageReporting {
+		// ignore error, it's non-critical
+		_ = s.SetExtAck(true)
+	}
+
+	return s, nil
+}
+
+// NewNetlinkSocketFromFd wraps an already open netlink socket.
+// Unlike the other constructors it never calls bind().
+// This allows netlink to be used where binding is not permitted (notably, Android).
+// On success the socket takes ownership of fd and switches it to non-blocking mode.
+// On error fd is left untouched and still belongs to the caller.
+func NewNetlinkSocketFromFd(fd int) (*NetlinkSocket, error) {
+	domain, err := unix.GetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_DOMAIN)
+	if err != nil {
+		return nil, err
+	}
+	if domain != unix.AF_NETLINK {
+		return nil, fmt.Errorf("fd %d is not a netlink socket", fd)
+	}
+	if err := unix.SetNonblock(fd, true); err != nil {
+		return nil, err
+	}
+	s := &NetlinkSocket{
+		fd:   int32(fd),
+		file: os.NewFile(uintptr(fd), "netlink"),
+	}
+	s.lsa.Family = unix.AF_NETLINK
 
 	if EnableErrorMessageReporting {
 		// ignore error, it's non-critical

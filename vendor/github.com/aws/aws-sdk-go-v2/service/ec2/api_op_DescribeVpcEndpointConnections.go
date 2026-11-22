@@ -40,6 +40,8 @@ type DescribeVpcEndpointConnectionsInput struct {
 	//
 	//   - service-id - The ID of the service.
 	//
+	//   - transit-gateway-attachment-id - The ID of the transit gateway attachment.
+	//
 	//   - vpc-endpoint-owner - The ID of the Amazon Web Services account ID that owns
 	//   the endpoint.
 	//

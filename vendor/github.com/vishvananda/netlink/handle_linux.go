@@ -211,6 +211,39 @@ func NewHandleAtWithOptions(ns netns.NsHandle, opts HandleOptions, nlFamilies ..
 	return newHandle(ns, netns.None(), opts, nlFamilies...)
 }
 
+// NewHandleFromSockets returns a Handle that runs its requests on sockets the caller opened,
+// keyed by netlink family. Requests for a family that is not in the map fall back to a
+// short-lived socket, as they would on a Handle from NewHandle. The Handle takes ownership of
+// the sockets and Close closes them.
+//
+// Together with nl.NewNetlinkSocketFromFd this makes the package API usable on a socket that
+// must not be bound, such as inside the Android app sandbox:
+//
+//	s, err := nl.NewNetlinkSocketFromFd(fd)
+//	h := netlink.NewHandleFromSockets(map[int]*nl.SocketHandle{unix.NETLINK_ROUTE: {Socket: s}}, netlink.HandleOptions{})
+//	addrs, err := h.AddrList(nil, netlink.FAMILY_ALL)
+//
+// Entries whose SocketHandle or Socket is nil are ignored, so their families are treated as
+// unmapped and use the short-lived fallback.
+func NewHandleFromSockets(sockets map[int]*nl.SocketHandle, opts HandleOptions) *Handle {
+	var owned map[int]*nl.SocketHandle
+	if sockets != nil {
+		owned = make(map[int]*nl.SocketHandle, len(sockets))
+		for family, sh := range sockets {
+			if sh != nil && sh.Socket != nil {
+				owned[family] = sh
+			}
+		}
+	}
+	return &Handle{
+		sockets: owned,
+		options: opts,
+	}
+}
+
+// newHandle opens a socket for each requested netlink family in the network namespace newNs and
+// returns a Handle that owns them. curNs is the namespace to switch back to when done; if it is
+// closed, the current namespace is used. Without nlFamilies every supported family is opened.
 func newHandle(newNs, curNs netns.NsHandle, opts HandleOptions, nlFamilies ...int) (*Handle, error) {
 	h := &Handle{
 		sockets: map[int]*nl.SocketHandle{},

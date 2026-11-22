@@ -47,7 +47,8 @@ type DescribeImageUsageReportEntriesInput struct {
 	//   2025-11-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
 	//   2025-11-29T* , which matches an entire day.
 	//
-	//   - resource-type - The resource type ( ec2:Instance | ec2:LaunchTemplate ).
+	//   - resource-type - The resource type ( ec2:Instance | ec2:LaunchTemplate |
+	//   imagebuilder:ImageRecipe | imagebuilder:ContainerRecipe ).
 	Filters []types.Filter
 
 	// The IDs of the images for filtering the report entries. If specified, only
