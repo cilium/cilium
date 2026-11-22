@@ -3,9 +3,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG UBUNTU_IMAGE=docker.io/library/ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:1794627139-cbd6142@sha256:3df03d1e71629c94ffba4303863c403f88892dc0d978f6f248450d3f2c51121c
-ARG GOLANG_IMAGE=docker.io/library/golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:1794852150-c40af43@sha256:c99898dcc45d1a951ee47c1fa36de8e1500fe44b2a731d6b13fec601435e2fe7
+ARG GOLANG_IMAGE=docker.io/library/golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:21.1.8-1788778131-5dd7297@sha256:a310143ff6f8b953f09112e923fa8f7ae407de545339630652a9048032cf3225
 
 FROM ${GOLANG_IMAGE} AS golang-dist

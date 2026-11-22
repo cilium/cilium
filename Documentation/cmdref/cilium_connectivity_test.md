@@ -76,7 +76,7 @@ cilium connectivity test [flags]
       --service-type string                                        Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node[=true|false]                                   Limit to tests able to run on a single node
       --skip-host-netns-daemonset[=true|false]                     Skip host-netns DaemonSet deployment on Cilium nodes and all tests relying on it
-      --socat-image string                                         Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.1.3@sha256:71131702f671a88b3808a70b7330f9679cd9b9933adcafadc191508edfe55bba")
+      --socat-image string                                         Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.1.3@sha256:5aa280c6fc5bee94dbd2bbdf2a58d30f50396eaa110be84b03636945b157ae68")
       --sysdump-cilium-bugtool-flags stringArray                   Optional set of flags to pass to cilium-bugtool command.
       --sysdump-cilium-daemon-set-label-selector string            The labels used to target Cilium daemon set (default "k8s-app=cilium")
       --sysdump-cilium-envoy-label-selector string                 The labels used to target Cilium Envoy pods (default "k8s-app=cilium-envoy")
