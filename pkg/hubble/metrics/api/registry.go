@@ -37,6 +37,14 @@ func (r *Registry) Register(name string, p Plugin) {
 	r.mutex.Unlock()
 }
 
+// IsRegistered reports whether a metric plugin is registered under name.
+func (r *Registry) IsRegistered(name string) bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	_, ok := r.handlers[name]
+	return ok
+}
+
 type NamedHandler struct {
 	Name         string
 	Handler      Handler

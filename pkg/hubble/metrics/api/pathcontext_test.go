@@ -244,3 +244,71 @@ metrics:
 	_, err := s.CompilePathContext()
 	require.NoError(t, err)
 }
+
+func TestValidateStaticMetricsConfig(t *testing.T) {
+	registered := func(name string) bool {
+		switch name {
+		case "dns", "drop", "flow", "http", "httpV2":
+			return true
+		}
+		return false
+	}
+
+	tests := []struct {
+		name    string
+		raw     string
+		wantErr []string
+	}{
+		{
+			name: "valid",
+			raw:  "dns drop http:sourceContext=pod;path=/api/v1/users/{id}|/a;onMiss.action=emit flow",
+		},
+		{
+			// Still only a warning, from ConfigureHandlers.
+			name: "unknown metric without path settings",
+			raw:  "dns nosuchmetric http:sourceContext=pod",
+		},
+		{
+			name:    "whitespace inside a template, tail carries options",
+			raw:     "http:sourceContext=pod;path=/api/v1/users/{id}|/a b/c;onMiss.action=emit",
+			wantErr: []string{`entry "b/c;onMiss.action=emit" follows "http:sourceContext=pod;path=/api/v1/users/{id}|/a"`},
+		},
+		{
+			name: "whitespace inside a template, bare tail",
+			raw:  "http:path=/a|/my report dns",
+			wantErr: []string{
+				`entry "report" follows "http:path=/a|/my" and is not a known metric`,
+			},
+		},
+		{
+			name:    "whitespace inside onMiss.value",
+			raw:     "httpV2:path=/a;onMiss.value=not matched",
+			wantErr: []string{`entry "matched" follows "httpV2:path=/a;onMiss.value=not"`},
+		},
+		{
+			name:    "misspelt metric name with path settings",
+			raw:     "htpp:path=/a",
+			wantErr: []string{`entry "htpp:path=/a": unknown metric "htpp"`},
+		},
+		{
+			name: "repeated keys",
+			raw:  "http:path=/a;PATH=/b;onMiss.value=x;onmiss.value=y",
+			wantErr: []string{
+				`option "path" is set more than once`,
+				`option "onmiss.value" is set more than once`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateStaticMetricsConfig(strings.Fields(tt.raw), registered)
+			if len(tt.wantErr) == 0 {
+				require.NoError(t, err)
+				return
+			}
+			for _, want := range tt.wantErr {
+				require.ErrorContains(t, err, want)
+			}
+		})
+	}
+}

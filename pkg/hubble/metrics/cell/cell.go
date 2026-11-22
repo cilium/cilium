@@ -103,8 +103,11 @@ func newFlowProcessor(p params) (metrics.FlowProcessor, error) {
 			"Starting Hubble Metrics static flow processor",
 			logfields.MetricConfig, p.Config.Metrics,
 		)
-		metricConfigs := api.ParseStaticMetricsConfig(strings.Fields(p.Config.Metrics))
-		err := metrics.InitMetrics(p.Logger, metrics.Registry, metricConfigs, p.GRPCServerMetrics)
+		metricConfigs, err := parseStaticMetricsConfig(p.Config.Metrics)
+		if err != nil {
+			return nil, err
+		}
+		err = metrics.InitMetrics(p.Logger, metrics.Registry, metricConfigs, p.GRPCServerMetrics)
 		if err != nil {
 			return nil, fmt.Errorf("failed to setup hubble metrics: %w", err)
 		}
@@ -119,4 +122,14 @@ func newFlowProcessor(p params) (metrics.FlowProcessor, error) {
 	}
 
 	return fp, nil
+}
+
+// parseStaticMetricsConfig validates the entries first, since the parser
+// returns no error.
+func parseStaticMetricsConfig(raw string) (*api.Config, error) {
+	entries := strings.Fields(raw)
+	if err := api.ValidateStaticMetricsConfig(entries, api.DefaultRegistry().IsRegistered); err != nil {
+		return nil, fmt.Errorf("invalid hubble-metrics: %w", err)
+	}
+	return api.ParseStaticMetricsConfig(entries), nil
 }
