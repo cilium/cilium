@@ -42,7 +42,7 @@ type CreateIpamInternetRegistryAssociationInput struct {
 	// This member is required.
 	OrganizationHandle *string
 
-	// The Regional Internet Registry to associate with. Possible values:
+	// The internet registry to associate with. Possible values:
 	//
 	//   - ripe - RIPE NCC (Europe, the Middle East, and Central Asia).
 	//
@@ -51,6 +51,8 @@ type CreateIpamInternetRegistryAssociationInput struct {
 	//   - arin - ARIN (North America).
 	//
 	//   - lacnic - LACNIC (Latin America and the Caribbean).
+	//
+	//   - nicbr - NIC.br (Brazil).
 	//
 	// This member is required.
 	Rir types.Rir

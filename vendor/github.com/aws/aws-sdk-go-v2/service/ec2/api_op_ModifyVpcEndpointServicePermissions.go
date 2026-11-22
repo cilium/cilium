@@ -17,6 +17,13 @@ import (
 // who know the name of a public service can send a request to attach an endpoint.
 // If the service does not require manual approval, attachments are automatically
 // approved.
+//
+// By default, principals that you grant permissions to can create VPC endpoints
+// that connect to your endpoint service. For Gateway Load Balancer endpoint
+// services, you can instead grant permissions so that principals can create
+// transit gateway attachments that connect to your endpoint service. To do so,
+// specify transit-gateway-attachment for PermissionType . The two permission types
+// are independent. A principal can have either or both.
 func (c *Client) ModifyVpcEndpointServicePermissions(ctx context.Context, params *ModifyVpcEndpointServicePermissionsInput, optFns ...func(*Options)) (*ModifyVpcEndpointServicePermissionsOutput, error) {
 	if params == nil {
 		params = &ModifyVpcEndpointServicePermissionsInput{}
@@ -49,6 +56,22 @@ type ModifyVpcEndpointServicePermissionsInput struct {
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
+
+	// The type of permission to add or remove. The permission type applies to all
+	// principals in AddAllowedPrincipals and RemoveAllowedPrincipals .
+	//
+	//   - vpc-endpoint - Principals can create VPC endpoints that connect to the
+	//   endpoint service.
+	//
+	//   - transit-gateway-attachment - Principals can create transit gateway
+	//   attachments that connect to the endpoint service. This permission type is
+	//   supported only for Gateway Load Balancer endpoint services. You can grant it
+	//   only to Amazon Web Services accounts ( arn:aws:iam::account-id:root ). You
+	//   can't grant it to users, IAM roles, organizations, organizational units, or all
+	//   principals (*).
+	//
+	// Default: vpc-endpoint
+	PermissionType types.PermissionType
 
 	// The Amazon Resource Names (ARN) of the principals. Permissions are revoked for
 	// principals in this list.

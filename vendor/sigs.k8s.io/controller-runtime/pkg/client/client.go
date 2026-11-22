@@ -385,7 +385,12 @@ func (c *client) delete(ctx context.Context, obj Object, opts ...DeleteOption) (
 	switch obj.(type) {
 	case runtime.Unstructured:
 		return c.unstructuredClient.Delete(ctx, obj, opts...)
-	// The typed client can also delete PartialObjectMeta
+	case *metav1.PartialObjectMetadata:
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+		u.SetNamespace(obj.GetNamespace())
+		u.SetName(obj.GetName())
+		return c.unstructuredClient.Delete(ctx, u, opts...)
 	default:
 		return c.typedClient.Delete(ctx, obj, opts...)
 	}

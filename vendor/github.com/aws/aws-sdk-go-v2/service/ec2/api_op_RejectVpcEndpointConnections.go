@@ -33,6 +33,9 @@ type RejectVpcEndpointConnectionsInput struct {
 
 	// The IDs of the VPC endpoints.
 	//
+	// You must specify either VpcEndpointIds or TransitGatewayAttachmentIds , but not
+	// both.
+	//
 	// This member is required.
 	VpcEndpointIds []string
 
@@ -41,6 +44,13 @@ type RejectVpcEndpointConnectionsInput struct {
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
+
+	// The IDs of the transit gateway attachments to reject. This parameter is
+	// supported only for Gateway Load Balancer endpoint services.
+	//
+	// You must specify either VpcEndpointIds or TransitGatewayAttachmentIds , but not
+	// both.
+	TransitGatewayAttachmentIds []string
 
 	noSmithyDocumentSerde
 }

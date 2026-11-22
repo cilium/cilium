@@ -11,8 +11,9 @@ import (
 
 // Creates a report that shows how your image is used across other Amazon Web
 // Services accounts. The report provides visibility into which accounts are using
-// the specified image, and how many resources (EC2 instances or launch templates)
-// are referencing it.
+// the specified image, and how many resources (EC2 instances, EC2 launch
+// templates, Image Builder image recipes, or Image Builder container recipes) are
+// referencing it.
 //
 // For more information, see [View your AMI usage] in the Amazon EC2 User Guide.
 //

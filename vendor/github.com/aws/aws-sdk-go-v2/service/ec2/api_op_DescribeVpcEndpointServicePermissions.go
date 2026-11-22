@@ -41,6 +41,9 @@ type DescribeVpcEndpointServicePermissionsInput struct {
 
 	// The filters.
 	//
+	//   - permission-type - The permission type ( vpc-endpoint |
+	//   transit-gateway-attachment ).
+	//
 	//   - principal - The ARN of the principal.
 	//
 	//   - principal-type - The principal type ( All | Service | OrganizationUnit |

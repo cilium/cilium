@@ -40,6 +40,12 @@ type UnmonitorInstancesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The IDs of the metric categories to remove from the instances. If you specify
+	// metric categories, only those metric categories are removed and detailed
+	// monitoring remains enabled. If you don't specify metric categories, detailed
+	// monitoring and all metric categories are turned off.
+	MetricCategoryIds []string
+
 	noSmithyDocumentSerde
 }
 
