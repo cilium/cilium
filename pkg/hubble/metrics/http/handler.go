@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -18,6 +20,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
+	"github.com/cilium/cilium/pkg/hubble/metrics/pathtemplate"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -31,6 +34,11 @@ type httpHandler struct {
 	useV2     bool
 	exemplars bool
 
+	// paths is nil unless pathContext is set.
+	paths      *pathtemplate.Matcher
+	missValue  string
+	dropOnMiss bool
+
 	registeredMetrics []*prometheus.MetricVec
 }
 
@@ -40,6 +48,17 @@ func (h *httpHandler) Init(registry *prometheus.Registry, options *api.MetricCon
 		return err
 	}
 	h.context = c
+
+	paths, err := options.CompilePathContext()
+	if err != nil {
+		return err
+	}
+	if paths != nil {
+		h.paths = paths
+		h.missValue = options.PathContext.OnMiss.Value
+		h.dropOnMiss = options.PathContext.DropOnMiss()
+	}
+
 	err = h.HandleConfigurationUpdate(options)
 	if err != nil {
 		return err
@@ -59,12 +78,12 @@ func (h *httpHandler) Init(registry *prometheus.Registry, options *api.MetricCon
 			Namespace: api.DefaultPrometheusNamespace,
 			Name:      "http_requests_total",
 			Help:      "Count of HTTP requests",
-		}, append(h.context.GetLabelNames(), "method", "protocol", "status", "reporter"))
+		}, h.labelNames("method", "protocol", "status", "reporter"))
 		h.duration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: api.DefaultPrometheusNamespace,
 			Name:      "http_request_duration_seconds",
 			Help:      "Quantiles of HTTP request duration in seconds",
-		}, append(h.context.GetLabelNames(), "method", "reporter"))
+		}, h.labelNames("method", "reporter"))
 		registry.MustRegister(h.requests)
 		registry.MustRegister(h.duration)
 		h.registeredMetrics = append(h.registeredMetrics, h.requests.MetricVec, h.duration.MetricVec)
@@ -73,17 +92,17 @@ func (h *httpHandler) Init(registry *prometheus.Registry, options *api.MetricCon
 			Namespace: api.DefaultPrometheusNamespace,
 			Name:      "http_requests_total",
 			Help:      "Count of HTTP requests",
-		}, append(h.context.GetLabelNames(), "method", "protocol", "reporter"))
+		}, h.labelNames("method", "protocol", "reporter"))
 		h.responses = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: api.DefaultPrometheusNamespace,
 			Name:      "http_responses_total",
 			Help:      "Count of HTTP responses",
-		}, append(h.context.GetLabelNames(), "method", "protocol", "status", "reporter"))
+		}, h.labelNames("method", "protocol", "status", "reporter"))
 		h.duration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: api.DefaultPrometheusNamespace,
 			Name:      "http_request_duration_seconds",
 			Help:      "Quantiles of HTTP request duration in seconds",
-		}, append(h.context.GetLabelNames(), "method", "reporter"))
+		}, h.labelNames("method", "reporter"))
 		registry.MustRegister(h.requests)
 		registry.MustRegister(h.responses)
 		registry.MustRegister(h.duration)
@@ -96,7 +115,46 @@ func (h *httpHandler) Status() string {
 	if h.context == nil {
 		return ""
 	}
-	return h.context.Status() + fmt.Sprintf(",exemplars=%t", h.exemplars)
+	status := h.context.Status() + fmt.Sprintf(",exemplars=%t", h.exemplars)
+	if h.paths != nil {
+		onMiss := api.OnMissEmit
+		if h.dropOnMiss {
+			onMiss = api.OnMissDropSample
+		}
+		status += fmt.Sprintf(",pathTemplates=%d,onMiss=%s", h.paths.Len(), onMiss)
+	}
+	return status
+}
+
+// labelNames puts "path" last: the fixed labels differ per metric, so last is
+// the only position common to all of them.
+func (h *httpHandler) labelNames(fixed ...string) []string {
+	return h.labelValues(h.context.GetLabelNames(), "path", fixed...)
+}
+
+// labelValues follows labelNames order. It copies, so context can be reused.
+func (h *httpHandler) labelValues(context []string, path string, fixed ...string) []string {
+	var p []string
+	if h.paths != nil {
+		p = []string{path}
+	}
+	return slices.Concat(context, fixed, p)
+}
+
+// matchPath returns the "path" label value, and false if the sample is dropped.
+// It matches EscapedPath because Path is percent-decoded, which turns %2F into
+// a segment boundary. An unparseable URL is a miss rather than an error, which
+// would drop the flow from every HTTP metric.
+func (h *httpHandler) matchPath(http *flowpb.HTTP) (string, bool) {
+	if h.paths == nil {
+		return "", true
+	}
+	if u, err := url.Parse(http.GetUrl()); err == nil {
+		if template, ok := h.paths.Match(u.EscapedPath()); ok {
+			return template, true
+		}
+	}
+	return h.missValue, !h.dropOnMiss
 }
 
 func (h *httpHandler) Context() *api.ContextOptions {
@@ -154,9 +212,13 @@ func (h *httpHandler) processMetricsV2(flow *flowpb.Flow) error {
 	}
 
 	http := flow.GetL7().GetHttp()
+	path, keep := h.matchPath(http)
+	if !keep {
+		return nil
+	}
 	status := strconv.Itoa(int(http.GetCode()))
-	requestsCounter := h.requests.WithLabelValues(append(labelValues, http.GetMethod(), http.GetProtocol(), status, reporter)...)
-	requestDurationHistogram := h.duration.WithLabelValues(append(labelValues, http.GetMethod(), reporter)...)
+	requestsCounter := h.requests.WithLabelValues(h.labelValues(labelValues, path, http.GetMethod(), http.GetProtocol(), status, reporter)...)
+	requestDurationHistogram := h.duration.WithLabelValues(h.labelValues(labelValues, path, http.GetMethod(), reporter)...)
 
 	incrementCounter(requestsCounter, traceID)
 	observerObserve(requestDurationHistogram, float64(flow.GetL7().GetLatencyNs())/float64(time.Second), traceID)
@@ -185,15 +247,19 @@ func (h *httpHandler) processMetricsV1(flow *flowpb.Flow) error {
 	}
 
 	http := flow.GetL7().GetHttp()
+	path, keep := h.matchPath(http)
+	if !keep {
+		return nil
+	}
 	var requestsCounter, responsesCounter prometheus.Counter
 	switch flow.GetL7().GetType() {
 	case flowpb.L7FlowType_REQUEST:
-		requestsCounter = h.requests.WithLabelValues(append(labelValues, http.GetMethod(), http.GetProtocol(), reporter)...)
+		requestsCounter = h.requests.WithLabelValues(h.labelValues(labelValues, path, http.GetMethod(), http.GetProtocol(), reporter)...)
 		incrementCounter(requestsCounter, traceID)
 	case flowpb.L7FlowType_RESPONSE:
 		status := strconv.Itoa(int(http.GetCode()))
-		responsesCounter = h.responses.WithLabelValues(append(labelValues, http.GetMethod(), http.GetProtocol(), status, reporter)...)
-		requestDurationHistogram := h.duration.WithLabelValues(append(labelValues, http.GetMethod(), reporter)...)
+		responsesCounter = h.responses.WithLabelValues(h.labelValues(labelValues, path, http.GetMethod(), http.GetProtocol(), status, reporter)...)
+		requestDurationHistogram := h.duration.WithLabelValues(h.labelValues(labelValues, path, http.GetMethod(), reporter)...)
 		incrementCounter(responsesCounter, traceID)
 		observerObserve(requestDurationHistogram, float64(flow.GetL7().GetLatencyNs())/float64(time.Second), traceID)
 	}
