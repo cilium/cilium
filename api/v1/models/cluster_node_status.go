@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // ClusterNodeStatus Status of cluster
@@ -58,8 +59,8 @@ func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.NodesAdded); i++ {
-		if typeutils.IsZero(m.NodesAdded[i]) { // not required
-			continue
+		if m.NodesAdded[i] == nil {
+			return validate.Required("nodes-added"+"."+strconv.Itoa(i), "body", m.NodesAdded[i])
 		}
 
 		if m.NodesAdded[i] != nil {
@@ -88,8 +89,8 @@ func (m *ClusterNodeStatus) validateNodesRemoved(formats strfmt.Registry) error 
 	}
 
 	for i := 0; i < len(m.NodesRemoved); i++ {
-		if typeutils.IsZero(m.NodesRemoved[i]) { // not required
-			continue
+		if m.NodesRemoved[i] == nil {
+			return validate.Required("nodes-removed"+"."+strconv.Itoa(i), "body", m.NodesRemoved[i])
 		}
 
 		if m.NodesRemoved[i] != nil {

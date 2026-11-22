@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // BgpPath Single BGP routing Path containing BGP Network Layer Reachability Information (NLRI) and path attributes
@@ -114,8 +115,8 @@ func (m *BgpPath) validatePathAttributes(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.PathAttributes); i++ {
-		if typeutils.IsZero(m.PathAttributes[i]) { // not required
-			continue
+		if m.PathAttributes[i] == nil {
+			return validate.Required("path-attributes"+"."+strconv.Itoa(i), "body", m.PathAttributes[i])
 		}
 
 		if m.PathAttributes[i] != nil {

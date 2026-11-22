@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // ClusterNodesResponse cluster nodes response
@@ -48,8 +49,8 @@ func (m *ClusterNodesResponse) validateNodes(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Nodes); i++ {
-		if typeutils.IsZero(m.Nodes[i]) { // not required
-			continue
+		if m.Nodes[i] == nil {
+			return validate.Required("nodes"+"."+strconv.Itoa(i), "body", m.Nodes[i])
 		}
 
 		if m.Nodes[i] != nil {

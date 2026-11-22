@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // BPFMap BPF map definition and content
@@ -48,8 +49,8 @@ func (m *BPFMap) validateCache(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Cache); i++ {
-		if typeutils.IsZero(m.Cache[i]) { // not required
-			continue
+		if m.Cache[i] == nil {
+			return validate.Required("cache"+"."+strconv.Itoa(i), "body", m.Cache[i])
 		}
 
 		if m.Cache[i] != nil {

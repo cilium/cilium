@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // BPFMapStatus BPF map status
@@ -50,8 +51,8 @@ func (m *BPFMapStatus) validateMaps(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Maps); i++ {
-		if typeutils.IsZero(m.Maps[i]) { // not required
-			continue
+		if m.Maps[i] == nil {
+			return validate.Required("maps"+"."+strconv.Itoa(i), "body", m.Maps[i])
 		}
 
 		if m.Maps[i] != nil {

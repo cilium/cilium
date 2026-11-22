@@ -74,8 +74,8 @@ func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error
 	}
 
 	for i := 0; i < len(m.DeviceList); i++ {
-		if typeutils.IsZero(m.DeviceList[i]) { // not required
-			continue
+		if m.DeviceList[i] == nil {
+			return validate.Required("deviceList"+"."+strconv.Itoa(i), "body", m.DeviceList[i])
 		}
 
 		if m.DeviceList[i] != nil {

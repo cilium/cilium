@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // WireguardInterface Status of a WireGuard interface
@@ -59,8 +60,8 @@ func (m *WireguardInterface) validatePeers(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Peers); i++ {
-		if typeutils.IsZero(m.Peers[i]) { // not required
-			continue
+		if m.Peers[i] == nil {
+			return validate.Required("peers"+"."+strconv.Itoa(i), "body", m.Peers[i])
 		}
 
 		if m.Peers[i] != nil {

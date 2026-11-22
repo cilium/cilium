@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // TraceTo trace to
@@ -54,8 +55,8 @@ func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Dports); i++ {
-		if typeutils.IsZero(m.Dports[i]) { // not required
-			continue
+		if m.Dports[i] == nil {
+			return validate.Required("dports"+"."+strconv.Itoa(i), "body", m.Dports[i])
 		}
 
 		if m.Dports[i] != nil {

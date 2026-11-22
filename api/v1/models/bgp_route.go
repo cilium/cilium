@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // BgpRoute Single BGP route retrieved from the RIB of underlying router
@@ -55,8 +56,8 @@ func (m *BgpRoute) validatePaths(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Paths); i++ {
-		if typeutils.IsZero(m.Paths[i]) { // not required
-			continue
+		if m.Paths[i] == nil {
+			return validate.Required("paths"+"."+strconv.Itoa(i), "body", m.Paths[i])
 		}
 
 		if m.Paths[i] != nil {

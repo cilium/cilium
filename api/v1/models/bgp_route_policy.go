@@ -62,8 +62,8 @@ func (m *BgpRoutePolicy) validateStatements(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Statements); i++ {
-		if typeutils.IsZero(m.Statements[i]) { // not required
-			continue
+		if m.Statements[i] == nil {
+			return validate.Required("statements"+"."+strconv.Itoa(i), "body", m.Statements[i])
 		}
 
 		if m.Statements[i] != nil {

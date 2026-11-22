@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // NodeElement Known node in the cluster
@@ -145,8 +146,8 @@ func (m *NodeElement) validateSecondaryAddresses(formats strfmt.Registry) error 
 	}
 
 	for i := 0; i < len(m.SecondaryAddresses); i++ {
-		if typeutils.IsZero(m.SecondaryAddresses[i]) { // not required
-			continue
+		if m.SecondaryAddresses[i] == nil {
+			return validate.Required("secondary-addresses"+"."+strconv.Itoa(i), "body", m.SecondaryAddresses[i])
 		}
 
 		if m.SecondaryAddresses[i] != nil {

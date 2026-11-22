@@ -111,8 +111,8 @@ func (m *ProxyStatus) validateRedirects(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Redirects); i++ {
-		if typeutils.IsZero(m.Redirects[i]) { // not required
-			continue
+		if m.Redirects[i] == nil {
+			return validate.Required("redirects"+"."+strconv.Itoa(i), "body", m.Redirects[i])
 		}
 
 		if m.Redirects[i] != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // CgroupPodMetadata cgroup pod metadata
@@ -60,8 +61,8 @@ func (m *CgroupPodMetadata) validateContainers(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Containers); i++ {
-		if typeutils.IsZero(m.Containers[i]) { // not required
-			continue
+		if m.Containers[i] == nil {
+			return validate.Required("containers"+"."+strconv.Itoa(i), "body", m.Containers[i])
 		}
 
 		if m.Containers[i] != nil {
