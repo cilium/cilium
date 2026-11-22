@@ -6,21 +6,55 @@
 // driver that analyzes a single compilation unit during a build.
 // It is invoked by a build system such as "go vet":
 //
-//	$ go vet -vettool=$(which vet)
+//	$ go build -o my.exe example.com/my
+//	$ go vet -vettool=./my.exe [packages...]
+//
+// It may be executed by other build systems such as Bazel and Blaze.
 //
 // It supports the following command-line protocol:
 //
 //	-V=full         describe executable               (to the build tool)
 //	-flags          describe flags                    (to the build tool)
+//	-json           emit results in JSON form         (to the build tool)
 //	foo.cfg         description of compilation unit (from the build tool)
 //
-// This package does not depend on go/packages.
-// If you need a standalone tool, use multichecker,
-// which supports this mode but can also load packages
-// from source using go/packages.
+// The build tool discovers the remaining flags by running the tool
+// with -flags and forwards those that the user set. They include a
+// flag for each analyzer, such as -printf, that enables or disables
+// it, and the additional flags of unitchecker itself (e.g. -json).
 //
-// This tool must be run on the entire transitive closure of
-// dependencies, in bottom-up order.
+// The sole non-flag argument foo.cfg names a file containing a
+// JSON-encoded [Config] specifying the work to be done.
+//
+// The -json flag causes the tool to write its diagnostics, and any
+// fixes they suggest, to its standard output as a JSON object keyed
+// by the ID of the unit and then by the name of the analyzer, instead
+// of printing them as plain text to standard error.
+// The build tool may redirect this output to a file using
+// [Config.Stdout], so that it may be cached along with the other
+// outputs of the action.
+//
+// The build system must run the tool once for each unit of compilation,
+// dependencies first.
+// Each run reads the packages's source files, plus a summary file for each
+// direct import, then writes the summary file (including diagnostics and
+// fixes) for the current package.
+// A run is thus (ideally) a deterministic pure function from files to
+// files, so the build system may treat it as an ordinary build action,
+// running it in parallel with other actions, caching its result,
+// or skipping it entirely if none of its inputs have
+// changed--just like a compiler.
+// See the Drivers section of the [golang.org/x/tools/go/analysis]
+// package documentation for the contrast with whole-program drivers.
+//
+// This package does not use [golang.org/x/tools.go/packages] since it
+// runs within a build action and cannot start a metadata query of its own.
+// Use this package directly only for a tool that is always invoked
+// by a build system.
+// For convenience, commands built with singlechecker or
+// [golang.org/x/tools/go/analysis/multichecker] support this protocol as
+// well, so they can detect when they are being invoked by a build tool
+// and run in package-at-a-time mode.
 package unitchecker
 
 import (
@@ -46,7 +80,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/internal/analysisflags"
 	"golang.org/x/tools/internal/analysis/driverutil"
@@ -57,27 +90,90 @@ import (
 // A Config describes a compilation unit to be analyzed.
 // It is provided to the tool in a JSON-encoded file
 // whose name ends with ".cfg".
+//
+// Config is the interface between this driver and the build system
+// that invokes it. The go command writes one for each unit that it
+// vets, and any other build system that runs a unitchecker-based
+// tool, such as Bazel's nogo, must do the same.
 type Config struct {
-	ID                        string // e.g. "fmt [fmt.test]"
-	Compiler                  string // (unused)
-	Dir                       string // (unused)
-	ImportPath                string // package path
-	GoVersion                 string // minimum required Go version, such as "go1.21.0"
-	GoFiles                   []string
-	NonGoFiles                []string
-	IgnoredFiles              []string
-	ModulePath                string            // Deprecated: redundant w.r.t. Module.Path in go1.27; remove after go1.28.
-	ModuleVersion             string            // Deprecated: redundant w.r.t. Module.Version in go1.27; remove after go1.28.
-	Module                    *analysis.Module  // module information, if any
-	ImportMap                 map[string]string // maps import path to package path
-	PackageFile               map[string]string // (unused)
-	Standard                  map[string]bool   // package belongs to standard library
-	PackageVetx               map[string]string // maps package path to file of fact information
-	VetxOnly                  bool              // run analysis only for facts, not diagnostics
-	VetxOutput                string            // where to write file of fact information
-	Stdout                    string            // write stdout (e.g. JSON, unified diff) to this file
-	FixArchive                string            // write fixed files to this zip archive, if non-empty
-	SucceedOnTypecheckFailure bool              // (unused)
+	// ID is the build system's name for this unit, such as
+	// "fmt" or "fmt [fmt.test]". It appears in diagnostics.
+	ID string
+
+	Compiler string // (unused)
+	Dir      string // (unused)
+
+	// ImportPath is the path of the package being analyzed.
+	ImportPath string
+
+	// GoVersion is the minimum Go version required by this unit,
+	// such as "go1.21.0". It determines which language features
+	// the type checker permits.
+	GoVersion string
+
+	// GoFiles are the names of the Go source files of the unit.
+	// They are parsed and type-checked, and are reported to each
+	// analyzer as Pass.Files. The list must not be empty.
+	GoFiles []string
+
+	// NonGoFiles are the names of the other files of the unit,
+	// such as assembly. They are not read by the driver, but
+	// their names are reported as Pass.OtherFiles, and analyzers
+	// may read them using Pass.ReadFile.
+	NonGoFiles []string
+
+	// IgnoredFiles are the names of files, Go or not, that belong
+	// to the package in some other build configuration but not
+	// this one. They are reported as Pass.IgnoredFiles.
+	IgnoredFiles []string
+
+	ModulePath    string // Deprecated: redundant w.r.t. Module.Path in go1.27; remove after go1.28.
+	ModuleVersion string // Deprecated: redundant w.r.t. Module.Version in go1.27; remove after go1.28.
+
+	// Module describes the module to which the unit belongs,
+	// or nil if it belongs to none. It is reported as Pass.Module.
+	Module *analysis.Module
+
+	// ImportMap maps each import path that appears in the source
+	// files of the unit to the path of the package it denotes,
+	// which may differ from it because of vendoring.
+	ImportMap map[string]string
+
+	PackageFile map[string]string // (unused)
+
+	// Standard records, for each package path, whether the
+	// package belongs to the standard library.
+	Standard map[string]bool
+
+	// PackageVetx maps the path of each package imported by this
+	// unit to the name of the file, written by the analysis of
+	// that package, that holds its export data and facts.
+	PackageVetx map[string]string
+
+	// VetxOnly indicates that the unit is being analyzed only so
+	// that its importers may have its facts, and that its
+	// diagnostics will be discarded. Analyzers that neither
+	// export facts nor are required by one that does may be
+	// skipped.
+	VetxOnly bool
+
+	// VetxOutput is the name of the file to which the export data
+	// and facts of this unit should be written, for the analysis
+	// of its importers to read. Nothing is written if it is empty.
+	VetxOutput string
+
+	// Stdout redirects the standard output of the tool, such as
+	// the JSON tree or the unified diff, to the named file.
+	// If empty, the process's standard output is used.
+	Stdout string
+
+	// FixArchive, if non-empty, names a zip file to which the -fix
+	// flag should write the fixed files, instead of overwriting
+	// the originals. This allows a build system to defer the
+	// mutation of the source tree until after the build.
+	FixArchive string
+
+	SucceedOnTypecheckFailure bool // (unused)
 }
 
 // Main is the main function of a vet-like analysis tool that must be
@@ -398,7 +494,10 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 	}
 
 	// Read facts from imported packages.
-	facts, err := facts.NewDecoder(pkg).Decode(readFacts)
+	// The importer's map contains every package (perhaps indirect)
+	// that could own an object about which facts may be queried.
+	getPackage := func(path string) *types.Package { return imports[path] }
+	facts, err := facts.NewDecoder(pkg, getPackage).Decode(readFacts)
 	if err != nil {
 		return nil, err
 	}
@@ -548,25 +647,27 @@ type vetxEntry struct {
 
 func readVetxFiles(packageVetx map[string]string) (map[string]*vetxEntry, error) {
 	var (
-		entriesMu sync.Mutex
-		entries   = make(map[string]*vetxEntry, len(packageVetx))
-		g         errgroup.Group
+		mu       sync.Mutex // guards entries and firstErr
+		entries  = make(map[string]*vetxEntry, len(packageVetx))
+		firstErr error
+		wg       sync.WaitGroup // (not errgroup, since unitchecker is vendored into std)
 	)
 	for pkgPath, file := range packageVetx {
-		g.Go(func() error {
+		wg.Go(func() {
 			entry, err := readVetxFile(file)
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
-				return fmt.Errorf("invalid vetx file for %q: %v", pkgPath, err)
+				if firstErr == nil {
+					firstErr = fmt.Errorf("invalid vetx file for %q: %v", pkgPath, err)
+				}
+				return
 			}
-			entriesMu.Lock()
 			entries[pkgPath] = entry
-			entriesMu.Unlock()
-
-			return nil
 		})
 	}
-	err := g.Wait()
-	return entries, err
+	wg.Wait()
+	return entries, firstErr
 }
 
 func readVetxFile(filename string) (*vetxEntry, error) {

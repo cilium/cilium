@@ -730,6 +730,7 @@
         "api_op_ModifyTransitGatewayAttachmentNatConfiguration.go",
         "api_op_ModifyTransitGatewayMeteringPolicy.go",
         "api_op_ModifyTransitGatewayNetworkFunctionAttachment.go",
+        "api_op_ModifyTransitGatewayPeeringAttachment.go",
         "api_op_ModifyTransitGatewayPolicyTableEntry.go",
         "api_op_ModifyTransitGatewayPrefixListReference.go",
         "api_op_ModifyTransitGatewayVpcAttachment.go",

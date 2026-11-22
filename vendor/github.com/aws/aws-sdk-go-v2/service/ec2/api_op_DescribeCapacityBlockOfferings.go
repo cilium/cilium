@@ -62,6 +62,11 @@ type DescribeCapacityBlockOfferingsInput struct {
 	// The type of instance for which the Capacity Block offering reserves capacity.
 	InstanceType *string
 
+	// List of instance type preferences for the Capacity Block offering search.
+	// Accepts one or more instance type names. Either this or the legacy InstanceType
+	// parameter is required.
+	InstanceTypePreferences []types.CapacityBlockInstanceTypePreference
+
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see [Pagination].

@@ -368,6 +368,20 @@ func applyDiffsAndCompare(pkg *types.Package, filename string, original, want []
 // Go module in which to work. Otherwise, Run treats it as the root of a
 // GOPATH-style tree, with package contained in the src subdirectory.
 //
+// The effective Go version of each file (see [types.Info.FileVersions])
+// is determined as it is by the go command: in module mode, by the "go"
+// directive of the go.mod file; in GOPATH mode, by the version of the go
+// command itself. In either case, a "//go:build go1.N" constraint may
+// override the version of an individual file (and the go command omits
+// files whose constraints it does not satisfy).
+//
+// Consequently, in GOPATH mode, the version of each file depends on the
+// toolchain used to run the test. Tests of analyzers whose behavior
+// depends on the Go version should state the version explicitly, using
+// a go.mod file or a build constraint, so that the results do not vary
+// across toolchains. A test of behavior that requires Go 1.N or later
+// cannot be run by an older go command, and should be skipped.
+//
 // An expectation of a Diagnostic is specified by a string literal
 // containing a regular expression that must match the diagnostic
 // message. For example:

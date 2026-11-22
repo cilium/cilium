@@ -180,7 +180,7 @@ type AccountVpcEncryptionControlExclusions struct {
 	// The exclusion configuration for Elastic File System service.
 	ElasticFileSystem VpcEncryptionControlExclusionState
 
-	// The exclusion configuration for AWS Global Accelerator.
+	// The exclusion configuration for Amazon Web Services Global Accelerator.
 	GlobalAccelerator VpcEncryptionControlExclusionState
 
 	// The exclusion configuration for internet gateway resource.
@@ -224,12 +224,27 @@ type ActiveInstance struct {
 	noSmithyDocumentSerde
 }
 
+// Describes an additional key exchange round negotiated for an active VPN tunnel.
+type ActiveVpnTunnelAdditionalKeyExchange struct {
+
+	// The additional key exchange round number.
+	AdditionalKeyExchangeRound *int32
+
+	// The key exchange method number negotiated for this round.
+	KeyExchangeMethod *int32
+
+	noSmithyDocumentSerde
+}
+
 // Contains information about the current security configuration of an active VPN
 // tunnel.
 type ActiveVpnTunnelStatus struct {
 
 	// The version of the Internet Key Exchange (IKE) protocol being used.
 	IkeVersion *string
+
+	// The additional key exchanges negotiated in Phase 1 IKE negotiations.
+	Phase1AdditionalKeyExchanges []ActiveVpnTunnelAdditionalKeyExchange
 
 	// The Diffie-Hellman group number being used in Phase 1 IKE negotiations.
 	Phase1DHGroup *int32
@@ -239,6 +254,9 @@ type ActiveVpnTunnelStatus struct {
 
 	// The integrity algorithm negotiated in Phase 1 IKE negotiations.
 	Phase1IntegrityAlgorithm *string
+
+	// The additional key exchanges negotiated in Phase 2 IKE negotiations.
+	Phase2AdditionalKeyExchanges []ActiveVpnTunnelAdditionalKeyExchange
 
 	// The Diffie-Hellman group number being used in Phase 2 IKE negotiations.
 	Phase2DHGroup *int32
@@ -365,6 +383,26 @@ type AdditionalDetail struct {
 
 	// The VPC endpoint service.
 	VpcEndpointService *AnalysisComponent
+
+	noSmithyDocumentSerde
+}
+
+// The key exchange method number that is permitted for an additional key exchange
+// round.
+type AdditionalKeyExchangeMethodsListValue struct {
+
+	// The key exchange method number.
+	Value *int32
+
+	noSmithyDocumentSerde
+}
+
+// Specifies a key exchange method number that is permitted for an additional key
+// exchange round.
+type AdditionalKeyExchangeMethodsRequestListValue struct {
+
+	// The key exchange method number.
+	Value *int32
 
 	noSmithyDocumentSerde
 }
@@ -1953,6 +1991,16 @@ type CapacityBlockExtensionOffering struct {
 	noSmithyDocumentSerde
 }
 
+// Instance type preference for a Capacity Block search. Specifies one or more
+// instance types to evaluate when searching for available Capacity Blocks.
+type CapacityBlockInstanceTypePreference struct {
+
+	// The instance type to consider in the Capacity Block search.
+	InstanceType *string
+
+	noSmithyDocumentSerde
+}
+
 // The recommended Capacity Block that fits your search requirements.
 type CapacityBlockOffering struct {
 
@@ -1971,6 +2019,11 @@ type CapacityBlockOffering struct {
 
 	// The ID of the Capacity Block offering.
 	CapacityBlockOfferingId *string
+
+	// The individual segments that compose the Capacity Block offering. Each segment
+	// describes a distinct block of capacity with its own Availability Zone, instance
+	// type, schedule, and pricing.
+	CapacityBlockOfferingSegments []CapacityBlockOfferingSegment
 
 	// The currency of the payment for the Capacity Block.
 	CurrencyCode *string
@@ -2000,6 +2053,47 @@ type CapacityBlockOffering struct {
 	UpfrontFee *string
 
 	// The type of zone where the Capacity Block offering is available.
+	ZoneType *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes an individual segment within a Capacity Block offering. Each segment
+// represents a distinct block of capacity with its own Availability Zone, instance
+// type, duration, pricing, and schedule.
+type CapacityBlockOfferingSegment struct {
+
+	// The Availability Zone of the Capacity Block offering segment.
+	AvailabilityZone *string
+
+	// The ID of the Availability Zone for the Capacity Block offering segment.
+	AvailabilityZoneId *string
+
+	// The number of hours for the duration of the Capacity Block offering segment.
+	CapacityBlockDurationHours *int32
+
+	// The number of minutes for the duration of the Capacity Block offering segment.
+	CapacityBlockDurationMinutes *int32
+
+	// The currency of the payment for the Capacity Block offering segment.
+	CurrencyCode *string
+
+	// The end date of the Capacity Block offering segment.
+	EndDate *time.Time
+
+	// The number of instances in the Capacity Block offering segment.
+	InstanceCount *int32
+
+	// The instance type of the Capacity Block offering segment.
+	InstanceType *string
+
+	// The start date of the Capacity Block offering segment.
+	StartDate *time.Time
+
+	// The total price to be paid up front for the Capacity Block offering segment.
+	UpfrontFee *string
+
+	// The type of zone where the Capacity Block offering segment is available.
 	ZoneType *string
 
 	noSmithyDocumentSerde
@@ -4125,6 +4219,33 @@ type CreateFleetInstance struct {
 	noSmithyDocumentSerde
 }
 
+// The VPC peering connection options to apply to the requester VPC when you
+// create a VPC peering connection.
+type CreatePeeringConnectionOptionsRequest struct {
+
+	// Specifies whether you allow multipath resilience for the requester VPC.
+	// Multipath resilience is supported only for inter-Region VPC peering connections
+	// between supported Regions. It takes effect only when both the requester and the
+	// accepter allow it. Accepting the VPC peering connection request also allows
+	// multipath resilience for the accepter VPC. If you don't specify this parameter,
+	// the default is false .
+	AllowMultipathResilience *bool
+
+	// The multipath resilience mode. You can specify this parameter only if
+	// AllowMultipathResilience is true .
+	//
+	// The following value is valid:
+	//
+	//   - always-on – Replicates traffic across multiple network paths while multipath
+	//   resilience is in effect.
+	//
+	// If AllowMultipathResilience is true and you don't specify a mode, the default
+	// is always-on .
+	MultipathResilienceMode MultipathResilienceMode
+
+	noSmithyDocumentSerde
+}
+
 // The options for a Connect attachment.
 type CreateTransitGatewayConnectRequestOptions struct {
 
@@ -4158,8 +4279,27 @@ type CreateTransitGatewayMulticastDomainRequestOptions struct {
 // gateway peering request.
 type CreateTransitGatewayPeeringAttachmentRequestOptions struct {
 
+	// Specifies whether you allow multipath resilience for the requester side of the
+	// transit gateway peering attachment. Multipath resilience is supported only for
+	// inter-Region transit gateway peering attachments between supported Regions. It
+	// takes effect only when both the requester and the accepter allow it. If you
+	// don't specify this parameter, the default is false .
+	AllowMultipathResilience *bool
+
 	// Indicates whether dynamic routing is enabled or disabled.
 	DynamicRouting DynamicRoutingValue
+
+	// The multipath resilience mode. You can specify this parameter only if
+	// AllowMultipathResilience is true .
+	//
+	// The following value is valid:
+	//
+	//   - always-on – Replicates traffic across multiple network paths while multipath
+	//   resilience is in effect.
+	//
+	// If AllowMultipathResilience is true and you don't specify a mode, the default
+	// is always-on .
+	MultipathResilienceMode TransitGatewayPeeringAttachmentMultipathResilienceMode
 
 	noSmithyDocumentSerde
 }
@@ -16896,6 +17036,32 @@ type ModifyTransitGatewayOptions struct {
 	noSmithyDocumentSerde
 }
 
+// Contains the options to modify for a transit gateway peering attachment,
+// including multipath resilience settings.
+type ModifyTransitGatewayPeeringAttachmentRequestOptions struct {
+
+	// Specifies whether you allow multipath resilience for your side of the transit
+	// gateway peering attachment. Multipath resilience is supported only for
+	// inter-Region transit gateway peering attachments between supported Regions. It
+	// takes effect only when both the requester and the accepter allow it. If you
+	// don't specify this parameter, the current setting doesn't change.
+	AllowMultipathResilience *bool
+
+	// The multipath resilience mode. You can specify this parameter only if
+	// AllowMultipathResilience is true .
+	//
+	// The following value is valid:
+	//
+	//   - always-on – Replicates traffic across multiple network paths while multipath
+	//   resilience is in effect.
+	//
+	// If AllowMultipathResilience is true and you don't specify a mode, the default
+	// is always-on .
+	MultipathResilienceMode TransitGatewayPeeringAttachmentMultipathResilienceMode
+
+	noSmithyDocumentSerde
+}
+
 // Describes the options for a VPC attachment.
 type ModifyTransitGatewayVpcAttachmentRequestOptions struct {
 
@@ -17100,10 +17266,18 @@ type ModifyVpnTunnelOptionsSpecification struct {
 	// Options for logging VPN tunnel activity.
 	LogOptions *VpnTunnelLogOptionsSpecification
 
+	// One or more additional key exchange rounds that are permitted for the VPN
+	// tunnel for phase 1 IKE negotiations. Additional key exchanges occur after the
+	// initial Diffie-Hellman exchange. Each round must have a unique round number.
+	//
+	// Additional key exchanges are supported only with IKEv2. You can't specify a
+	// required round if IKEVersions contains only ikev1 .
+	Phase1AdditionalKeyExchanges []VpnAdditionalKeyExchangeRequest
+
 	// One or more Diffie-Hellman group numbers that are permitted for the VPN tunnel
 	// for phase 1 IKE negotiations.
 	//
-	// Valid values: 2 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24
+	// Valid values: 2 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 35
 	Phase1DHGroupNumbers []Phase1DHGroupNumbersRequestListValue
 
 	// One or more encryption algorithms that are permitted for the VPN tunnel for
@@ -17125,10 +17299,19 @@ type ModifyVpnTunnelOptionsSpecification struct {
 	// Default: 28800
 	Phase1LifetimeSeconds *int32
 
+	// One or more additional key exchange rounds that are permitted for the VPN
+	// tunnel for phase 2 IKE negotiations. Additional key exchanges occur after the
+	// initial Diffie-Hellman exchange. Each round must have a unique round number.
+	//
+	// Additional key exchanges are supported only with IKEv2. You can't specify a
+	// required round if IKEVersions contains only ikev1 .
+	Phase2AdditionalKeyExchanges []VpnAdditionalKeyExchangeRequest
+
 	// One or more Diffie-Hellman group numbers that are permitted for the VPN tunnel
 	// for phase 2 IKE negotiations.
 	//
-	// Valid values: 2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24
+	// Valid values: 2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 35
+	// | 36 | 37
 	Phase2DHGroupNumbers []Phase2DHGroupNumbersRequestListValue
 
 	// One or more encryption algorithms that are permitted for the VPN tunnel for
@@ -18767,6 +18950,14 @@ type PeeringConnectionOptions struct {
 	// Deprecated.
 	AllowEgressFromLocalVpcToRemoteClassicLink *bool
 
+	// Indicates whether this side of the VPC peering connection allows multipath
+	// resilience.
+	AllowMultipathResilience *bool
+
+	// The multipath resilience mode for this side of the VPC peering connection. This
+	// value is present only when this side allows multipath resilience.
+	MultipathResilienceMode MultipathResilienceMode
+
 	noSmithyDocumentSerde
 }
 
@@ -18782,6 +18973,25 @@ type PeeringConnectionOptionsRequest struct {
 
 	// Deprecated.
 	AllowEgressFromLocalVpcToRemoteClassicLink *bool
+
+	// Specifies whether you allow multipath resilience for this side of the VPC
+	// peering connection. Multipath resilience is supported only for inter-Region VPC
+	// peering connections between supported Regions. It takes effect only when both
+	// the requester and the accepter allow it. If you don't specify this parameter,
+	// the current setting doesn't change.
+	AllowMultipathResilience *bool
+
+	// The multipath resilience mode. You can specify this parameter only if
+	// AllowMultipathResilience is true .
+	//
+	// The following value is valid:
+	//
+	//   - always-on – Replicates traffic across multiple network paths while multipath
+	//   resilience is in effect.
+	//
+	// If AllowMultipathResilience is true and you don't specify a mode, the default
+	// is always-on .
+	MultipathResilienceMode MultipathResilienceMode
 
 	noSmithyDocumentSerde
 }
@@ -25967,9 +26177,37 @@ type TransitGatewayPeeringAttachment struct {
 // Describes dynamic routing for the transit gateway peering attachment.
 type TransitGatewayPeeringAttachmentOptions struct {
 
+	// Indicates whether the accepter allows multipath resilience for the transit
+	// gateway peering attachment.
+	AccepterAllowMultipathResilience *bool
+
+	// The multipath resilience mode for the accepter. This value is present only when
+	// the accepter allows multipath resilience.
+	AccepterMultipathResilienceMode TransitGatewayPeeringAttachmentMultipathResilienceMode
+
 	// Describes whether dynamic routing is enabled or disabled for the transit
 	// gateway peering attachment.
 	DynamicRouting DynamicRoutingValue
+
+	// The multipath resilience status of the transit gateway peering attachment. The
+	// possible values are:
+	//
+	//   - enabled – Both the requester and the accepter allow multipath resilience.
+	//
+	//   - pending – Either the requester or the accepter allows multipath resilience,
+	//   but not both.
+	//
+	//   - disabled – Neither the requester nor the accepter allows multipath
+	//   resilience.
+	MultipathResilienceStatus TransitGatewayPeeringAttachmentMultipathResilienceStatus
+
+	// Indicates whether the requester allows multipath resilience for the transit
+	// gateway peering attachment.
+	RequesterAllowMultipathResilience *bool
+
+	// The multipath resilience mode for the requester. This value is present only
+	// when the requester allows multipath resilience.
+	RequesterMultipathResilienceMode TransitGatewayPeeringAttachmentMultipathResilienceMode
 
 	noSmithyDocumentSerde
 }
@@ -26508,6 +26746,10 @@ type TunnelOption struct {
 	// The external IP address of the VPN tunnel.
 	OutsideIpAddress *string
 
+	// The permitted additional key exchange rounds for the VPN tunnel for phase 1 IKE
+	// negotiations.
+	Phase1AdditionalKeyExchanges []VpnAdditionalKeyExchange
+
 	// The permitted Diffie-Hellman group numbers for the VPN tunnel for phase 1 IKE
 	// negotiations.
 	Phase1DHGroupNumbers []Phase1DHGroupNumbersListValue
@@ -26522,6 +26764,10 @@ type TunnelOption struct {
 
 	// The lifetime for phase 1 of the IKE negotiation, in seconds.
 	Phase1LifetimeSeconds *int32
+
+	// The permitted additional key exchange rounds for the VPN tunnel for phase 2 IKE
+	// negotiations.
+	Phase2AdditionalKeyExchanges []VpnAdditionalKeyExchange
 
 	// The permitted Diffie-Hellman group numbers for the VPN tunnel for phase 2 IKE
 	// negotiations.
@@ -28091,8 +28337,8 @@ type VpcEncryptionControlConfiguration struct {
 	// enforcement.
 	ElasticFileSystemExclusion VpcEncryptionControlExclusionStateInput
 
-	// Specifies whether to exclude AWS Global Accelerator traffic from encryption
-	// enforcement.
+	// Specifies whether to exclude Amazon Web Services Global Accelerator traffic
+	// from encryption enforcement.
 	GlobalAcceleratorExclusion VpcEncryptionControlExclusionStateInput
 
 	// Specifies whether to exclude internet gateway traffic from encryption
@@ -28153,7 +28399,7 @@ type VpcEncryptionControlExclusions struct {
 	// The exclusion configuration for Elastic File System traffic.
 	ElasticFileSystem *VpcEncryptionControlExclusion
 
-	// The exclusion configuration for AWS Global Accelerator traffic.
+	// The exclusion configuration for Amazon Web Services Global Accelerator traffic.
 	GlobalAccelerator *VpcEncryptionControlExclusion
 
 	// The exclusion configuration for internet gateway traffic.
@@ -28433,6 +28679,18 @@ type VpcPeeringConnection struct {
 	// The time that an unaccepted VPC peering connection will expire.
 	ExpirationTime *time.Time
 
+	// The multipath resilience status of the VPC peering connection. The possible
+	// values are:
+	//
+	//   - enabled – Both the requester and the accepter allow multipath resilience.
+	//
+	//   - pending – Either the requester or the accepter allows multipath resilience,
+	//   but not both.
+	//
+	//   - disabled – Neither the requester nor the accepter allows multipath
+	//   resilience.
+	MultipathResilienceStatus MultipathResilienceStatus
+
 	// Information about the requester VPC. CIDR block information is only returned
 	// when describing an active VPC peering connection.
 	RequesterVpcInfo *VpcPeeringConnectionVpcInfo
@@ -28461,6 +28719,14 @@ type VpcPeeringConnectionOptionsDescription struct {
 
 	// Deprecated.
 	AllowEgressFromLocalVpcToRemoteClassicLink *bool
+
+	// Indicates whether this side of the VPC peering connection allows multipath
+	// resilience.
+	AllowMultipathResilience *bool
+
+	// The multipath resilience mode for this side of the VPC peering connection. This
+	// value is present only when this side allows multipath resilience.
+	MultipathResilienceMode MultipathResilienceMode
 
 	noSmithyDocumentSerde
 }
@@ -28501,6 +28767,60 @@ type VpcPeeringConnectionVpcInfo struct {
 
 	// The ID of the VPC.
 	VpcId *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes an additional key exchange round that is permitted for the VPN tunnel.
+type VpnAdditionalKeyExchange struct {
+
+	// The additional key exchange round number.
+	AdditionalKeyExchangeRound *int32
+
+	// The key exchange method numbers permitted for this round.
+	KeyExchangeMethods []AdditionalKeyExchangeMethodsListValue
+
+	// Indicates whether this round is mandatory.
+	Requirement AdditionalKeyExchangeRequirement
+
+	noSmithyDocumentSerde
+}
+
+// Specifies an additional key exchange round for the VPN tunnel, as defined in
+// RFC 9370.
+type VpnAdditionalKeyExchangeRequest struct {
+
+	// The additional key exchange round number.
+	//
+	// Valid range: Minimum value of 1. Maximum value of 7.
+	//
+	// This member is required.
+	AdditionalKeyExchangeRound *int32
+
+	// The key exchange method numbers that are permitted for this round. The method
+	// numbers are the IANA IKEv2 key exchange method transform IDs.
+	//
+	// A required round must specify at least one method. An optional round can omit
+	// this parameter or specify an empty list. If omitted or empty for an optional
+	// round, the round is disabled.
+	//
+	// IKEv2 requires that the initial Diffie-Hellman exchange and each required round
+	// use a different key exchange method. The permitted methods must allow a distinct
+	// method to be selected for each of them.
+	//
+	// Valid values: 2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 35
+	// | 36 | 37
+	KeyExchangeMethods []AdditionalKeyExchangeMethodsRequestListValue
+
+	// Indicates whether this round is mandatory. If required , the tunnel isn't
+	// established unless the customer gateway device negotiates this round. If
+	// optional , the round is negotiated only if the customer gateway device supports
+	// it.
+	//
+	// Valid values: required | optional
+	//
+	// Default: required
+	Requirement AdditionalKeyExchangeRequirement
 
 	noSmithyDocumentSerde
 }
@@ -28821,10 +29141,18 @@ type VpnTunnelOptionsSpecification struct {
 	// Options for logging VPN tunnel activity.
 	LogOptions *VpnTunnelLogOptionsSpecification
 
+	// One or more additional key exchange rounds that are permitted for the VPN
+	// tunnel for phase 1 IKE negotiations. Additional key exchanges occur after the
+	// initial Diffie-Hellman exchange. Each round must have a unique round number.
+	//
+	// Additional key exchanges are supported only with IKEv2. You can't specify a
+	// required round if IKEVersions contains only ikev1 .
+	Phase1AdditionalKeyExchanges []VpnAdditionalKeyExchangeRequest
+
 	// One or more Diffie-Hellman group numbers that are permitted for the VPN tunnel
 	// for phase 1 IKE negotiations.
 	//
-	// Valid values: 2 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24
+	// Valid values: 2 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 35
 	Phase1DHGroupNumbers []Phase1DHGroupNumbersRequestListValue
 
 	// One or more encryption algorithms that are permitted for the VPN tunnel for
@@ -28846,10 +29174,19 @@ type VpnTunnelOptionsSpecification struct {
 	// Default: 28800
 	Phase1LifetimeSeconds *int32
 
+	// One or more additional key exchange rounds that are permitted for the VPN
+	// tunnel for phase 2 IKE negotiations. Additional key exchanges occur after the
+	// initial Diffie-Hellman exchange. Each round must have a unique round number.
+	//
+	// Additional key exchanges are supported only with IKEv2. You can't specify a
+	// required round if IKEVersions contains only ikev1 .
+	Phase2AdditionalKeyExchanges []VpnAdditionalKeyExchangeRequest
+
 	// One or more Diffie-Hellman group numbers that are permitted for the VPN tunnel
 	// for phase 2 IKE negotiations.
 	//
-	// Valid values: 2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24
+	// Valid values: 2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 35
+	// | 36 | 37
 	Phase2DHGroupNumbers []Phase2DHGroupNumbersRequestListValue
 
 	// One or more encryption algorithms that are permitted for the VPN tunnel for

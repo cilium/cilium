@@ -50348,6 +50348,76 @@ func (m *awsEc2query_serializeOpModifyTransitGatewayNetworkFunctionAttachment) H
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpModifyTransitGatewayPeeringAttachment struct {
+}
+
+func (*awsEc2query_serializeOpModifyTransitGatewayPeeringAttachment) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpModifyTransitGatewayPeeringAttachment) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*ModifyTransitGatewayPeeringAttachmentInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("ModifyTransitGatewayPeeringAttachment")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentModifyTransitGatewayPeeringAttachmentInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpModifyTransitGatewayPolicyTableEntry struct {
 }
 
@@ -58264,6 +58334,48 @@ func awsEc2query_serializeDocumentAddIpamOrganizationalUnitExclusionSet(v []type
 	return nil
 }
 
+func awsEc2query_serializeDocumentAdditionalKeyExchangeMethodsRequestList(v []types.AdditionalKeyExchangeMethodsRequestListValue, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentAdditionalKeyExchangeMethodsRequestListValue(&v[i], av); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentAdditionalKeyExchangeMethodsRequestListValue(v *types.AdditionalKeyExchangeMethodsRequestListValue, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Value != nil {
+		objectKey := object.Key("Value")
+		objectKey.Integer(*v.Value)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentAdditionalKeyExchangesRequestSpecification(v []types.VpnAdditionalKeyExchangeRequest, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentVpnAdditionalKeyExchangeRequest(&v[i], av); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentAddPrefixListEntries(v []types.AddPrefixListEntry, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -58730,6 +58842,33 @@ func awsEc2query_serializeDocumentCapacityBlockIds(v []string, value query.Value
 	for i := range v {
 		av := array.Value()
 		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentCapacityBlockInstanceTypePreference(v *types.CapacityBlockInstanceTypePreference, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.InstanceType != nil {
+		objectKey := object.Key("InstanceType")
+		objectKey.String(*v.InstanceType)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentCapacityBlockInstanceTypePreferenceSet(v []types.CapacityBlockInstanceTypePreference, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentCapacityBlockInstanceTypePreference(&v[i], av); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -59401,6 +59540,23 @@ func awsEc2query_serializeDocumentCpuPerformanceFactorRequest(v *types.CpuPerfor
 	return nil
 }
 
+func awsEc2query_serializeDocumentCreatePeeringConnectionOptionsRequest(v *types.CreatePeeringConnectionOptionsRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.AllowMultipathResilience != nil {
+		objectKey := object.Key("AllowMultipathResilience")
+		objectKey.Boolean(*v.AllowMultipathResilience)
+	}
+
+	if len(v.MultipathResilienceMode) > 0 {
+		objectKey := object.Key("MultipathResilienceMode")
+		objectKey.String(string(v.MultipathResilienceMode))
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentCreateTransitGatewayConnectRequestOptions(v *types.CreateTransitGatewayConnectRequestOptions, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -59439,9 +59595,19 @@ func awsEc2query_serializeDocumentCreateTransitGatewayPeeringAttachmentRequestOp
 	object := value.Object()
 	_ = object
 
+	if v.AllowMultipathResilience != nil {
+		objectKey := object.Key("AllowMultipathResilience")
+		objectKey.Boolean(*v.AllowMultipathResilience)
+	}
+
 	if len(v.DynamicRouting) > 0 {
 		objectKey := object.Key("DynamicRouting")
 		objectKey.String(string(v.DynamicRouting))
+	}
+
+	if len(v.MultipathResilienceMode) > 0 {
+		objectKey := object.Key("MultipathResilienceMode")
+		objectKey.String(string(v.MultipathResilienceMode))
 	}
 
 	return nil
@@ -65139,6 +65305,23 @@ func awsEc2query_serializeDocumentModifyTransitGatewayOptions(v *types.ModifyTra
 	return nil
 }
 
+func awsEc2query_serializeDocumentModifyTransitGatewayPeeringAttachmentRequestOptions(v *types.ModifyTransitGatewayPeeringAttachmentRequestOptions, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.AllowMultipathResilience != nil {
+		objectKey := object.Key("AllowMultipathResilience")
+		objectKey.Boolean(*v.AllowMultipathResilience)
+	}
+
+	if len(v.MultipathResilienceMode) > 0 {
+		objectKey := object.Key("MultipathResilienceMode")
+		objectKey.String(string(v.MultipathResilienceMode))
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentModifyTransitGatewayVpcAttachmentRequestOptions(v *types.ModifyTransitGatewayVpcAttachmentRequestOptions, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -65438,6 +65621,13 @@ func awsEc2query_serializeDocumentModifyVpnTunnelOptionsSpecification(v *types.M
 		}
 	}
 
+	if v.Phase1AdditionalKeyExchanges != nil {
+		objectKey := object.FlatKey("Phase1AdditionalKeyExchange")
+		if err := awsEc2query_serializeDocumentAdditionalKeyExchangesRequestSpecification(v.Phase1AdditionalKeyExchanges, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.Phase1DHGroupNumbers != nil {
 		objectKey := object.FlatKey("Phase1DHGroupNumber")
 		if err := awsEc2query_serializeDocumentPhase1DHGroupNumbersRequestList(v.Phase1DHGroupNumbers, objectKey); err != nil {
@@ -65462,6 +65652,13 @@ func awsEc2query_serializeDocumentModifyVpnTunnelOptionsSpecification(v *types.M
 	if v.Phase1LifetimeSeconds != nil {
 		objectKey := object.Key("Phase1LifetimeSeconds")
 		objectKey.Integer(*v.Phase1LifetimeSeconds)
+	}
+
+	if v.Phase2AdditionalKeyExchanges != nil {
+		objectKey := object.FlatKey("Phase2AdditionalKeyExchange")
+		if err := awsEc2query_serializeDocumentAdditionalKeyExchangesRequestSpecification(v.Phase2AdditionalKeyExchanges, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.Phase2DHGroupNumbers != nil {
@@ -66136,6 +66333,16 @@ func awsEc2query_serializeDocumentPeeringConnectionOptionsRequest(v *types.Peeri
 	if v.AllowEgressFromLocalVpcToRemoteClassicLink != nil {
 		objectKey := object.Key("AllowEgressFromLocalVpcToRemoteClassicLink")
 		objectKey.Boolean(*v.AllowEgressFromLocalVpcToRemoteClassicLink)
+	}
+
+	if v.AllowMultipathResilience != nil {
+		objectKey := object.Key("AllowMultipathResilience")
+		objectKey.Boolean(*v.AllowMultipathResilience)
+	}
+
+	if len(v.MultipathResilienceMode) > 0 {
+		objectKey := object.Key("MultipathResilienceMode")
+		objectKey.String(string(v.MultipathResilienceMode))
 	}
 
 	return nil
@@ -70727,6 +70934,30 @@ func awsEc2query_serializeDocumentVpcPeeringConnectionIdList(v []string, value q
 	return nil
 }
 
+func awsEc2query_serializeDocumentVpnAdditionalKeyExchangeRequest(v *types.VpnAdditionalKeyExchangeRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.AdditionalKeyExchangeRound != nil {
+		objectKey := object.Key("AdditionalKeyExchangeRound")
+		objectKey.Integer(*v.AdditionalKeyExchangeRound)
+	}
+
+	if v.KeyExchangeMethods != nil {
+		objectKey := object.FlatKey("KeyExchangeMethod")
+		if err := awsEc2query_serializeDocumentAdditionalKeyExchangeMethodsRequestList(v.KeyExchangeMethods, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if len(v.Requirement) > 0 {
+		objectKey := object.Key("Requirement")
+		objectKey.String(string(v.Requirement))
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentVpnConcentratorIdStringList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -70877,6 +71108,13 @@ func awsEc2query_serializeDocumentVpnTunnelOptionsSpecification(v *types.VpnTunn
 		}
 	}
 
+	if v.Phase1AdditionalKeyExchanges != nil {
+		objectKey := object.FlatKey("Phase1AdditionalKeyExchange")
+		if err := awsEc2query_serializeDocumentAdditionalKeyExchangesRequestSpecification(v.Phase1AdditionalKeyExchanges, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.Phase1DHGroupNumbers != nil {
 		objectKey := object.FlatKey("Phase1DHGroupNumber")
 		if err := awsEc2query_serializeDocumentPhase1DHGroupNumbersRequestList(v.Phase1DHGroupNumbers, objectKey); err != nil {
@@ -70901,6 +71139,13 @@ func awsEc2query_serializeDocumentVpnTunnelOptionsSpecification(v *types.VpnTunn
 	if v.Phase1LifetimeSeconds != nil {
 		objectKey := object.Key("Phase1LifetimeSeconds")
 		objectKey.Integer(*v.Phase1LifetimeSeconds)
+	}
+
+	if v.Phase2AdditionalKeyExchanges != nil {
+		objectKey := object.FlatKey("Phase2AdditionalKeyExchange")
+		if err := awsEc2query_serializeDocumentAdditionalKeyExchangesRequestSpecification(v.Phase2AdditionalKeyExchanges, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.Phase2DHGroupNumbers != nil {
@@ -78199,6 +78444,13 @@ func awsEc2query_serializeOpDocumentCreateVpcPeeringConnectionInput(v *CreateVpc
 		objectKey.String(*v.PeerVpcId)
 	}
 
+	if v.RequesterPeeringConnectionOptions != nil {
+		objectKey := object.Key("RequesterPeeringConnectionOptions")
+		if err := awsEc2query_serializeDocumentCreatePeeringConnectionOptionsRequest(v.RequesterPeeringConnectionOptions, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.TagSpecifications != nil {
 		objectKey := object.FlatKey("TagSpecification")
 		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
@@ -80911,6 +81163,13 @@ func awsEc2query_serializeOpDocumentDescribeCapacityBlockOfferingsInput(v *Descr
 	if v.InstanceType != nil {
 		objectKey := object.Key("InstanceType")
 		objectKey.String(*v.InstanceType)
+	}
+
+	if v.InstanceTypePreferences != nil {
+		objectKey := object.FlatKey("InstanceTypePreference")
+		if err := awsEc2query_serializeDocumentCapacityBlockInstanceTypePreferenceSet(v.InstanceTypePreferences, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.MaxResults != nil {
@@ -94362,6 +94621,30 @@ func awsEc2query_serializeOpDocumentModifyTransitGatewayNetworkFunctionAttachmen
 	if v.RemoveAvailabilityZones != nil {
 		objectKey := object.FlatKey("RemoveAvailabilityZone")
 		if err := awsEc2query_serializeDocumentNetworkFunctionAttachmentAZNameList(v.RemoveAvailabilityZones, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.TransitGatewayAttachmentId != nil {
+		objectKey := object.Key("TransitGatewayAttachmentId")
+		objectKey.String(*v.TransitGatewayAttachmentId)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeOpDocumentModifyTransitGatewayPeeringAttachmentInput(v *ModifyTransitGatewayPeeringAttachmentInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.Options != nil {
+		objectKey := object.Key("Options")
+		if err := awsEc2query_serializeDocumentModifyTransitGatewayPeeringAttachmentRequestOptions(v.Options, objectKey); err != nil {
 			return err
 		}
 	}

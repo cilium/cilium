@@ -287,11 +287,7 @@ func (h hasher) hash(t types.Type) uint32 {
 		}
 
 		// Hash type restrictions.
-		terms, err := typeparams.InterfaceTermSet(t)
-		// if err != nil t has invalid type restrictions.
-		if err == nil {
-			hash += h.hashTermSet(terms)
-		}
+		hash += h.hashTypeSet(typeparams.TypeSetOf(t))
 
 		return hash
 
@@ -331,18 +327,12 @@ func (h hasher) hashTuple(tuple *types.Tuple) uint32 {
 
 func (h hasher) hashUnion(t *types.Union) uint32 {
 	// Hash type restrictions.
-	terms, err := typeparams.UnionTermSet(t)
-	// if err != nil t has invalid type restrictions. Fall back on a non-zero
-	// hash.
-	if err != nil {
-		return 9151
-	}
-	return h.hashTermSet(terms)
+	return h.hashTypeSet(typeparams.TypeSetOf(t))
 }
 
-func (h hasher) hashTermSet(terms []*types.Term) uint32 {
-	hash := 9157 + 2*uint32(len(terms))
-	for _, term := range terms {
+func (h hasher) hashTypeSet(ts typeparams.TypeSet) uint32 {
+	hash := 9157 + 2*uint32(ts.Len())
+	for term := range ts.Terms() {
 		// term order is not significant.
 		termHash := h.hash(term.Type())
 		if term.Tilde() {

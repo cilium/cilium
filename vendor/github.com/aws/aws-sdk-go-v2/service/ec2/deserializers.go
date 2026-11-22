@@ -73161,6 +73161,109 @@ func awsEc2query_deserializeOpErrorModifyTransitGatewayNetworkFunctionAttachment
 	}
 }
 
+type awsEc2query_deserializeOpModifyTransitGatewayPeeringAttachment struct {
+}
+
+func (*awsEc2query_deserializeOpModifyTransitGatewayPeeringAttachment) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpModifyTransitGatewayPeeringAttachment) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		if err != nil {
+			// Transport-level failure with no HTTP response to close.
+			return out, metadata, err
+		}
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	defer func() { smithyhttp.CloseResponseBody(ctx, response, false, err) }()
+
+	if err != nil {
+		return out, metadata, err
+	}
+
+	_, span := tracing.StartSpan(ctx, "OperationDeserializer")
+	endTimer := startMetricTimer(ctx, "client.call.deserialization_duration")
+	defer endTimer()
+	defer span.End()
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorModifyTransitGatewayPeeringAttachment(response, &metadata)
+	}
+	output := &ModifyTransitGatewayPeeringAttachmentOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentModifyTransitGatewayPeeringAttachmentOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorModifyTransitGatewayPeeringAttachment(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpModifyTransitGatewayPolicyTableEntry struct {
 }
 
@@ -85487,6 +85590,74 @@ func awsEc2query_deserializeDocumentAccountVpcEncryptionControlExclusions(v **ty
 	return nil
 }
 
+func awsEc2query_deserializeDocumentActiveAdditionalKeyExchangesList(v *[]types.ActiveVpnTunnelAdditionalKeyExchange, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.ActiveVpnTunnelAdditionalKeyExchange
+	if *v == nil {
+		sv = make([]types.ActiveVpnTunnelAdditionalKeyExchange, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.ActiveVpnTunnelAdditionalKeyExchange
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentActiveVpnTunnelAdditionalKeyExchange(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentActiveAdditionalKeyExchangesListUnwrapped(v *[]types.ActiveVpnTunnelAdditionalKeyExchange, decoder smithyxml.NodeDecoder) error {
+	var sv []types.ActiveVpnTunnelAdditionalKeyExchange
+	if *v == nil {
+		sv = make([]types.ActiveVpnTunnelAdditionalKeyExchange, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.ActiveVpnTunnelAdditionalKeyExchange
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentActiveVpnTunnelAdditionalKeyExchange(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentActiveInstance(v **types.ActiveInstance, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -85643,6 +85814,76 @@ func awsEc2query_deserializeDocumentActiveInstanceSetUnwrapped(v *[]types.Active
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentActiveVpnTunnelAdditionalKeyExchange(v **types.ActiveVpnTunnelAdditionalKeyExchange, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.ActiveVpnTunnelAdditionalKeyExchange
+	if *v == nil {
+		sv = &types.ActiveVpnTunnelAdditionalKeyExchange{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("additionalKeyExchangeRound", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.AdditionalKeyExchangeRound = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("keyExchangeMethod", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.KeyExchangeMethod = ptr.Int32(int32(i64))
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeDocumentActiveVpnTunnelStatus(v **types.ActiveVpnTunnelStatus, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -85676,6 +85917,12 @@ func awsEc2query_deserializeDocumentActiveVpnTunnelStatus(v **types.ActiveVpnTun
 			{
 				xtv := string(val)
 				sv.IkeVersion = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("phase1AdditionalKeyExchangeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentActiveAdditionalKeyExchangesList(&sv.Phase1AdditionalKeyExchanges, nodeDecoder); err != nil {
+				return err
 			}
 
 		case strings.EqualFold("phase1DHGroup", t.Name.Local):
@@ -85719,6 +85966,12 @@ func awsEc2query_deserializeDocumentActiveVpnTunnelStatus(v **types.ActiveVpnTun
 			{
 				xtv := string(val)
 				sv.Phase1IntegrityAlgorithm = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("phase2AdditionalKeyExchangeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentActiveAdditionalKeyExchangesList(&sv.Phase2AdditionalKeyExchanges, nodeDecoder); err != nil {
+				return err
 			}
 
 		case strings.EqualFold("phase2DHGroup", t.Name.Local):
@@ -86131,6 +86384,195 @@ func awsEc2query_deserializeDocumentAdditionalDetailListUnwrapped(v *[]types.Add
 		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 		destAddr := &mv
 		if err := awsEc2query_deserializeDocumentAdditionalDetail(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentAdditionalKeyExchangeMethodsList(v *[]types.AdditionalKeyExchangeMethodsListValue, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.AdditionalKeyExchangeMethodsListValue
+	if *v == nil {
+		sv = make([]types.AdditionalKeyExchangeMethodsListValue, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.AdditionalKeyExchangeMethodsListValue
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentAdditionalKeyExchangeMethodsListValue(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentAdditionalKeyExchangeMethodsListUnwrapped(v *[]types.AdditionalKeyExchangeMethodsListValue, decoder smithyxml.NodeDecoder) error {
+	var sv []types.AdditionalKeyExchangeMethodsListValue
+	if *v == nil {
+		sv = make([]types.AdditionalKeyExchangeMethodsListValue, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.AdditionalKeyExchangeMethodsListValue
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentAdditionalKeyExchangeMethodsListValue(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentAdditionalKeyExchangeMethodsListValue(v **types.AdditionalKeyExchangeMethodsListValue, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.AdditionalKeyExchangeMethodsListValue
+	if *v == nil {
+		sv = &types.AdditionalKeyExchangeMethodsListValue{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("value", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.Value = ptr.Int32(int32(i64))
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentAdditionalKeyExchangesList(v *[]types.VpnAdditionalKeyExchange, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.VpnAdditionalKeyExchange
+	if *v == nil {
+		sv = make([]types.VpnAdditionalKeyExchange, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.VpnAdditionalKeyExchange
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentVpnAdditionalKeyExchange(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentAdditionalKeyExchangesListUnwrapped(v *[]types.VpnAdditionalKeyExchange, decoder smithyxml.NodeDecoder) error {
+	var sv []types.VpnAdditionalKeyExchange
+	if *v == nil {
+		sv = make([]types.VpnAdditionalKeyExchange, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.VpnAdditionalKeyExchange
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentVpnAdditionalKeyExchange(&destAddr, nodeDecoder); err != nil {
 			return err
 		}
 		mv = *destAddr
@@ -94778,6 +95220,12 @@ func awsEc2query_deserializeDocumentCapacityBlockOffering(v **types.CapacityBloc
 				sv.CapacityBlockOfferingId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("capacityBlockOfferingSegmentSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentCapacityBlockOfferingSegmentSet(&sv.CapacityBlockOfferingSegments, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("currencyCode", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -94938,6 +95386,273 @@ func awsEc2query_deserializeDocumentCapacityBlockOffering(v **types.CapacityBloc
 	return nil
 }
 
+func awsEc2query_deserializeDocumentCapacityBlockOfferingSegment(v **types.CapacityBlockOfferingSegment, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.CapacityBlockOfferingSegment
+	if *v == nil {
+		sv = &types.CapacityBlockOfferingSegment{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("availabilityZone", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZone = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("capacityBlockDurationHours", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.CapacityBlockDurationHours = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("capacityBlockDurationMinutes", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.CapacityBlockDurationMinutes = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("currencyCode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.CurrencyCode = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("endDate", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.EndDate = ptr.Time(t)
+			}
+
+		case strings.EqualFold("instanceCount", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.InstanceCount = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("instanceType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.InstanceType = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("startDate", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.StartDate = ptr.Time(t)
+			}
+
+		case strings.EqualFold("upfrontFee", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.UpfrontFee = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("zoneType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ZoneType = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentCapacityBlockOfferingSegmentSet(v *[]types.CapacityBlockOfferingSegment, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.CapacityBlockOfferingSegment
+	if *v == nil {
+		sv = make([]types.CapacityBlockOfferingSegment, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.CapacityBlockOfferingSegment
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentCapacityBlockOfferingSegment(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentCapacityBlockOfferingSegmentSetUnwrapped(v *[]types.CapacityBlockOfferingSegment, decoder smithyxml.NodeDecoder) error {
+	var sv []types.CapacityBlockOfferingSegment
+	if *v == nil {
+		sv = make([]types.CapacityBlockOfferingSegment, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.CapacityBlockOfferingSegment
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentCapacityBlockOfferingSegment(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentCapacityBlockOfferingSet(v *[]types.CapacityBlockOffering, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -158348,6 +159063,35 @@ func awsEc2query_deserializeDocumentPeeringConnectionOptions(v **types.PeeringCo
 				sv.AllowEgressFromLocalVpcToRemoteClassicLink = ptr.Bool(xtv)
 			}
 
+		case strings.EqualFold("allowMultipathResilience", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.AllowMultipathResilience = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("multipathResilienceMode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MultipathResilienceMode = types.MultipathResilienceMode(xtv)
+			}
+
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()
@@ -188245,6 +188989,35 @@ func awsEc2query_deserializeDocumentTransitGatewayPeeringAttachmentOptions(v **t
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("accepterAllowMultipathResilience", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.AccepterAllowMultipathResilience = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("accepterMultipathResilienceMode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AccepterMultipathResilienceMode = types.TransitGatewayPeeringAttachmentMultipathResilienceMode(xtv)
+			}
+
 		case strings.EqualFold("dynamicRouting", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -188256,6 +189029,48 @@ func awsEc2query_deserializeDocumentTransitGatewayPeeringAttachmentOptions(v **t
 			{
 				xtv := string(val)
 				sv.DynamicRouting = types.DynamicRoutingValue(xtv)
+			}
+
+		case strings.EqualFold("multipathResilienceStatus", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MultipathResilienceStatus = types.TransitGatewayPeeringAttachmentMultipathResilienceStatus(xtv)
+			}
+
+		case strings.EqualFold("requesterAllowMultipathResilience", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.RequesterAllowMultipathResilience = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("requesterMultipathResilienceMode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.RequesterMultipathResilienceMode = types.TransitGatewayPeeringAttachmentMultipathResilienceMode(xtv)
 			}
 
 		default:
@@ -191085,6 +191900,12 @@ func awsEc2query_deserializeDocumentTunnelOption(v **types.TunnelOption, decoder
 				sv.OutsideIpAddress = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("phase1AdditionalKeyExchangeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAdditionalKeyExchangesList(&sv.Phase1AdditionalKeyExchanges, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("phase1DHGroupNumberSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentPhase1DHGroupNumbersList(&sv.Phase1DHGroupNumbers, nodeDecoder); err != nil {
@@ -191118,6 +191939,12 @@ func awsEc2query_deserializeDocumentTunnelOption(v **types.TunnelOption, decoder
 					return err
 				}
 				sv.Phase1LifetimeSeconds = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("phase2AdditionalKeyExchangeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAdditionalKeyExchangesList(&sv.Phase2AdditionalKeyExchanges, nodeDecoder); err != nil {
+				return err
 			}
 
 		case strings.EqualFold("phase2DHGroupNumberSet", t.Name.Local):
@@ -201165,6 +201992,19 @@ func awsEc2query_deserializeDocumentVpcPeeringConnection(v **types.VpcPeeringCon
 				sv.ExpirationTime = ptr.Time(t)
 			}
 
+		case strings.EqualFold("multipathResilienceStatus", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MultipathResilienceStatus = types.MultipathResilienceStatus(xtv)
+			}
+
 		case strings.EqualFold("requesterVpcInfo", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentVpcPeeringConnectionVpcInfo(&sv.RequesterVpcInfo, nodeDecoder); err != nil {
@@ -201348,6 +202188,35 @@ func awsEc2query_deserializeDocumentVpcPeeringConnectionOptionsDescription(v **t
 				sv.AllowEgressFromLocalVpcToRemoteClassicLink = ptr.Bool(xtv)
 			}
 
+		case strings.EqualFold("allowMultipathResilience", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.AllowMultipathResilience = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("multipathResilienceMode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MultipathResilienceMode = types.MultipathResilienceMode(xtv)
+			}
+
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()
@@ -201514,6 +202383,78 @@ func awsEc2query_deserializeDocumentVpcPeeringConnectionVpcInfo(v **types.VpcPee
 			{
 				xtv := string(val)
 				sv.VpcId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentVpnAdditionalKeyExchange(v **types.VpnAdditionalKeyExchange, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.VpnAdditionalKeyExchange
+	if *v == nil {
+		sv = &types.VpnAdditionalKeyExchange{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("additionalKeyExchangeRound", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.AdditionalKeyExchangeRound = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("keyExchangeMethodSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAdditionalKeyExchangeMethodsList(&sv.KeyExchangeMethods, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("requirement", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.Requirement = types.AdditionalKeyExchangeRequirement(xtv)
 			}
 
 		default:
@@ -239739,6 +240680,48 @@ func awsEc2query_deserializeOpDocumentModifyTransitGatewayOutput(v **ModifyTrans
 	return nil
 }
 
+func awsEc2query_deserializeOpDocumentModifyTransitGatewayPeeringAttachmentOutput(v **ModifyTransitGatewayPeeringAttachmentOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *ModifyTransitGatewayPeeringAttachmentOutput
+	if *v == nil {
+		sv = &ModifyTransitGatewayPeeringAttachmentOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("transitGatewayPeeringAttachment", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPeeringAttachment(&sv.TransitGatewayPeeringAttachment, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeOpDocumentModifyTransitGatewayPolicyTableEntryOutput(v **ModifyTransitGatewayPolicyTableEntryOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -241439,6 +242422,12 @@ func awsEc2query_deserializeOpDocumentPurchaseCapacityBlockOutput(v **PurchaseCa
 		case strings.EqualFold("capacityReservation", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentCapacityReservation(&sv.CapacityReservation, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("capacityReservationSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentCapacityReservationSet(&sv.CapacityReservations, nodeDecoder); err != nil {
 				return err
 			}
 

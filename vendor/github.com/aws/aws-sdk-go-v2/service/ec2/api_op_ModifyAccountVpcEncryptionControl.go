@@ -51,8 +51,8 @@ type ModifyAccountVpcEncryptionControlInput struct {
 	// encryption enforcement.
 	ElasticFileSystem types.VpcEncryptionControlExclusionStateInput
 
-	// Specifies whether to exclude AWS Global Accelerator from account-level
-	// encryption enforcement.
+	// Specifies whether to exclude Amazon Web Services Global Accelerator from
+	// account-level encryption enforcement.
 	GlobalAccelerator types.VpcEncryptionControlExclusionStateInput
 
 	// Specifies whether to exclude internet gateway resource from account-level

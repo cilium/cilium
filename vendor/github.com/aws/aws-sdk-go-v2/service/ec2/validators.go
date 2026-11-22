@@ -9650,6 +9650,26 @@ func (m *validateOpModifyTransitGatewayNetworkFunctionAttachment) HandleInitiali
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyTransitGatewayPeeringAttachment struct {
+}
+
+func (*validateOpModifyTransitGatewayPeeringAttachment) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyTransitGatewayPeeringAttachment) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyTransitGatewayPeeringAttachmentInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyTransitGatewayPeeringAttachmentInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyTransitGatewayPolicyTableEntry struct {
 }
 
@@ -13618,6 +13638,10 @@ func addOpModifyTransitGatewayNetworkFunctionAttachmentValidationMiddleware(stac
 	return stack.Initialize.Add(&validateOpModifyTransitGatewayNetworkFunctionAttachment{}, middleware.After)
 }
 
+func addOpModifyTransitGatewayPeeringAttachmentValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyTransitGatewayPeeringAttachment{}, middleware.After)
+}
+
 func addOpModifyTransitGatewayPolicyTableEntryValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyTransitGatewayPolicyTableEntry{}, middleware.After)
 }
@@ -14024,6 +14048,23 @@ func addOpValidateSecurityGroupQuotasForInterfaceValidationMiddleware(stack *mid
 
 func addOpWithdrawByoipCidrValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpWithdrawByoipCidr{}, middleware.After)
+}
+
+func validateAdditionalKeyExchangesRequestSpecification(v []types.VpnAdditionalKeyExchangeRequest) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AdditionalKeyExchangesRequestSpecification"}
+	for i := range v {
+		if err := validateVpnAdditionalKeyExchangeRequest(&v[i]); err != nil {
+			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
 }
 
 func validateAddPrefixListEntries(v []types.AddPrefixListEntry) error {
@@ -14785,6 +14826,28 @@ func validateMemoryMiBRequest(v *types.MemoryMiBRequest) error {
 	}
 }
 
+func validateModifyVpnTunnelOptionsSpecification(v *types.ModifyVpnTunnelOptionsSpecification) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyVpnTunnelOptionsSpecification"}
+	if v.Phase1AdditionalKeyExchanges != nil {
+		if err := validateAdditionalKeyExchangesRequestSpecification(v.Phase1AdditionalKeyExchanges); err != nil {
+			invalidParams.AddNested("Phase1AdditionalKeyExchanges", err.(smithy.InvalidParamsError))
+		}
+	}
+	if v.Phase2AdditionalKeyExchanges != nil {
+		if err := validateAdditionalKeyExchangesRequestSpecification(v.Phase2AdditionalKeyExchanges); err != nil {
+			invalidParams.AddNested("Phase2AdditionalKeyExchanges", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateNatFlexCostAllocationPolicyDocument(v *types.NatFlexCostAllocationPolicyDocument) error {
 	if v == nil {
 		return nil
@@ -15216,6 +15279,77 @@ func validateVpcEncryptionControlConfiguration(v *types.VpcEncryptionControlConf
 	invalidParams := smithy.InvalidParamsError{Context: "VpcEncryptionControlConfiguration"}
 	if len(v.Mode) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("Mode"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateVpnAdditionalKeyExchangeRequest(v *types.VpnAdditionalKeyExchangeRequest) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "VpnAdditionalKeyExchangeRequest"}
+	if v.AdditionalKeyExchangeRound == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AdditionalKeyExchangeRound"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateVpnConnectionOptionsSpecification(v *types.VpnConnectionOptionsSpecification) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "VpnConnectionOptionsSpecification"}
+	if v.TunnelOptions != nil {
+		if err := validateVpnTunnelOptionsSpecificationsList(v.TunnelOptions); err != nil {
+			invalidParams.AddNested("TunnelOptions", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateVpnTunnelOptionsSpecification(v *types.VpnTunnelOptionsSpecification) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "VpnTunnelOptionsSpecification"}
+	if v.Phase1AdditionalKeyExchanges != nil {
+		if err := validateAdditionalKeyExchangesRequestSpecification(v.Phase1AdditionalKeyExchanges); err != nil {
+			invalidParams.AddNested("Phase1AdditionalKeyExchanges", err.(smithy.InvalidParamsError))
+		}
+	}
+	if v.Phase2AdditionalKeyExchanges != nil {
+		if err := validateAdditionalKeyExchangesRequestSpecification(v.Phase2AdditionalKeyExchanges); err != nil {
+			invalidParams.AddNested("Phase2AdditionalKeyExchanges", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateVpnTunnelOptionsSpecificationsList(v []types.VpnTunnelOptionsSpecification) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "VpnTunnelOptionsSpecificationsList"}
+	for i := range v {
+		if err := validateVpnTunnelOptionsSpecification(&v[i]); err != nil {
+			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -18016,6 +18150,11 @@ func validateOpCreateVpnConnectionInput(v *CreateVpnConnectionInput) error {
 	}
 	if v.Type == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Type"))
+	}
+	if v.Options != nil {
+		if err := validateVpnConnectionOptionsSpecification(v.Options); err != nil {
+			invalidParams.AddNested("Options", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -23311,6 +23450,21 @@ func validateOpModifyTransitGatewayNetworkFunctionAttachmentInput(v *ModifyTrans
 	}
 }
 
+func validateOpModifyTransitGatewayPeeringAttachmentInput(v *ModifyTransitGatewayPeeringAttachmentInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyTransitGatewayPeeringAttachmentInput"}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifyTransitGatewayPolicyTableEntryInput(v *ModifyTransitGatewayPolicyTableEntryInput) error {
 	if v == nil {
 		return nil
@@ -23760,6 +23914,10 @@ func validateOpModifyVpnTunnelOptionsInput(v *ModifyVpnTunnelOptionsInput) error
 	}
 	if v.TunnelOptions == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TunnelOptions"))
+	} else if v.TunnelOptions != nil {
+		if err := validateModifyVpnTunnelOptionsSpecification(v.TunnelOptions); err != nil {
+			invalidParams.AddNested("TunnelOptions", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

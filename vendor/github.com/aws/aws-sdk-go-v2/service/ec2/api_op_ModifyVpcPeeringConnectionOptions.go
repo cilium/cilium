@@ -22,6 +22,16 @@ import (
 // options and the Region for the accepter VPC to modify the accepter VPC peering
 // options. To verify which VPCs are the accepter and the requester for a VPC
 // peering connection, use the DescribeVpcPeeringConnectionscommand.
+//
+// Multipath resilience replicates the traffic of an inter-Region VPC peering
+// connection across multiple network paths. You can allow multipath resilience for
+// your side of the connection if both of its Regions are supported. It takes
+// effect only when both the requester and the accepter allow it. Additional
+// charges apply when multipath resilience is in effect. For more information, see [Amazon VPC pricing]
+// . To check whether multipath resilience is in effect, use DescribeVpcPeeringConnectionsand check
+// multipathResilienceStatus .
+//
+// [Amazon VPC pricing]: http://aws.amazon.com/vpc/pricing/
 func (c *Client) ModifyVpcPeeringConnectionOptions(ctx context.Context, params *ModifyVpcPeeringConnectionOptionsInput, optFns ...func(*Options)) (*ModifyVpcPeeringConnectionOptionsOutput, error) {
 	if params == nil {
 		params = &ModifyVpcPeeringConnectionOptionsInput{}

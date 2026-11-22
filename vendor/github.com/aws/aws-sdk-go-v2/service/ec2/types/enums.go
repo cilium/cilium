@@ -193,6 +193,26 @@ func (ActivityStatus) Values() []ActivityStatus {
 	}
 }
 
+type AdditionalKeyExchangeRequirement string
+
+// Enum values for AdditionalKeyExchangeRequirement
+const (
+	AdditionalKeyExchangeRequirementRequired AdditionalKeyExchangeRequirement = "required"
+	AdditionalKeyExchangeRequirementOptional AdditionalKeyExchangeRequirement = "optional"
+)
+
+// Values returns all known values for AdditionalKeyExchangeRequirement. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (AdditionalKeyExchangeRequirement) Values() []AdditionalKeyExchangeRequirement {
+	return []AdditionalKeyExchangeRequirement{
+		"required",
+		"optional",
+	}
+}
+
 type AddressAttributeName string
 
 // Enum values for AddressAttributeName
@@ -9685,6 +9705,44 @@ func (MulticastSupportValue) Values() []MulticastSupportValue {
 	}
 }
 
+type MultipathResilienceMode string
+
+// Enum values for MultipathResilienceMode
+const (
+	MultipathResilienceModeAlwaysOn MultipathResilienceMode = "always-on"
+)
+
+// Values returns all known values for MultipathResilienceMode. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (MultipathResilienceMode) Values() []MultipathResilienceMode {
+	return []MultipathResilienceMode{
+		"always-on",
+	}
+}
+
+type MultipathResilienceStatus string
+
+// Enum values for MultipathResilienceStatus
+const (
+	MultipathResilienceStatusPending  MultipathResilienceStatus = "pending"
+	MultipathResilienceStatusEnabled  MultipathResilienceStatus = "enabled"
+	MultipathResilienceStatusDisabled MultipathResilienceStatus = "disabled"
+)
+
+// Values returns all known values for MultipathResilienceStatus. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (MultipathResilienceStatus) Values() []MultipathResilienceStatus {
+	return []MultipathResilienceStatus{
+		"pending",
+		"enabled",
+		"disabled",
+	}
+}
+
 type NatGatewayAddressStatus string
 
 // Enum values for NatGatewayAddressStatus
@@ -13260,6 +13318,46 @@ func (TransitGatewayNatRuleState) Values() []TransitGatewayNatRuleState {
 		"activated",
 		"deactivated",
 		"deleting",
+	}
+}
+
+type TransitGatewayPeeringAttachmentMultipathResilienceMode string
+
+// Enum values for TransitGatewayPeeringAttachmentMultipathResilienceMode
+const (
+	TransitGatewayPeeringAttachmentMultipathResilienceModeAlwaysOn TransitGatewayPeeringAttachmentMultipathResilienceMode = "always-on"
+)
+
+// Values returns all known values for
+// TransitGatewayPeeringAttachmentMultipathResilienceMode. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayPeeringAttachmentMultipathResilienceMode) Values() []TransitGatewayPeeringAttachmentMultipathResilienceMode {
+	return []TransitGatewayPeeringAttachmentMultipathResilienceMode{
+		"always-on",
+	}
+}
+
+type TransitGatewayPeeringAttachmentMultipathResilienceStatus string
+
+// Enum values for TransitGatewayPeeringAttachmentMultipathResilienceStatus
+const (
+	TransitGatewayPeeringAttachmentMultipathResilienceStatusPending  TransitGatewayPeeringAttachmentMultipathResilienceStatus = "pending"
+	TransitGatewayPeeringAttachmentMultipathResilienceStatusEnabled  TransitGatewayPeeringAttachmentMultipathResilienceStatus = "enabled"
+	TransitGatewayPeeringAttachmentMultipathResilienceStatusDisabled TransitGatewayPeeringAttachmentMultipathResilienceStatus = "disabled"
+)
+
+// Values returns all known values for
+// TransitGatewayPeeringAttachmentMultipathResilienceStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayPeeringAttachmentMultipathResilienceStatus) Values() []TransitGatewayPeeringAttachmentMultipathResilienceStatus {
+	return []TransitGatewayPeeringAttachmentMultipathResilienceStatus{
+		"pending",
+		"enabled",
+		"disabled",
 	}
 }
 
