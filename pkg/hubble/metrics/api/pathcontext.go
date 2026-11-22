@@ -96,8 +96,8 @@ func (m *MetricConfig) CompilePathContext() (*pathtemplate.Matcher, error) {
 // liftPathContextOption applies a static path or onMiss option to pathCtx,
 // allocating it if nil, and reports whether the option was one. It keeps the
 // raw value because parseOptionValues drops empty elements, which would make
-// "onMiss.value=" unwritable and hide a stray "|". A repeated key overwrites
-// the earlier one.
+// "onMiss.value=" unwritable and hide a stray "|". Repeats overwrite;
+// ValidateStaticMetricsConfig rejects them first.
 func liftPathContextOption(pathCtx *PathContext, name, value string) (*PathContext, bool) {
 	key := strings.ToLower(name)
 	if !isPathContextOptionKey(key) {
@@ -115,4 +115,46 @@ func liftPathContextOption(pathCtx *PathContext, name, value string) (*PathConte
 		pathCtx.OnMiss.Value = value
 	}
 	return pathCtx, true
+}
+
+// ValidateStaticMetricsConfig catches what ParseStaticMetricsConfig cannot
+// report. Entries are split on whitespace, so a space inside a template or
+// onMiss value cuts the entry in two and the tail is later skipped as an
+// unknown metric with only a warning. A tail looks like a misspelt metric name,
+// so only unknown entries next to path options are rejected. A tail that is a
+// real metric name, such as "flow", cannot be caught.
+func ValidateStaticMetricsConfig(entries []string, isRegistered func(name string) bool) error {
+	var errs []error
+	prevUsesPathContext := false
+	for i, entry := range entries {
+		name, options, _ := strings.Cut(entry, ":")
+
+		usesPathContext := false
+		seen := make(map[string]struct{})
+		for option := range strings.SplitSeq(options, ";") {
+			key, _, _ := strings.Cut(option, "=")
+			if !isPathContextOptionKey(key) {
+				continue
+			}
+			usesPathContext = true
+			key = strings.ToLower(key)
+			if _, dup := seen[key]; dup {
+				errs = append(errs, fmt.Errorf("hubble-metrics entry %q: option %q is set more than once", entry, key))
+			}
+			seen[key] = struct{}{}
+		}
+
+		if !isRegistered(name) {
+			switch {
+			case usesPathContext:
+				errs = append(errs, fmt.Errorf("hubble-metrics entry %q: unknown metric %q; "+
+					"path templates and onMiss values cannot contain whitespace, use the dynamic metrics config for those", entry, name))
+			case prevUsesPathContext:
+				errs = append(errs, fmt.Errorf("hubble-metrics entry %q follows %q and is not a known metric; "+
+					"path templates and onMiss values cannot contain whitespace, use the dynamic metrics config for those", entry, entries[i-1]))
+			}
+		}
+		prevUsesPathContext = usesPathContext
+	}
+	return errors.Join(errs...)
 }
