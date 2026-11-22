@@ -146,6 +146,11 @@ func (c *metricConfigWatcher) validateMetricConfig(config *api.Config) error {
 			if !reflect.DeepEqual(newMetric.ContextOptionConfigs, oldMetric.ContextOptionConfigs) {
 				errs = errors.Join(errs, fmt.Errorf("metric config validation failed - label set cannot be changed without restarting Prometheus. metric: %v", newMetric.Name))
 			}
+			// Handlers only compile pathContext in Init, and toggling it
+			// changes the label set, so a live change would be silently ignored.
+			if !reflect.DeepEqual(newMetric.PathContext, oldMetric.PathContext) {
+				errs = errors.Join(errs, fmt.Errorf("metric config validation failed - pathContext cannot be changed without restarting the agent. metric: %v", newMetric.Name))
+			}
 		}
 	}
 
