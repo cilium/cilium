@@ -51,7 +51,9 @@ func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
 }
 
 func TestHTTPGatewayAPI(t *testing.T) {
-	tests := map[string]struct{}{
+	tests := map[string]struct {
+		enableExtensionRefFilters bool
+	}{
 		"basic http":                                                      {},
 		"basic http external traffic policy":                              {},
 		"basic http load balancer":                                        {},
@@ -103,13 +105,20 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"http route ordering":                                             {},
 		"http skips backends missing port":                                {},
 		"multiple parentRefs":                                             {},
+		"http extension ref cross namespace backend reference grant": {
+			enableExtensionRefFilters: true,
+		},
+		"grpc extension ref cross namespace backend reference grant": {
+			enableExtensionRefFilters: true,
+		},
 	}
 
-	for name := range tests {
+	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
+			input.EnableExtensionRefFilters = tc.enableExtensionRefFilters
 			m := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
@@ -145,7 +154,7 @@ func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
 		},
 	}
 
-	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil, nil)
+	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 2)
 	require.NotNil(t, routes[0].SourceRule)
@@ -1095,7 +1104,7 @@ func TestHTTPRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].RequestMirrors)
@@ -1139,7 +1148,7 @@ func TestHTTPRequestMirrorSameNamespaceIsKept(t *testing.T) {
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("default", "mirror-backend", 8080),
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1186,7 +1195,7 @@ func TestHTTPRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "mirror-backend", 8080),
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Len(t, routes[0].Backends, 1)
@@ -1234,7 +1243,7 @@ func TestHTTPRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 		testService("other-ns", "mirror-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "HTTPRoute"),
-	}, nil, nil)
+	}, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1292,7 +1301,7 @@ func TestHTTPRequestMirrorServiceImportIsResolved(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1339,7 +1348,7 @@ func TestHTTPRequestExternalAuthCrossNamespaceWithoutReferenceGrantFailsClosed(t
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "auth-backend", 8080),
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.NotNil(t, routes[0].DirectResponse)
@@ -1388,7 +1397,7 @@ func TestHTTPRequestExternalAuthCrossNamespaceWithReferenceGrantIsKept(t *testin
 		testService("other-ns", "auth-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "HTTPRoute"),
-	}, nil, nil)
+	}, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].DirectResponse)
@@ -1434,7 +1443,7 @@ func TestHTTPRequestExternalAuthMissingBackendFailsClosed(t *testing.T) {
 		},
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.NotNil(t, routes[0].DirectResponse)
@@ -1459,7 +1468,7 @@ func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].RequestMirrors)
@@ -1501,7 +1510,7 @@ func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("default", "mirror-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1546,7 +1555,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "mirror-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Len(t, routes[0].Backends, 1)
@@ -1592,7 +1601,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 		testService("other-ns", "mirror-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "GRPCRoute"),
-	}, nil)
+	}, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1648,7 +1657,7 @@ func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1770,6 +1779,51 @@ func TestGatewayAPIGRPCBackendTLSPolicy(t *testing.T) {
 		},
 	}, got.HTTP[0].Routes[0].Backends[0].TLS)
 
+	input.EnableExtensionRefFilters = true
+	input.CiliumEnvoyExtProcFilters = []v2alpha1.CiliumEnvoyExtProcFilter{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "processor", Namespace: "default"},
+			Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+				BackendRef: v2alpha1.ExtProcBackendRef{Name: "processor", Port: 9001},
+			},
+		},
+	}
+	input.Services = append(input.Services, testService("default", "processor", 9001))
+	input.GRPCRoutes[0].Spec.Rules[0].Filters = []gatewayv1.GRPCRouteFilter{
+		{
+			Type: gatewayv1.GRPCRouteFilterExtensionRef,
+			ExtensionRef: &gatewayv1.LocalObjectReference{
+				Group: "cilium.io", Kind: "CiliumEnvoyExtProcFilter", Name: "processor",
+			},
+		},
+	}
+
+	t.Run("valid backend TLS and ext_proc coexist", func(t *testing.T) {
+		withExtProc := GatewayAPI(logger, input)
+		require.Len(t, withExtProc.HTTP, 1)
+		require.Len(t, withExtProc.HTTP[0].Routes, 1)
+		route := withExtProc.HTTP[0].Routes[0]
+		require.Len(t, route.Backends, 1)
+		assert.Equal(t, got.HTTP[0].Routes[0].Backends[0].TLS, route.Backends[0].TLS)
+		require.Len(t, route.ExtensionRefFilters, 1)
+		require.NotNil(t, route.ExtensionRefFilters[0].Backend)
+		assert.Equal(t, "processor", route.ExtensionRefFilters[0].Backend.Name)
+		assert.Nil(t, route.DirectResponse)
+	})
+
+	t.Run("invalid ext_proc fails closed with valid backend TLS", func(t *testing.T) {
+		invalidInput := input
+		invalidInput.CiliumEnvoyExtProcFilters = nil
+		failed := GatewayAPI(logger, invalidInput)
+		require.Len(t, failed.HTTP, 1)
+		require.Len(t, failed.HTTP[0].Routes, 1)
+		route := failed.HTTP[0].Routes[0]
+		assert.Empty(t, route.Backends)
+		assert.Empty(t, route.ExtensionRefFilters)
+		require.NotNil(t, route.DirectResponse)
+		assert.Equal(t, 500, route.DirectResponse.StatusCode)
+	})
+
 	input.BackendTLSPolicyMap = helpers.BackendTLSPolicyServiceMap{
 		{Namespace: "default", Name: "backend"}: {
 			Invalid: map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy{
@@ -1782,6 +1836,7 @@ func TestGatewayAPIGRPCBackendTLSPolicy(t *testing.T) {
 	require.Len(t, got.HTTP, 1)
 	require.Len(t, got.HTTP[0].Routes, 1)
 	assert.Empty(t, got.HTTP[0].Routes[0].Backends)
+	assert.Empty(t, got.HTTP[0].Routes[0].ExtensionRefFilters)
 	require.NotNil(t, got.HTTP[0].Routes[0].DirectResponse)
 	assert.Equal(t, 500, got.HTTP[0].Routes[0].DirectResponse.StatusCode)
 }
@@ -2048,7 +2103,7 @@ func TestHTTPInferencePoolBackendSetsEndpointPicker(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].Backends, 1)
@@ -2182,6 +2237,7 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-inferencepool.yaml"), &input.InferencePools)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-ciliumenvoyextprocfilter.yaml"), &input.CiliumEnvoyExtProcFilters)
 
 	// namespaces are used to construct mergedListeners
 	var namespaces []corev1.Namespace

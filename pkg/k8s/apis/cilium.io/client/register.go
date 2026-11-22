@@ -102,6 +102,9 @@ const (
 
 	// CRNCCRDName is the full name of the CiliumResourceNetworkConfig CRD.
 	CRNCCRDName = k8sconstv2alpha1.CRNCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CEEPFCRDName is the full name of the CiliumEnvoyExtProcFilter CRD.
+	CEEPFCRDName = k8sconstv2alpha1.CEEPFKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -216,13 +219,18 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     CRNCCRDName,
 			FullName: k8sconstv2alpha1.CRNCName,
 		},
+		synced.CRDResourceName(k8sconstv2alpha1.CEEPFName): {
+			Name:     CEEPFCRDName,
+			FullName: k8sconstv2alpha1.CEEPFName,
+		},
 	}
 }
 
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
 func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig) (
-	needsMigration []*apiextensionsv1.CustomResourceDefinition, err error) {
+	needsMigration []*apiextensionsv1.CustomResourceDefinition, err error,
+) {
 	crds := CustomResourceDefinitionList()
 
 	for _, resourceName := range synced.AllCiliumCRDResourceNames(bgpCfg) {
@@ -341,6 +349,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumresourcenetworkconfigs.yaml
 	crdsv2Alpha1CiliumResourceNetworkConfigs []byte
+
+	//go:embed crds/v2alpha1/ciliumenvoyextprocfilters.yaml
+	crdsv2Alpha1CiliumEnvoyExtProcFilters []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -407,6 +418,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Alpha1CiliumResourceIPPools
 	case CRNCCRDName:
 		crdBytes = crdsv2Alpha1CiliumResourceNetworkConfigs
+	case CEEPFCRDName:
+		crdBytes = crdsv2Alpha1CiliumEnvoyExtProcFilters
 	default:
 		logging.Fatal(logger, "Pregenerated CRD does not exist", logfields.CRDName, crdName)
 	}
