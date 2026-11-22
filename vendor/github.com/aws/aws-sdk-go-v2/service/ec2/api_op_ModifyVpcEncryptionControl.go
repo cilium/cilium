@@ -55,8 +55,8 @@ type ModifyVpcEncryptionControlInput struct {
 	// enforcement.
 	ElasticFileSystemExclusion types.VpcEncryptionControlExclusionStateInput
 
-	// Specifies whether to exclude AWS Global Accelerator traffic from encryption
-	// enforcement.
+	// Specifies whether to exclude Amazon Web Services Global Accelerator traffic
+	// from encryption enforcement.
 	GlobalAcceleratorExclusion types.VpcEncryptionControlExclusionStateInput
 
 	// Specifies whether to exclude internet gateway traffic from encryption

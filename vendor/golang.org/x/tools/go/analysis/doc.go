@@ -242,9 +242,6 @@ if the default encoding is unsuitable. Facts should be stateless.
 Because serialized facts may appear within build outputs, the gob encoding
 of a fact must be deterministic, to avoid spurious cache misses in
 build systems that use content-addressable caches.
-The driver makes a single call to the gob encoder for all facts
-exported by a given analysis pass, so that the topology of
-shared data structures referenced by multiple facts is preserved.
 
 The Pass type has functions to import and export facts,
 associated either with an object or with a package:
@@ -269,28 +266,140 @@ pointed to by fact. This scheme assumes that the concrete type of fact
 is a pointer; this assumption is checked by the Validate function.
 See the "printf" analyzer for an example of object facts in action.
 
-Some driver implementations (such as those based on Bazel and Blaze) do
-not currently apply analyzers to packages of the standard library.
-Therefore, for best results, analyzer authors should not rely on
-analysis facts being available for standard packages.
-For example, although the printf checker is capable of deducing during
-analysis of the log package that log.Printf is a printf wrapper,
-this fact is built in to the analyzer so that it correctly checks
-calls to log.Printf even when run in a driver that does not apply
-it to standard packages. We would like to remove this limitation in future.
+A driver should apply the analyzers to every package in the transitive
+closure of the packages of interest, including those of the standard
+library, since the facts and types for a package exist only if that
+package was analyzed.
+(Historically some drivers skipped the standard library.
+Blaze's analysis driver has since been fixed, and Bazel's driver is
+expected to follow; see https://github.com/bazel-contrib/rules_go/issues/4702.)
 
 # Testing an Analyzer
 
-The analysistest subpackage provides utilities for testing an Analyzer.
+The [golang.org/x/tools/go/analysis/analysistest] subpackage provides
+utilities for testing an Analyzer.
 In a few lines of code, it is possible to run an analyzer on a package
 of testdata files and check that it reported all the expected
 diagnostics and facts (and no more). Expectations are expressed using
 "// want ..." comments in the input code.
 
+# Drivers
+
+A driver is a program that applies a set of analyzers to a set of Go
+packages and reports the diagnostics they produce.
+It chooses the packages to analyze, provides the type-annotated syntax
+for each one, runs the analyzers in an order consistent with their
+Requires graphs, conveys the facts exported by each package to the
+packages that import it, and finally presents the resulting diagnostics
+and optionally applies any fixes.
+The analysis API is the interface that allows one analyzer to work
+with any driver.
+
+A number of drivers have been successfully deployed.
+Their designs vary along several axes, including:
+
+ 1. How is the import graph of packages obtained? Some drivers execute
+    the build system's metadata query command, such as "go list", or
+    for other build systems, a GOPACKAGESDRIVER program wrapping a
+    query such as "bazel query". Other drivers, conversely, are
+    executed by the build system itself, similar to how "go build"
+    executes cmd/compile once per package.
+
+ 2. How are intermediate results propagated between analysis actions?
+    Some drivers compute the whole operation in one process, which can
+    be efficient, but means that analysis of large code bases is limited
+    by available memory and intermediate results are not cached and
+    reused. Other drivers save all the intermediate results in the file
+    system, like an incremental build system; they pay the costs of
+    reading and writing files, but recompute only what is necessary.
+
+ 3. How do requests for analysis arrive? Some drivers are batch
+    commands that analyze a set of packages, then exit. Others are
+    long-lived servers that continuously detect and respond to changes
+    in the source files by re-executing analysis as needed, like an
+    IDE.
+
+We'll describe several specific drivers in terms of these axes.
+
+Unitchecker: the [golang.org/x/tools/go/analysis/unitchecker] driver
+is analogous to a compiler.
+It reads the source files of a single package, along with summary
+information for each of its direct dependency packages, then writes a
+summary of the current package for use in turn downstream.
+It is invoked by an orchestrating build system (such as "go vet")
+analogous to the way the Go compiler cmd/compile is invoked once per
+package by "go build", in dependencies-first order.
+Like a compiler, it is (ideally) a pure function from input files to
+output files, so the build system can treat it as an ordinary build
+action, running it in parallel with others, caching its result, and
+skipping it entirely if none of its inputs have changed.
+This allows "separate analysis" to scale in the same manner as
+separate compilation.
+
+Unitchecker is the basis of the vet tool (cmd/vet) executed by "go
+vet" and "go test", and the fix tool (cmd/fix) executed by "go fix".
+These tools may also be executed by Bazel's nogo
+(https://github.com/bazel-contrib/rules_go/blob/master/go/nogo.rst),
+and by analogous mechanisms in other build systems.
+
+Each build system provides a flag to allow you to specify an
+alternative unitchecker-based tool with its own analyzer suite, for
+example:
+
+	$ go vet -vettool=my.exe [packages...]
+
+Several aspects of the analysis API follow from the demands of
+separate ("package at a time") analysis.
+Facts must be serializable, and their encoding deterministic,
+because they travel between processes in files that may be recorded
+in a content-addressable build cache.
+An analyzer must not assume that the whole program is available to it,
+nor communicate between packages by any means other than facts.
+And the unitchecker package does not use golang.org/x/tools/go/packages
+since it runs within a build action and should not start a metadata
+query of its own.
+
+Multichecker, singlechecker, and analysistest:
+the [golang.org/x/tools/go/analysis/multichecker] driver,
+by contrast, executes the build system's metadata query tool
+(such as "go list") to obtain the import graph over packages.
+It then computes the whole analysis, in one address space,
+passing facts from one package to another in memory.
+
+It is named multichecker because it runs multiple analyzers; the
+singlechecker variant is identical except that it runs only a single
+analyzer and its command-line interface is correspondingly simpler.
+There is also a variant for analyzer testing, named analysistest, that
+works in a similar way.
+All three drivers are based on a common implementation in the
+[golang.org/x/tools/go/analysis/checker] package.
+
+A driver of this form is easy to deploy, being a single self-contained
+command, but it repeats all of its work on each run, and may not
+scale to very large code bases since it is limited by available
+memory.
+
+Gopls: Go's language server (https://go.dev/gopls) has an integrated
+analysis driver that combines aspects of both approaches.
+Like multichecker, it executes the build system's metadata query
+tool to obtain the import graph; and like unitchecker, it analyzes
+one package at a time, recording the diagnostics, types, and facts
+of each package in a summary file that is cached in the file system.
+It incorporates an incremental build system that detects when files
+have changed and automatically re-executes analysis actions
+or metadata queries as needed, delivering up-to-date diagnostics
+even at interactive editing latency.
+
+The third-party driver tools staticcheck (https://staticcheck.dev) and
+golangci-lint (https://golangci-lint.run) both work similarly to gopls,
+but as batch programs instead of a long-lived server.
+Both also provide suites of their own analyzers.
+
 # Standalone commands
 
 Analyzers are provided in the form of packages that a driver program is
-expected to import. The vet command imports a set of several analyzers,
+expected to import. The vet command imports a suite of several analyzers
+(see [golang.org/x/tools/go/analysis/suite/vet]),
 but users may wish to define their own analysis commands that perform
 additional checks. To simplify the task of creating an analysis command,
 either for a single analyzer or for a whole suite, we provide the
@@ -313,5 +422,16 @@ entirety as:
 
 A tool that provides multiple analyzers can use multichecker in a
 similar way, giving it the list of Analyzers.
+
+For convenience, the singlechecker and multichecker packages also detect
+when they are being used in a package-at-a-time context such as
+"go vet -vettool=my.exe", and automatically switch to unitchecker
+behavior in that case.
+This saves building and distributing two executables, but
+it does mean that a single command has two rather different modes,
+with different ways of choosing packages and different performance.
+A tool intended only for use within a build system should call
+unitchecker.Main directly, and thus avoid the dependency on
+go/packages.
 */
 package analysis

@@ -21,6 +21,9 @@ import (
 // peering connection. The VPC peering connection request expires after 7 days,
 // after which it cannot be accepted or rejected.
 //
+// Multipath resilience replicates the traffic of an inter-Region VPC peering
+// connection across multiple network paths.
+//
 // If you create a VPC peering connection request between VPCs with overlapping
 // CIDR blocks, the VPC peering connection has a status of failed .
 //
@@ -67,6 +70,9 @@ type CreateVpcPeeringConnectionInput struct {
 	// The ID of the VPC with which you are creating the VPC peering connection. You
 	// must specify this parameter in the request.
 	PeerVpcId *string
+
+	// The VPC peering connection options to apply to the requester VPC.
+	RequesterPeeringConnectionOptions *types.CreatePeeringConnectionOptionsRequest
 
 	// The tags to assign to the peering connection.
 	TagSpecifications []types.TagSpecification

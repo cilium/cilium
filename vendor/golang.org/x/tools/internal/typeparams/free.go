@@ -90,11 +90,7 @@ func (w *Free) Has(typ types.Type) (res bool) {
 				return true
 			}
 		}
-		terms, err := InterfaceTermSet(t)
-		if err != nil {
-			return false // ill typed
-		}
-		for _, term := range terms {
+		for term := range TypeSetOf(t).Terms() {
 			if w.Has(term.Type()) {
 				return true
 			}

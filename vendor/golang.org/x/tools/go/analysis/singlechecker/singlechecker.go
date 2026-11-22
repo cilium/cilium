@@ -3,23 +3,40 @@
 // license that can be found in the LICENSE file.
 
 // Package singlechecker defines the main function for an analysis
-// driver with only a single analysis.
-// This package makes it easy for a provider of an analysis package to
-// also provide a standalone tool that runs just that analysis.
+// driver with only a single analyzer.
 //
-// For example, if example.org/findbadness is an analysis package,
-// all that is needed to define a standalone tool is a file,
-// example.org/findbadness/cmd/findbadness/main.go, containing:
+// This package makes it convenient for an analysis package to also
+// provide a standalone tool that runs just that one analyzer.
+//
+// For example, if example.com/findbadness is an analysis package,
+// then adding this main.go file to its directory makes it easy to
+// build a standalone tool:
+//
+//	//go:build ignore
 //
 //	// The findbadness command runs an analysis.
 //	package main
 //
 //	import (
-//		"example.org/findbadness"
+//		"example.com/findbadness"
 //		"golang.org/x/tools/go/analysis/singlechecker"
 //	)
 //
 //	func main() { singlechecker.Main(findbadness.Analyzer) }
+//
+// It can be built and run (in whole-program mode) using these commands:
+//
+//	$ go build -o findbadness example.com/findbadness/main.go
+//	$ findbadness [packages...]
+//
+// or run in package-at-a-time mode using this command:
+//
+//	$ go vet -vettool=./findbadness [packages...]
+//
+// For more detail, see the documentation for
+// [golang.org/x/tools/go/analysis/multichecker]; the only significant
+// difference between them is that the command-line interface of
+// singlechecker is tailored to a single analyzer.
 package singlechecker
 
 import (
@@ -36,6 +53,8 @@ import (
 )
 
 // Main is the main function for a checker command for a single analysis.
+// It parses the command line, analyzes all the packages, prints any
+// diagnostics, then terminates the process.
 func Main(a *analysis.Analyzer) {
 	log.SetFlags(0)
 	log.SetPrefix(a.Name + ": ")

@@ -153,7 +153,7 @@ type gobFact struct {
 }
 
 // A Decoder decodes the facts from the direct imports of the package
-// provided to NewEncoder. A single decoder may be used to decode
+// provided to NewDecoder. A single decoder may be used to decode
 // multiple fact sets (e.g. each for a different set of fact types)
 // for the same package. Each call to Decode returns an independent
 // fact set.
@@ -164,27 +164,15 @@ type Decoder struct {
 
 // NewDecoder returns a fact decoder for the specified package.
 //
-// It uses a brute-force recursive approach to enumerate all objects
-// defined by dependencies of pkg, so that it can learn the set of
-// package paths that may be mentioned in the fact encoding. This does
-// not scale well; use [NewDecoderFunc] where possible.
-func NewDecoder(pkg *types.Package) *Decoder {
-	// Compute the import map for this package.
-	// See the package doc comment.
-	m := importMap(pkg.Imports())
-	getPackageFunc := func(path string) *types.Package { return m[path] }
-	return NewDecoderFunc(pkg, getPackageFunc)
-}
-
-// NewDecoderFunc returns a fact decoder for the specified package.
-//
 // It calls the getPackage function for the package path string of
 // each dependency (perhaps indirect) that it encounters in the
 // encoding. If the function returns nil, the fact is discarded.
 //
-// This function is preferred over [NewDecoder] when the client is
-// capable of efficient look-up of packages by package path.
-func NewDecoderFunc(pkg *types.Package, getPackage GetPackageFunc) *Decoder {
+// Typically getPackage consults the package map of the importer used
+// to type-check pkg. Any package not in that map cannot be the owner
+// of an object or package that an analyzer could query, so facts
+// about it are of no use and may safely be discarded.
+func NewDecoder(pkg *types.Package, getPackage GetPackageFunc) *Decoder {
 	return &Decoder{
 		pkg:        pkg,
 		getPackage: getPackage,
@@ -296,8 +284,8 @@ func (s *Set) Encode() []byte {
 		// we rexport: it should be only those referenced
 		// from the API of s.pkg.
 		// TODO(adonovan): opt: be more precise. e.g.
-		// intersect with the set of objects computed by
-		// importMap(s.pkg.Imports()).
+		// intersect with the set of objects reachable
+		// from the API of s.pkg.
 		// TODO(adonovan): opt: implement "shallow" facts.
 		if k.pkg != s.pkg {
 			if k.obj == nil {

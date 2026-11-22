@@ -7,50 +7,62 @@ package typeparams
 import (
 	"fmt"
 	"go/types"
+
+	"golang.org/x/tools/internal/moreiters"
 )
 
 // CoreType returns the core type of T or nil if T does not have a core type.
 //
-// As of Go1.25, the notion of a core type has been removed from the language spec.
-// See https://go.dev/blog/coretypes for more details.
-// TODO(mkalil): We should eventually consider removing all uses of CoreType.
+// As of Go 1.25, the notion of a core type has been removed from the
+// language spec; see https://go.dev/blog/coretypes for details.
+//
+// The spec now expresses the semantics of some operations (with
+// perhaps more in future) terms of computations over type sets, which
+// may permit them to use operands that do not have a CoreType; use
+// [TypeSetOf] in such cases.
+//
+// However, the spec continues to define other operations in a way
+// that is equivalent to the old core-type concept. This function is
+// provided for such cases.
 func CoreType(T types.Type) types.Type {
 	U := T.Underlying()
 	if _, ok := U.(*types.Interface); !ok {
 		return U // for non-interface types,
 	}
 
-	terms, err := NormalTerms(U)
-	if len(terms) == 0 || err != nil {
-		// len(terms) -> empty type set of interface.
-		// err != nil => U is invalid, exceeds complexity bounds, or has an empty type set.
+	ts := TypeSetOf(U)
+	if ts.Len() == 0 {
+		// Unrestricted (no specific terms), empty, or invalid type set.
 		return nil // no core type.
 	}
+	seq := ts.UnderlyingTypes()
 
-	U = terms[0].Type().Underlying()
-	var identical int // i in [0,identical) => Identical(U, terms[i].Type().Underlying())
-	for identical = 1; identical < len(terms); identical++ {
-		if !types.Identical(U, terms[identical].Type().Underlying()) {
-			break
-		}
-	}
+	// Check whether all underlying types are identical.
+	// Channels may be identical modulo direction, so
+	// if not, we check them as a second pass.
 
-	if identical == len(terms) {
+	U = ts.Term(0).Type().Underlying()
+	if moreiters.Every(seq, func(u types.Type) bool { return types.Identical(U, u) }) {
 		// From the deprecated core types spec:
 		// "There is a single type U which is the underlying type of all types in the type set of T"
 		return U
 	}
-	ch, ok := U.(*types.Chan)
-	if !ok {
-		return nil // no core type as identical < len(terms) and U is not a channel.
-	}
+
 	// From the deprecated core types spec:
 	// "the type chan E if T contains only bidirectional channels, or the type chan<- E or
 	// <-chan E depending on the direction of the directional channels present."
-	for chans := identical; chans < len(terms); chans++ {
-		curr, ok := terms[chans].Type().Underlying().(*types.Chan)
+	//
+	// (This pass revisits the terms identical to the first one;
+	// that is harmless, and in practice there is usually only one.)
+	var ch *types.Chan
+	for u := range seq {
+		curr, ok := u.(*types.Chan)
 		if !ok {
-			return nil
+			return nil // no core type as terms are not identical and not all channels.
+		}
+		if ch == nil {
+			ch = curr
+			continue
 		}
 		if !types.Identical(ch.Elem(), curr.Elem()) {
 			return nil // channel elements are not identical.
@@ -64,69 +76,6 @@ func CoreType(T types.Type) types.Type {
 		}
 	}
 	return ch
-}
-
-// NormalTerms returns a slice of terms representing the normalized structural
-// type restrictions of a type, if any.
-//
-// For all types other than *types.TypeParam, *types.Interface, and
-// *types.Union, this is just a single term with Tilde() == false and
-// Type() == typ. For *types.TypeParam, *types.Interface, and *types.Union, see
-// below.
-//
-// Structural type restrictions of a type parameter are created via
-// non-interface types embedded in its constraint interface (directly, or via a
-// chain of interface embeddings). For example, in the declaration type
-// T[P interface{~int; m()}] int the structural restriction of the type
-// parameter P is ~int.
-//
-// With interface embedding and unions, the specification of structural type
-// restrictions may be arbitrarily complex. For example, consider the
-// following:
-//
-//	type A interface{ ~string|~[]byte }
-//
-//	type B interface{ int|string }
-//
-//	type C interface { ~string|~int }
-//
-//	type T[P interface{ A|B; C }] int
-//
-// In this example, the structural type restriction of P is ~string|int: A|B
-// expands to ~string|~[]byte|int|string, which reduces to ~string|~[]byte|int,
-// which when intersected with C (~string|~int) yields ~string|int.
-//
-// NormalTerms computes these expansions and reductions, producing a
-// "normalized" form of the embeddings. A structural restriction is normalized
-// if it is a single union containing no interface terms, and is minimal in the
-// sense that removing any term changes the set of types satisfying the
-// constraint. It is left as a proof for the reader that, modulo sorting, there
-// is exactly one such normalized form.
-//
-// Because the minimal representation always takes this form, NormalTerms
-// returns a slice of tilde terms corresponding to the terms of the union in
-// the normalized structural restriction. An error is returned if the type is
-// invalid, exceeds complexity bounds, or has an empty type set. In the latter
-// case, NormalTerms returns ErrEmptyTypeSet.
-//
-// NormalTerms makes no guarantees about the order of terms, except that it
-// is deterministic.
-func NormalTerms(T types.Type) ([]*types.Term, error) {
-	// typeSetOf(T) == typeSetOf(Unalias(T))
-	typ := types.Unalias(T)
-	if named, ok := typ.(*types.Named); ok {
-		typ = named.Underlying()
-	}
-	switch typ := typ.(type) {
-	case *types.TypeParam:
-		return StructuralTerms(typ)
-	case *types.Union:
-		return UnionTermSet(typ)
-	case *types.Interface:
-		return InterfaceTermSet(typ)
-	default:
-		return []*types.Term{types.NewTerm(false, T)}, nil
-	}
 }
 
 // Deref returns the type of the variable pointed to by t,

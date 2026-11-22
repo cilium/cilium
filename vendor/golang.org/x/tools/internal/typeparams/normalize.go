@@ -5,7 +5,6 @@
 package typeparams
 
 import (
-	"errors"
 	"fmt"
 	"go/types"
 	"os"
@@ -15,100 +14,6 @@ import (
 //go:generate go run copytermlist.go
 
 const debug = false
-
-var ErrEmptyTypeSet = errors.New("empty type set")
-
-// StructuralTerms returns a slice of terms representing the normalized
-// structural type restrictions of a type parameter, if any.
-//
-// Structural type restrictions of a type parameter are created via
-// non-interface types embedded in its constraint interface (directly, or via a
-// chain of interface embeddings). For example, in the declaration
-//
-//	type T[P interface{~int; m()}] int
-//
-// the structural restriction of the type parameter P is ~int.
-//
-// With interface embedding and unions, the specification of structural type
-// restrictions may be arbitrarily complex. For example, consider the
-// following:
-//
-//	type A interface{ ~string|~[]byte }
-//
-//	type B interface{ int|string }
-//
-//	type C interface { ~string|~int }
-//
-//	type T[P interface{ A|B; C }] int
-//
-// In this example, the structural type restriction of P is ~string|int: A|B
-// expands to ~string|~[]byte|int|string, which reduces to ~string|~[]byte|int,
-// which when intersected with C (~string|~int) yields ~string|int.
-//
-// StructuralTerms computes these expansions and reductions, producing a
-// "normalized" form of the embeddings. A structural restriction is normalized
-// if it is a single union containing no interface terms, and is minimal in the
-// sense that removing any term changes the set of types satisfying the
-// constraint. It is left as a proof for the reader that, modulo sorting, there
-// is exactly one such normalized form.
-//
-// Because the minimal representation always takes this form, StructuralTerms
-// returns a slice of tilde terms corresponding to the terms of the union in
-// the normalized structural restriction. An error is returned if the
-// constraint interface is invalid, exceeds complexity bounds, or has an empty
-// type set. In the latter case, StructuralTerms returns ErrEmptyTypeSet.
-//
-// StructuralTerms makes no guarantees about the order of terms, except that it
-// is deterministic.
-func StructuralTerms(tparam *types.TypeParam) ([]*types.Term, error) {
-	constraint := tparam.Constraint()
-	if constraint == nil {
-		return nil, fmt.Errorf("%s has nil constraint", tparam)
-	}
-	iface, _ := constraint.Underlying().(*types.Interface)
-	if iface == nil {
-		return nil, fmt.Errorf("constraint is %T, not *types.Interface", constraint.Underlying())
-	}
-	return InterfaceTermSet(iface)
-}
-
-// InterfaceTermSet computes the normalized terms for a constraint interface,
-// returning an error if the term set cannot be computed or is empty. In the
-// latter case, the error will be ErrEmptyTypeSet.
-//
-// See the documentation of StructuralTerms for more information on
-// normalization.
-func InterfaceTermSet(iface *types.Interface) ([]*types.Term, error) {
-	return computeTermSet(iface)
-}
-
-// UnionTermSet computes the normalized terms for a union, returning an error
-// if the term set cannot be computed or is empty. In the latter case, the
-// error will be ErrEmptyTypeSet.
-//
-// See the documentation of StructuralTerms for more information on
-// normalization.
-func UnionTermSet(union *types.Union) ([]*types.Term, error) {
-	return computeTermSet(union)
-}
-
-func computeTermSet(typ types.Type) ([]*types.Term, error) {
-	tset, err := computeTermSetInternal(typ, make(map[types.Type]*termSet), 0)
-	if err != nil {
-		return nil, err
-	}
-	if tset.terms.isEmpty() {
-		return nil, ErrEmptyTypeSet
-	}
-	if tset.terms.isAll() {
-		return nil, nil
-	}
-	var terms []*types.Term
-	for _, term := range tset.terms {
-		terms = append(terms, types.NewTerm(term.tilde, term.typ))
-	}
-	return terms, nil
-}
 
 // A termSet holds the normalized set of terms for a given type.
 //
