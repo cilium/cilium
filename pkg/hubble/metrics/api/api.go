@@ -131,6 +131,8 @@ type MetricConfig struct {
 	IncludeFilters []*pb.FlowFilter `json:"includeFilters,omitempty" yaml:"includeFilters,omitempty"`
 	// IncludeFilters controls which resources the metric doesn't apply to
 	ExcludeFilters []*pb.FlowFilter `json:"excludeFilters,omitempty" yaml:"excludeFilters,omitempty"`
+	// PathContext adds a templated "path" label to the HTTP metrics.
+	PathContext *PathContext `json:"pathContext,omitempty" yaml:"pathContext,omitempty"`
 }
 
 // Config represents the structure used for configuring
@@ -158,7 +160,7 @@ func ParseStaticMetricsConfig(enabledMetrics []string) (metricConfigs *Config) {
 			ContextOptionConfigs: []*ContextOptionConfig{},
 		}
 		if len(s) == 2 {
-			config.ContextOptionConfigs = parseOptionConfigs(s[1])
+			config.ContextOptionConfigs, config.PathContext = parseOptionConfigs(s[1])
 		}
 		metricConfigs.Metrics = append(metricConfigs.Metrics, config)
 	}
@@ -166,11 +168,17 @@ func ParseStaticMetricsConfig(enabledMetrics []string) (metricConfigs *Config) {
 	return
 }
 
-func parseOptionConfigs(s string) (options []*ContextOptionConfig) {
+func parseOptionConfigs(s string) (options []*ContextOptionConfig, pathCtx *PathContext) {
 	options = []*ContextOptionConfig{}
 
 	for option := range strings.SplitSeq(s, ";") {
 		if option == "" {
+			continue
+		}
+
+		name, value, _ := strings.Cut(option, "=")
+		if p, ok := liftPathContextOption(pathCtx, name, value); ok {
+			pathCtx = p
 			continue
 		}
 

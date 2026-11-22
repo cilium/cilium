@@ -363,6 +363,60 @@ func TestReadMetricConfigFromCM(t *testing.T) {
 	require.EqualError(t, err, "invalid yaml config file: metric config validation failed - missing metric name at: 0\nmetric config validation failed - missing metric name at: 1")
 }
 
+func TestValidateMetricConfigPathContextChange(t *testing.T) {
+	base := func() *api.PathContext {
+		return &api.PathContext{
+			Templates: []string{"/users/{id}"},
+			OnMiss:    api.OnMissPolicy{Value: "other"},
+		}
+	}
+	tests := []struct {
+		name    string
+		old     *api.PathContext
+		new     *api.PathContext
+		wantErr bool
+	}{
+		{name: "unchanged", old: base(), new: base()},
+		{name: "unset on both", old: nil, new: nil},
+		{name: "added", old: nil, new: base(), wantErr: true},
+		{name: "removed", old: base(), new: nil, wantErr: true},
+		{
+			name: "templates edited",
+			old:  base(),
+			new: &api.PathContext{
+				Templates: []string{"/users/{id}", "/orders/{id}"},
+				OnMiss:    api.OnMissPolicy{Value: "other"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "onMiss edited",
+			old:  base(),
+			new: &api.PathContext{
+				Templates: []string{"/users/{id}"},
+				OnMiss:    api.OnMissPolicy{Value: "unmatched"},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldMetric := &api.MetricConfig{Name: "httpV2", PathContext: tt.old}
+			watcher := metricConfigWatcher{cfgStore: map[string]*api.MetricConfig{"httpV2": oldMetric}}
+
+			err := watcher.validateMetricConfig(&api.Config{
+				Metrics: []*api.MetricConfig{{Name: "httpV2", PathContext: tt.new}},
+			})
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, "metric config validation failed - pathContext cannot be changed without restarting the agent. metric: httpV2")
+			require.Same(t, oldMetric, watcher.cfgStore["httpV2"], "rejected config must not replace the stored one")
+		})
+	}
+}
+
 func assertMetricConfig(t *testing.T, expected, actual api.MetricConfig) {
 	assert.Equal(t, expected.Name, actual.Name)
 
