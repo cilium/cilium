@@ -85,8 +85,8 @@ func (m *BgpRoutePolicyStatement) validateMatchFamilies(formats strfmt.Registry)
 	}
 
 	for i := 0; i < len(m.MatchFamilies); i++ {
-		if typeutils.IsZero(m.MatchFamilies[i]) { // not required
-			continue
+		if m.MatchFamilies[i] == nil {
+			return validate.Required("match-families"+"."+strconv.Itoa(i), "body", m.MatchFamilies[i])
 		}
 
 		if m.MatchFamilies[i] != nil {

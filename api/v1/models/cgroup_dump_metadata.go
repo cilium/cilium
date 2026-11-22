@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // CgroupDumpMetadata cgroup full metadata
@@ -45,8 +46,8 @@ func (m *CgroupDumpMetadata) validatePodMetadatas(formats strfmt.Registry) error
 	}
 
 	for i := 0; i < len(m.PodMetadatas); i++ {
-		if typeutils.IsZero(m.PodMetadatas[i]) { // not required
-			continue
+		if m.PodMetadatas[i] == nil {
+			return validate.Required("pod-metadatas"+"."+strconv.Itoa(i), "body", m.PodMetadatas[i])
 		}
 
 		if m.PodMetadatas[i] != nil {

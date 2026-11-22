@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // L4Policy L4 endpoint policy
@@ -52,8 +53,8 @@ func (m *L4Policy) validateEgress(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Egress); i++ {
-		if typeutils.IsZero(m.Egress[i]) { // not required
-			continue
+		if m.Egress[i] == nil {
+			return validate.Required("egress"+"."+strconv.Itoa(i), "body", m.Egress[i])
 		}
 
 		if m.Egress[i] != nil {
@@ -82,8 +83,8 @@ func (m *L4Policy) validateIngress(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Ingress); i++ {
-		if typeutils.IsZero(m.Ingress[i]) { // not required
-			continue
+		if m.Ingress[i] == nil {
+			return validate.Required("ingress"+"."+strconv.Itoa(i), "body", m.Ingress[i])
 		}
 
 		if m.Ingress[i] != nil {

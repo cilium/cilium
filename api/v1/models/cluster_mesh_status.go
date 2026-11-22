@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // ClusterMeshStatus Status of ClusterMesh
@@ -47,8 +48,8 @@ func (m *ClusterMeshStatus) validateClusters(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Clusters); i++ {
-		if typeutils.IsZero(m.Clusters[i]) { // not required
-			continue
+		if m.Clusters[i] == nil {
+			return validate.Required("clusters"+"."+strconv.Itoa(i), "body", m.Clusters[i])
 		}
 
 		if m.Clusters[i] != nil {

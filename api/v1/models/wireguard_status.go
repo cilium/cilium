@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // WireguardStatus Status of the WireGuard agent
@@ -53,8 +54,8 @@ func (m *WireguardStatus) validateInterfaces(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Interfaces); i++ {
-		if typeutils.IsZero(m.Interfaces[i]) { // not required
-			continue
+		if m.Interfaces[i] == nil {
+			return validate.Required("interfaces"+"."+strconv.Itoa(i), "body", m.Interfaces[i])
 		}
 
 		if m.Interfaces[i] != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // DebugInfo groups some debugging related information on the agent
@@ -137,8 +138,8 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.EndpointList); i++ {
-		if typeutils.IsZero(m.EndpointList[i]) { // not required
-			continue
+		if m.EndpointList[i] == nil {
+			return validate.Required("endpoint-list"+"."+strconv.Itoa(i), "body", m.EndpointList[i])
 		}
 
 		if m.EndpointList[i] != nil {
@@ -190,8 +191,8 @@ func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.ServiceList); i++ {
-		if typeutils.IsZero(m.ServiceList[i]) { // not required
-			continue
+		if m.ServiceList[i] == nil {
+			return validate.Required("service-list"+"."+strconv.Itoa(i), "body", m.ServiceList[i])
 		}
 
 		if m.ServiceList[i] != nil {

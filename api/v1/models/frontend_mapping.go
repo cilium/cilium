@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // FrontendMapping Mapping of frontend to backend pods of an LRP
@@ -52,8 +53,8 @@ func (m *FrontendMapping) validateBackends(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Backends); i++ {
-		if typeutils.IsZero(m.Backends[i]) { // not required
-			continue
+		if m.Backends[i] == nil {
+			return validate.Required("backends"+"."+strconv.Itoa(i), "body", m.Backends[i])
 		}
 
 		if m.Backends[i] != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // EndpointPolicyStatus Policy information of an endpoint
@@ -62,8 +63,8 @@ func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) 
 	}
 
 	for i := 0; i < len(m.ProxyStatistics); i++ {
-		if typeutils.IsZero(m.ProxyStatistics[i]) { // not required
-			continue
+		if m.ProxyStatistics[i] == nil {
+			return validate.Required("proxy-statistics"+"."+strconv.Itoa(i), "body", m.ProxyStatistics[i])
 		}
 
 		if m.ProxyStatistics[i] != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // NameManager Internal state about DNS names in relation to policy subsystem
@@ -48,8 +49,8 @@ func (m *NameManager) validateFQDNPolicySelectors(formats strfmt.Registry) error
 	}
 
 	for i := 0; i < len(m.FQDNPolicySelectors); i++ {
-		if typeutils.IsZero(m.FQDNPolicySelectors[i]) { // not required
-			continue
+		if m.FQDNPolicySelectors[i] == nil {
+			return validate.Required("FQDNPolicySelectors"+"."+strconv.Itoa(i), "body", m.FQDNPolicySelectors[i])
 		}
 
 		if m.FQDNPolicySelectors[i] != nil {

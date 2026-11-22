@@ -130,8 +130,8 @@ func (m *BgpPeer) validateFamilies(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Families); i++ {
-		if typeutils.IsZero(m.Families[i]) { // not required
-			continue
+		if m.Families[i] == nil {
+			return validate.Required("families"+"."+strconv.Itoa(i), "body", m.Families[i])
 		}
 
 		if m.Families[i] != nil {
@@ -183,8 +183,8 @@ func (m *BgpPeer) validateLocalCapabilities(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.LocalCapabilities); i++ {
-		if typeutils.IsZero(m.LocalCapabilities[i]) { // not required
-			continue
+		if m.LocalCapabilities[i] == nil {
+			return validate.Required("local-capabilities"+"."+strconv.Itoa(i), "body", m.LocalCapabilities[i])
 		}
 
 		if m.LocalCapabilities[i] != nil {
@@ -229,8 +229,8 @@ func (m *BgpPeer) validateRemoteCapabilities(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.RemoteCapabilities); i++ {
-		if typeutils.IsZero(m.RemoteCapabilities[i]) { // not required
-			continue
+		if m.RemoteCapabilities[i] == nil {
+			return validate.Required("remote-capabilities"+"."+strconv.Itoa(i), "body", m.RemoteCapabilities[i])
 		}
 
 		if m.RemoteCapabilities[i] != nil {

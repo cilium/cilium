@@ -70,8 +70,8 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.BackendAddresses); i++ {
-		if typeutils.IsZero(m.BackendAddresses[i]) { // not required
-			continue
+		if m.BackendAddresses[i] == nil {
+			return validate.Required("backend-addresses"+"."+strconv.Itoa(i), "body", m.BackendAddresses[i])
 		}
 
 		if m.BackendAddresses[i] != nil {

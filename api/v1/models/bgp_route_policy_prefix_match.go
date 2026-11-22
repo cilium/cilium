@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // BgpRoutePolicyPrefixMatch Matches a CIDR prefix in a BGP route policy
@@ -52,8 +53,8 @@ func (m *BgpRoutePolicyPrefixMatch) validatePrefixes(formats strfmt.Registry) er
 	}
 
 	for i := 0; i < len(m.Prefixes); i++ {
-		if typeutils.IsZero(m.Prefixes[i]) { // not required
-			continue
+		if m.Prefixes[i] == nil {
+			return validate.Required("prefixes"+"."+strconv.Itoa(i), "body", m.Prefixes[i])
 		}
 
 		if m.Prefixes[i] != nil {

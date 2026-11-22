@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // LRPSpec Configuration of an LRP
@@ -63,8 +64,8 @@ func (m *LRPSpec) validateFrontendMappings(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.FrontendMappings); i++ {
-		if typeutils.IsZero(m.FrontendMappings[i]) { // not required
-			continue
+		if m.FrontendMappings[i] == nil {
+			return validate.Required("frontend-mappings"+"."+strconv.Itoa(i), "body", m.FrontendMappings[i])
 		}
 
 		if m.FrontendMappings[i] != nil {

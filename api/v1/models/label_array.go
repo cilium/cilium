@@ -13,6 +13,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // LabelArray LabelArray is an array of labels forming a set
@@ -25,8 +26,8 @@ func (m LabelArray) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	for i := 0; i < len(m); i++ {
-		if typeutils.IsZero(m[i]) { // not required
-			continue
+		if m[i] == nil {
+			return validate.Required(strconv.Itoa(i), "body", m[i])
 		}
 
 		if m[i] != nil {
