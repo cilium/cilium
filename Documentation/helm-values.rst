@@ -1679,7 +1679,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:96d64e483774aa6e9d5ea7585d3048f848c6f19c26c56d649f44818264dd0378","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794557816-ede493956119acdc9268141721943eebe7da482c","useDigest":true}``
+     - ``{"digest":"sha256:a0302066185d3f9bae3ede2f59314f29bc2b7404e64fe8f8404ff5853fb40c55","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794818918-f9e94ba925fcace08efa91f2e470fc046ba041c3","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -3399,7 +3399,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:f6d8cc0d4210ef3905631994d5b4c906d35580c9d928f778aa489f51edd2bdd6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1793630414-e47a187","useDigest":true}``
+     - ``{"digest":"sha256:aa4404a9d5ac68785e3f1ad79edd660e63f769c7b604be078d842549c3234a26","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1794852150-c40af43","useDigest":true}``
    * - :spelling:ignore:`nodeinit.minReadySeconds`
      - Minimum number of seconds for which a newly created node-init pod should be ready before it is considered available.
      - int
@@ -3767,7 +3767,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:96d64e483774aa6e9d5ea7585d3048f848c6f19c26c56d649f44818264dd0378","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794557816-ede493956119acdc9268141721943eebe7da482c","useDigest":true}``
+     - ``{"digest":"sha256:a0302066185d3f9bae3ede2f59314f29bc2b7404e64fe8f8404ff5853fb40c55","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794818918-f9e94ba925fcace08efa91f2e470fc046ba041c3","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

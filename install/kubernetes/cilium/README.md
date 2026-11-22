@@ -469,7 +469,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.httpRetryTimeout | int | `0` | Time in seconds after which a forwarded but uncompleted HTTP request is retried. Default 0 (never). |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:96d64e483774aa6e9d5ea7585d3048f848c6f19c26c56d649f44818264dd0378","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794557816-ede493956119acdc9268141721943eebe7da482c","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:a0302066185d3f9bae3ede2f59314f29bc2b7404e64fe8f8404ff5853fb40c55","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794818918-f9e94ba925fcace08efa91f2e470fc046ba041c3","useDigest":true}` | Envoy container image. |
 | envoy.initContainers | list | `[]` | Init containers added to the cilium Envoy DaemonSet. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
@@ -899,7 +899,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.extraEnv | list | `[]` | Additional nodeinit environment variables. |
 | nodeinit.extraVolumeMounts | list | `[]` | Additional nodeinit volumeMounts. |
 | nodeinit.extraVolumes | list | `[]` | Additional nodeinit volumes. |
-| nodeinit.image | object | `{"digest":"sha256:f6d8cc0d4210ef3905631994d5b4c906d35580c9d928f778aa489f51edd2bdd6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1793630414-e47a187","useDigest":true}` | node-init image. |
+| nodeinit.image | object | `{"digest":"sha256:aa4404a9d5ac68785e3f1ad79edd660e63f769c7b604be078d842549c3234a26","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1794852150-c40af43","useDigest":true}` | node-init image. |
 | nodeinit.minReadySeconds | int | `0` | Minimum number of seconds for which a newly created node-init pod should be ready before it is considered available. |
 | nodeinit.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | nodeinit.podAnnotations | object | `{}` | Annotations to be added to node-init pods. |
@@ -991,7 +991,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.annotations | object | `{}` | Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight) |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.envoy.image | object | `{"digest":"sha256:96d64e483774aa6e9d5ea7585d3048f848c6f19c26c56d649f44818264dd0378","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794557816-ede493956119acdc9268141721943eebe7da482c","useDigest":true}` | Envoy pre-flight image. |
+| preflight.envoy.image | object | `{"digest":"sha256:a0302066185d3f9bae3ede2f59314f29bc2b7404e64fe8f8404ff5853fb40c55","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1794818918-f9e94ba925fcace08efa91f2e470fc046ba041c3","useDigest":true}` | Envoy pre-flight image. |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |
