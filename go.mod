@@ -101,7 +101,7 @@ require (
 	github.com/spiffe/spire-api-sdk v1.16.0
 	github.com/stretchr/testify v1.12.1
 	github.com/tidwall/gjson v1.20.4
-	github.com/tidwall/sjson v1.2.9
+	github.com/tidwall/sjson v1.2.10
 	github.com/vishvananda/netlink v1.3.2-0.20261119170902-574e8aea312c
 	github.com/vishvananda/netns v0.0.5
 	go.etcd.io/etcd/api/v3 v3.7.3
