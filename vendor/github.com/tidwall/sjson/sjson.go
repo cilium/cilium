@@ -250,7 +250,6 @@ loop:
 						if buf[i] == '"' {
 							i--
 							if i >= 0 && buf[i] == '\\' {
-								i--
 								continue
 							}
 							for ; i >= 0; i-- {
