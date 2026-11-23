@@ -886,6 +886,15 @@ Pod. The encapsulated packet is routed to the node hosting that Pod, where Ciliu
 terminates the tunnel, strips the outer header, DNATs and delivers the inner
 packet to the backend Pod identified by the outer destination address.
 
+.. note::
+
+    For environments where external LB is used to distribute traffic to the Cilium nodes via IPIP,
+    it might be necessary to use ``bpf-lb-ipip-use-outer-dst: "false"`` to not DNAT the inner packet
+    to the outer destination IP and do the regular backend selection instead as the external LB
+    has no knowledge of the backend IPs.
+    This on the other hand disables the possibility of using IPIP within the cluster as
+    there is no way to distinguish between hostNetwork traffic and external LB based traffic.
+
 Compared to :ref:`DSR mode with Geneve`, the IPIP dispatch does not rely on a
 Geneve option to transport the service IP/port to the backend, and compared to
 the IPv4 option / IPv6 extension header dispatch it avoids the Cilium-specific IP
