@@ -182,7 +182,7 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		},
 	})
 
-	params.JobGroup.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
+	params.JobGroup.Add(job.OneShot("datapath-reconciler", o.reconciler, job.WithShutdown()))
 	params.JobGroup.Add(job.OneShot("precompile-endpoint-template", o.precompileEndpointTemplate))
 
 	return o
@@ -265,7 +265,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		return fmt.Errorf("waiting for plugin registry: %w", err)
 	}
 
-	health.OK("Initializing")
+	health.OK("Waiting for host devices")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
 	if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
 		return err
@@ -278,79 +278,17 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		giveUp           error
 	)
 	for {
-		var (
-			localNodeConfig        config.Config
-			localNodeConfigWatches []<-chan struct{}
-		)
-
-		// Re-run this on every reconciliation to update the tunnel MTU or
-		// recreate IPIP devices if they disappear.
-		ipipWatch, err := o.ensureIPIPDevices(agentConfig)
+		watches, err := o.reconcile(ctx, localNode, health, agentConfig, request)
 		if err != nil {
-			o.params.Log.Warn("Failed to ensure IPIP devices, retrying later",
-				logfields.Error, err,
-				logfields.RetryDelay, reinitRetryDuration,
-			)
-			health.Degraded("Failed to ensure IPIP devices", err)
-			retryChan = time.After(reinitRetryDuration)
-		} else {
-			localNodeConfig, localNodeConfigWatches, err = newLocalNodeConfig(
-				ctx,
-				option.Config,
-				localNode,
-				o.params.Sysctl,
-				o.params.ClusterInfo,
-				o.params.TunnelConfig,
-				o.params.DB.ReadTxn(),
-				o.params.DirectRoutingDevice,
-				o.params.Devices,
-				o.params.NodeAddresses,
-				o.params.Config.DeriveMasqIPAddrFromDevice,
-				o.params.XDPConfig,
-				o.params.LBConfig,
-				o.params.LRPConfig.IsEnabled(),
-				o.params.KPRConfig,
-				o.params.SvcRouteConfig,
-				o.params.MaglevConfig,
-				o.params.MTU,
-				o.params.WgAgent,
-				o.params.IPsecConfig,
-				o.params.BandwidthManager.Enabled(),
-				o.params.ConnectorConfig,
-				o.params.PluginRegistry.Plugins(),
-				o.params.MulticastConfig.MulticastEnabled,
-				o.params.ACTConfig.EnableActiveConnectionTracking,
-			)
-			if err != nil {
-				health.Degraded("failed to get local node configuration", err)
-				o.params.Log.Warn("Failed to construct local node configuration", logfields.Error, err)
-			} else {
-				// Reinitializing is expensive, only do so if the configuration has changed.
-				prevConfig := o.latestLocalNodeConfig.Load()
-				if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-					err = o.reinitialize(request.ctx, &localNodeConfig)
-					if err != nil {
-						// Only the first initialization gets a deadline; a later failure keeps the last good config.
-						if !o.initDone && !errors.Is(err, context.Canceled) {
-							if firstInitFailure.IsZero() {
-								firstInitFailure = time.Now()
-							} else if waited := time.Since(firstInitFailure); waited > datapathInitDeadline {
-								giveUp = fmt.Errorf("datapath not initialized after %s: %w", waited.Round(time.Second), err)
-							}
-						}
-						o.params.Log.Warn("Failed to initialize datapath, retrying later",
-							logfields.Error, err,
-							logfields.RetryDelay, reinitRetryDuration,
-						)
-						health.Degraded("Failed to reinitialize datapath", err)
-						retryChan = time.After(reinitRetryDuration)
-					}
-				}
-				if err == nil {
-					retryChan = nil
-					health.OK("OK")
+			// Only the first initialization gets a deadline; a later failure keeps the last good config.
+			if !o.initDone && !errors.Is(err, context.Canceled) {
+				if firstInitFailure.IsZero() {
+					firstInitFailure = time.Now()
+				} else if waited := time.Since(firstInitFailure); waited > datapathInitDeadline {
+					giveUp = fmt.Errorf("datapath not initialized after %s: %w", waited.Round(time.Second), err)
 				}
 			}
+			retryChan = time.After(reinitRetryDuration)
 		}
 
 		if request.errChan != nil {
@@ -366,7 +304,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		// Wait on all event sources with a single select. The statedb watch
 		// channels are variable in number, so the select is built with reflect;
 		// the index of each case is derived from the statement that adds it.
-		cases := make([]reflect.SelectCase, 0, 5+len(localNodeConfigWatches))
+		cases := make([]reflect.SelectCase, 0, 4+len(watches))
 		add := func(ch any) int {
 			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)})
 			return len(cases) - 1
@@ -375,8 +313,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		retryCase := add(retryChan)
 		localNodesCase := add(localNodes)
 		triggerCase := add(o.trigger)
-		add(ipipWatch)
-		for _, watch := range localNodeConfigWatches {
+		for _, watch := range watches {
 			add(watch)
 		}
 
@@ -402,6 +339,96 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			return err
 		}
 	}
+}
+
+func (o *orchestrator) reconcile(
+	ctx context.Context,
+	localNode node.LocalNode,
+	health cell.Health,
+	agentConfig *option.DaemonConfig,
+	request reinitializeRequest,
+) ([]<-chan struct{}, error) {
+	var (
+		prevConfig      *config.Config
+		localNodeConfig config.Config
+		watches         []<-chan struct{}
+	)
+	rxn := o.params.DB.ReadTxn()
+
+	tunnelWatch, err := o.ensureTunnelDevice(rxn)
+	watches = append(watches, tunnelWatch)
+	if err != nil {
+		o.params.Log.Warn("Failed to ensure tunnel device, retrying later",
+			logfields.Error, err,
+			logfields.RetryDelay, reinitRetryDuration,
+		)
+		health.Degraded("Failed to ensure tunnel device", err)
+		return watches, err
+	}
+
+	ipipWatch, err := o.ensureIPIPDevices(rxn, agentConfig)
+	watches = append(watches, ipipWatch)
+	if err != nil {
+		o.params.Log.Warn("Failed to ensure IPIP devices, retrying later",
+			logfields.Error, err,
+			logfields.RetryDelay, reinitRetryDuration,
+		)
+		health.Degraded("Failed to ensure IPIP devices", err)
+		return watches, err
+	}
+
+	localNodeConfig, localNodeConfigWatches, err := newLocalNodeConfig(
+		ctx,
+		option.Config,
+		localNode,
+		o.params.Sysctl,
+		o.params.ClusterInfo,
+		o.params.TunnelConfig,
+		rxn,
+		o.params.DirectRoutingDevice,
+		o.params.Devices,
+		o.params.NodeAddresses,
+		o.params.Config.DeriveMasqIPAddrFromDevice,
+		o.params.XDPConfig,
+		o.params.LBConfig,
+		o.params.LRPConfig.IsEnabled(),
+		o.params.KPRConfig,
+		o.params.SvcRouteConfig,
+		o.params.MaglevConfig,
+		o.params.MTU,
+		o.params.WgAgent,
+		o.params.IPsecConfig,
+		o.params.BandwidthManager.Enabled(),
+		o.params.ConnectorConfig,
+		o.params.PluginRegistry.Plugins(),
+		o.params.MulticastConfig.MulticastEnabled,
+		o.params.ACTConfig.EnableActiveConnectionTracking,
+	)
+	watches = append(watches, localNodeConfigWatches...)
+	if err != nil {
+		health.Degraded("failed to get local node configuration", err)
+		o.params.Log.Warn("Failed to construct local node configuration", logfields.Error, err)
+		return watches, err
+	}
+
+	// Reinitializing is expensive, only do so if the configuration has changed.
+	prevConfig = o.latestLocalNodeConfig.Load()
+	if prevConfig != nil && prevConfig.DeepEqual(&localNodeConfig) {
+		return watches, nil
+	}
+
+	err = o.reinitialize(request.ctx, &localNodeConfig)
+	if err != nil {
+		o.params.Log.Warn("Failed to initialize datapath, retrying later",
+			logfields.Error, err,
+			logfields.RetryDelay, reinitRetryDuration,
+		)
+		health.Degraded("Failed to reinitialize datapath", err)
+		return watches, err
+	}
+
+	health.OK("OK")
+	return watches, nil
 }
 
 // waitForHostDevices blocks until cilium_host and cilium_net are present in the devices table.
@@ -430,13 +457,13 @@ func (o *orchestrator) waitForHostDevices(ctx context.Context, health cell.Healt
 	}
 }
 
-func (o *orchestrator) ensureIPIPDevices(agentConfig *option.DaemonConfig) (<-chan struct{}, error) {
+func (o *orchestrator) ensureIPIPDevices(rtx statedb.ReadTxn, agentConfig *option.DaemonConfig) (<-chan struct{}, error) {
 	if !agentConfig.UnsafeDaemonConfigOption.EnableIPIPDevices {
 		return nil, nil
 	}
 
 	mtuRoute, _, mtuWatch, found := o.params.MTU.GetWatch(
-		o.params.DB.ReadTxn(),
+		rtx,
 		mtu.MTURouteByPrefix(mtu.DefaultPrefixV4),
 	)
 	if !found {
@@ -452,6 +479,31 @@ func (o *orchestrator) ensureIPIPDevices(agentConfig *option.DaemonConfig) (<-ch
 	)
 	if err != nil {
 		return mtuWatch, fmt.Errorf("reconciling IPIP devices: %w", err)
+	}
+	return mtuWatch, nil
+}
+
+func (o *orchestrator) ensureTunnelDevice(rtx statedb.ReadTxn) (<-chan struct{}, error) {
+	mtuRoute, _, mtuWatch, found := o.params.MTU.GetWatch(
+		rtx,
+		mtu.MTURouteByPrefix(mtu.DefaultPrefixV4),
+	)
+	if !found {
+		return mtuWatch, fmt.Errorf("default route MTU is not available")
+	}
+
+	err := device.SetupTunnelDevice(
+		o.params.Log,
+		o.params.Sysctl,
+		o.params.TunnelConfig.EncapProtocol(),
+		o.params.TunnelConfig.Port(),
+		o.params.TunnelConfig.SrcPortLow(),
+		o.params.TunnelConfig.SrcPortHigh(),
+		mtuRoute.DeviceMTU,
+		o.params.BIGTCPConfig,
+	)
+	if err != nil {
+		return mtuWatch, fmt.Errorf("reconciling tunnel device: %w", err)
 	}
 	return mtuWatch, nil
 }

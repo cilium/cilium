@@ -320,11 +320,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
 
-	if err := setupTunnelDevice(l.logger, l.sysctl, tunnelConfig.EncapProtocol(), tunnelConfig.Port(),
-		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), lnc.DeviceMTU, bigtcp); err != nil {
-		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.EncapProtocol(), err)
-	}
-
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
 		if sysSettings, err = addIPv4ENIRules(l.logger, sysSettings); err != nil {
