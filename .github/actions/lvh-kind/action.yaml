@@ -110,7 +110,7 @@ runs:
         auth-required: ${{ inputs.auth-required }}
 
     - name: Provision LVH VMs
-      uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+      uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
@@ -163,7 +163,7 @@ runs:
         lvh: 'true'
 
     - name: Create K8s cluster
-      uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+      uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
       with:
         provision: 'false'
         cmd: |

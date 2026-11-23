@@ -217,7 +217,7 @@ jobs:
         id: key
         timeout-minutes: 10
         continue-on-error: true
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           derive-dependency-list-sha: 'true'
 
@@ -494,7 +494,7 @@ jobs:
 
       - name: Setup bootid file
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           provision: 'false'
           cmd: |

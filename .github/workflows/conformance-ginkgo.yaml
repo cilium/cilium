@@ -328,7 +328,7 @@ jobs:
         id: key
         timeout-minutes: 10
         continue-on-error: true
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           derive-dependency-list-sha: 'true'
 
@@ -424,7 +424,7 @@ jobs:
 
       - name: Provision LVH VMs
         id: provision-vh-vms
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           test-name: datapath-conformance
           install-dependencies: true
@@ -443,7 +443,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           provision: 'false'
           cmd: |
@@ -460,7 +460,7 @@ jobs:
 
       - name: Create imagePullSecret for ginkgo image pull
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           provision: 'false'
           cmd: |
@@ -521,7 +521,7 @@ jobs:
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           provision: 'false'
           cmd: |
@@ -591,7 +591,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+        uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
         with:
           provision: 'false'
           cmd: |

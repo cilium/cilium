@@ -16,7 +16,7 @@ runs:
   using: composite
   steps:
     - name: Install bpftrace if not already present
-      uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+      uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
       with:
         provision: 'false'
         cmd: |
@@ -32,7 +32,7 @@ runs:
 
     - name: Start bpftrace in background
       id: run
-      uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
+      uses: cilium/little-vm-helper@fd15fbdb73b1057bf1058831a5fcd88c5d888d8c # pr/aanm/retry-image-pull
       with:
         provision: 'false'
         cmd: |
