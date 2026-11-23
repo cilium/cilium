@@ -505,6 +505,15 @@ func registerReconcilers(
 		}
 	}
 
+	// Unlike the other optional CRDs, InferencePool is gated by an explicit flag.
+	// Warn user if it is enabled but the CRD is missing
+	if inferenceExtensionEnabled && !slices.ContainsFunc(installedOptionalCRDs, func(gvk schema.GroupVersionKind) bool {
+		return gvk.Kind == helpers.InferencePoolKind
+	}) {
+		logger.Error("Gateway API Inference Extension is enabled but the InferencePool CRD is not installed, InferencePool support is disabled. Please refer to the docs for installation instructions",
+			logfields.OptionalGVK, helpers.GatewayIEV1GVK(helpers.InferencePoolKind))
+	}
+
 	// To add a new optionalKind, remember you also need to add the GVK into
 	// the optionalGVKs global.
 	// Note that optionalKinds contains the lower-case, plural version of the
@@ -529,7 +538,11 @@ func registerReconcilers(
 			logger.Info("ServiceImport CRD is installed, ServiceImport support is enabled")
 		case helpers.InferencePoolKind:
 			// inform the user that inference pool are  being used
-			logger.Info("InferencePool CRD is installed and Gateway API Inference Extension is enabled, Inference Pool is enabled")
+			if inferenceExtensionEnabled {
+				logger.Info("InferencePool CRD is installed and Gateway API Inference Extension is enabled, Inference Pool is enabled")
+			} else {
+				logger.Error("InferencePool CRDs are installed but not enabled. Please refer to the docs for installation instructions")
+			}
 		default:
 			panic(fmt.Sprintf("No reconciler available for GVK %s", gvk))
 		}
