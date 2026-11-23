@@ -56,7 +56,16 @@ type gatewayReconciler struct {
 	resourceRegistry                    resource.Registry
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
+func newGatewayReconciler(
+	mgr ctrl.Manager,
+	translator translation.Translator,
+	logger *slog.Logger,
+	controllerName string,
+	hostNetworkEnabled bool,
+	hostNetworkLabel metav1.LabelSelector,
+	gatewayAPIInferenceExtensionEnabled bool,
+	additionalResources ...resource.Resource,
+) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	resourceConfig := helpers.ResourceConfig{
@@ -93,7 +102,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		logger:                              scopedLog,
 		controllerName:                      controllerName,
 		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
-		resourceRegistry:                    resource.NewGatewayRegistry(resourceConfig),
+		resourceRegistry:                    resource.NewGatewayRegistry(resourceConfig, additionalResources...),
 	}
 }
 
