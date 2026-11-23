@@ -160,7 +160,8 @@ setup_syn_v4(struct __ctx_buff *ctx, bool closed, __be16 proxy_port)
 	entry->rx_closing = closed;
 	entry->tx_closing = closed;
 
-	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, false, false, false, false, 0);
+	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, false, false, false, false,
+				 false, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
 
@@ -195,7 +196,8 @@ setup_syn_v6(struct __ctx_buff *ctx, bool closed, __be16 proxy_port)
 	entry->rx_closing = closed;
 	entry->tx_closing = closed;
 
-	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, false, false, false, false, 0);
+	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, false, false, false, false,
+				 false, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
 

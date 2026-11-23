@@ -2004,7 +2004,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 			goto drop_err;
 
 		local_delivery_fill_meta(ctx, src_sec_identity, false, false,
-					 true, false, 0);
+					 true, false, false, 0);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
 	} else {
 		bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||

@@ -1954,6 +1954,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = false, from_tunnel = false, use_redirect_peer = false;
+	bool ingress_done = delivery_flags & CB_DELIVERY_FLAGS_INGRESS_DONE;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
 	struct ipv6hdr *ip6;
@@ -1998,9 +1999,13 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  use_redirect_peer, from_tunnel);
+		if (!do_redirect)
+			break;
+
+		if (ingress_done)
+			ctx->mark = MARK_MAGIC_INGRESS_DONE;
+		ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+				  use_redirect_peer, from_tunnel);
 		break;
 	default:
 		break;
@@ -2256,6 +2261,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = false, from_tunnel = false, use_redirect_peer = false;
+	bool ingress_done = delivery_flags & CB_DELIVERY_FLAGS_INGRESS_DONE;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
 	struct iphdr *ip4;
@@ -2309,9 +2315,13 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  use_redirect_peer, from_tunnel);
+		if (!do_redirect)
+			break;
+
+		if (ingress_done)
+			ctx->mark = MARK_MAGIC_INGRESS_DONE;
+		ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+				  use_redirect_peer, from_tunnel);
 		break;
 	default:
 		break;
