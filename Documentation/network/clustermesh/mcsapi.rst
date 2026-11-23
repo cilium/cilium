@@ -18,6 +18,9 @@ You need to have a functioning Cluster Mesh setup, please follow the
 
 Make sure you are running CoreDNS 1.12.2 or later (installed by default from Kubernetes 1.35).
 
+See :ref:`gs_clustermesh_global_namespace` for the namespace export default,
+annotation overrides, and their effects on Global Services and network policy.
+
 MCS-API exports are also subject to ClusterMesh namespace export scope: a
 ``ServiceExport`` must be in a global namespace to be exported. If you use
 ``clustermesh.defaultGlobalNamespace=false``, explicitly mark each namespace
