@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
+	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -279,6 +280,12 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 				"failed to restore allocated devices from claims, network driver might be unable to correctly release associated resources",
 				logfields.Error, err,
 			)
+		}
+
+		if manager, ok := mgrs[types.DeviceManagerTypeRXQueue].(*rxqueue.RXQueueManager); ok {
+			if err := manager.PrepareNICs(); err != nil {
+				return err
+			}
 		}
 
 		// Start one goroutine per device manager. Each manager calls the

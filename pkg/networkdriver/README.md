@@ -135,22 +135,29 @@ enabled. Cilium must control when a Pod address becomes available for reuse.
 At startup, the manager resolves each configured interface and enumerates its
 active RX queues through the netdev generic netlink API. The interface must be
 up and must have more active queues than the configured reservation. The
-manager selects the highest-numbered queues and always leaves at least one
-queue outside the reserved set. `count` defaults to one. Discovery runs once,
-so interface or queue-count changes require an agent restart.
+manager always leaves at least one queue outside the reserved set. `count`
+defaults to one. Discovery runs once, so interface or queue-count changes
+require an agent restart.
 
-Before it publishes the queues, the manager prepares each NIC. It removes the
-reserved queues from the main RSS indirection table and spreads their entries
-over the queues RSS already uses, keeping the hash key, the hash function, and
-any queues the table already excluded. It then enables TCP header/data
-splitting with a zero split threshold, which io_uring zero-copy receive
-requires. Drivers that do not report their split setting are asked to enable
-it anyway. mlx5 implements header/data splitting with hardware GRO, so if the
-driver rejects the request the manager enables `rx-gro-hw`, which affects all
-traffic on the NIC, and retries. The manager reads the settings back, and if
-any NIC fails, it restores every NIC it changed. Repeating the preparation is
-a no-op. Cilium does not revert these settings when cilium-agent stops, and
-lowering `count` does not return queues to RSS.
+After restoring claims and before publishing queues, the manager prepares
+each NIC. Active queues held by restored claims fill the reserved set first.
+The manager fills any remaining slots up to `count` with the highest-numbered
+available queues. Lowering `count` does not take queues away from existing
+claims. The scheduler uses the new limit and won’t allocate another queue on
+that NIC until usage drops below it. The manager removes the selected queues
+from the main RSS indirection table and spreads their entries over the queues
+RSS already uses, keeping the hash key, the hash function, and any queues the
+table already excluded.
+
+The manager also enables TCP header/data splitting with a zero split
+threshold, which io_uring zero-copy receive requires. Drivers that do not
+report their split setting are asked to enable it anyway. mlx5 implements
+header/data splitting with hardware GRO. If the driver rejects the request,
+the manager enables `rx-gro-hw`, which affects all traffic on the NIC, and
+retries. The manager reads the settings back, and if any NIC fails, it
+restores every NIC it changed. Repeating the preparation is a no-op. Cilium
+does not revert these settings when cilium-agent stops, and lowering `count`
+does not return queues to RSS.
 
 At `PrepareResourceClaims` time, the manager selects an unleased physical
 queue from the reserved set and records that reservation for the scheduler's

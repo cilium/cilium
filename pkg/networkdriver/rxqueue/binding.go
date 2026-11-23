@@ -169,7 +169,11 @@ func (d *RXQueueDevice) BindRXQueue(podNS *ciliumnetns.NetNS, attachmentID strin
 			}
 			return d.boundSnapshot(binding), nil
 		}
-	} else {
+	}
+	if !slices.Contains(d.reservations.preparedQueueIDs, d.PhysicalQueueID) {
+		return nil, fmt.Errorf("%w: RX queue %s/%d is outside the prepared set", errInvalidAllocation, d.PhysicalIfName, d.PhysicalQueueID)
+	}
+	if binding == nil {
 		binding = &queueBinding{retired: make(map[string]struct{})}
 		reservation.binding = binding
 	}

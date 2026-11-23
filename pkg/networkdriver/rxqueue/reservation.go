@@ -16,6 +16,8 @@ import (
 type queueReservations struct {
 	mu     lock.Mutex
 	queues map[uint32]*queueReservation
+	// Queues verified outside main RSS during startup NIC preparation.
+	preparedQueueIDs []uint32
 	// Binding generations remain unique across individual reservation lifetimes.
 	sequence uint64
 }

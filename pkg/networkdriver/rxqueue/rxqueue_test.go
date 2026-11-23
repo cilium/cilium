@@ -317,13 +317,17 @@ func testDevice(total int) *RXQueueDevice {
 }
 
 func testDeviceWithCount(total, count int) *RXQueueDevice {
+	queues := reservedRXQueueIDs(total, count)
 	return &RXQueueDevice{
 		PhysicalIfName:   testPhysicalIfName,
 		HardwareAddress:  "02:00:00:00:00:01",
 		MTU:              9000,
 		TotalRXQueues:    total,
-		ReservedQueueIDs: reservedRXQueueIDs(total, count),
-		reservations:     &queueReservations{queues: make(map[uint32]*queueReservation)},
+		ReservedQueueIDs: queues,
+		reservations: &queueReservations{
+			preparedQueueIDs: queues,
+			queues:           make(map[uint32]*queueReservation),
+		},
 	}
 }
 
@@ -478,6 +482,9 @@ func TestNewManager(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, types.DeviceManagerTypeRXQueue, mgr.Type())
+		require.Empty(t, fake.rssSetCalls)
+		require.Empty(t, fake.ringsSetCalls)
+		require.NoError(t, mgr.PrepareNICs())
 
 		devices := publishedDevices(t, mgr)
 		require.Len(t, devices, 1)
@@ -501,6 +508,7 @@ func TestNewManager(t *testing.T) {
 			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName, Count: 3}},
 		})
 		require.NoError(t, err)
+		require.NoError(t, mgr.PrepareNICs())
 
 		devices := publishedDevices(t, mgr)
 		dev := devices[0].(*RXQueueDevice)
@@ -509,6 +517,17 @@ func TestNewManager(t *testing.T) {
 		capacity := dev.GetCapacity()[types.RXQueuesCapacity]
 		require.Zero(t, capacity.Value.Cmp(apiresource.MustParse("3")))
 	})
+}
+
+func TestPrepareNICs(t *testing.T) {
+	prepare := func(t *testing.T) error {
+		t.Helper()
+		mgr, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
+			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
+		})
+		require.NoError(t, err)
+		return mgr.PrepareNICs()
+	}
 
 	t.Run("programs and verifies NIC receive configuration", func(t *testing.T) {
 		fake := newFakeNetlink(8, 4, testShareID)
@@ -516,10 +535,7 @@ func TestNewManager(t *testing.T) {
 		originalHashKey := slices.Clone(fake.rss.HashKey)
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.NoError(t, err)
+		require.NoError(t, prepare(t))
 		require.Equal(t, []uint32{0, 0, 1, 1, 2, 2}, fake.rss.IndirectionTable)
 		require.Equal(t, originalHashKey, fake.rss.HashKey)
 		require.Equal(t, netlink.NetDevTCPDataSplitEnabled, fake.rings.TCPDataSplit)
@@ -533,10 +549,7 @@ func TestNewManager(t *testing.T) {
 		fake.rings.TCPDataSplit = netlink.NetDevTCPDataSplitEnabled
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.NoError(t, err)
+		require.NoError(t, prepare(t))
 		require.Empty(t, fake.rssSetCalls)
 		require.Empty(t, fake.ringsSetCalls)
 	})
@@ -547,10 +560,7 @@ func TestNewManager(t *testing.T) {
 		fake.rings.HDSThreshold = 256
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.NoError(t, err)
+		require.NoError(t, prepare(t))
 		require.Equal(t, netlink.NetDevTCPDataSplitEnabled, fake.rings.TCPDataSplit)
 		require.Zero(t, fake.rings.HDSThreshold)
 	})
@@ -561,10 +571,7 @@ func TestNewManager(t *testing.T) {
 		fake.ringsRequireHardwareGRO = true
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.NoError(t, err)
+		require.NoError(t, prepare(t))
 		require.Equal(t, netlink.NetDevTCPDataSplitEnabled, fake.rings.TCPDataSplit)
 		require.True(t, fake.features[hardwareGROFeature].Active)
 		require.Len(t, fake.ringsSetCalls, 2)
@@ -577,10 +584,7 @@ func TestNewManager(t *testing.T) {
 		fake.features[hardwareGROFeature] = netlink.NetDevFeature{Hardware: true}
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.NoError(t, err)
+		require.NoError(t, prepare(t))
 		require.Empty(t, fake.featureSetCalls)
 	})
 
@@ -592,10 +596,7 @@ func TestNewManager(t *testing.T) {
 		fake.ringsSetError = unix.EINVAL
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.ErrorIs(t, err, unix.EINVAL)
+		require.ErrorIs(t, prepare(t), unix.EINVAL)
 		require.Equal(t, originalGRO, fake.features[hardwareGROFeature])
 		require.Equal(t, originalRSS.IndirectionTable, fake.rss.IndirectionTable)
 	})
@@ -605,10 +606,7 @@ func TestNewManager(t *testing.T) {
 		fake.ringsRequireHardwareGRO = true
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.ErrorIs(t, err, unix.EOPNOTSUPP)
+		require.ErrorIs(t, prepare(t), unix.EOPNOTSUPP)
 		require.Empty(t, fake.featureSetCalls)
 	})
 
@@ -619,10 +617,7 @@ func TestNewManager(t *testing.T) {
 		fake.rssSetError = boom
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.ErrorIs(t, err, boom)
+		require.ErrorIs(t, prepare(t), boom)
 		require.True(t, equalNetDevRSS(originalRSS, &fake.rss))
 		require.Equal(t, netlink.NetDevTCPDataSplitDisabled, fake.rings.TCPDataSplit)
 		require.Len(t, fake.rssSetCalls, 1)
@@ -637,10 +632,7 @@ func TestNewManager(t *testing.T) {
 		fake.ringsSetError = boom
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.ErrorIs(t, err, boom)
+		require.ErrorIs(t, prepare(t), boom)
 		require.True(t, equalNetDevRSS(originalRSS, &fake.rss))
 		require.Equal(t, netlink.NetDevTCPDataSplitDisabled, fake.rings.TCPDataSplit)
 		require.Len(t, fake.rssSetCalls, 2)
@@ -655,11 +647,7 @@ func TestNewManager(t *testing.T) {
 		fake.ignoreRingsSet = true
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "ring configuration read back incorrectly")
+		require.ErrorContains(t, prepare(t), "ring configuration read back incorrectly")
 		require.True(t, equalNetDevRSS(originalRSS, &fake.rss))
 		require.Equal(t, originalRings, fake.rings)
 		require.Len(t, fake.rssSetCalls, 2)
@@ -673,18 +661,34 @@ func TestNewManager(t *testing.T) {
 		fake.ignoreRSSSet = true
 		fake.install(t)
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
-			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "RSS configuration read back incorrectly")
+		require.ErrorContains(t, prepare(t), "RSS configuration read back incorrectly")
 		require.True(t, equalNetDevRSS(originalRSS, &fake.rss))
 		require.Equal(t, originalRings, fake.rings)
 		require.Len(t, fake.rssSetCalls, 2)
 		require.Len(t, fake.ringsSetCalls, 2)
 	})
 
-	t.Run("restores earlier NICs when later discovery fails", func(t *testing.T) {
+	t.Run("prepares only active queues from restored claims", func(t *testing.T) {
+		fake := newFakeNetlink(8, 4)
+		fake.install(t)
+		mgr, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
+			Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName}},
+		})
+		require.NoError(t, err)
+
+		old := testDeviceWithCount(8, 2).preparedForAllocation(testShareID, types.DefaultRXQueuePodIfName, 6)
+		data, err := old.MarshalBinary()
+		require.NoError(t, err)
+		_, err = mgr.RestoreDevice(data)
+		require.NoError(t, err)
+		require.NoError(t, mgr.PrepareNICs())
+
+		reservations := mgr.devices[0].reservations
+		require.Contains(t, reservations.queues, uint32(6))
+		require.Equal(t, []uint32{3}, reservations.preparedQueueIDs)
+	})
+
+	t.Run("restores earlier NICs when later NIC preparation fails", func(t *testing.T) {
 		fake := newFakeNetlink(8, 4, testShareID)
 		originalRSS := cloneNetDevRSS(&fake.rss)
 		originalRings := fake.rings
@@ -697,26 +701,76 @@ func TestNewManager(t *testing.T) {
 		fake.install(t)
 
 		firstQueueGet := netlinkNetDevQueueGet
-		boom := errors.New("second NIC failed")
 		netlinkNetDevQueueGet = func(ifIndex int, queueID uint32, queueType netlink.NetDevQueueType) (*netlink.NetDevQueue, error) {
 			if ifIndex == testPhysicalIndex+1 {
-				return nil, boom
+				ifIndex = testPhysicalIndex
 			}
 			return firstQueueGet(ifIndex, queueID, queueType)
 		}
+		firstRSSGet := netlinkNetDevRSSGet
+		boom := errors.New("second NIC failed")
+		netlinkNetDevRSSGet = func(ifIndex int, context uint32) (*netlink.NetDevRSS, error) {
+			if ifIndex == testPhysicalIndex+1 {
+				return nil, boom
+			}
+			return firstRSSGet(ifIndex, context)
+		}
 
-		_, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
+		mgr, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
 			Ifaces: []v2alpha1.RXQueueDeviceConfig{
 				{IfName: testPhysicalIfName},
 				{IfName: "eth1"},
 			},
 		})
-		require.ErrorIs(t, err, boom)
+		require.NoError(t, err)
+		require.ErrorIs(t, mgr.PrepareNICs(), boom)
+		for _, device := range mgr.devices {
+			require.Empty(t, device.reservations.preparedQueueIDs)
+		}
 		require.True(t, equalNetDevRSS(originalRSS, &fake.rss))
 		require.Equal(t, originalRings, fake.rings)
 		require.Len(t, fake.rssSetCalls, 2)
 		require.Len(t, fake.ringsSetCalls, 2)
 	})
+}
+
+func TestPrepareNICsReservesRestoredQueuesFirst(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		count    int
+		restored []uint32
+		prepared []uint32
+	}{
+		{name: "fills a vacant slot with the highest queue", count: 2, restored: []uint32{5}, prepared: []uint32{7, 5}},
+		{name: "keeps existing queues when count falls below usage", count: 1, restored: []uint32{5, 6}, prepared: []uint32{6, 5}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := newFakeNetlink(8, 8)
+			fake.install(t)
+			mgr, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
+				Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName, Count: tt.count}},
+			})
+			require.NoError(t, err)
+
+			previous := testDeviceWithCount(8, 3)
+			shares := []kube_types.UID{"first", "second"}
+			for i, id := range tt.restored {
+				device := previous.preparedForAllocation(shares[i], types.DefaultRXQueuePodIfName, id)
+				checkpoint, err := device.MarshalBinary()
+				require.NoError(t, err)
+				_, err = mgr.RestoreDevice(checkpoint)
+				require.NoError(t, err)
+			}
+			require.NoError(t, mgr.PrepareNICs())
+
+			device := mgr.devices[0]
+			require.Equal(t, tt.prepared, device.reservations.preparedQueueIDs)
+			require.Equal(t, tt.prepared[:tt.count], device.ReservedQueueIDs)
+			for _, id := range tt.prepared {
+				require.NotContains(t, fake.rss.IndirectionTable, id)
+			}
+		})
+	}
 }
 
 func TestRXQueueReservations(t *testing.T) {

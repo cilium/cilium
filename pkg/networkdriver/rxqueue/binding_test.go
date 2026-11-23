@@ -7,12 +7,14 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumnetns "github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -218,6 +220,71 @@ func TestBindRXQueueValidatesPodNetkit(t *testing.T) {
 		_, err = device.BindRXQueue(&ciliumnetns.NetNS{}, "sandbox-a:eth0", []netip.Addr{flow.DestinationIP})
 		require.ErrorContains(t, err, "retired")
 	})
+}
+
+func TestPrepareNICsWithRestoredRXQueue(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		ignoreRSSSet bool
+	}{
+		{name: "restore after reducing the reservation"},
+		{name: "reject a lease after failed RSS readback", ignoreRSSSet: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			newFakeNetlink(8, 8).install(t)
+			advertised := testDeviceWithCount(8, 2)
+			_, err := advertised.Setup(testAllocation("first"))
+			require.NoError(t, err)
+			second, err := advertised.Setup(testAllocation("second"))
+			require.NoError(t, err)
+			checkpoint, err := second.MarshalBinary()
+			require.NoError(t, err)
+			queueID := second.(*RXQueueDevice).PhysicalQueueID
+
+			fake := newFakeNetlink(8, 8)
+			fake.install(t)
+			installQueueLeaseFakes(t, fake, testPodNetkit(2))
+			manager, err := NewManager(hivetest.Logger(t), &v2alpha1.RXQueueDeviceManagerConfig{
+				Ifaces: []v2alpha1.RXQueueDeviceConfig{{IfName: testPhysicalIfName, Count: 1}},
+			})
+			require.NoError(t, err)
+			restored, err := manager.RestoreDevice(checkpoint)
+			require.NoError(t, err)
+			require.Equal(t, uint32(6), queueID)
+			require.Subset(t, fake.rss.IndirectionTable, []uint32{6, 7})
+			require.Empty(t, fake.rssSetCalls)
+
+			device := restored.(*RXQueueDevice)
+			podNS := &ciliumnetns.NetNS{}
+			addresses := []netip.Addr{netip.MustParseAddr("192.0.2.10")}
+			fake.ignoreRSSSet = tt.ignoreRSSSet
+			err = manager.PrepareNICs()
+			if tt.ignoreRSSSet {
+				require.ErrorContains(t, err, "RSS configuration read back incorrectly")
+				_, err := device.BindRXQueue(podNS, "sandbox-b:eth0", addresses)
+				require.ErrorIs(t, err, errInvalidAllocation)
+				require.Empty(t, fake.leases)
+				return
+			}
+			require.NoError(t, err)
+
+			devices := publishedDevices(t, manager)
+			require.Len(t, devices, 1)
+			advertised = devices[0].(*RXQueueDevice)
+			require.Equal(t, []uint32{6}, advertised.ReservedQueueIDs)
+			require.NotContains(t, fake.rss.IndirectionTable, uint32(6))
+			require.Contains(t, fake.rss.IndirectionTable, uint32(7))
+			_, err = advertised.Setup(testAllocation("third"))
+			require.ErrorIs(t, err, errNoAvailableRXQueue)
+			require.Len(t, fake.rssSetCalls, 1)
+
+			bound, err := device.BindRXQueue(podNS, "sandbox-b:eth0", addresses)
+			require.NoError(t, err)
+			require.Equal(t, queueID, bound.PhysicalQueueID)
+			require.Contains(t, fake.leases, queueID)
+			require.Len(t, fake.rssSetCalls, 1)
+		})
+	}
 }
 
 func TestRXQueueBindingReplacement(t *testing.T) {

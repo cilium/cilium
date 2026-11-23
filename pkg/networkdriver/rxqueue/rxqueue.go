@@ -59,6 +59,7 @@ var (
 )
 
 type RXQueueManager struct {
+	logger       *slog.Logger
 	devices      []*RXQueueDevice
 	reservations map[string]*queueReservations
 	mu           lock.Mutex
@@ -69,8 +70,7 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.RXQueueDeviceManagerConfig) (
 		return nil, err
 	}
 
-	mgr := &RXQueueManager{reservations: make(map[string]*queueReservations)}
-	var programmed []*rxQueueNICState
+	mgr := &RXQueueManager{logger: logger, reservations: make(map[string]*queueReservations)}
 	for _, iface := range cfg.Ifaces {
 		count := iface.Count
 		if count == 0 {
@@ -79,27 +79,71 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.RXQueueDeviceManagerConfig) (
 
 		dev, err := discoverDevice(iface.IfName, count)
 		if err != nil {
-			return nil, rollbackRXQueueNICs(programmed, err)
+			return nil, err
 		}
 		dev.reservations = mgr.reservationsFor(dev.PhysicalIfName)
-		state, err := prepareRXQueueNIC(dev)
+		mgr.devices = append(mgr.devices, dev)
+	}
+
+	return mgr, nil
+}
+
+// PrepareNICs configures the NICs after claim restoration and before inventory
+// publication. Restored reservations occupy the configured slots first.
+func (m *RXQueueManager) PrepareNICs() error {
+	var programmed []*rxQueueNICState
+	prepared := make(map[*RXQueueDevice][]uint32, len(m.devices))
+	for _, dev := range m.devices {
+		count := len(dev.ReservedQueueIDs)
+		excluded := make([]uint32, 0, count)
+		reservations := dev.reservations
+		reservations.mu.Lock()
+		for id := range reservations.queues {
+			if uint64(id) < uint64(dev.TotalRXQueues) {
+				excluded = append(excluded, id)
+			}
+		}
+		reservations.mu.Unlock()
+
+		for _, id := range reservedRXQueueIDs(dev.TotalRXQueues, count) {
+			if len(excluded) >= count {
+				break
+			}
+			if !slices.Contains(excluded, id) {
+				excluded = append(excluded, id)
+			}
+		}
+		slices.Sort(excluded)
+		slices.Reverse(excluded)
+
+		state, err := prepareRXQueueNIC(dev, excluded)
 		if err != nil {
-			return nil, rollbackRXQueueNICs(programmed, err)
+			return rollbackRXQueueNICs(programmed, err)
 		}
 		programmed = append(programmed, state)
-		mgr.devices = append(mgr.devices, dev)
+		prepared[dev] = excluded
 
-		logger.Debug("prepared RX queues for leasing",
-			logfields.Device, iface.IfName,
+		m.logger.Debug("prepared RX queues for leasing",
+			logfields.Device, dev.PhysicalIfName,
 			activeRXQueuesLogField, dev.TotalRXQueues,
-			reservedRXQueuesLogField, dev.ReservedQueueIDs,
+			reservedRXQueuesLogField, excluded,
 			rssUpdatedLogField, state.rssChanged,
 			tcpDataSplitUpdatedLogField, state.ringsChanged,
 			hardwareGROUpdatedLogField, state.hardwareGROChanged,
 		)
 	}
 
-	return mgr, nil
+	for dev, queues := range prepared {
+		// A reduction in count can leave more restored reservations than the
+		// configured capacity. Keep those queues prepared for their existing
+		// claims and cap the candidate list for new allocations.
+		dev.ReservedQueueIDs = slices.Clone(queues[:len(dev.ReservedQueueIDs)])
+		reservations := dev.reservations
+		reservations.mu.Lock()
+		reservations.preparedQueueIDs = queues
+		reservations.mu.Unlock()
+	}
+	return nil
 }
 
 type rxQueueNICState struct {
@@ -113,7 +157,7 @@ type rxQueueNICState struct {
 	hardwareGROChanged  bool
 }
 
-func prepareRXQueueNIC(dev *RXQueueDevice) (_ *rxQueueNICState, retErr error) {
+func prepareRXQueueNIC(dev *RXQueueDevice, excluded []uint32) (_ *rxQueueNICState, retErr error) {
 	link, err := netlinkLinkByName(dev.PhysicalIfName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find RX queue interface %s: %w", dev.PhysicalIfName, err)
@@ -126,7 +170,7 @@ func prepareRXQueueNIC(dev *RXQueueDevice) (_ *rxQueueNICState, retErr error) {
 	if rss == nil {
 		return nil, fmt.Errorf("failed to read RSS configuration on %s: empty response", dev.PhysicalIfName)
 	}
-	desiredTable, err := rssTableWithoutReservedQueues(rss.IndirectionTable, dev.TotalRXQueues, dev.ReservedQueueIDs)
+	desiredTable, err := rssTableWithoutReservedQueues(rss.IndirectionTable, dev.TotalRXQueues, excluded)
 	if err != nil {
 		return nil, fmt.Errorf("invalid RSS configuration on %s: %w", dev.PhysicalIfName, err)
 	}
