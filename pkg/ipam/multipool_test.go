@@ -1511,6 +1511,83 @@ func TestAllocateNext_SkipMasqueradePoolNotInStateDB(t *testing.T) {
 	}
 }
 
+func TestShouldSkipMasqForPool(t *testing.T) {
+	tests := []struct {
+		name            string
+		onlyMasqDefault bool
+		pool            Pool
+		poolAnnotations map[string]map[string]string
+		want            bool
+		wantErr         bool
+	}{
+		{
+			name:            "annotation true",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": {annotation.IPAMSkipMasquerade: "true"}},
+			want:            true,
+		},
+		{
+			name:            "annotation false",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": {annotation.IPAMSkipMasquerade: "false"}},
+		},
+		{
+			name:            "annotation value is case sensitive",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": {annotation.IPAMSkipMasquerade: "True"}},
+		},
+		{
+			name:            "no annotation",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": nil},
+		},
+		{
+			name:    "pool not in stateDB",
+			pool:    "red",
+			wantErr: true,
+		},
+		{
+			name:            "only default pool, non-default pool not in stateDB",
+			onlyMasqDefault: true,
+			pool:            "red",
+			want:            true,
+		},
+		{
+			name:            "only default pool, default pool",
+			onlyMasqDefault: true,
+			pool:            PoolDefault(),
+			poolAnnotations: map[string]map[string]string{string(PoolDefault()): nil},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := statedb.New()
+			poolsTbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+
+			w := db.WriteTxn(poolsTbl)
+			for name, annotations := range tt.poolAnnotations {
+				poolsTbl.Insert(w, podippool.LocalPodIPPool{
+					CiliumPodIPPool: &ciliumv2.CiliumPodIPPool{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: annotations},
+					},
+					UpdatedAt: time.Now(),
+				})
+			}
+			w.Commit()
+
+			got, err := shouldSkipMasqForPool(db, poolsTbl, tt.onlyMasqDefault)(tt.pool)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
 	poolA, poolB := Pool("pool-a"), Pool("pool-b")
 
