@@ -13,12 +13,12 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapathmaps "github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
-	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -165,8 +165,8 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmaps.SourceRange6MapName,
 			lbmaps.HealthProbe6MapName,
 			ipmasq.MapNameIPv6,
-			cidrmap.MapName + "v6_dyn",
-			cidrmap.MapName + "v6_fix",
+			datapathmaps.CiliumCIDRV6Dyn,
+			datapathmaps.CiliumCIDRV6Fix,
 		}...)
 	}
 
@@ -190,8 +190,8 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmaps.SourceRange4MapName,
 			lbmaps.HealthProbe4MapName,
 			ipmasq.MapNameIPv4,
-			cidrmap.MapName + "v4_dyn",
-			cidrmap.MapName + "v4_fix",
+			datapathmaps.CiliumCIDRV4Dyn,
+			datapathmaps.CiliumCIDRV4Fix,
 		}...)
 	}
 
@@ -229,10 +229,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !option.Config.EnableXDPPrefilter {
 		maps = append(maps, []string{
-			cidrmap.MapName + "v4_dyn",
-			cidrmap.MapName + "v4_fix",
-			cidrmap.MapName + "v6_dyn",
-			cidrmap.MapName + "v6_fix",
+			datapathmaps.CiliumCIDRV4Dyn,
+			datapathmaps.CiliumCIDRV4Fix,
+			datapathmaps.CiliumCIDRV6Dyn,
+			datapathmaps.CiliumCIDRV6Fix,
 		}...)
 	}
 
