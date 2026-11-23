@@ -13,6 +13,46 @@ Prerequisites
 You need to have a functioning Cluster Mesh setup, please follow the guide
 :ref:`gs_clustermesh` to set it up.
 
+.. _gs_clustermesh_global_namespace:
+
+Namespace export scope
+######################
+
+ClusterMesh can limit cross-cluster resource synchronization to selected
+namespaces. A namespace is **global** when its Cilium endpoints, identities,
+and services are eligible for export to connected clusters. Namespaces that
+are not global remain local to their cluster.
+
+The default is to treat every namespace as global, preserving the behavior of
+earlier releases. To make namespaces local by default, set the Helm value
+``clustermesh.defaultGlobalNamespace`` to ``false``:
+
+.. code-block:: shell-session
+
+   helm upgrade cilium cilium/cilium --namespace kube-system --reuse-values \\
+     --set clustermesh.defaultGlobalNamespace=false
+
+The namespace annotation ``clustermesh.cilium.io/global`` overrides this
+default. Set it to ``"true"`` to opt a namespace in, or ``"false"`` to
+keep a namespace local:
+
+.. code-block:: shell-session
+
+   kubectl label namespace team-a example.com/placeholder-
+   kubectl annotate namespace team-a clustermesh.cilium.io/global="true"
+
+   kubectl annotate namespace team-b clustermesh.cilium.io/global="false"
+
+For cross-cluster pod connectivity and label-based network policy enforcement,
+**both the source and destination namespaces must be global**. Endpoint and
+identity information from local namespaces is not exported, so remote policy
+selectors cannot match pods in those namespaces.
+
+A Global Service must satisfy both conditions: its namespace is global, and
+the Service itself has the ``service.cilium.io/global: "true"`` annotation.
+The service annotation alone does not override a local namespace.
+
+
 Load-balancing with Global Services
 ###################################
 
