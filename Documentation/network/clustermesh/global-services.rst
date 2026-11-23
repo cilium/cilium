@@ -38,7 +38,6 @@ keep a namespace local:
 
 .. code-block:: shell-session
 
-   kubectl label namespace team-a example.com/placeholder-
    kubectl annotate namespace team-a clustermesh.cilium.io/global="true"
 
    kubectl annotate namespace team-b clustermesh.cilium.io/global="false"
