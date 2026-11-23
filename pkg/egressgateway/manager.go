@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net/netip"
 	"slices"
@@ -15,6 +16,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -69,6 +71,7 @@ const (
 	eventDeleteEndpoint
 	eventUpdateNode
 	eventDeleteNode
+	eventUpdateDevices
 )
 
 type Config struct {
@@ -175,6 +178,7 @@ type Params struct {
 	DeviceTable   statedb.Table[*tables.Device]
 	NodeAddrTable statedb.Table[tables.NodeAddress]
 
+	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
 }
 
@@ -261,6 +265,12 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	}
 
 	manager.reconciliationTrigger = t
+
+	p.JobGroup.Add(job.OneShot(
+		"egress-gateway-device-watcher",
+		manager.processDeviceEvents,
+		job.WithShutdown(),
+	))
 
 	var wg sync.WaitGroup
 
@@ -403,6 +413,70 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 	case resource.Delete:
 		manager.onDeleteEgressPolicy(event.Object)
 		event.Done(nil)
+	}
+}
+
+// processDeviceEvents watches the device statedb table and triggers a
+// reconciliation whenever a local interface or one of its addresses is
+// added, modified or removed. This is what allows a CEGP to heal
+// automatically when its egress IP appears, disappears, or moves between
+// interfaces without requiring any CEGP / CiliumNode update to occur.
+//
+// The reconciliationTrigger already coalesces bursts via
+// reconciliationTriggerInterval, so a flurry of address add/del events will
+// not cause reconcile storms.
+//
+// Runs as a job.OneShot so the watcher is tied to the agent lifecycle and
+// reports health while it is running. Subscribing can only fail if the write
+// transaction is misused, which is a bug, so the job is registered with
+// job.WithShutdown and the error brings the agent down.
+func (manager *Manager) processDeviceEvents(ctx context.Context, health cell.Health) error {
+	wtxn := manager.db.WriteTxn(manager.deviceTable)
+	changeIter, err := manager.deviceTable.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return fmt.Errorf("subscribe to device table changes: %w", err)
+	}
+	defer changeIter.Close()
+
+	health.OK("Watching device table")
+
+	// Drain the initial snapshot without triggering reconciles: the initial
+	// reconciliation is already driven by k8s sync. The change sequence must
+	// be consumed in full (see the comment in the loop below); discarding it
+	// here would leave the initial devices to be replayed on the first
+	// iteration and fire a spurious "devices updated" trigger at startup.
+	initial, watch := changeIter.Next(manager.db.ReadTxn())
+	for range initial {
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
+		}
+
+		// The change sequence must be consumed in full: statedb only hands
+		// back a blocking watch channel once the iterator is fully drained
+		// (a partial read keeps returning a closed channel, which would busy
+		// -spin this loop), and draining is what advances the revision
+		// watermark. So we range the whole batch rather than breaking early.
+		var changed bool
+		var changes iter.Seq2[statedb.Change[*tables.Device], statedb.Revision]
+		changes, watch = changeIter.Next(manager.db.ReadTxn())
+		for range changes {
+			changed = true
+		}
+
+		if !changed {
+			continue
+		}
+
+		manager.Lock()
+		manager.setEventBitmap(eventUpdateDevices)
+		manager.Unlock()
+		manager.reconciliationTrigger.TriggerWithReason("devices updated")
 	}
 }
 
@@ -815,7 +889,7 @@ func (manager *Manager) reconcileLocked() {
 		manager.updatePoliciesMatchedEndpointIDs()
 	}
 
-	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode) {
+	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode, eventUpdateDevices) {
 		manager.regenerateGatewayConfigs()
 
 		// Sysctl updates are handled by a reconciler, with the initial update attempting to wait some time
