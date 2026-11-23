@@ -1487,6 +1487,30 @@ func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T
 	require.Equal(t, lastIP, result.IP)
 }
 
+func TestAllocateNext_SkipMasqueradePoolNotInStateDB(t *testing.T) {
+	for _, family := range []Family{IPv4, IPv6} {
+		t.Run(string(family), func(t *testing.T) {
+			db := statedb.New()
+			poolsTbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+			insertPool(t, db, poolsTbl, "default", false)
+
+			alloc := createSkipMasqTestManager(t, db, poolsTbl, false, family)
+
+			_, err = alloc.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+			require.Error(t, err)
+
+			allocated, _ := alloc.Dump()
+			require.Empty(t, allocated["blue"], "no IP should be allocated when the pool lookup fails")
+
+			insertPool(t, db, poolsTbl, "blue", false)
+			res, err := alloc.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+			require.NoError(t, err)
+			require.False(t, res.SkipMasquerade)
+		})
+	}
+}
+
 func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
 	poolA, poolB := Pool("pool-a"), Pool("pool-b")
 
