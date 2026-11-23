@@ -212,6 +212,7 @@ enum metric_dir {
 #define MARK_MAGIC_SNAT_DONE		0x0300
 #define MARK_MAGIC_OVERLAY		0x0400 /* source identity */
 #define MARK_MAGIC_EGW_DONE		0x0500 /* source identity */
+#define MARK_MAGIC_INGRESS_DONE	0x0600
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 

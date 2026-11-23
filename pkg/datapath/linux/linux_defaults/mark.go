@@ -123,6 +123,11 @@ const (
 	// MagicMarkEncrypt is the packet mark to use to indicate datapath
 	// needs to encrypt a packet.
 	MagicMarkEncrypt = 0x0E00
+
+	// MagicMarkIngressDone is the packet mark to use to inform BPF logic
+	// through a tailcall that ingress policy enforcement has been completed
+	// and should not be re-enforced.
+	MagicMarkIngressDone = 0x0600
 )
 
 // Constructs a full packet mark from one of the magic values above
