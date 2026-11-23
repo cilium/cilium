@@ -529,12 +529,28 @@ jobs:
           echo "ipv4_native_cidr=$NATIVE_CIDR" >> $GITHUB_OUTPUT
           echo "Native routing CIDR: $NATIVE_CIDR"
 
+          if [[ "${{ matrix.ip-family }}" == "IPv6" ]]; then
+            NATIVE_CIDR6=$(aws ec2 describe-subnets --region ${{ matrix.region }} \
+              --filters Name=availability-zone,Values=${{ steps.vars.outputs.eks_zone_1 }} \
+                  Name=tag:alpha.eksctl.io/cluster-name,Values=${{ steps.setup-cluster.outputs.cluster_name }} \
+                  Name=map-public-ip-on-launch,Values=false \
+              --query 'Subnets[*].Ipv6CidrBlockAssociationSet[].Ipv6CidrBlock' --output text)
+            if [ "$(echo "$NATIVE_CIDR6" | wc -w)" -ne 1 ]; then
+              echo "::error::IPv6 native routing CIDR lookup returned '$NATIVE_CIDR6' (expected exactly one CIDR)"
+              exit 1
+            fi
+            echo "ipv6_native_cidr=$NATIVE_CIDR6" >> $GITHUB_OUTPUT
+            echo "IPv6 native routing CIDR: $NATIVE_CIDR6"
+          fi
+
       - name: Install Cilium
         id: install-cilium
         run: |
+          IPV6_NATIVE_CIDR="${{ steps.native_cidr.outputs.ipv6_native_cidr }}"
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
           --nodes-without-cilium \
-          --set=ipv4NativeRoutingCIDR="${{ steps.native_cidr.outputs.ipv4_native_cidr }}"
+          --set=ipv4NativeRoutingCIDR="${{ steps.native_cidr.outputs.ipv4_native_cidr }}" \
+          ${IPV6_NATIVE_CIDR:+--set=ipv6NativeRoutingCIDR="${IPV6_NATIVE_CIDR}"}
 
       # Wait for Cilium to be ready after install (before creating nodegroups)
       # since the nodegroups creation depends on Cilium being ready.
