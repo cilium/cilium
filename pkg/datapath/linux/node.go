@@ -871,10 +871,12 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 	}
 
 	if n.nodeConfig.EnableIPv6 {
-		rule.Mark = linux_defaults.RouteMarkDecrypt
-		if err := route.ReplaceRuleIPv6(rule); err != nil {
-			n.log.Error("Replace IPv6 route decrypt rule failed", logfields.Error, err)
-			return err
+		if !option.Config.EnableEndpointRoutes {
+			rule.Mark = linux_defaults.RouteMarkDecrypt
+			if err := route.ReplaceRuleIPv6(rule); err != nil {
+				n.log.Error("Replace IPv6 route decrypt rule failed", logfields.Error, err)
+				return err
+			}
 		}
 	}
 
