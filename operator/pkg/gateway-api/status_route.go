@@ -53,14 +53,6 @@ type RouteStatusInputs struct {
 	ReferenceGrants []gatewayv1.ReferenceGrant
 }
 
-type RouteStatusManagerConfig struct {
-	BackendValidator        routechecks.BackendValidator
-	IncludeTCPRoutes        bool
-	IncludeUDPRoutes        bool
-	TCPUDPRouteSupport      bool
-	TCPUDPUnsupportedReason string
-}
-
 func NewRouteStatusManager(client client.Client, logger *slog.Logger, controllerName string, cfg helpers.ResourceConfig, backendValidator routechecks.BackendValidator) *RouteStatusManager {
 	return &RouteStatusManager{
 		client:           client,
