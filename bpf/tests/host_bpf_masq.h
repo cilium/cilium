@@ -806,3 +806,269 @@ int host_bpf_masq_v6_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
 {
 	return snat_ep_check_v6(ctx);
 }
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_7_no_snat_ep_tcp")
+int host_bpf_masq_v4_7_no_snat_ep_tcp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *tcp;
+
+	pktgen__init(&builder, ctx);
+
+	tcp = pktgen__push_ipv4_tcp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   v4_pod_one, SERVER_IP,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!tcp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v4_7_no_snat_ep_tcp")
+int host_bpf_masq_v4_7_no_snat_ep_tcp_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, ENDPOINT_F_NO_SNAT_V4, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v4_7_no_snat_ep_tcp")
+int host_bpf_masq_v4_7_no_snat_ep_tcp_check(const struct __ctx_buff *ctx)
+{
+	return no_snat_ep_check_v4(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_7_no_snat_ep_tcp")
+int host_bpf_masq_v6_7_no_snat_ep_tcp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *tcp;
+
+	pktgen__init(&builder, ctx);
+
+	tcp = pktgen__push_ipv6_tcp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   (__u8 *)v6_pod_one, (__u8 *)SERVER_IP_V6,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!tcp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v6_7_no_snat_ep_tcp")
+int host_bpf_masq_v6_7_no_snat_ep_tcp_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v6_add_entry((union v6addr *)v6_pod_one, 0, 0, ENDPOINT_F_NO_SNAT_V6,
+			      0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v6_7_no_snat_ep_tcp")
+int host_bpf_masq_v6_7_no_snat_ep_tcp_check(const struct __ctx_buff *ctx)
+{
+	return no_snat_ep_check_v6(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_8_snat_ep_tcp")
+int host_bpf_masq_v4_8_snat_ep_tcp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *tcp;
+
+	pktgen__init(&builder, ctx);
+
+	tcp = pktgen__push_ipv4_tcp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   v4_pod_one, SERVER_IP,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!tcp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v4_8_snat_ep_tcp")
+int host_bpf_masq_v4_8_snat_ep_tcp_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v4_8_snat_ep_tcp")
+int host_bpf_masq_v4_8_snat_ep_tcp_check(const struct __ctx_buff *ctx)
+{
+	return snat_ep_check_v4(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_8_snat_ep_tcp")
+int host_bpf_masq_v6_8_snat_ep_tcp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *tcp;
+
+	pktgen__init(&builder, ctx);
+
+	tcp = pktgen__push_ipv6_tcp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   (__u8 *)v6_pod_one, (__u8 *)SERVER_IP_V6,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!tcp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v6_8_snat_ep_tcp")
+int host_bpf_masq_v6_8_snat_ep_tcp_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v6_add_entry((union v6addr *)v6_pod_one, 0, 0, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v6_8_snat_ep_tcp")
+int host_bpf_masq_v6_8_snat_ep_tcp_check(const struct __ctx_buff *ctx)
+{
+	return snat_ep_check_v6(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_9_no_snat_ep_icmp_echo")
+int host_bpf_masq_v4_9_no_snat_ep_icmp_echo_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmp;
+
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv4_icmp_packet(&builder,
+					     (__u8 *)node_mac, (__u8 *)server_mac,
+					     v4_pod_one, SERVER_IP,
+					     ICMP_ECHO);
+	if (!icmp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v4_9_no_snat_ep_icmp_echo")
+int host_bpf_masq_v4_9_no_snat_ep_icmp_echo_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, ENDPOINT_F_NO_SNAT_V4, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v4_9_no_snat_ep_icmp_echo")
+int host_bpf_masq_v4_9_no_snat_ep_icmp_echo_check(const struct __ctx_buff *ctx)
+{
+	return no_snat_ep_check_v4(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_9_no_snat_ep_icmp_echo")
+int host_bpf_masq_v6_9_no_snat_ep_icmp_echo_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmp6hdr *icmp;
+
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv6_icmp6_packet(&builder,
+					      (__u8 *)node_mac, (__u8 *)server_mac,
+					      (__u8 *)v6_pod_one, (__u8 *)SERVER_IP_V6,
+					      ICMPV6_ECHO_REQUEST);
+	if (!icmp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v6_9_no_snat_ep_icmp_echo")
+int host_bpf_masq_v6_9_no_snat_ep_icmp_echo_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v6_add_entry((union v6addr *)v6_pod_one, 0, 0, ENDPOINT_F_NO_SNAT_V6,
+			      0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v6_9_no_snat_ep_icmp_echo")
+int host_bpf_masq_v6_9_no_snat_ep_icmp_echo_check(const struct __ctx_buff *ctx)
+{
+	return no_snat_ep_check_v6(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_10_snat_ep_icmp_echo")
+int host_bpf_masq_v4_10_snat_ep_icmp_echo_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmp;
+
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv4_icmp_packet(&builder,
+					     (__u8 *)node_mac, (__u8 *)server_mac,
+					     v4_pod_one, SERVER_IP,
+					     ICMP_ECHO);
+	if (!icmp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v4_10_snat_ep_icmp_echo")
+int host_bpf_masq_v4_10_snat_ep_icmp_echo_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v4_10_snat_ep_icmp_echo")
+int host_bpf_masq_v4_10_snat_ep_icmp_echo_check(const struct __ctx_buff *ctx)
+{
+	return snat_ep_check_v4(ctx);
+}
+
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_10_snat_ep_icmp_echo")
+int host_bpf_masq_v6_10_snat_ep_icmp_echo_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmp6hdr *icmp;
+
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv6_icmp6_packet(&builder,
+					      (__u8 *)node_mac, (__u8 *)server_mac,
+					      (__u8 *)v6_pod_one, (__u8 *)SERVER_IP_V6,
+					      ICMPV6_ECHO_REQUEST);
+	if (!icmp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "host_bpf_masq_v6_10_snat_ep_icmp_echo")
+int host_bpf_masq_v6_10_snat_ep_icmp_echo_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v6_add_entry((union v6addr *)v6_pod_one, 0, 0, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "host_bpf_masq_v6_10_snat_ep_icmp_echo")
+int host_bpf_masq_v6_10_snat_ep_icmp_echo_check(const struct __ctx_buff *ctx)
+{
+	return snat_ep_check_v6(ctx);
+}
