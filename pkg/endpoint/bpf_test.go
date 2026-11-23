@@ -96,8 +96,7 @@ func TestFirstRegenerationComputesPolicyOnce(t *testing.T) {
 	}{
 		{"unchanged", func(*testing.T, *Endpoint) {}, false},
 		{"policy changed", func(t *testing.T, ep *Endpoint) {
-			_, err := f.polComputer.RecomputeIdentityPolicyForAllIdentities(f.repo.BumpRevision())
-			require.NoError(t, err)
+			computePolicyForEPAndWait(t, ep, f.polComputer, f.repo.BumpRevision())
 		}, true},
 		{"labels changed", func(_ *testing.T, ep *Endpoint) {
 			ep.identityRevision++
