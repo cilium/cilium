@@ -18,6 +18,14 @@ You need to have a functioning Cluster Mesh setup, please follow the
 
 Make sure you are running CoreDNS 1.12.2 or later (installed by default from Kubernetes 1.35).
 
+MCS-API exports are also subject to ClusterMesh namespace export scope: a
+``ServiceExport`` must be in a global namespace to be exported. If you use
+``clustermesh.defaultGlobalNamespace=false``, explicitly mark each namespace
+that should participate with ``clustermesh.cilium.io/global: "true"``.
+See :ref:`gs_clustermesh_global_namespace` for the default, annotation
+behavior, and cross-cluster network policy implications.
+
+
 To install Cilium with MCS-API support, run:
 
 .. cilium-helm-install::
