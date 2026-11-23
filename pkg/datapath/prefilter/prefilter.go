@@ -10,9 +10,10 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	datapathmaps "github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -32,13 +33,6 @@ const (
 	prefixesV6Dyn
 	prefixesV6Fix
 	mapCount
-)
-
-const (
-	// Arbitrary chosen for now. We don't preallocate elements,
-	// so we could bump the limit if needed later on.
-	maxLKeys = 1024 * 64
-	maxHKeys = 1024 * 1024 * 20
 )
 
 type preFilterMaps [mapCount]*cidrmap.CIDRMap
@@ -183,46 +177,41 @@ func (p *preFilter) Delete(revision int64, cidrs []net.IPNet) error {
 	return ret
 }
 
-func (p *preFilter) initOneMap(which preFilterMapType) error {
+func (p *preFilter) initOneMap(reg *registry.MapRegistry, which preFilterMapType) error {
 	var prefixdyn bool
 	var prefixlen int
-	var maxelems uint32
-	var path string
+	var name string
 	var err error
 
 	switch which {
 	case prefixesV4Dyn:
 		prefixlen = net.IPv4len * 8
 		prefixdyn = true
-		maxelems = maxLKeys
-		path = bpf.MapPath(p.logger, cidrmap.MapName+"v4_dyn")
+		name = datapathmaps.CiliumCIDRV4Dyn
 	case prefixesV4Fix:
 		prefixlen = net.IPv4len * 8
 		prefixdyn = false
-		maxelems = maxHKeys
-		path = bpf.MapPath(p.logger, cidrmap.MapName+"v4_fix")
+		name = datapathmaps.CiliumCIDRV4Fix
 	case prefixesV6Dyn:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = true
-		maxelems = maxLKeys
-		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_dyn")
+		name = datapathmaps.CiliumCIDRV6Dyn
 	case prefixesV6Fix:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = false
-		maxelems = maxHKeys
-		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_fix")
+		name = datapathmaps.CiliumCIDRV6Fix
 	}
 
-	p.maps[which], err = cidrmap.OpenMapElems(p.logger, path, prefixlen, prefixdyn, maxelems)
+	p.maps[which], err = cidrmap.OpenMapFromRegistry(reg, p.logger, name, prefixlen, prefixdyn)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *preFilter) init() error {
+func (p *preFilter) init(reg *registry.MapRegistry) error {
 	for i := range mapCount {
-		if err := p.initOneMap(i); err != nil {
+		if err := p.initOneMap(reg, i); err != nil {
 			return err
 		}
 	}
@@ -230,7 +219,12 @@ func (p *preFilter) init() error {
 }
 
 // newPreFilter returns prefilter handle
-func newPreFilter(logger *slog.Logger, config *option.DaemonConfig, lifecycle cell.Lifecycle) PreFilter {
+func newPreFilter(
+	logger *slog.Logger,
+	config *option.DaemonConfig,
+	lifecycle cell.Lifecycle,
+	reg *registry.MapRegistry,
+) PreFilter {
 	p := &preFilter{
 		logger:   logger,
 		revision: 1,
@@ -243,7 +237,7 @@ func newPreFilter(logger *slog.Logger, config *option.DaemonConfig, lifecycle ce
 				// Only needed here given we access pinned maps.
 				p.mutex.Lock()
 				defer p.mutex.Unlock()
-				return p.init()
+				return p.init(reg)
 			},
 		})
 	}

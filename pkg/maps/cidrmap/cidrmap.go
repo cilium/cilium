@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"path"
-
-	"github.com/cilium/ebpf"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 )
 
 const (
@@ -225,13 +222,17 @@ func (cm *CIDRMap) Close() error {
 	return cm.m.Close()
 }
 
-// OpenMapElems opens or creates a CIDR map with an explicit capacity.
-func OpenMapElems(logger *slog.Logger, pinPath string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, error) {
-	mapType := ebpf.LPMTrie
+// OpenMapFromRegistry opens or creates a CIDR map using its finalized
+// specification from the map registry.
+func OpenMapFromRegistry(
+	reg *registry.MapRegistry,
+	logger *slog.Logger,
+	name string,
+	prefixlen int,
+	prefixdyn bool,
+) (*CIDRMap, error) {
 	prefix := 0
-
 	if !prefixdyn {
-		mapType = ebpf.Hash
 		prefix = prefixlen
 	}
 	if prefixlen <= 0 {
@@ -243,32 +244,32 @@ func OpenMapElems(logger *slog.Logger, pinPath string, prefixlen int, prefixdyn 
 	if err != nil {
 		return nil, err
 	}
-	m := bpf.NewMap(
-		path.Base(pinPath),
-		mapType,
-		key,
-		&cidrValue{},
-		int(maxelem),
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-	)
+	m, err := bpf.NewMapFromRegistry(reg, name, key, &cidrValue{})
+	if err != nil {
+		return nil, fmt.Errorf("create map from registry: %w", err)
+	}
 	if err := m.OpenOrCreate(); err != nil {
 		return nil, err
 	}
-	actualPath, err := m.Path()
+	pinPath, err := m.Path()
 	if err != nil {
+		logger.Warn(
+			"Failed to get CIDR map pinPath",
+			logfields.Error, err,
+		)
 		return nil, err
 	}
 
 	logger.Debug(
 		"Created CIDR map",
-		logfields.Path, actualPath,
+		logfields.Path, pinPath,
 		logfields.BPFMapFD, m.FD(),
 		logfields.LPM, prefixdyn,
 	)
 
 	return &CIDRMap{
 		logger:          logger,
-		path:            actualPath,
+		path:            pinPath,
 		m:               m,
 		AddrSize:        bytes,
 		Prefixlen:       uint32(prefix),
