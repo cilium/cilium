@@ -38,6 +38,7 @@ ASSIGN_CONFIG(bool, enable_host_firewall, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/egressgw.h"
+#include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
 /* Set port ranges to have deterministic source port selection */
@@ -359,6 +360,61 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/* Test that a packet from a local endpoint that skips masquerading is still
+ * SNATed with the egress IP when it matches an egress gateway policy.
+ */
+PKTGEN(PROG_TYPE, "tc_egressgw_snat_no_snat_ep")
+int egressgw_snat_no_snat_ep_pktgen(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_NO_SNAT_EP,
+		});
+}
+
+SETUP(PROG_TYPE, "tc_egressgw_snat_no_snat_ep")
+int egressgw_snat_no_snat_ep_setup(struct __ctx_buff *ctx)
+{
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
+				  GATEWAY_NODE_IP, EGRESS_IP, 0);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
+	endpoint_v4_add_entry(CLIENT_IP, 0, 0, ENDPOINT_F_NO_SNAT_V4, 0, 0, NULL, NULL);
+
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_egressgw_snat_no_snat_ep")
+int egressgw_snat_no_snat_ep_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+
+	test_init();
+
+	endpoint_v4_del_entry(CLIENT_IP);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != EGRESS_IP)
+		test_fatal("src IP hasn't been NATed to the egress IP");
+
+	test_finish();
+}
+
 /* Test that a packet matching an egress gateway policy on the to-netdev program
  * gets correctly SNATed with the egress IP of the policy (IPv6).
  */
@@ -666,6 +722,68 @@ int egressgw_skip_excluded_cidr_snat_check_v6(const struct __ctx_buff *ctx)
 
 	if (l4->dest != EXTERNAL_SVC_PORT)
 		test_fatal("dst port has changed");
+
+	test_finish();
+}
+
+/* Test that a packet from a local endpoint that skips masquerading is still
+ * SNATed with the egress IP when it matches an egress gateway policy (IPv6).
+ */
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_snat_no_snat_ep")
+int egressgw_snat_no_snat_ep_pktgen_v6(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_NO_SNAT_EP,
+		});
+}
+
+SETUP(PROG_TYPE, "tc_v6_egressgw_snat_no_snat_ep")
+int egressgw_snat_no_snat_ep_setup_v6(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip, 0);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
+	endpoint_v6_add_entry(&client_ip, 0, 0, ENDPOINT_F_NO_SNAT_V6, 0, NULL, NULL);
+
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_v6_egressgw_snat_no_snat_ep")
+int egressgw_snat_no_snat_ep_check_v6(const struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ipv6hdr *l3;
+
+	test_init();
+
+	endpoint_v6_del_entry(&client_ip);
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (memcmp(&l3->saddr, &egress_ip, sizeof(union v6addr)) != 0)
+		test_fatal("src IP hasn't been NATed to the egress IP");
 
 	test_finish();
 }
