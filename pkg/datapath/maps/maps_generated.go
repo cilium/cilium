@@ -156,7 +156,7 @@ func newCiliumCIDRV4DynSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "lpm_v4_key"),
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "lpm_val"),
-		MaxEntries: 1024,
+		MaxEntries: 65536,
 		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
@@ -170,7 +170,7 @@ func newCiliumCIDRV4FixSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "lpm_v4_key"),
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "lpm_val"),
-		MaxEntries: 1024,
+		MaxEntries: 20971520,
 		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
@@ -184,7 +184,7 @@ func newCiliumCIDRV6DynSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "lpm_v6_key"),
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "lpm_val"),
-		MaxEntries: 1024,
+		MaxEntries: 65536,
 		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
@@ -198,7 +198,7 @@ func newCiliumCIDRV6FixSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "lpm_v6_key"),
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "lpm_val"),
-		MaxEntries: 1024,
+		MaxEntries: 20971520,
 		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
