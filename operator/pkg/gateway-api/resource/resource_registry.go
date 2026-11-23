@@ -56,7 +56,7 @@ type GatewayRegistry struct {
 //
 // So, addition of Resources must be gated by if the resource is present
 // in the cluster. Use the registryConfig to determine this.
-func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
+func NewGatewayRegistry(r helpers.ResourceConfig, additionalResources ...Resource) *GatewayRegistry {
 	gr := &GatewayRegistry{
 		registryConfig: r,
 	}
@@ -91,6 +91,10 @@ func NewGatewayRegistry(r helpers.ResourceConfig) *GatewayRegistry {
 	if r.IncludeInferencePools {
 		gr.AddResource(NewInferencePoolResource(gr.registryConfig))
 		gr.AddResource(NewEndpointSliceResource(gr.registryConfig))
+	}
+
+	for i := range additionalResources {
+		gr.AddResource(additionalResources[i])
 	}
 	return gr
 }

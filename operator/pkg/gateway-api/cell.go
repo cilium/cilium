@@ -27,6 +27,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -233,6 +234,8 @@ type gatewayAPIParams struct {
 
 	// Preconditions is injected from private provider
 	Preconditions *gatewayAPIPreconditions
+
+	AdditionalResources []resource.Resource `group:"gateway-api-resources"`
 }
 
 func initGatewayAPIController(params gatewayAPIParams) error {
@@ -304,6 +307,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		cfg.HostNetworkConfig.Enabled,
 		nodeLabelSelector,
 		params.GatewayApiConfig.GatewayAPIInferenceExtensionEnabled,
+		params.AdditionalResources...,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -464,12 +468,13 @@ func registerReconcilers(
 	hostNetworkEnabled bool,
 	hostNetworkLabel v1.LabelSelector,
 	inferenceExtensionEnabled bool,
+	additionalResources ...resource.Resource,
 ) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel, inferenceExtensionEnabled),
+		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel, inferenceExtensionEnabled, additionalResources...),
 		newGammaReconciler(mgr, translator, logger, controllerName),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),
