@@ -54,6 +54,7 @@ type gatewayReconciler struct {
 	controllerName                      string
 	gatewayAPIInferenceExtensionEnabled bool
 	resourceRegistry                    resource.Registry
+	translationExtensions               []TranslationExtension
 }
 
 func newGatewayReconciler(
@@ -64,7 +65,8 @@ func newGatewayReconciler(
 	hostNetworkEnabled bool,
 	hostNetworkLabel metav1.LabelSelector,
 	gatewayAPIInferenceExtensionEnabled bool,
-	additionalResources ...resource.Resource,
+	translationExtensions []TranslationExtension,
+	additionalResources []resource.Resource,
 ) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
@@ -103,6 +105,7 @@ func newGatewayReconciler(
 		controllerName:                      controllerName,
 		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
 		resourceRegistry:                    resource.NewGatewayRegistry(resourceConfig, additionalResources...),
+		translationExtensions:               translationExtensions,
 	}
 }
 

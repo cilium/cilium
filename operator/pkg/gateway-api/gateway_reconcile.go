@@ -228,6 +228,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to translate resources: %w", err), original, gw)
 	}
 
+	deferReconcile, err := r.applyTranslationExtensions(ctx, gw, cec)
+	if err != nil {
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to apply translation extensions", gatewayv1.GatewayReasonNoResources)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+	if deferReconcile {
+		scopedLog.InfoContext(ctx, "Gateway reconciliation deferred by translation extension")
+		return controllerruntime.Success()
+	}
+
 	if err = r.ensureService(ctx, svc); err != nil {
 		setGatewayAccepted(gw, false, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
