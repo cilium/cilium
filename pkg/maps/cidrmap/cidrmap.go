@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"path"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
@@ -26,7 +25,7 @@ const (
 type CIDRMap struct {
 	logger    *slog.Logger
 	path      string
-	m         *ebpf.Map
+	m         *bpf.Map
 	AddrSize  int // max prefix length in bytes, 4 for IPv4, 16 for IPv6
 	Prefixlen uint32
 
@@ -39,50 +38,116 @@ const (
 	LPM_MAP_VALUE_SIZE = 1
 )
 
-type cidrKey struct {
+type cidrKey4 struct {
 	Prefixlen uint32
-
-	// v4 LPM maps have 8-byte key sizes even though the 20-byte cidrKey is used
-	// for map ops. This hack relies on passing unsafe.Pointers to the cidrKey so
-	// the kernel only accesses Prefixlen (4 bytes) and the first 4 bytes of Net.
-	// v4 net.IPNets are packed into those 4 first bytes.
-	Net [16]byte
+	Net       [net.IPv4len]byte
 }
 
-func (cm *CIDRMap) cidrKeyInit(cidr net.IPNet) (key cidrKey) {
+func (k *cidrKey4) String() string {
+	return fmt.Sprintf("%d:%x", k.Prefixlen, k.Net)
+}
+
+func (k *cidrKey4) New() bpf.MapKey {
+	return &cidrKey4{}
+}
+
+type cidrKey6 struct {
+	Prefixlen uint32
+	Net       [net.IPv6len]byte
+}
+
+func (k *cidrKey6) String() string {
+	return fmt.Sprintf("%d:%x", k.Prefixlen, k.Net)
+}
+
+func (k *cidrKey6) New() bpf.MapKey {
+	return &cidrKey6{}
+}
+
+func newCIDRKey(addrSize int) (bpf.MapKey, error) {
+	switch addrSize {
+	case net.IPv4len:
+		return &cidrKey4{}, nil
+	case net.IPv6len:
+		return &cidrKey6{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported CIDR address size %d", addrSize)
+	}
+}
+
+func (cm *CIDRMap) cidrKeyInit(cidr net.IPNet) bpf.MapKey {
 	ones, _ := cidr.Mask.Size()
-	key.Prefixlen = uint32(ones)
-	// IPv4 address can be represented by 16 byte slice in 'cidr.IP',
-	// in which case the address is at the end of the slice.
-	copy(key.Net[:], cidr.IP[len(cidr.IP)-cm.AddrSize:len(cidr.IP)])
-	return
+	switch cm.AddrSize {
+	case net.IPv4len:
+		key := &cidrKey4{Prefixlen: uint32(ones)}
+		copy(key.Net[:], cidr.IP[len(cidr.IP)-cm.AddrSize:])
+		return key
+	case net.IPv6len:
+		key := &cidrKey6{Prefixlen: uint32(ones)}
+		copy(key.Net[:], cidr.IP[len(cidr.IP)-cm.AddrSize:])
+		return key
+	default:
+		panic(fmt.Sprintf("unsupported CIDR address size %d", cm.AddrSize))
+	}
 }
 
-func (cm *CIDRMap) keyCidrInit(key cidrKey) (cidr net.IPNet) {
-	cidr.Mask = net.CIDRMask(int(key.Prefixlen), cm.AddrSize*8)
+func (cm *CIDRMap) keyCidrInit(key bpf.MapKey) (cidr net.IPNet) {
+	var prefixlen uint32
 	cidr.IP = make(net.IP, cm.AddrSize)
-	copy(cidr.IP[len(cidr.IP)-cm.AddrSize:len(cidr.IP)], key.Net[:])
+
+	switch key := key.(type) {
+	case *cidrKey4:
+		prefixlen = key.Prefixlen
+		copy(cidr.IP, key.Net[:])
+	case *cidrKey6:
+		prefixlen = key.Prefixlen
+		copy(cidr.IP, key.Net[:])
+	default:
+		panic(fmt.Sprintf("unsupported CIDR key type %T", key))
+	}
+
+	cidr.Mask = net.CIDRMask(int(prefixlen), cm.AddrSize*8)
 	return
 }
 
 // checkPrefixlen checks whether it's valid to manipulate elements in the map
 // with the specified key. If it's unsupported, it returns an error.
-func (cm *CIDRMap) checkPrefixlen(key *cidrKey, operation string) error {
+func (cm *CIDRMap) checkPrefixlen(key bpf.MapKey, operation string) error {
+	var prefixlen uint32
+	switch key := key.(type) {
+	case *cidrKey4:
+		prefixlen = key.Prefixlen
+	case *cidrKey6:
+		prefixlen = key.Prefixlen
+	default:
+		return fmt.Errorf("unsupported CIDR key type %T", key)
+	}
+
 	if cm.Prefixlen != 0 &&
-		((cm.PrefixIsDynamic && cm.Prefixlen < key.Prefixlen) ||
-			(!cm.PrefixIsDynamic && cm.Prefixlen != key.Prefixlen)) {
+		((cm.PrefixIsDynamic && cm.Prefixlen < prefixlen) ||
+			(!cm.PrefixIsDynamic && cm.Prefixlen != prefixlen)) {
 		return fmt.Errorf("Unable to %s element with dynamic prefix length cm.Prefixlen=%d key.Prefixlen=%d",
-			operation, cm.Prefixlen, key.Prefixlen)
+			operation, cm.Prefixlen, prefixlen)
 	}
 	return nil
+}
+
+type cidrValue [LPM_MAP_VALUE_SIZE]byte
+
+func (v *cidrValue) String() string {
+	return fmt.Sprintf("%x", *v)
+}
+
+func (v *cidrValue) New() bpf.MapValue {
+	return &cidrValue{}
 }
 
 // InsertCIDR inserts an entry to 'cm' with key 'cidr'. Value is currently not
 // used.
 func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 	key := cm.cidrKeyInit(cidr)
-	entry := [LPM_MAP_VALUE_SIZE]byte{}
-	if err := cm.checkPrefixlen(&key, "update"); err != nil {
+	entry := cidrValue{}
+	if err := cm.checkPrefixlen(key, "update"); err != nil {
 		return err
 	}
 	cm.logger.Debug(
@@ -90,13 +155,13 @@ func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 		logfields.Path, cm.path,
 		logfields.CIDR, cidr,
 	)
-	return cm.m.Update(unsafe.Pointer(&key), unsafe.Pointer(&entry), ebpf.UpdateAny)
+	return cm.m.Update(key, &entry)
 }
 
 // DeleteCIDR deletes an entry from 'cm' with key 'cidr'.
 func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 	key := cm.cidrKeyInit(cidr)
-	if err := cm.checkPrefixlen(&key, "delete"); err != nil {
+	if err := cm.checkPrefixlen(key, "delete"); err != nil {
 		return err
 	}
 	cm.logger.Debug(
@@ -104,23 +169,27 @@ func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 		logfields.Path, cm.path,
 		logfields.CIDR, cidr,
 	)
-	return cm.m.Delete(unsafe.Pointer(&key))
+	return cm.m.Delete(key)
 }
 
 // CIDRExists returns true if 'cidr' exists in map 'cm'
 func (cm *CIDRMap) CIDRExists(cidr net.IPNet) bool {
 	key := cm.cidrKeyInit(cidr)
-	var entry [LPM_MAP_VALUE_SIZE]byte
-	return cm.m.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
+	var entry cidrValue
+	return cm.m.LookupInto(key, &entry) == nil
 }
 
 // CIDRNext returns next CIDR entry in map 'cm'
 func (cm *CIDRMap) CIDRNext(cidr *net.IPNet) *net.IPNet {
-	var key, keyNext cidrKey
+	var key bpf.MapKey
 	if cidr != nil {
 		key = cm.cidrKeyInit(*cidr)
 	}
-	if err := cm.m.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&keyNext)); err != nil {
+	keyNext, err := newCIDRKey(cm.AddrSize)
+	if err != nil {
+		return nil
+	}
+	if err := cm.m.NextKey(key, keyNext); err != nil {
 		return nil
 	}
 	out := cm.keyCidrInit(keyNext)
@@ -156,7 +225,7 @@ func (cm *CIDRMap) Close() error {
 	return cm.m.Close()
 }
 
-// OpenMapElems is the same as OpenMap only with defined maxelem as argument.
+// OpenMapElems opens or creates a CIDR map with an explicit capacity.
 func OpenMapElems(logger *slog.Logger, pinPath string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, error) {
 	mapType := ebpf.LPMTrie
 	prefix := 0
@@ -168,36 +237,38 @@ func OpenMapElems(logger *slog.Logger, pinPath string, prefixlen int, prefixdyn 
 	if prefixlen <= 0 {
 		return nil, fmt.Errorf("prefixlen must be > 0")
 	}
-	bytes := (prefixlen-1)/8 + 1
-	m, err := bpf.OpenOrCreateMap(logger, &ebpf.MapSpec{
-		Name:       path.Base(pinPath),
-		Type:       mapType,
-		KeySize:    uint32(unsafe.Sizeof(uint32(0)) + uintptr(bytes)),
-		ValueSize:  uint32(LPM_MAP_VALUE_SIZE),
-		MaxEntries: maxelem,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-		Pinning:    ebpf.PinByName,
-	}, path.Dir(pinPath))
 
+	bytes := (prefixlen-1)/8 + 1
+	key, err := newCIDRKey(bytes)
 	if err != nil {
-		logger.Warn(
-			"Failed to create CIDR map",
-			logfields.Error, err,
-			logfields.Path, pinPath,
-		)
+		return nil, err
+	}
+	m := bpf.NewMap(
+		path.Base(pinPath),
+		mapType,
+		key,
+		&cidrValue{},
+		int(maxelem),
+		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+	)
+	if err := m.OpenOrCreate(); err != nil {
+		return nil, err
+	}
+	actualPath, err := m.Path()
+	if err != nil {
 		return nil, err
 	}
 
 	logger.Debug(
 		"Created CIDR map",
-		logfields.Path, pinPath,
+		logfields.Path, actualPath,
 		logfields.BPFMapFD, m.FD(),
-		logfields.LPM, m.Type() == ebpf.LPMTrie,
+		logfields.LPM, prefixdyn,
 	)
 
 	return &CIDRMap{
 		logger:          logger,
-		path:            pinPath,
+		path:            actualPath,
 		m:               m,
 		AddrSize:        bytes,
 		Prefixlen:       uint32(prefix),
