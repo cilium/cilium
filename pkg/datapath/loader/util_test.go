@@ -6,7 +6,6 @@ package loader
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -133,8 +132,6 @@ func (fr *FakeRestorer) WaitForInitialPolicy(ctx context.Context) error { return
 type FakePreFilter struct{}
 
 func (fpf *FakePreFilter) Enabled() bool { return true }
-
-func (fpf *FakePreFilter) WriteConfig(fw io.Writer) {}
 
 func (fpf *FakePreFilter) Dump(to []string) ([]string, int64) { return nil, 0 }
 

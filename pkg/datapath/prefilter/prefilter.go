@@ -5,7 +5,6 @@ package prefilter
 
 import (
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 
@@ -20,7 +19,6 @@ import (
 // PreFilter an interface for an XDP pre-filter.
 type PreFilter interface {
 	Enabled() bool
-	WriteConfig(fw io.Writer)
 	Dump(to []string) ([]string, int64)
 	Insert(revision int64, cidrs []net.IPNet) error
 	Delete(revision int64, cidrs []net.IPNet) error
@@ -53,15 +51,6 @@ type preFilter struct {
 	mutex    lock.RWMutex
 
 	enabled bool
-}
-
-// WriteConfig dumps the configuration for the corresponding header file
-func (p *preFilter) WriteConfig(fw io.Writer) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
-	fmt.Fprintf(fw, "#define CIDR4_HMAP_ELEMS %d\n", maxHKeys)
-	fmt.Fprintf(fw, "#define CIDR4_LMAP_ELEMS %d\n", maxLKeys)
 }
 
 func (p *preFilter) dumpOneMap(which preFilterMapType, to []string) []string {

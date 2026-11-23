@@ -4,7 +4,6 @@
 package loader
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/google/renameio/v2"
 	"github.com/vishvananda/netlink"
@@ -26,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -43,8 +40,6 @@ import (
 const (
 	// netdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
 	netdevHeaderFileName = "netdev_config.h"
-	// preFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
-	preFilterHeaderFileName = "filter_config.h"
 )
 
 func (l *loader) writeNetdevHeader(dir string) error {
@@ -75,26 +70,6 @@ func (l *loader) writeNodeConfigHeader(cfg *config.Config) error {
 		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
 	}
 	return f.CloseAtomicallyReplace()
-}
-
-// Must be called with option.Config.EnablePolicyMU locked.
-func writePreFilterHeader(logger *slog.Logger, preFilter prefilter.PreFilter, dir string, devices []string) error {
-	headerPath := filepath.Join(dir, preFilterHeaderFileName)
-	logger.Debug("writing configuration", logfields.Path, headerPath)
-
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
-	}
-	defer f.Close()
-
-	fw := bufio.NewWriter(f)
-	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(devices, " "))
-	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
-	fmt.Fprint(fw, " */\n\n")
-	preFilter.WriteConfig(fw)
-	return fw.Flush()
 }
 
 func addIPv4ENIRules(logger *slog.Logger, sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
@@ -389,16 +364,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	if err := l.writeNetdevHeader("./"); err != nil {
 		l.logger.Warn("Unable to write netdev header", logfields.Error, err)
 		return err
-	}
-
-	if option.Config.EnableXDPPrefilter {
-		if err := writePreFilterHeader(l.logger, l.prefilter, "./", devices); err != nil {
-			l.logger.Warn("Unable to write prefilter header",
-				logfields.Error, err,
-				logfields.Devices, devices,
-			)
-			return err
-		}
 	}
 
 	// Each clang run below has its own ExecTimeout; the rest inherits ctx.

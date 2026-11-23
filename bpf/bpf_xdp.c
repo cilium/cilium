@@ -8,7 +8,6 @@
 #include <bpf/config/node.h>
 #include <bpf/config/xdp.h>
 #include <netdev_config.h>
-#include <filter_config.h>
 
 #define IS_BPF_XDP 1
 
@@ -43,6 +42,12 @@
 #include "lib/lpm.h"
 #include "lib/nodeport.h"
 #include "lib/tailcall.h"
+
+/* Arbitrary chosen for now. We don't preallocate elements,
+ * so we could bump the limit if needed later on.
+ */
+#define CIDR4_HMAP_ELEMS 1024 * 1024 * 20
+#define CIDR4_LMAP_ELEMS 1024 * 64
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
