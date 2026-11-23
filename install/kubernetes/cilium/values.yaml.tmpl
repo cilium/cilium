@@ -691,8 +691,6 @@ bpf:
   # -- Configure which TCP flags trigger notifications when seen for the
   # first time in a connection.
   monitorFlags: "all"
-  # -- Enables tracing for native devices.
-  netdevTracing: false
   # -- (bool) Allow cluster external access to ClusterIP services.
   # @default -- `false`
   lbExternalClusterIP: false
@@ -768,6 +766,8 @@ monitor:
   enabled: false
   # -- Enable the cilium-monitor sidecar.
   sidecar: false
+  # -- Enables tracing for native devices.
+  netdevTracing: false
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent

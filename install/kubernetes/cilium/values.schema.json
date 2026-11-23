@@ -331,9 +331,6 @@
             "integer"
           ]
         },
-        "netdevTracing": {
-          "type": "boolean"
-        },
         "nodeMapMax": {
           "type": [
             "null",
@@ -4954,6 +4951,9 @@
     "monitor": {
       "properties": {
         "enabled": {
+          "type": "boolean"
+        },
+        "netdevTracing": {
           "type": "boolean"
         },
         "sidecar": {

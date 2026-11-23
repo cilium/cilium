@@ -115,7 +115,6 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.monitorTraceIPOption | int | `0` | Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema |
 | bpf.natMax | int | `524288` | Configure the maximum number of entries for the NAT table. |
 | bpf.neighMax | int | `524288` | Configure the maximum number of entries for the neighbor table. |
-| bpf.netdevTracing | bool | `false` | Enables tracing for native devices. |
 | bpf.nodeMapMax | int | `nil` | Configures the maximum number of entries for the node table. |
 | bpf.policyMapMax | int | `16384` | Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema |
 | bpf.policyMapPressureMetricsThreshold | float64 | `0.1` | Configure threshold for emitting pressure metrics of policy maps. @schema type: [null, number] @schema |
@@ -872,8 +871,9 @@ contributors across the globe, there is almost always someone available to help.
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
 | minReadySeconds | int | `0` | Minimum number of seconds for which a newly created agent pod should be ready before it is considered available. Defaults to 0 (pod is considered available as soon as it is ready). ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/ |
-| monitor | object | `{"enabled":false,"sidecar":false}` | Everything to control the tracking of packets in the datapath, including monitor aggregation. |
+| monitor | object | `{"enabled":false,"netdevTracing":false,"sidecar":false}` | Everything to control the tracking of packets in the datapath, including monitor aggregation. |
 | monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. To be removed in v1.22. |
+| monitor.netdevTracing | bool | `false` | Enables tracing for native devices. |
 | monitor.sidecar | bool | `false` | Enable the cilium-monitor sidecar. |
 | name | string | `"cilium"` | Agent daemonset name. |
 | namespaceOverride | string | `""` | namespaceOverride allows to override the destination namespace for Cilium resources. |

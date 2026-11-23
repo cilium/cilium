@@ -29,7 +29,7 @@ notes carefully below to understand what to do during upgrade.
   before upgrading.
 * Cilium doesn't emit packet traces from native devices anymore, to reduce the
   CPU consumption. If you need these traces, you can restore them with the
-  ``--trace-netdev`` flag or the ``bpf.netdevTracing`` Helm value.
+  ``--trace-netdev`` flag or the ``monitor.netdevTracing`` Helm value.
 * Support for the Kubernetes :ref:`ClusterNetworkPolicy` is now enabled by
   default. The Cilium Operator installs the ``ClusterNetworkPolicy`` CRD, and
   the Cilium Agent waits for it before starting. If you set
@@ -104,7 +104,7 @@ The following options have been introduced in this version of Cilium:
   value ``ipam.operator.excessIPReleaseDelay``) now also applies to Alibaba
   Cloud when release is enabled with ``--ipam-release-excess-ips``;
   ``--alibaba-cloud-release-excess-ips`` keeps releasing without a delay.
-* The ``--trace-netdev`` flag (Helm value ``bpf.netdevTracing``) enables packet
+* The ``--trace-netdev`` flag (Helm value ``monitor.netdevTracing``) enables packet
   traces from native devices. Cilium disables packet tracing on native devices
   by default.
 * The ``k8sClusterNetworkPolicy.installCRDs`` Helm value (operator flag

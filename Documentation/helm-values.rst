@@ -260,10 +260,6 @@
      - Configure the maximum number of entries for the neighbor table.
      - int
      - ``524288``
-   * - :spelling:ignore:`bpf.netdevTracing`
-     - Enables tracing for native devices.
-     - bool
-     - ``false``
    * - :spelling:ignore:`bpf.nodeMapMax`
      - Configures the maximum number of entries for the node table.
      - int
@@ -3291,9 +3287,13 @@
    * - :spelling:ignore:`monitor`
      - Everything to control the tracking of packets in the datapath, including monitor aggregation.
      - object
-     - ``{"enabled":false,"sidecar":false}``
+     - ``{"enabled":false,"netdevTracing":false,"sidecar":false}``
    * - :spelling:ignore:`monitor.enabled`
      - Enable the cilium-monitor sidecar. Deprecated in favor of monitor.sidecar. To be removed in v1.22.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`monitor.netdevTracing`
+     - Enables tracing for native devices.
      - bool
      - ``false``
    * - :spelling:ignore:`monitor.sidecar`
