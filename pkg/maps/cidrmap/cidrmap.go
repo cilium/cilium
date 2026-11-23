@@ -13,11 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/registry"
 )
 
-const (
-	MapName    = "cilium_cidr_"
-	MaxEntries = 16384
-)
-
 // CIDRMap refers to an LPM trie map at 'path'.
 type CIDRMap struct {
 	logger    *slog.Logger
