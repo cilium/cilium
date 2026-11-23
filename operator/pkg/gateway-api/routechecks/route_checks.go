@@ -178,8 +178,8 @@ func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentRefere
 				}
 				continue
 			}
-			svcName, err := helpers.GetBackendServiceName(ns, be.BackendObjectReference, input.GetResourceConfig())
-			if err != nil {
+			svcName, found := helpers.GetBackendServiceName(ns, be.BackendObjectReference, input.GetResourceConfig())
+			if !found {
 				// Service Import does not exist, update the status for all the parents
 				// The `Accepted` condition on a route only describes whether
 				// the route attached successfully to its parent, so no error
@@ -188,7 +188,7 @@ func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentRefere
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
-					Message: err.Error(),
+					Message: fmt.Sprintf("unsupported backend kind %s", *be.Kind),
 				})
 				continue
 			}

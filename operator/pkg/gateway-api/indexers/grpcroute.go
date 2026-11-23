@@ -11,7 +11,6 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // IndexGRPCRouteByGateway is a client.IndexerFunc that takes a single GRPCRoute and returns all
@@ -86,40 +85,30 @@ func GenerateIndexerGRPCRoutebyBackendService(logger *slog.Logger, resourceConfi
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
-				if err != nil {
-					logger.Error("Failed to get backend service name",
-						logfields.LogSubsys, logfields.GRPCRoute,
-						logfields.Resource, client.ObjectKeyFromObject(rawObj),
-						logfields.Error, err)
-					continue
+				backendServiceName, found := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
+				if found {
+					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+							Name:      backendServiceName,
+						}.String(),
+					)
 				}
-				backendServices = append(backendServices,
-					types.NamespacedName{
-						Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-						Name:      backendServiceName,
-					}.String(),
-				)
 			}
 			for _, f := range rule.Filters {
 				if f.Type != gatewayv1.GRPCRouteFilterRequestMirror || f.RequestMirror == nil {
 					continue
 				}
 				namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(namespace, f.RequestMirror.BackendRef, resourceConfig)
-				if err != nil {
-					logger.Error("Failed to get request mirror backend service name",
-						logfields.LogSubsys, logfields.GRPCRoute,
-						logfields.Resource, client.ObjectKeyFromObject(rawObj),
-						logfields.Error, err)
-					continue
+				backendServiceName, found := helpers.GetBackendServiceName(namespace, f.RequestMirror.BackendRef, resourceConfig)
+				if found {
+					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: namespace,
+							Name:      backendServiceName,
+						}.String(),
+					)
 				}
-				backendServices = append(backendServices,
-					types.NamespacedName{
-						Namespace: namespace,
-						Name:      backendServiceName,
-					}.String(),
-				)
 			}
 		}
 

@@ -11,7 +11,6 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // IndexHTTPRouteByGateway is a client.IndexerFunc that takes a single HTTPRoute and returns all
@@ -93,59 +92,42 @@ func GenerateIndexerHTTPRouteByBackendService(logger *slog.Logger, resourceConfi
 					continue
 				}
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
-				if err != nil {
-					logger.Error("Failed to get backend service name",
-						logfields.LogSubsys, logfields.HTTPRoute,
-						logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
-						logfields.Error, err)
-					continue
+				backendServiceName, found := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
+				if found {
+					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+							Name:      backendServiceName,
+						}.String(),
+					)
 				}
-				backendServices = append(backendServices,
-					types.NamespacedName{
-						Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-						Name:      backendServiceName,
-					}.String(),
-				)
 			}
 			for _, f := range rule.Filters {
 				var (
-					namespace          string
-					backendServiceName string
-					err                error
+					namespace             string
+					backendServiceName    string
+					hasBackendServiceName bool
 				)
 
 				switch {
 				case f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil:
 					namespace = helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
-					backendServiceName, err = helpers.GetBackendServiceName(namespace, f.RequestMirror.BackendRef, resourceConfig)
-					if err != nil {
-						logger.Error("Failed to get request mirror backend service name",
-							logfields.LogSubsys, logfields.HTTPRoute,
-							logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
-							logfields.Error, err)
-						continue
-					}
+					backendServiceName, hasBackendServiceName = helpers.GetBackendServiceName(namespace, f.RequestMirror.BackendRef, resourceConfig)
 				case f.Type == gatewayv1.HTTPRouteFilterExternalAuth && f.ExternalAuth != nil:
 					namespace = helpers.NamespaceDerefOr(f.ExternalAuth.BackendRef.Namespace, route.Namespace)
-					backendServiceName, err = helpers.GetBackendServiceName(namespace, f.ExternalAuth.BackendRef, resourceConfig)
-					if err != nil {
-						logger.Error("Failed to get ext_auth backend service name",
-							logfields.LogSubsys, logfields.HTTPRoute,
-							logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
-							logfields.Error, err)
-						continue
-					}
+					backendServiceName, hasBackendServiceName = helpers.GetBackendServiceName(namespace, f.ExternalAuth.BackendRef, resourceConfig)
 				default:
 					continue
 				}
 
-				backendServices = append(backendServices,
-					types.NamespacedName{
-						Namespace: namespace,
-						Name:      backendServiceName,
-					}.String(),
-				)
+				if hasBackendServiceName {
+					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: namespace,
+							Name:      backendServiceName,
+						}.String(),
+					)
+				}
 			}
 		}
 		return backendServices
