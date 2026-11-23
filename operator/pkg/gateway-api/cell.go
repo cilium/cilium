@@ -235,7 +235,8 @@ type gatewayAPIParams struct {
 	// Preconditions is injected from private provider
 	Preconditions *gatewayAPIPreconditions
 
-	AdditionalResources []resource.Resource `group:"gateway-api-resources"`
+	TranslationExtensions []TranslationExtension `group:"gateway-api-translation-extensions"`
+	AdditionalResources   []resource.Resource    `group:"gateway-api-resources"`
 }
 
 func initGatewayAPIController(params gatewayAPIParams) error {
@@ -307,7 +308,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		cfg.HostNetworkConfig.Enabled,
 		nodeLabelSelector,
 		params.GatewayApiConfig.GatewayAPIInferenceExtensionEnabled,
-		params.AdditionalResources...,
+		params.TranslationExtensions,
+		params.AdditionalResources,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -468,13 +470,14 @@ func registerReconcilers(
 	hostNetworkEnabled bool,
 	hostNetworkLabel v1.LabelSelector,
 	inferenceExtensionEnabled bool,
-	additionalResources ...resource.Resource,
+	translationExtensions []TranslationExtension,
+	additionalResources []resource.Resource,
 ) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel, inferenceExtensionEnabled, additionalResources...),
+		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel, inferenceExtensionEnabled, translationExtensions, additionalResources),
 		newGammaReconciler(mgr, translator, logger, controllerName),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),
