@@ -1588,6 +1588,83 @@ func TestShouldSkipMasqForPool(t *testing.T) {
 	}
 }
 
+func TestWaitForPool(t *testing.T) {
+	newTable := func(t *testing.T) (*statedb.DB, statedb.RWTable[podippool.LocalPodIPPool]) {
+		t.Helper()
+		db := statedb.New()
+		tbl, err := podippool.NewTable(db)
+		require.NoError(t, err)
+		return db, tbl
+	}
+
+	t.Run("pool already present", func(t *testing.T) {
+		db, tbl := newTable(t)
+		insertPool(t, db, tbl, "red", false)
+		require.True(t, waitForPool(hivetest.Logger(t), db, tbl, "red"))
+	})
+
+	t.Run("pool added while waiting", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db, tbl := newTable(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+
+			start := time.Now()
+			found := make(chan bool, 1)
+			go func() { found <- waitForPool(logger, db, tbl, "red") }()
+			synctest.Wait()
+
+			select {
+			case <-found:
+				t.Fatal("waitForPool returned before the pool was added")
+			default:
+			}
+
+			insertPool(t, db, tbl, "red", false)
+			require.True(t, <-found)
+			require.Zero(t, time.Since(start))
+		})
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db, tbl := newTable(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+			start := time.Now()
+			require.False(t, waitForPool(logger, db, tbl, "red"))
+			require.Equal(t, waitForPoolInStateDBTimeout, time.Since(start))
+		})
+	})
+}
+
+func TestWaitForAllPoolsInStateDB(t *testing.T) {
+	preAlloc := preAllocatePerPool{"red": 1, "blue": 1}
+
+	t.Run("all pools present", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db := statedb.New()
+			tbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+			insertPool(t, db, tbl, "red", false)
+			insertPool(t, db, tbl, "blue", false)
+			start := time.Now()
+			waitForAllPools(hivetest.Logger(t), db, tbl, preAlloc)
+			require.Zero(t, time.Since(start))
+		})
+	})
+
+	t.Run("gives up after the first pool that times out", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db := statedb.New()
+			tbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+			start := time.Now()
+			waitForAllPools(logger, db, tbl, preAlloc)
+			require.Equal(t, waitForPoolInStateDBTimeout, time.Since(start))
+		})
+	})
+}
+
 func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
 	poolA, poolB := Pool("pool-a"), Pool("pool-b")
 
