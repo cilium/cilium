@@ -352,6 +352,7 @@ Makefile* @cilium/build
 /bpf/tests/lib/metrics.h @cilium/sig-datapath @cilium/metrics
 /bpf/tests/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
 /bpf/tests/drop_notify_test.c @cilium/datapath-monitor
+/bpf/tests/*egressgw* @cilium/sig-datapath @cilium/egress-gateway
 /bpf/tests/ip_options_trace_id.c @cilium/datapath-monitor
 /bpf/tests/network_policy.c @cilium/sig-datapath @cilium/sig-policy
 /bugtool/ @cilium/cli
