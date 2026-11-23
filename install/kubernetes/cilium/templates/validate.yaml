@@ -265,11 +265,6 @@
   {{ fail "ipam.mode=eni requires eni.enabled=true" }}
 {{- end }}
 
-{{/* IPv6 is not yet supported by IPsec in ENI IPAM mode - see GH issue 49834 */}}
-{{- if and (eq .Values.ipam.mode "eni") .Values.ipv6.enabled .Values.encryption.enabled (eq .Values.encryption.type "ipsec") }}
-  {{ fail "encryption.type=ipsec does not support ipv6.enabled=true with ipam.mode=eni; this is a known limitation, see https://github.com/cilium/cilium/issues/49834" }}
-{{- end }}
-
 {{/* validate networkDriver.enabled flag requires kubernetes >= v1.34 */}}
 {{- if and (.Values.networkDriver.enabled) (semverCompare "<1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor)) }}
   {{ fail ".Values.networkDriver.enabled requires kubernetes version 1.34 or greater" }}
