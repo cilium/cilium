@@ -18,6 +18,9 @@ You need to have a functioning Cluster Mesh setup, please follow the guide
 Namespace export scope
 ######################
 
+For namespace-level export controls, including the default and per-namespace
+annotation, see :ref:`gs_clustermesh_global_namespace`.
+
 ClusterMesh can limit cross-cluster resource synchronization to selected
 namespaces. A namespace is **global** when its Cilium endpoints, identities,
 and services are eligible for export to connected clusters. Namespaces that
