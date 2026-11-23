@@ -2743,6 +2743,21 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 	}
 }
 
+func TestLegacyDeleteEnvoyResourcesWithoutACK(t *testing.T) {
+	server := newTestXDSServer(t)
+	listener := testListenerWithPorts(8080)
+	server.upsertListener(listener.Name, listener, nil)
+	source := server.resourceConfig[ListenerTypeURL].Source
+	require.Len(t, source.GetResources(ListenerTypeURL, 0, nil).VersionedResources, 1)
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	resources := xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener}}
+	require.NoError(t, server.DeleteEnvoyResources(ctx, resources))
+	require.NoError(t, ctx.Err())
+	require.Empty(t, source.GetResources(ListenerTypeURL, 0, nil).VersionedResources)
+}
+
 func testXdsServer(t *testing.T) *xdsServer {
 	logger := hivetest.Logger(t)
 	return &xdsServer{

@@ -57,9 +57,9 @@ type XDSServer interface {
 	// changes, including eligible removals.
 	UpdateEnvoyResources(ctx context.Context, old, new Resources) error
 
-	// DeleteEnvoyResources deletes the given Envoy resources from the xDS cache.
-	// If resources includes listeners the caller MUST pass a context with a timeout to prevent
-	// indefinite blocking in case Envoy never responds with an ACK/NACK.
+	// DeleteEnvoyResources removes the given resources from the xDS cache.
+	// Success confirms the cache mutation. Delivery to Envoy is asynchronous,
+	// and subsequent NACKs leave the removals in place.
 	DeleteEnvoyResources(ctx context.Context, resources Resources) error
 
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.

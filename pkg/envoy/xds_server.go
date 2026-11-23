@@ -1008,10 +1008,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 	}
 }
 
-// DeleteEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. If
-// resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
-// blocking in case Envoy never responds.
-func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
+func (s *xdsServer) DeleteEnvoyResources(_ context.Context, resources xds.Resources) error {
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
 		logfields.ResourceRoutes, len(resources.Routes),
@@ -1019,52 +1016,20 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceEndpoints, len(resources.Endpoints),
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
-	var wg *completion.WaitGroup
-	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	// Wait only if new Listeners are removed, as they will always be acked.
-	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
-	if len(resources.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
-	}
 	for _, r := range resources.Listeners {
-		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg))
+		s.deleteListener(r.Name, nil)
 	}
-
-	// Do not wait for the deletion of routes, clusters, or endpoints, as
-	// there are no guarantees that these deletions will be acked. For
-	// example, if the listener referring to was already deleted earlier,
-	// there are no references to the deleted resources anymore, in which
-	// case we could wait forever for the ACKs. This could also happen if
-	// there is no listener referring to other named resources to
-	// begin with.
 	for _, r := range resources.Routes {
-		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil))
+		s.deleteRoute(r.Name, nil)
 	}
 	for _, r := range resources.Clusters {
-		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, nil))
+		s.deleteCluster(r.Name, nil)
 	}
 	for _, r := range resources.Endpoints {
-		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, nil))
+		s.deleteEndpoint(r.ClusterName, nil)
 	}
 	for _, r := range resources.Secrets {
-		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, nil))
-	}
-
-	if wg != nil {
-		logArgs := []any{logfields.Duration, time.Since(time.Now())}
-		s.logger.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
-		err := wg.Wait()
-		if err != nil {
-			logArgs = append(logArgs, logfields.Error, err)
-		}
-		s.logger.Debug("DeleteEnvoyResources: Finished waiting for proxy updates", logArgs...)
-
-		// revert all changes in case of failure
-		if err != nil {
-			revertFuncs.Revert()
-			s.logger.Debug("DeleteEnvoyResources: Finished reverting failed xDS transactions")
-		}
-		return err
+		s.deleteSecret(r.Name, nil)
 	}
 	return nil
 }
