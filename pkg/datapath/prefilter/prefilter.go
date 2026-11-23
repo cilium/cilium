@@ -73,19 +73,22 @@ func (p *preFilter) Dump(to []string) ([]string, int64) {
 	return to, p.revision
 }
 
-func (p *preFilter) selectMap(ones, bits int) (string, bool) {
-	if bits == net.IPv4len*8 {
+func (p *preFilter) selectMap(cidr net.IPNet) (string, error) {
+	ones, bits := cidr.Mask.Size()
+
+	switch bits {
+	case net.IPv4len * 8:
 		if ones == bits {
-			return datapathmaps.CiliumCIDRV4Fix, true
+			return datapathmaps.CiliumCIDRV4Fix, nil
 		}
-		return datapathmaps.CiliumCIDRV4Dyn, true
-	} else if bits == net.IPv6len*8 {
+		return datapathmaps.CiliumCIDRV4Dyn, nil
+	case net.IPv6len * 8:
 		if ones == bits {
-			return datapathmaps.CiliumCIDRV6Fix, true
+			return datapathmaps.CiliumCIDRV6Fix, nil
 		}
-		return datapathmaps.CiliumCIDRV6Dyn, true
-	} else {
-		return "", false
+		return datapathmaps.CiliumCIDRV6Dyn, nil
+	default:
+		return "", fmt.Errorf("unsupported CIDR %s", cidr.String())
 	}
 }
 
@@ -104,13 +107,16 @@ func (p *preFilter) Insert(revision int64, cidrs []net.IPNet) error {
 		return fmt.Errorf("Latest revision is %d not %d", p.revision, revision)
 	}
 	for _, cidr := range cidrs {
-		ones, bits := cidr.Mask.Size()
-		name, ok := p.selectMap(ones, bits)
-		if !ok || p.maps[name] == nil {
+		name, err := p.selectMap(cidr)
+		if err != nil {
+			ret = err
+			break
+		}
+		if p.maps[name] == nil {
 			ret = fmt.Errorf("No map enabled for CIDR string %s", cidr.String())
 			break
 		}
-		err := p.maps[name].InsertCIDR(cidr)
+		err = p.maps[name].InsertCIDR(cidr)
 		if err != nil {
 			ret = fmt.Errorf("Error inserting CIDR string %s: %w", cidr.String(), err)
 			break
@@ -123,8 +129,7 @@ func (p *preFilter) Insert(revision int64, cidrs []net.IPNet) error {
 		return ret
 	}
 	for _, cidr := range undoQueue {
-		ones, bits := cidr.Mask.Size()
-		name, _ := p.selectMap(ones, bits)
+		name, _ := p.selectMap(cidr)
 		p.maps[name].DeleteCIDR(cidr)
 	}
 	return ret
@@ -145,9 +150,11 @@ func (p *preFilter) Delete(revision int64, cidrs []net.IPNet) error {
 		return fmt.Errorf("Latest revision is %d not %d", p.revision, revision)
 	}
 	for _, cidr := range cidrs {
-		ones, bits := cidr.Mask.Size()
-		name, ok := p.selectMap(ones, bits)
-		if !ok || p.maps[name] == nil {
+		name, err := p.selectMap(cidr)
+		if err != nil {
+			return err
+		}
+		if p.maps[name] == nil {
 			return fmt.Errorf("No map enabled for CIDR string %s", cidr.String())
 		}
 		// Lets check obvious cases first, so we don't need to painfully unroll
@@ -156,8 +163,7 @@ func (p *preFilter) Delete(revision int64, cidrs []net.IPNet) error {
 		}
 	}
 	for _, cidr := range cidrs {
-		ones, bits := cidr.Mask.Size()
-		name, _ := p.selectMap(ones, bits)
+		name, _ := p.selectMap(cidr)
 		err := p.maps[name].DeleteCIDR(cidr)
 		if err != nil {
 			ret = fmt.Errorf("Error deleting CIDR string %s: %w", cidr.String(), err)
@@ -171,8 +177,7 @@ func (p *preFilter) Delete(revision int64, cidrs []net.IPNet) error {
 		return ret
 	}
 	for _, cidr := range undoQueue {
-		ones, bits := cidr.Mask.Size()
-		name, _ := p.selectMap(ones, bits)
+		name, _ := p.selectMap(cidr)
 		p.maps[name].InsertCIDR(cidr)
 	}
 	return ret
