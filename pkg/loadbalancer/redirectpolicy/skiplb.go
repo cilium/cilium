@@ -361,7 +361,6 @@ type TestSkipLBMap lbmaps.SkipLBMap
 type skiplbmapParams struct {
 	cell.In
 
-	Logger             *slog.Logger
 	TestSkipLBMap      TestSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
 	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
@@ -378,7 +377,7 @@ func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap]) {
 		return
 	}
 
-	out = bpf.NewMapOut(lbmaps.NewSkipLBMap(p.Lifecycle, p.Logger))
+	out = bpf.NewMapOut(lbmaps.NewSkipLBMap(p.Lifecycle))
 	return
 }
 

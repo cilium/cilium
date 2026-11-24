@@ -7,15 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"log/slog"
 	"net/netip"
-	"unsafe"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -30,36 +29,28 @@ type SkipLBMap interface {
 	DeleteLB6(key *SkipLB6Key) error
 }
 
-func NewSkipLBMap(lifecycle cell.Lifecycle, logger *slog.Logger) SkipLBMap {
-	skipLBMap := &skipLBMap{logger: logger}
-
-	pinning := ebpf.PinByName
-	if testutils.IsPrivileged() {
-		// Running in privileged tests, don't pin the map.
-		pinning = ebpf.PinNone
-	}
+func NewSkipLBMap(lifecycle cell.Lifecycle) SkipLBMap {
+	skipLBMap := &skipLBMap{}
 
 	if option.Config.EnableIPv4 {
-		skipLBMap.bpfMap4 = ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       SkipLB4MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
-			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-			Pinning:    pinning,
-		})
+		skipLBMap.bpfMap4 = bpf.NewMap(
+			SkipLB4MapName,
+			ebpf.Hash,
+			&SkipLB4Key{},
+			&SkipLB4Value{},
+			SkipLBMapMaxEntries,
+			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+		)
 	}
 	if option.Config.EnableIPv6 {
-		skipLBMap.bpfMap6 = ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       SkipLB6MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
-			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-			Pinning:    pinning,
-		})
+		skipLBMap.bpfMap6 = bpf.NewMap(
+			SkipLB6MapName,
+			ebpf.Hash,
+			&SkipLB6Key{},
+			&SkipLB6Value{},
+			SkipLBMapMaxEntries,
+			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+		)
 	}
 
 	lifecycle.Append(cell.Hook{OnStart: skipLBMap.start, OnStop: skipLBMap.stop})
@@ -67,14 +58,22 @@ func NewSkipLBMap(lifecycle cell.Lifecycle, logger *slog.Logger) SkipLBMap {
 	return skipLBMap
 }
 
+func openOrCreate(m *bpf.Map) error {
+	if testutils.IsPrivileged() {
+		// Running in privileged tests, don't pin the map.
+		return m.CreateUnpinned()
+	}
+	return m.OpenOrCreate()
+}
+
 func (m *skipLBMap) start(cell.HookContext) error {
 	if m.bpfMap4 != nil {
-		if err := m.bpfMap4.OpenOrCreate(); err != nil {
+		if err := openOrCreate(m.bpfMap4); err != nil {
 			return fmt.Errorf("failed to open or create %s: %w", SkipLB4MapName, err)
 		}
 	}
 	if m.bpfMap6 != nil {
-		if err := m.bpfMap6.OpenOrCreate(); err != nil {
+		if err := openOrCreate(m.bpfMap6); err != nil {
 			return fmt.Errorf("failed to open or create %s: %w", SkipLB6MapName, err)
 		}
 	}
@@ -93,37 +92,35 @@ func (m *skipLBMap) stop(cell.HookContext) (err error) {
 
 func (m *skipLBMap) AllLB4() iter.Seq2[*SkipLB4Key, *SkipLB4Value] {
 	return func(yield func(*SkipLB4Key, *SkipLB4Value) bool) {
-		if m.bpfMap4 == nil {
-			return
+		var keys []*SkipLB4Key
+		var values []*SkipLB4Value
+		_ = dumpMap(m.bpfMap4, func(k *SkipLB4Key, v *SkipLB4Value) {
+			k.Port = byteorder.NetworkToHost16(k.Port)
+			keys = append(keys, k)
+			values = append(values, v)
+		})
+		for i := range keys {
+			if !yield(keys[i], values[i]) {
+				return
+			}
 		}
-		stop := false
-		m.bpfMap4.IterateWithCallback(&SkipLB4Key{}, &SkipLB4Value{},
-			func(k, v any) {
-				key := k.(*SkipLB4Key)
-				value := v.(*SkipLB4Value)
-				key.Port = byteorder.NetworkToHost16(key.Port)
-				if !stop && !yield(key, value) {
-					stop = true
-				}
-			})
 	}
 }
 
 func (m *skipLBMap) AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value] {
 	return func(yield func(*SkipLB6Key, *SkipLB6Value) bool) {
-		if m.bpfMap6 == nil {
-			return
+		var keys []*SkipLB6Key
+		var values []*SkipLB6Value
+		_ = dumpMap(m.bpfMap6, func(k *SkipLB6Key, v *SkipLB6Value) {
+			k.Port = byteorder.NetworkToHost16(k.Port)
+			keys = append(keys, k)
+			values = append(values, v)
+		})
+		for i := range keys {
+			if !yield(keys[i], values[i]) {
+				return
+			}
 		}
-		stop := false
-		m.bpfMap6.IterateWithCallback(&SkipLB6Key{}, &SkipLB6Value{},
-			func(k, v any) {
-				key := k.(*SkipLB6Key)
-				value := v.(*SkipLB6Value)
-				key.Port = byteorder.NetworkToHost16(key.Port)
-				if !stop && !yield(key, value) {
-					stop = true
-				}
-			})
 	}
 }
 
@@ -131,14 +128,14 @@ func (m *skipLBMap) AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value] {
 func (m *skipLBMap) AddLB4(netnsCookie uint64, ip netip.Addr, port uint16) error {
 	return m.bpfMap4.Update(
 		NewSkipLB4Key(netnsCookie, ip, port),
-		&SkipLB4Value{}, 0)
+		&SkipLB4Value{})
 }
 
 // AddLB6 adds the given tuple to skip LB for to the BPF v6 map.
 func (m *skipLBMap) AddLB6(netnsCookie uint64, ip netip.Addr, port uint16) error {
 	return m.bpfMap6.Update(
 		NewSkipLB6Key(netnsCookie, ip, port),
-		&SkipLB6Value{}, 0)
+		&SkipLB6Value{})
 }
 
 func (m *skipLBMap) DeleteLB4(key *SkipLB4Key) error {
@@ -152,7 +149,6 @@ func (m *skipLBMap) DeleteLB6(key *SkipLB6Key) error {
 }
 
 type skipLBMap struct {
-	logger  *slog.Logger
-	bpfMap4 *ebpf.Map
-	bpfMap6 *ebpf.Map
+	bpfMap4 *bpf.Map
+	bpfMap6 *bpf.Map
 }
