@@ -234,50 +234,54 @@ type Labels map[string]Label
 // Convenience functions to use instead of Has(), which iterates through the labels
 //
 
-// HasLabelWithKey returns true if lbls has a label with 'key'
-func (l Labels) HasLabelWithKey(key string) bool {
-	_, ok := l[key]
+// HasReservedLabel returns true if lbls has a label with 'key'
+// and source reserved.
+func (l Labels) HasReservedLabel(key string) bool {
+	_, ok := l.LookupLabel(&Label{
+		Source: LabelSourceReserved,
+		Key:    key,
+	})
 	return ok
 }
 
 func (l Labels) HasFixedIdentityLabel() bool {
-	return l.HasLabelWithKey(LabelKeyFixedIdentity)
+	return l.HasReservedLabel(LabelKeyFixedIdentity)
 }
 
 func (l Labels) HasInitLabel() bool {
-	return l.HasLabelWithKey(IDNameInit)
+	return l.HasReservedLabel(IDNameInit)
 }
 
 func (l Labels) HasHealthLabel() bool {
-	return l.HasLabelWithKey(IDNameHealth)
+	return l.HasReservedLabel(IDNameHealth)
 }
 
 func (l Labels) HasIngressLabel() bool {
-	return l.HasLabelWithKey(IDNameIngress)
+	return l.HasReservedLabel(IDNameIngress)
 }
 
 func (l Labels) HasHostLabel() bool {
-	return l.HasLabelWithKey(IDNameHost)
+	return l.HasReservedLabel(IDNameHost)
 }
 
 func (l Labels) HasKubeAPIServerLabel() bool {
-	return l.HasLabelWithKey(IDNameKubeAPIServer)
+	return l.HasReservedLabel(IDNameKubeAPIServer)
 }
 
 func (l Labels) HasRemoteNodeLabel() bool {
-	return l.HasLabelWithKey(IDNameRemoteNode)
+	return l.HasReservedLabel(IDNameRemoteNode)
 }
 
 func (l Labels) HasWorldIPv6Label() bool {
-	return l.HasLabelWithKey(IDNameWorldIPv6)
+	return l.HasReservedLabel(IDNameWorldIPv6)
 }
 
 func (l Labels) HasWorldIPv4Label() bool {
-	return l.HasLabelWithKey(IDNameWorldIPv4)
+	return l.HasReservedLabel(IDNameWorldIPv4)
 }
 
 func (l Labels) HasNonDualstackWorldLabel() bool {
-	return l.HasLabelWithKey(IDNameWorld)
+	return l.HasReservedLabel(IDNameWorld)
 }
 
 func (l Labels) HasWorldLabel() bool {
