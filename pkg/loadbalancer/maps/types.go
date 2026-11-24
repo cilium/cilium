@@ -1272,13 +1272,10 @@ const (
 
 const (
 	// SkipLB4MapName is the name of the IPv4 BPF map that stores entries to skip LB.
-	SkipLB4MapName = "cilium_skip_lb4"
+	SkipLB4MapName = maps.CiliumSkipLB4
 
 	// SkipLB6MapName is the name of the IPv6 BPF map that stores entries to skip LB.
-	SkipLB6MapName = "cilium_skip_lb6"
-
-	// SkipLBMapMaxEntries is the maximum number of entries in the skip LB BPF maps.
-	SkipLBMapMaxEntries = 100
+	SkipLB6MapName = maps.CiliumSkipLB6
 )
 
 // SkipLB4Key is the tuple with netns cookie, address and port and used as key in

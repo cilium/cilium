@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -364,6 +365,7 @@ type skiplbmapParams struct {
 	TestSkipLBMap      TestSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
 	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
+	MapRegistry        *mapregistry.MapRegistry
 }
 
 func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap]) {
@@ -377,7 +379,7 @@ func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap]) {
 		return
 	}
 
-	out = bpf.NewMapOut(lbmaps.NewSkipLBMap(p.Lifecycle))
+	out = bpf.NewMapOut(lbmaps.NewSkipLBMap(p.Lifecycle, p.MapRegistry))
 	return
 }
 
