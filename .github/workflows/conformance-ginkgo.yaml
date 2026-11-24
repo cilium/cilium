@@ -155,12 +155,7 @@ jobs:
     runs-on: ubuntu-26.04
     name: Build Ginkgo E2E
     timeout-minutes: 30
-    outputs:
-      ginkgo-cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
-      # If any of these steps are modified, please update the copy of these
-      # steps further down under the 'setup-and-test' jobs.
-
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -171,41 +166,23 @@ jobs:
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
 
-      - name: Compute Ginkgo build cache key
-        id: cache-key
-        shell: bash
-        run: |
-          echo "key=${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}" >> $GITHUB_OUTPUT
-
-      # Load Ginkgo build from GitHub
-      - name: Load ginkgo E2E from GH cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache
-        with:
-          path: /tmp/.ginkgo-build/
-          key: ${{ steps.cache-key.outputs.key }}
-
       - name: Set GOPROXY
         run: |
           # The trailing slash makes the second entry a retry of proxy.golang.org with its own error cache.
           echo "GOPROXY=https://proxy.golang.org|https://proxy.golang.org/|direct" >> "$GITHUB_ENV"
 
       - name: Install Go
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.26.11
 
       - name: Build Ginkgo
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           go install github.com/onsi/ginkgo/ginkgo@v1.16.5
-          mkdir -p /tmp/.ginkgo-build
 
       - name: Build Test
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           cd test
@@ -213,15 +190,13 @@ jobs:
           strip test.test
           tar -cz test.test -f test.tgz
 
-      - name: Store Ginkgo Test in GitHub cache path
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.ginkgo-build/
-          if [ -f test/test.tgz ]; then
-            cp test/test.tgz /tmp/.ginkgo-build/
-            echo "file copied"
-          fi
+      - name: Upload Ginkgo E2E binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ginkgo-e2e-test-binary
+          path: test/test.tgz
+          retention-days: 1
+          if-no-files-found: error
 
   wait-for-images:
     needs: setup-vars
@@ -472,47 +447,11 @@ jobs:
               --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
               --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
-      # Load Ginkgo build from GitHub
-      - name: Load ${{ matrix.name }} Ginkgo build from GitHub
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache
+      - name: Download Ginkgo E2E binary
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          name: ginkgo-e2e-test-binary
           path: /tmp/.ginkgo-build/
-          key: ${{ needs.build-ginkgo-binary.outputs.ginkgo-cache-key }}
-
-      # Re-build the tests if it was a cache miss.
-      - name: Install Go
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.26.11
-
-      - name: Build Ginkgo
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
-          mkdir -p /tmp/.ginkgo-build
-
-      - name: Build Test
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          cd untrusted/test
-          /home/runner/go/bin/ginkgo build
-          strip test.test
-          tar -cz test.test -f test.tgz
-
-      - name: Store Ginkgo Test in GitHub cache path
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.ginkgo-build/
-          if [ -f untrusted/test/test.tgz ]; then
-            cp untrusted/test/test.tgz /tmp/.ginkgo-build/
-            echo "file copied"
-          fi
 
       - name: Copy Ginkgo binary
         shell: bash
