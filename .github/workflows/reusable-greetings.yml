@@ -44,6 +44,8 @@ on:
 permissions:
   contents: read
 
+cache-mode: none
+
 jobs:
   greeting:
     runs-on: ubuntu-latest

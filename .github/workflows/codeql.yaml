@@ -10,6 +10,8 @@ on:
       - synchronize
       - reopened
 
+cache-mode: write
+
 jobs:
   analyze:
     name: Analyze

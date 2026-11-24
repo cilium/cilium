@@ -16,6 +16,8 @@
             type: string
             description: "The stable branch version."
 
+    cache-mode: none
+
     jobs:
       backport-label-updater:
         name: Update labels of backported PRs

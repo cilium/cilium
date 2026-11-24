@@ -11,6 +11,8 @@ permissions:
   issues: write
   pull-requests: write
 
+cache-mode: none
+
 jobs:
   greet:
     # Only enforce on drive-by / first-time contributors.

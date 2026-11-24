@@ -10,6 +10,8 @@ on:
 
 permissions: read-all
 
+cache-mode: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
   cancel-in-progress: true
@@ -230,7 +232,7 @@ jobs:
           done
           exit ${EXIT}
 
-      - name: Validate Cache Mode of Ariane Workflows
+      - name: Validate Cache Mode
         shell: bash
         run: |
           EXIT=0
@@ -247,14 +249,54 @@ jobs:
             yq 'explode(.)' "$FILE" > "$EXPANDED/$FILE"
           done
           cd "$EXPANDED"
-          for FILE in *.yaml *.yml; do
-            IS_ARIANE_DISPATCH=$(yq '.on.workflow_dispatch.inputs.PR-number' "$FILE")
-            if [ "$IS_ARIANE_DISPATCH" == "null" ]; then
-                continue
+          callees() {
+            yq '.jobs[].uses | select(. != null) | select(test("^(\./\.github/workflows/[^@]+|cilium/cilium/\.github/workflows/[^@]+@.+)$")) | sub("^(\./|cilium/cilium/)\.github/workflows/"; "") | sub("@.*$"; "")' "$1" | sort -u
+          }
+          CALLS=$(for FILE in *.yaml *.yml; do callees "$FILE" | sed "s/^/$FILE /"; done)
+          callers() {
+            awk -v callee="$1" '$2 == callee { print $1 }' <<< "$CALLS"
+          }
+          # A called workflow runs on the events of its callers.
+          events() {
+            local CALLER
+            yq '.on | keys | .[] | select(. != "workflow_call" and . != "workflow_run")' "$1"
+            if [ "$(yq '.on | has("workflow_run")' "$1")" == "true" ]; then
+                if [ "$(yq '.on.workflow_run.workflows | (length == 1 and .[0] == "Image CI Cache Cleaner")' "$1")" == "true" ]; then
+                    echo workflow_run
+                else
+                    echo other_workflow_run
+                fi
             fi
+            if [ "$(yq '.on | has("workflow_call")' "$1")" == "true" ]; then
+                for CALLER in $(callers "$1"); do
+                    events "$CALLER"
+                done
+            fi
+          }
+          # Runs on these events save only into the scope of the code that they run.
+          expected_cache_mode() {
+            local EVENTS
+            EVENTS=$(events "$1")
+            if [ -n "$EVENTS" ] && ! grep --quiet --invert-match --line-regexp --extended-regexp 'schedule|push|pull_request|merge_group|workflow_run' <<< "$EVENTS"; then
+                echo write
+            else
+                echo read
+            fi
+          }
+          rank() {
+            case "$1" in
+              none) echo 0 ;;
+              read) echo 1 ;;
+              write) echo 2 ;;
+              *) echo 3 ;;
+            esac
+          }
+          for FILE in *.yaml *.yml; do
+            # An expression in cache-mode makes the workflow file invalid.
             CACHE_MODE=$(yq '.cache-mode' "$FILE")
-            if [ "$CACHE_MODE" != "read" ] && [ "$CACHE_MODE" != "none" ]; then
-                echo "top-level cache-mode must be set to read or none in file $FILE"
+            EXPECTED=$(expected_cache_mode "$FILE")
+            if [ "$CACHE_MODE" != "none" ] && [ "$CACHE_MODE" != "$EXPECTED" ]; then
+                echo "top-level cache-mode must be set to none or $EXPECTED in file $FILE"
                 EXIT=1
             fi
             # Only a job that runs on push and schedule alone may write.
@@ -264,6 +306,21 @@ jobs:
                 echo "${JOBS}" | awk '{print "  " $1}'
                 EXIT=1
             fi
+            # GitHub refuses to start a called workflow whose cache-mode grants more than its caller's.
+            for CALLEE in $(callees "$FILE"); do
+                if [ ! -f "$CALLEE" ]; then
+                    # Only a workflow called at @main, such as release.yaml, may have no copy on this branch.
+                    if ! yq '.jobs[].uses' "$FILE" | grep --quiet --fixed-strings --line-regexp "cilium/cilium/.github/workflows/$CALLEE@main"; then
+                        echo "called workflow $CALLEE in file $FILE does not exist"
+                        EXIT=1
+                    fi
+                    continue
+                fi
+                if [ "$(rank "$(yq '.cache-mode' "$CALLEE")")" -gt "$(rank "$CACHE_MODE")" ]; then
+                    echo "cache-mode in file $CALLEE must not grant more than its caller $FILE, which has $CACHE_MODE"
+                    EXIT=1
+                fi
+            done
           done
           exit ${EXIT}
 

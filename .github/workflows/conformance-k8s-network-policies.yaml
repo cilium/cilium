@@ -16,6 +16,8 @@ env:
   TIMEOUT: 2m
   LOG_TIME: 30m
 
+cache-mode: none
+
 jobs:
   preflight-clusterrole:
     name: Preflight Clusterrole Check

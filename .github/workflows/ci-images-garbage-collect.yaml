@@ -7,6 +7,8 @@ on:
 
 permissions: read-all
 
+cache-mode: none
+
 jobs:
   scruffy:
     if: github.repository_owner == 'cilium'
