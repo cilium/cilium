@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -18,18 +20,29 @@ import (
 
 func newCmdStatus() *cobra.Command {
 	var params = status.K8sStatusParameters{}
+	var watch bool
 
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Display status",
 		Long:  ``,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = RootParams.Namespace
 			params.HelmReleaseName = RootParams.HelmReleaseName
+
+			if watch && params.WatchInterval <= 0 {
+				return fmt.Errorf("--watch-interval must be greater than 0, got %s", params.WatchInterval)
+			}
 
 			collector, err := status.NewK8sStatusCollector(RootK8sClient, params)
 			if err != nil {
 				return err
+			}
+
+			if watch {
+				ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+				defer stop()
+				return collector.Watch(ctx, os.Stdout)
 			}
 
 			s, err := collector.Status(context.Background())
@@ -67,8 +80,11 @@ func newCmdStatus() *cobra.Command {
 		"worker-count", status.DefaultWorkerCount,
 		"The number of workers to use")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
-	cmd.Flags().BoolVar(&params.Interactive, "interactive", true, "Refresh the status summary output after each retry when --wait flag is specified")
+	cmd.Flags().BoolVar(&params.Interactive, "interactive", true, "Refresh the status summary output in place when --wait or --watch flag is specified")
 	cmd.Flags().BoolVar(&params.Verbose, "verbose", false, "Print more verbose error / log messages")
+	cmd.Flags().BoolVar(&watch, "watch", false, "Continuously refresh the status until interrupted")
+	cmd.Flags().DurationVar(&params.WatchInterval, "watch-interval", defaults.WaitRetryInterval, "Time between status refreshes when --watch flag is specified")
+	cmd.MarkFlagsMutuallyExclusive("wait", "watch")
 
 	return cmd
 }

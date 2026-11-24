@@ -5,8 +5,10 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -60,9 +62,14 @@ type K8sStatusParameters struct {
 
 	HelmReleaseName string
 
-	// Interactive specifies whether the summary output refreshes after each
-	// retry when --wait flag is specified.
+	// Interactive specifies whether the summary output refreshes in place
+	// after each retry when --wait flag is specified, or after each refresh
+	// when watching the status.
 	Interactive bool
+
+	// WatchInterval is the time between two status refreshes when watching
+	// the status.
+	WatchInterval time.Duration
 
 	// Verbose increases the verbosity of certain output, such as Cilium
 	// error logs on failure.
@@ -345,6 +352,14 @@ func (s K8sStatusParameters) waitTimeout() time.Duration {
 	return 5 * time.Minute
 }
 
+func (s K8sStatusParameters) watchInterval() time.Duration {
+	if s.WatchInterval > 0 {
+		return s.WatchInterval
+	}
+
+	return defaults.WaitRetryInterval
+}
+
 func (k *K8sStatusCollector) statusIsReady(s *Status) bool {
 	if s.totalErrors() > 0 {
 		return false
@@ -396,21 +411,63 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 			time.Sleep(defaults.WaitRetryInterval)
 			if k.params.Output == OutputSummary && k.params.Interactive {
 				statusFmt := s.Format()
-				cursorUp(lines)
+				cursorUp(os.Stdout, lines)
 				lines = countWrappedLines(statusFmt)
 				fmt.Print(statusFmt)
 			}
 			continue
 		}
 
-		cursorUp(lines)
+		cursorUp(os.Stdout, lines)
 		return mostRecentStatus, nil
 	}
 }
 
-func cursorUp(lines int) {
+// Watch collects the status every WatchInterval and writes it to w until ctx
+// is canceled. Unlike Status, it does not stop once the status is ready, and
+// errors are reported as part of the status rather than ending the watch.
+func (k *K8sStatusCollector) Watch(ctx context.Context, w io.Writer) error {
+	var lines int
+	for {
+		collectCtx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
+		// Unlike Status, keep collecting when the cilium-agent container has
+		// terminated, so that the watch reports it instead of cutting the
+		// collection short.
+		s := k.status(collectCtx, func() {})
+		cancel()
+
+		if ctx.Err() != nil {
+			// Interrupted while collecting, drop the partial status.
+			return nil
+		}
+
+		switch {
+		case k.params.Output == OutputJSON:
+			jsonStatus, err := json.MarshalIndent(s, "", " ")
+			if err != nil {
+				return fmt.Errorf("unable to marshal status to JSON: %w", err)
+			}
+			fmt.Fprintln(w, string(jsonStatus))
+		case k.params.Interactive:
+			statusFmt := s.Format()
+			cursorUp(w, lines)
+			lines = countWrappedLines(statusFmt)
+			fmt.Fprint(w, statusFmt)
+		default:
+			fmt.Fprintln(w, s.Format())
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(k.params.watchInterval()):
+		}
+	}
+}
+
+func cursorUp(w io.Writer, lines int) {
 	for range lines {
-		fmt.Print("\033[A\033[2K")
+		fmt.Fprint(w, "\033[A\033[2K")
 	}
 }
 

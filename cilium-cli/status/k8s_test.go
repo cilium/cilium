@@ -5,6 +5,7 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -287,4 +288,130 @@ func TestFormat(t *testing.T) {
 	var nilStatus *Status
 	buf = nilStatus.Format()
 	assert.Empty(t, buf)
+}
+
+// refreshWriter records the status refreshes written by Watch, calls onRefresh
+// after each of them, and cancels the watch once it has seen the given number
+// of refreshes.
+type refreshWriter struct {
+	refreshes []string
+	cursorUps int
+	stopAfter int
+	onRefresh func(n int)
+	cancel    context.CancelFunc
+}
+
+func (w *refreshWriter) Write(p []byte) (int, error) {
+	if string(p) == "\033[A\033[2K" {
+		w.cursorUps++
+		return len(p), nil
+	}
+	w.refreshes = append(w.refreshes, string(p))
+	if w.onRefresh != nil {
+		w.onRefresh(len(w.refreshes))
+	}
+	if len(w.refreshes) == w.stopAfter {
+		w.cancel()
+	}
+	return len(p), nil
+}
+
+func TestWatch(t *testing.T) {
+	client := newK8sStatusMockClient()
+	params := fakeParameters
+	params.Output = OutputJSON
+	params.WatchInterval = time.Millisecond
+	collector, err := NewK8sStatusCollector(client, params)
+	assert.NoError(t, err)
+
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 10, 10, 0, 10, 1, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	w := &refreshWriter{
+		stopAfter: 2,
+		cancel:    cancel,
+		onRefresh: func(n int) {
+			if n == 1 {
+				// The next refresh must pick up the change.
+				client.reset()
+				client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 1, 1)
+			}
+		},
+	}
+
+	assert.NoError(t, collector.Watch(ctx, w))
+	assert.Len(t, w.refreshes, 2)
+
+	for i, ready := range []int{10, 5} {
+		var s struct {
+			PodState map[string]PodStateCount `json:"pod_state"`
+		}
+		assert.NoError(t, json.Unmarshal([]byte(w.refreshes[i]), &s))
+		assert.Equal(t, ready, s.PodState[defaults.AgentDaemonSetName].Ready)
+	}
+}
+
+func TestWatchSummary(t *testing.T) {
+	client := newK8sStatusMockClient()
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 10, 10, 0, 10, 1, 1)
+
+	t.Run("interactive", func(t *testing.T) {
+		params := fakeParameters
+		params.Output = OutputSummary
+		params.Interactive = true
+		params.WatchInterval = time.Millisecond
+		collector, err := NewK8sStatusCollector(client, params)
+		assert.NoError(t, err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		w := &refreshWriter{stopAfter: 2, cancel: cancel}
+
+		assert.NoError(t, collector.Watch(ctx, w))
+		assert.Len(t, w.refreshes, 2)
+		assert.Contains(t, w.refreshes[0], "Cilium:")
+		// The second refresh redraws the first one in place.
+		assert.Equal(t, countWrappedLines(w.refreshes[0]), w.cursorUps)
+	})
+
+	t.Run("non-interactive", func(t *testing.T) {
+		params := fakeParameters
+		params.Output = OutputSummary
+		params.Interactive = false
+		params.WatchInterval = time.Millisecond
+		collector, err := NewK8sStatusCollector(client, params)
+		assert.NoError(t, err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		w := &refreshWriter{stopAfter: 2, cancel: cancel}
+
+		assert.NoError(t, collector.Watch(ctx, w))
+		assert.Len(t, w.refreshes, 2)
+		assert.Zero(t, w.cursorUps)
+		for _, r := range w.refreshes {
+			assert.Contains(t, r, "Cilium:")
+		}
+	})
+}
+
+func TestWatchCanceled(t *testing.T) {
+	client := newK8sStatusMockClient()
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 10, 10, 0, 10, 1, 1)
+	collector, err := NewK8sStatusCollector(client, fakeParameters)
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	w := &refreshWriter{}
+
+	assert.NoError(t, collector.Watch(ctx, w))
+	assert.Empty(t, w.refreshes)
+}
+
+func TestWatchInterval(t *testing.T) {
+	assert.Equal(t, defaults.WaitRetryInterval, K8sStatusParameters{}.watchInterval())
+	assert.Equal(t, defaults.WaitRetryInterval, K8sStatusParameters{WatchInterval: -time.Second}.watchInterval())
+	assert.Equal(t, 10*time.Second, K8sStatusParameters{WatchInterval: 10 * time.Second}.watchInterval())
 }
