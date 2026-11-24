@@ -59,7 +59,7 @@ concurrency:
 env:
   clusterName: kubespray-ci-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-tags depName=kubernetes-sigs/kubespray
-  KUBESPRAY_SHA: 63cdf87915421dda5955281f38401fd1b55b230b # v2.28.0
+  KUBESPRAY_SHA: 9751ea6f63244e433a7a6263d9ecf381e57bb8e9 # v2.32.0
 
 jobs:
   echo-inputs:
@@ -140,7 +140,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.10'
+          python-version: '3.13'
 
       - name: Checkout Kubespray
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
