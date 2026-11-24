@@ -259,6 +259,82 @@ int tc_redirect_netdev_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+const __u8 tc_redirect_netdev_ipv6_pre[] = {
+	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_pre)
+};
+
+const __u8 tc_redirect_netdev_ipv6_post[] = {
+	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_post)
+};
+
+PKTGEN(PROG_TYPE, "tc_redirect_netdev_ipv6")
+int tc_redirect_netdev_ipv6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, tc_redirect_netdev_ipv6_pre,
+			sizeof(tc_redirect_netdev_ipv6_pre));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "tc_redirect_netdev_ipv6")
+int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
+{
+	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
+
+	mock_ingress_ifindex = TEST_HOST_IFACE;
+
+	ipcache_v6_add_entry(&pod_ip, 0, 112233, 0, 0);
+
+	endpoint_v6_add_entry(&pod_ip, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0,
+			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
+
+	clear_records();
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_redirect_netdev_ipv6")
+int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
+	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	endpoint_v6_del_entry(&pod_ip);
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	test_log(TEST_DRIVER_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
+		 num_calls[RECORD_TAILCALL],
+		 num_calls[RECORD_REDIRECT],
+		 num_calls[RECORD_REDIRECT_PEER]);
+
+	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
+		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
+	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
+		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect() calls")
+	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
+		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect_peer() calls")
+
+	test_finish();
+}
+
 /* Pod -> local Pod simulation:
  *
  * In production this enters via bpf_lxc's cil_from_container (a different
@@ -345,82 +421,6 @@ int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ct
 		test_fatal(TEST_DRIVER_NAME ": pod bad redirect count")
 	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
 		test_fatal(TEST_DRIVER_NAME ": pod bad redirect_peer count")
-
-	test_finish();
-}
-
-const __u8 tc_redirect_netdev_ipv6_pre[] = {
-	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_pre)
-};
-
-const __u8 tc_redirect_netdev_ipv6_post[] = {
-	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_post)
-};
-
-PKTGEN(PROG_TYPE, "tc_redirect_netdev_ipv6")
-int tc_redirect_netdev_ipv6_pktgen(struct __ctx_buff *ctx)
-{
-	struct pktgen builder;
-
-	pktgen__init(&builder, ctx);
-
-	scapy_push_data(&builder, tc_redirect_netdev_ipv6_pre,
-			sizeof(tc_redirect_netdev_ipv6_pre));
-
-	pktgen__finish(&builder);
-
-	return 0;
-}
-
-SETUP(PROG_TYPE, "tc_redirect_netdev_ipv6")
-int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
-{
-	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
-
-	mock_ingress_ifindex = TEST_HOST_IFACE;
-
-	ipcache_v6_add_entry(&pod_ip, 0, 112233, 0, 0);
-
-	endpoint_v6_add_entry(&pod_ip, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0,
-			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
-
-	clear_records();
-	return netdev_receive_packet(ctx);
-}
-
-CHECK(PROG_TYPE, "tc_redirect_netdev_ipv6")
-int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
-	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
-	test_init();
-
-	endpoint_v6_del_entry(&pod_ip);
-
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
-
-	test_log(TEST_DRIVER_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
-		 num_calls[RECORD_TAILCALL],
-		 num_calls[RECORD_REDIRECT],
-		 num_calls[RECORD_REDIRECT_PEER]);
-
-	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
-	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect() calls")
-	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect_peer() calls")
 
 	test_finish();
 }
