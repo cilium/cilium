@@ -9,12 +9,11 @@ import (
 	"iter"
 	"net/netip"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -29,29 +28,8 @@ type SkipLBMap interface {
 	DeleteLB6(key *SkipLB6Key) error
 }
 
-func NewSkipLBMap(lifecycle cell.Lifecycle) SkipLBMap {
-	skipLBMap := &skipLBMap{}
-
-	if option.Config.EnableIPv4 {
-		skipLBMap.bpfMap4 = bpf.NewMap(
-			SkipLB4MapName,
-			ebpf.Hash,
-			&SkipLB4Key{},
-			&SkipLB4Value{},
-			SkipLBMapMaxEntries,
-			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-		)
-	}
-	if option.Config.EnableIPv6 {
-		skipLBMap.bpfMap6 = bpf.NewMap(
-			SkipLB6MapName,
-			ebpf.Hash,
-			&SkipLB6Key{},
-			&SkipLB6Value{},
-			SkipLBMapMaxEntries,
-			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-		)
-	}
+func NewSkipLBMap(lifecycle cell.Lifecycle, reg *mapregistry.MapRegistry) SkipLBMap {
+	skipLBMap := &skipLBMap{mapRegistry: reg}
 
 	lifecycle.Append(cell.Hook{OnStart: skipLBMap.start, OnStop: skipLBMap.stop})
 
@@ -66,14 +44,22 @@ func openOrCreate(m *bpf.Map) error {
 	return m.OpenOrCreate()
 }
 
-func (m *skipLBMap) start(cell.HookContext) error {
-	if m.bpfMap4 != nil {
-		if err := openOrCreate(m.bpfMap4); err != nil {
+func (m *skipLBMap) start(cell.HookContext) (err error) {
+	if option.Config.EnableIPv4 {
+		if m.bpfMap4, err = bpf.NewMapFromRegistry(m.mapRegistry, SkipLB4MapName,
+			&SkipLB4Key{}, &SkipLB4Value{}); err != nil {
+			return fmt.Errorf("pull %s map from registry: %w", SkipLB4MapName, err)
+		}
+		if err = openOrCreate(m.bpfMap4); err != nil {
 			return fmt.Errorf("failed to open or create %s: %w", SkipLB4MapName, err)
 		}
 	}
-	if m.bpfMap6 != nil {
-		if err := openOrCreate(m.bpfMap6); err != nil {
+	if option.Config.EnableIPv6 {
+		if m.bpfMap6, err = bpf.NewMapFromRegistry(m.mapRegistry, SkipLB6MapName,
+			&SkipLB6Key{}, &SkipLB6Value{}); err != nil {
+			return fmt.Errorf("pull %s map from registry: %w", SkipLB6MapName, err)
+		}
+		if err = openOrCreate(m.bpfMap6); err != nil {
 			return fmt.Errorf("failed to open or create %s: %w", SkipLB6MapName, err)
 		}
 	}
@@ -149,6 +135,7 @@ func (m *skipLBMap) DeleteLB6(key *SkipLB6Key) error {
 }
 
 type skipLBMap struct {
-	bpfMap4 *bpf.Map
-	bpfMap6 *bpf.Map
+	mapRegistry *mapregistry.MapRegistry
+	bpfMap4     *bpf.Map
+	bpfMap6     *bpf.Map
 }
