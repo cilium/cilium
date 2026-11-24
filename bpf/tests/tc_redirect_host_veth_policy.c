@@ -2,12 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #undef __CONFIG_ENABLE_NETKIT
+#define __CONFIG_ENABLE_BPF_HOST_ROUTING
 #define __CONFIG_ENABLE_ENDPOINT_ROUTES
 
-#define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
-
 #include "tc_redirect_host.h"
-
-ASSIGN_CONFIG(bool, enable_ipv4, true)
-ASSIGN_CONFIG(bool, enable_ipv6, true)
