@@ -10,9 +10,7 @@ import (
 
 // Rules is a collection of api.Rule.
 //
-// All rules must be evaluated in order to come to a conclusion. While
-// it is sufficient to have a single fromEndpoints rule match, none of
-// the fromRequires may be violated at the same time.
+// All rules must be evaluated in order to come to a conclusion.
 // +deepequal-gen:private-method=true
 type Rules []*Rule
 
