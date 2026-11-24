@@ -1069,6 +1069,30 @@ func TestBatchIteratorTypes(t *testing.T) {
 	assert.Error(t, errFn())
 }
 
+func TestAttachIter(t *testing.T) {
+	t.Run("nil program", func(t *testing.T) {
+		m := NewMap("cilium_test", ebpf.Hash, &TestKey{}, &TestValue{}, 1, 0)
+		l, err := m.AttachIter(nil)
+		require.Nil(t, l)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrMapNotOpened)
+
+		// Also guard when the underlying map handle is non-nil.
+		m.m = &ebpf.Map{}
+		l, err = m.AttachIter(nil)
+		require.Nil(t, l)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrMapNotOpened)
+	})
+
+	t.Run("unopened map", func(t *testing.T) {
+		m := NewMap("cilium_test", ebpf.Hash, &TestKey{}, &TestValue{}, 1, 0)
+		l, err := m.AttachIter(&ebpf.Program{})
+		require.Nil(t, l)
+		require.ErrorIs(t, err, ErrMapNotOpened)
+	})
+}
+
 func TestPrivilegedBatchIterator(t *testing.T) {
 	testutils.PrivilegedTest(t)
 

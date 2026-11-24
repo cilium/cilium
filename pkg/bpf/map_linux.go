@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1255,6 +1256,27 @@ func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut any, o
 	}
 
 	return m.m.BatchLookup(cursor, keysOut, valuesOut, opts)
+}
+
+// AttachIter attaches prog to the underlying BPF map while holding m.lock.RLock.
+// The returned link holds its own kernel reference to the map, so m may be
+// closed after AttachIter returns.
+func (m *Map) AttachIter(prog *ebpf.Program) (*link.Iter, error) {
+	if prog == nil {
+		return nil, fmt.Errorf("%s: nil iterator program", m.name)
+	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	if m.m == nil {
+		return nil, fmt.Errorf("%s: %w", m.name, ErrMapNotOpened)
+	}
+
+	return link.AttachIter(link.IterOptions{
+		Program: prog,
+		Map:     m.m,
+	})
 }
 
 // DumpIfExists dumps the contents of the map into hash via Dump() if the map
