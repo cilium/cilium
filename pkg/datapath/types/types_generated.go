@@ -242,6 +242,16 @@ type EndpointInfo struct {
 	Pad           [2]uint32
 }
 
+// EndpointInfoFlags is generated from the BPF C type endpoint_info_flags.
+type EndpointInfoFlags uint32
+
+const (
+	EndpointInfoFlagsEndpointFHost     EndpointInfoFlags = 1
+	EndpointInfoFlagsEndpointFAthostns EndpointInfoFlags = 2
+	EndpointInfoFlagsEndpointFNoSNATV4 EndpointInfoFlags = 4
+	EndpointInfoFlagsEndpointFNoSNATV6 EndpointInfoFlags = 8
+)
+
 // EndpointKey is generated from the BPF C type endpoint_key.
 type EndpointKey struct {
 	_   structs.HostLayout

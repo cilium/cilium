@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	eptypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -79,18 +80,20 @@ func (m *lxcMap) close() error {
 }
 
 const (
-	// EndpointFlagHost indicates that this endpoint represents the host
-	EndpointFlagHost = 1
+	// endpointFlagHost indicates that this endpoint represents the host.
+	endpointFlagHost = uint32(types.EndpointInfoFlagsEndpointFHost)
 
-	// EndpointFlagAtHostNS indicates that this endpoint is located at the host networking
-	// namespace
-	EndpointFlagAtHostNS = 2
+	// endpointFlagAtHostNS indicates that this endpoint is located at the host networking
+	// namespace.
+	endpointFlagAtHostNS = uint32(types.EndpointInfoFlagsEndpointFAthostns)
 
-	// EndpointFlagSkipMasqueradeV4 indicates that this endpoint should skip IPv4 masquerade for remote traffic
-	EndpointFlagSkipMasqueradeV4 = 4
+	// endpointFlagSkipMasqueradeV4 indicates that this endpoint should skip IPv4 masquerade for
+	// remote traffic.
+	endpointFlagSkipMasqueradeV4 = uint32(types.EndpointInfoFlagsEndpointFNoSNATV4)
 
-	// EndpointFlagSkipMasqueradeV6 indicates that this endpoint should skip IPv6 masquerade for remote traffic
-	EndpointFlagSkipMasqueradeV6 = 8
+	// endpointFlagSkipMasqueradeV6 indicates that this endpoint should skip IPv6 masquerade for
+	// remote traffic.
+	endpointFlagSkipMasqueradeV6 = uint32(types.EndpointInfoFlagsEndpointFNoSNATV6)
 )
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -145,13 +148,13 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	}
 
 	if e.IsAtHostNS() {
-		info.Flags |= EndpointFlagAtHostNS
+		info.Flags |= endpointFlagAtHostNS
 	}
 	if e.SkipMasqueradeV4() {
-		info.Flags |= EndpointFlagSkipMasqueradeV4
+		info.Flags |= endpointFlagSkipMasqueradeV4
 	}
 	if e.SkipMasqueradeV6() {
-		info.Flags |= EndpointFlagSkipMasqueradeV6
+		info.Flags |= endpointFlagSkipMasqueradeV6
 	}
 
 	return info, nil
@@ -193,12 +196,12 @@ func (k *EndpointKey) New() bpf.MapKey { return &EndpointKey{} }
 
 // IsHost returns true if the EndpointInfo represents a host IP
 func (v *EndpointInfo) IsHost() bool {
-	return v.Flags&EndpointFlagHost != 0
+	return v.Flags&endpointFlagHost != 0
 }
 
 // String returns the human readable representation of an EndpointInfo
 func (v *EndpointInfo) String() string {
-	if v.Flags&EndpointFlagHost != 0 {
+	if v.Flags&endpointFlagHost != 0 {
 		return "(localhost)"
 	}
 
@@ -241,14 +244,14 @@ func (m *lxcMap) WriteEndpoint(f EndpointFrontend) error {
 // addHostEntry adds a special endpoint which represents the local host
 func (m *lxcMap) addHostEntry(addr netip.Addr) error {
 	key := newEndpointKey(addr)
-	ep := &EndpointInfo{Flags: EndpointFlagHost}
+	ep := &EndpointInfo{Flags: endpointFlagHost}
 	return m.bpfMap.Update(key, ep)
 }
 
 func (m *lxcMap) SyncHostEntry(addr netip.Addr) (bool, error) {
 	key := newEndpointKey(addr)
 	value, err := m.bpfMap.Lookup(key)
-	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
+	if err != nil || value.(*EndpointInfo).Flags&endpointFlagHost == 0 {
 		err = m.addHostEntry(addr)
 		if err == nil {
 			return true, nil
