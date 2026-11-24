@@ -25,10 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -43,11 +44,10 @@ var (
 	}.ToConfig()
 )
 
-func testHive(maps lbmaps.LBMaps,
+func testHive(lbConfig loadbalancer.Config,
 	services chan resource.Event[*slim_corev1.Service],
 	endpoints chan resource.Event[*k8s.Endpoints],
 	serviceMatcherLRPEnabled bool,
-	reflectorWaitTime time.Duration,
 	writerPtr **writer.Writer,
 	db **statedb.DB,
 	bo **lbreconciler.BPFOps,
@@ -55,9 +55,6 @@ func testHive(maps lbmaps.LBMaps,
 	podTablePtr *statedb.Table[k8sTables.LocalPod],
 	lrpTablePtr *statedb.Table[*redirectpolicy.LocalRedirectPolicy],
 ) *hive.Hive {
-	lbConfig := loadbalancer.DefaultConfig
-	lbConfig.ReflectorWaitTime = reflectorWaitTime
-
 	extConfig := loadbalancer.ExternalConfig{
 		ZoneMapper: &option.DaemonConfig{},
 		EnableIPv4: true,
@@ -91,13 +88,8 @@ func testHive(maps lbmaps.LBMaps,
 					return lbConfig
 				},
 				func() loadbalancer.ExternalConfig { return extConfig },
-
-				func(lc cell.Lifecycle) lbmaps.LBMaps {
-					if rm, ok := maps.(*lbmaps.BPFLBMaps); ok {
-						lc.Append(rm)
-					}
-					return maps
-				},
+				func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
+				func() *option.DaemonConfig { return &option.DaemonConfig{} },
 
 				func(lc cell.Lifecycle) (*maglev.Maglev, maglev.Config) {
 					m := maglev.New(maglevConfig, lc)
@@ -124,6 +116,9 @@ func testHive(maps lbmaps.LBMaps,
 			writer.Cell,
 			cell.Invoke(reflectors.RegisterK8sReflector),
 			lbreconciler.Cell,
+			metrics.Cell,
+			registry.Cell,
+			lbmaps.Cell,
 			cell.Provide(reflectors.NetnsCookieSupportFunc),
 
 			cell.Provide(

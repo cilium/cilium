@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -74,6 +75,7 @@ func TestScript(t *testing.T) {
 				cell.Config(envoyCfg.SecretSyncConfig{}),
 				k8sTables.TablesCell,
 				metrics.Cell,
+				registry.Cell,
 
 				lbipamconfig.Cell,
 				nodeipamconfig.Cell,

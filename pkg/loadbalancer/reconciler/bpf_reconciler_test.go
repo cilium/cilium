@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -22,10 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -1938,6 +1941,21 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 	})
 }
 
+// newTestRegistry returns a started MapRegistry.
+func newTestRegistry(tb testing.TB) *registry.MapRegistry {
+	var reg *registry.MapRegistry
+	h := hive.New(
+		registry.Cell,
+		cell.Invoke(func(r *registry.MapRegistry) { reg = r }),
+	)
+
+	logger := hivetest.Logger(tb)
+	require.NoError(tb, h.Start(logger, context.TODO()))
+	tb.Cleanup(func() { require.NoError(tb, h.Stop(logger, context.TODO())) })
+
+	return reg
+}
+
 func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
@@ -1965,11 +1983,11 @@ func TestBPFOps(t *testing.T) {
 	var lbmaps maps.LBMaps
 	if testutils.IsPrivileged() {
 		r := &maps.BPFLBMaps{
-			Log:       log,
-			Pinned:    false,
-			Cfg:       cfg,
-			ExtCfg:    extCfg,
-			MaglevCfg: maglevCfg,
+			Log:         log,
+			Pinned:      false,
+			ExtCfg:      extCfg,
+			MaglevCfg:   maglevCfg,
+			MapRegistry: newTestRegistry(t),
 		}
 		lc.Append(r)
 		lbmaps = r

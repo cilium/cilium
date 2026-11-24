@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -153,6 +154,7 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 			TestFaultProbability: 0.1,
 		}),
 		metrics.Cell,
+		registry.Cell,
 		maglev.Cell,
 		lbipamconfig.Cell,
 		nodeipamconfig.Cell,
