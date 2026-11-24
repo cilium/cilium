@@ -173,7 +173,7 @@ func (r *InterfaceReconciler) getDesiredRoutePolicyStatements(instanceName strin
 					}
 				}
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
-					name := PolicyStatementName(advert.AdvertisementType, "")
+					name := PolicyStatementName(advert.AdvertisementType, advert.Interface.Name)
 					statements, err := CreatePolicyStatements(name, peerAddr, v4Prefixes, v6Prefixes, advert)
 					if err != nil {
 						return nil, err
