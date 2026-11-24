@@ -45,6 +45,29 @@ gobgp/routes -s dualstack -o routes.actual ipv6 unicast
 * cmp gobgp-routes-ipv6.expected routes.actual
 
 
+# Add loop2 - both interface routes will be advertised to the same peers.
+db/insert devices device-loop2.yaml
+
+# Validate IPv4 routes from both interfaces on the v4 peer
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4-both.expected routes.actual
+
+# Validate IPv4 routes from both interfaces on the dualstack peer
+gobgp/routes -s dualstack -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4-ds-both.expected routes.actual
+
+# Remove loop2 - only loop1 routes remain advertised.
+db/delete devices device-loop2.yaml
+
+# Validate that only loop1 IPv4 routes remain on the v4 peer
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Validate that only loop1 IPv4 routes remain on the dualstack peer
+gobgp/routes -s dualstack -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4-ds.expected routes.actual
+
+
 # Set loop1 device to admin-down
 db/insert devices device-loop1-down.yaml
 
@@ -215,6 +238,12 @@ spec:
     attributes:
       communities:
         standard: [ "65001:100" ]
+  - advertisementType: Interface
+    interface:
+      name: lo2
+    attributes:
+      communities:
+        standard: [ "65001:200" ]
 
 -- device-eth0.yaml --
 index: 1
@@ -256,6 +285,15 @@ type: device
 flags: 0 # not admin-up
 operstatus: unknown # for loopback always unknown
 
+-- device-loop2.yaml --
+index: 3
+name: lo2
+addrs:
+  - addr: 192.168.100.102
+type: device
+flags: 1 # admin-up
+operstatus: unknown # for loopback always unknown
+
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs
 -- gobgp-routes-ipv4.expected --
@@ -266,6 +304,16 @@ Prefix               NextHop     Attrs
 Prefix               NextHop            Attrs
 192.168.100.100/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.100/32:0]}}]
 192.168.100.101/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.101/32:0]}}]
+-- gobgp-routes-ipv4-both.expected --
+Prefix               NextHop     Attrs
+192.168.100.100/32   10.99.5.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.2} {Communities: 65001:100}]
+192.168.100.101/32   10.99.5.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.2} {Communities: 65001:100}]
+192.168.100.102/32   10.99.5.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.2} {Communities: 65001:200}]
+-- gobgp-routes-ipv4-ds-both.expected --
+Prefix               NextHop            Attrs
+192.168.100.100/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.100/32:0]}}]
+192.168.100.101/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.101/32:0]}}]
+192.168.100.102/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:200} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.102/32:0]}}]
 -- gobgp-routes-ipv6.expected --
 Prefix             NextHop            Attrs
 fd00::aabb:1/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:1/128:0]}}]
