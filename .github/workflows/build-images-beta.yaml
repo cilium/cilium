@@ -15,6 +15,8 @@ permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
 
+cache-mode: none
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}

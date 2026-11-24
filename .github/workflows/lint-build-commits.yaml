@@ -20,6 +20,8 @@ on:
 
 permissions: read-all
 
+cache-mode: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
   cancel-in-progress: true
@@ -27,6 +29,8 @@ concurrency:
 jobs:
   compute-vars:
     name: Compute variables
+    # A pull request can run its own workflow under the cleaner's name.
+    if: github.event_name != 'workflow_run' || contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event.workflow_run.event)
     runs-on: ubuntu-24.04
     outputs:
       commits: ${{ steps.commits.outputs.commits }}
