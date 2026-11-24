@@ -15,6 +15,7 @@
 #include "eth.h"
 #include "ipv4_core.h"
 #include "ipv6_core.h"
+#include "ct_tuple.h"
 #include "map_defs.h"
 #include "config.h"
 #include "socket.h"
@@ -316,36 +317,6 @@ enum ct_status {
 	CT_ESTABLISHED,
 	CT_REPLY,
 	CT_RELATED,
-} __packed;
-
-struct ipv6_ct_tuple {
-	/* Address fields are reversed, i.e.,
-	 * these field names are correct for reply direction traffic.
-	 */
-	union v6addr	daddr;
-	union v6addr	saddr;
-	/* The order of dport+sport must not be changed!
-	 * These field names are correct for original direction traffic.
-	 */
-	__be16		dport;
-	__be16		sport;
-	__u8		nexthdr;
-	__u8		flags;
-} __packed;
-
-struct ipv4_ct_tuple {
-	/* Address fields are reversed, i.e.,
-	 * these field names are correct for reply direction traffic.
-	 */
-	__be32		daddr;
-	__be32		saddr;
-	/* The order of dport+sport must not be changed!
-	 * These field names are correct for original direction traffic.
-	 */
-	__be16		dport;
-	__be16		sport;
-	__u8		nexthdr;
-	__u8		flags;
 } __packed;
 
 struct lb6_reverse_nat {
