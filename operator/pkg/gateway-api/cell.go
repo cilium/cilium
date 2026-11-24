@@ -64,6 +64,8 @@ var Cell = cell.Module(
 		GatewayAPIInferenceExtensionEnabled:    false,
 	}),
 
+	// Expose the effective state.
+	cell.Provide(newGatewayAPIStatus),
 	// Private provider for preconditions - consumed by both initGatewayAPIController
 	// and registerSecretSync to ensure consistent behavior
 	cell.ProvidePrivate(newGatewayAPIPreconditions),
@@ -81,6 +83,15 @@ type gatewayAPIPreconditions struct {
 	Enabled bool
 	// InstalledOptionalKinds contains the GVKs of installed Gateway API CRDs
 	InstalledOptionalKinds []schema.GroupVersionKind
+}
+
+// GatewayAPIStatus reports whether the Gateway API prerequisites are satisfied.
+type GatewayAPIStatus struct {
+	Enabled bool
+}
+
+func newGatewayAPIStatus(preconditions *gatewayAPIPreconditions) GatewayAPIStatus {
+	return GatewayAPIStatus{Enabled: preconditions.Enabled}
 }
 
 // preconditionParams contains dependencies for checking Gateway API preconditions.
