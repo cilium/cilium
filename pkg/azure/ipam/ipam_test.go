@@ -166,6 +166,14 @@ func TestMultiPoolIPRelease(t *testing.T) {
 		return []ipamTypes.IPAMPoolAllocation{{Pool: defaults.IPAMDefaultIPPool, CIDRs: cidrs}}
 	}
 
+	poolRelease := func(addresses ...string) []ipamTypes.IPAMPoolRelease {
+		cidrs := make([]iputil.Prefix, 0, len(addresses))
+		for _, address := range addresses {
+			cidrs = append(cidrs, iputil.PrefixFrom(netip.MustParsePrefix(address+"/32")))
+		}
+		return []ipamTypes.IPAMPoolRelease{{Pool: defaults.IPAMDefaultIPPool, CIDRs: cidrs}}
+	}
+
 	statusAddresses := func(cn *v2.CiliumNode) []string {
 		var addresses []string
 		if cn == nil {
@@ -220,6 +228,7 @@ func TestMultiPoolIPRelease(t *testing.T) {
 			updated := cn.DeepCopy()
 			updated.Spec.IPAM.Pools.Requested[0].Needed.IPv4Addrs = 2
 			updated.Spec.IPAM.Pools.Allocated = poolAllocation("1.1.1.2", "1.1.1.3")
+			updated.Spec.IPAM.Pools.Released = poolRelease("1.1.1.1", "1.1.1.4")
 			mngr.Upsert(updated)
 
 			node := mngr.Get("node1")
@@ -259,6 +268,14 @@ func TestMultiPoolIPReleaseAfterIneligibleState(t *testing.T) {
 			cidrs = append(cidrs, iputil.PrefixFrom(netip.MustParsePrefix(address+"/32")))
 		}
 		return []ipamTypes.IPAMPoolAllocation{{Pool: defaults.IPAMDefaultIPPool, CIDRs: cidrs}}
+	}
+
+	poolRelease := func(addresses ...string) []ipamTypes.IPAMPoolRelease {
+		cidrs := make([]iputil.Prefix, 0, len(addresses))
+		for _, address := range addresses {
+			cidrs = append(cidrs, iputil.PrefixFrom(netip.MustParsePrefix(address+"/32")))
+		}
+		return []ipamTypes.IPAMPoolRelease{{Pool: defaults.IPAMDefaultIPPool, CIDRs: cidrs}}
 	}
 
 	instanceMap := func(lastState string) *ipamTypes.InstanceMap {
@@ -314,6 +331,7 @@ func TestMultiPoolIPReleaseAfterIneligibleState(t *testing.T) {
 	updated := cn.DeepCopy()
 	updated.Spec.IPAM.Pools.Requested[0].Needed.IPv4Addrs = 3
 	updated.Spec.IPAM.Pools.Allocated = poolAllocation("1.1.1.1", "1.1.1.2", "1.1.1.3")
+	updated.Spec.IPAM.Pools.Released = poolRelease("1.1.1.4")
 	mngr.Upsert(updated)
 
 	api.UpdateInstances(instanceMap("failed"))
