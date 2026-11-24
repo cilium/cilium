@@ -484,7 +484,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
 	// received any labels, always enforce policy (default deny).
-	if policyMode == option.AlwaysEnforce || lbls.Has(labels.IDNameInit) {
+	if policyMode == option.AlwaysEnforce || lbls.HasInitLabel() {
 		hasIngress = true
 		hasEgress = true
 		hasIngressDefaultDeny = true
