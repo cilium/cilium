@@ -732,13 +732,16 @@ func (x *DNSPolicy) GetDnsServers() []*DNSServer {
 // L7 DNS policy snapshot of all local endpoints and identity to ip mapping of source
 // and destinatione egress endpoints enforcing fqdn rules.
 type PolicyState struct {
-	state                     protoimpl.MessageState       `protogen:"open.v1"`
-	EgressL7DnsPolicy         []*DNSPolicy                 `protobuf:"bytes,1,rep,name=egress_l7_dns_policy,json=egressL7DnsPolicy,proto3" json:"egress_l7_dns_policy,omitempty"`
-	RequestId                 string                       `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`                                                     // Random UUID based identifier which will be referenced in ACKs
-	IdentityToEndpointMapping []*IdentityToEndpointMapping `protobuf:"bytes,3,rep,name=identity_to_endpoint_mapping,json=identityToEndpointMapping,proto3" json:"identity_to_endpoint_mapping,omitempty"` // Identity to Endpoint mapping for the DNS server and the source identity
-	IdentityToPrefixMapping   []*IdentityToPrefixMapping   `protobuf:"bytes,4,rep,name=identity_to_prefix_mapping,json=identityToPrefixMapping,proto3" json:"identity_to_prefix_mapping,omitempty"`       // Identity to Prefix mapping for the identity
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EgressL7DnsPolicy []*DNSPolicy           `protobuf:"bytes,1,rep,name=egress_l7_dns_policy,json=egressL7DnsPolicy,proto3" json:"egress_l7_dns_policy,omitempty"`
+	// Random UUID based identifier which will be referenced in ACKs
+	RequestId string `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// Identity to Endpoint mapping for the DNS server and the source identity
+	IdentityToEndpointMapping []*IdentityToEndpointMapping `protobuf:"bytes,3,rep,name=identity_to_endpoint_mapping,json=identityToEndpointMapping,proto3" json:"identity_to_endpoint_mapping,omitempty"`
+	// Identity to Prefix mapping for the identity
+	IdentityToPrefixMapping []*IdentityToPrefixMapping `protobuf:"bytes,4,rep,name=identity_to_prefix_mapping,json=identityToPrefixMapping,proto3" json:"identity_to_prefix_mapping,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *PolicyState) Reset() {
