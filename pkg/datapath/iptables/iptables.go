@@ -704,6 +704,10 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 	// Explicitly support chaining Envoy listeners via the loopback device by
 	// excluding traffic for the loopback device.
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	// Traffic which BPF marked as sending to the proxy already doesn't need this rule to
+	// redirect to the proxy. Skip it to ensure that such traffic hits the later TPROXY
+	// rule instead.
+	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
 	return []string{
@@ -713,6 +717,7 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 		"!", "-o", "lo",
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
 		"-m", "mark", "!", "--mark", matchSkipTProxy,
+		"-m", "mark", "!", "--mark", matchToProxy,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark}
