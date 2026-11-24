@@ -38,6 +38,8 @@ permissions:
   # Required to generate OIDC tokens for `az` authentication
   id-token: write
 
+cache-mode: none
+
 concurrency:
   # Structure:
   # - Workflow name

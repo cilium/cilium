@@ -11,6 +11,7 @@ self-hosted-runner:
 paths:
   .github/workflows/**/*.{yml,yaml}:
     ignore:
+    - 'unexpected key "cache-mode" for "(workflow|job)" section' # actionlint 1.7.12 does not support the cache-mode key
     - 'object filtering `.*`' # actionlint doesn't properly lint our usage of `${{ join(matrix.*, ', ') }}`
   .github/workflows/conformance-runtime.yaml:
     ignore:
