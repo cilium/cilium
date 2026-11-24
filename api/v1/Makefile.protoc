@@ -78,3 +78,9 @@ all:
 		--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
 		--go-json_out=orig_name=true,paths=source_relative:. \
                $(DATAPATH_PLUGINS_DIR)/*.proto; \
+
+ALL_PROTO_SOURCES := $(HUBBLE_PROTO_SOURCES) $(STANDALONE_DNS_PROXY_PROTO_SOURCES) $(wildcard $(DATAPATH_PLUGINS_DIR)/*.proto)
+
+.PHONY: format
+format:
+	$(QUIET)clang-format -i $(ALL_PROTO_SOURCES)

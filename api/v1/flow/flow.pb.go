@@ -312,7 +312,8 @@ func (TraceReason) EnumDescriptor() ([]byte, []int) {
 	return file_flow_flow_proto_rawDescGZIP(), []int{3}
 }
 
-// This enum corresponds to Cilium's L7 accesslog [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
+// This enum corresponds to Cilium's L7 accesslog
+// [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
 type L7FlowType int32
 
 const (
@@ -2275,7 +2276,8 @@ func (*Layer4_VRRP) isLayer4_Protocol() {}
 
 func (*Layer4_IGMP) isLayer4_Protocol() {}
 
-// Message for L7 flow, which roughly corresponds to Cilium's accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
+// Message for L7 flow, which roughly corresponds to Cilium's accesslog
+// [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 type Layer7 struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Type  L7FlowType             `protobuf:"varint,1,opt,name=type,proto3,enum=flow.L7FlowType" json:"type,omitempty"`
@@ -2397,7 +2399,8 @@ func (*Layer7_Kafka) isLayer7_Record() {}
 
 // TraceContext contains trace context propagation data, i.e. information about a
 // distributed trace.
-// For more information about trace context, check the [W3C Trace Context specification](https://www.w3.org/TR/trace-context/).
+// For more information about trace context, check the [W3C Trace Context
+// specification](https://www.w3.org/TR/trace-context/).
 type TraceContext struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// parent identifies the incoming request in a tracing system.
@@ -3970,7 +3973,8 @@ func (x *FlowFilter) GetExperimental() *FlowFilter_Experimental {
 	return nil
 }
 
-// DNS flow. This is basically directly mapped from Cilium's [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
+// DNS flow. This is basically directly mapped from Cilium's
+// [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 type DNS struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// DNS name that's being looked up: e.g. "isovalent.com."
@@ -4135,7 +4139,9 @@ func (x *HTTPHeader) GetValue() string {
 	return ""
 }
 
-// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
+// L7 information for HTTP flows. It corresponds to Cilium's
+// [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206)
+// type.
 type HTTP struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          uint32                 `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -4212,7 +4218,9 @@ func (x *HTTP) GetHeaders() []*HTTPHeader {
 	return nil
 }
 
-// L7 information for Kafka flows. It corresponds to Cilium's [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
+// L7 information for Kafka flows. It corresponds to Cilium's
+// [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229)
+// type.
 //
 // Deprecated: Marked as deprecated in flow/flow.proto.
 type Kafka struct {
