@@ -99,6 +99,14 @@ func TestKubeproxyHealthzHandler(t *testing.T) {
 			expectedStatusCode:  http.StatusServiceUnavailable,
 			expectedLastUpdated: lastUpdatedTs,
 		},
+		{
+			name:                "local node unavailable",
+			status:              models.StatusStateOk,
+			nodeIsBeingDeleted:  false,
+			nodeStoreReturnErr:  true,
+			expectedStatusCode:  http.StatusServiceUnavailable,
+			expectedLastUpdated: lastUpdatedTs,
+		},
 	}
 
 	for _, tc := range testCases {
