@@ -384,23 +384,6 @@ func TestInjectExisting(t *testing.T) {
 	assert.True(t, selectorID.Contains(labels.LabelKubeAPIServer))
 }
 
-func TestFilterMetadataByLabels(t *testing.T) {
-	s := setupIPCacheTestSuite(t)
-	t.Parallel()
-
-	s.IPIdentityCache.metadata.upsertLocked(
-		cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("2.1.1.1/32")),
-		source.Generated, "gen-uid", labels.LabelWorld,
-	)
-	s.IPIdentityCache.metadata.upsertLocked(
-		cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("3.1.1.1/32")),
-		source.Generated, "gen-uid-2", labels.LabelWorld,
-	)
-
-	assert.Len(t, s.IPIdentityCache.metadata.filterByLabels(labels.LabelKubeAPIServer), 1)
-	assert.Len(t, s.IPIdentityCache.metadata.filterByLabels(labels.LabelWorld), 2)
-}
-
 func TestRemoveLabelsFromIPs(t *testing.T) {
 	s := setupIPCacheTestSuite(t)
 	t.Parallel()
@@ -414,15 +397,12 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 
 	// Attempting to remove a label for a ResourceID which does not exist
 	// should not remove anything.
-	s.IPIdentityCache.RemoveLabelsExcluded(
-		labels.LabelKubeAPIServer, map[cmtypes.PrefixCluster]struct{}{},
-		"foo")
+	s.IPIdentityCache.metadata.remove(worldPrefix, "not-kube-uid", labels.LabelKubeAPIServer)
 	assert.Len(t, s.IPIdentityCache.metadata.m, 1)
 	assert.Contains(t, s.IPIdentityCache.metadata.get(worldPrefix).ToLabels(), labels.IDNameKubeAPIServer)
 
-	s.IPIdentityCache.RemoveLabelsExcluded(
-		labels.LabelKubeAPIServer, map[cmtypes.PrefixCluster]struct{}{},
-		"kube-uid")
+	// remove correct resource
+	s.IPIdentityCache.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
 	assert.Len(t, s.IPIdentityCache.metadata.m, 1)
 	assert.Equal(t, labels.LabelHost, s.IPIdentityCache.metadata.get(worldPrefix).ToLabels())
 
@@ -459,9 +439,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.NotNil(t, id)
 
 	// Remove kube-apiserver label
-	s.IPIdentityCache.RemoveLabelsExcluded(
-		labels.LabelKubeAPIServer, map[cmtypes.PrefixCluster]struct{}{},
-		"kube-uid")
+	s.IPIdentityCache.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
 	remaining, err = s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{worldPrefix})
 	assert.NoError(t, err)
 	assert.Empty(t, remaining)
@@ -486,27 +464,6 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		id.ID, // check old ID is deallocated
 	)
 	assert.Nil(t, id)
-}
-
-func TestRemoveAPIServerIdentityExternal(t *testing.T) {
-	t.Parallel()
-	s := setupIPCacheTestSuite(t)
-
-	s.IPIdentityCache.metadata.remove(worldPrefix, "host-uid", labels.LabelHost)
-
-	assert.Len(t, s.IPIdentityCache.metadata.m, 1)
-	remaining, err := s.IPIdentityCache.doInjectLabels(t.Context(), []cmtypes.PrefixCluster{worldPrefix})
-	assert.NoError(t, err)
-	assert.Empty(t, remaining)
-	assert.Len(t, s.IPIdentityCache.ipToIdentityCache, 1)
-
-	s.IPIdentityCache.RemoveLabelsExcluded(
-		labels.LabelKubeAPIServer, map[cmtypes.PrefixCluster]struct{}{},
-		"kube-uid")
-	remaining, err = s.IPIdentityCache.doInjectLabels(t.Context(), []cmtypes.PrefixCluster{worldPrefix})
-	assert.NoError(t, err)
-	assert.Empty(t, s.IPIdentityCache.metadata.m)
-	assert.Empty(t, remaining)
 }
 
 func TestOverrideIdentity(t *testing.T) {

@@ -6,11 +6,8 @@ package testipcache
 import (
 	"context"
 	"net"
-	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -33,9 +30,6 @@ func (m *MockIPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *i
 
 func (m *MockIPCache) Delete(IP string, source source.Source) (namedPortsChanged bool) {
 	return false
-}
-
-func (m *MockIPCache) RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID) {
 }
 
 func (m *MockIPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name, uid string) (namedPortsChanged bool) {
