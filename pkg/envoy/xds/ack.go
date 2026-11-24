@@ -5,7 +5,6 @@ package xds
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 )
 
 // ProxyError wraps the error and the detail received from the proxy in to a new type
@@ -32,7 +32,11 @@ func (pe *ProxyError) Error() string {
 	return pe.Err.Error() + ": " + pe.Detail
 }
 
-var ErrNackReceived = errors.New("NACK received")
+func (pe *ProxyError) Unwrap() error {
+	return pe.Err
+}
+
+var ErrNackReceived = proxytypes.ErrNackReceived
 
 // ResourceVersionAckObserver defines the HandleResourceVersionAck method
 // which is called whenever a node acknowledges having applied a version of

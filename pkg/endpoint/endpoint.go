@@ -270,6 +270,9 @@ type Endpoint struct {
 	// status contains the last n state transitions this endpoint went through
 	status *EndpointStatus
 
+	// proxyNACKSince marks the first rejection until regeneration succeeds. Protected by mutex.
+	proxyNACKSince time.Time
+
 	// DNSRules is the collection of current endpoint-specific DNS proxy
 	// rules that conform to using restore.PortProto V2 (that is, they take
 	// protocol into account). These can be restored during Cilium restart.

@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/compute"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -722,6 +723,9 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 		}
 
 		e.unconditionalLock()
+		if e.proxyNACKSince.IsZero() && !e.IsDisconnecting() && errors.Is(err, proxytypes.ErrNackReceived) {
+			e.proxyNACKSince = time.Now().UTC()
+		}
 		if stats.regenFailureReason.IsPolicyFailure() {
 			// Mark endpoint policy status as Failed if regneration failed due to policy related error.
 			e.logStatusLocked(Policy, Failure, "Policy error during endpoint regeneration: "+err.Error())
@@ -739,6 +743,7 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 	scopedLog.Debug("Completed endpoint regeneration", logAttrs...)
 
 	e.unconditionalLock()
+	e.proxyNACKSince = time.Time{}
 	e.LogStatusOKLocked(BPF, statusMsg)
 	// Endpoint policy handling is primarily part of endpoint regeneration, log status here.
 	e.LogStatusOKLocked(Policy, statusMsg)

@@ -3,7 +3,13 @@
 
 package types
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrNackReceived indicates that a proxy rejected a configuration update.
+var ErrNackReceived = errors.New("NACK received")
 
 // Proxy is any type which installs rules related to redirecting traffic to
 // a proxy.
