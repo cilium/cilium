@@ -58,6 +58,7 @@ concurrency:
 
 env:
   clusterName: kubespray-ci-${{ github.run_id }}-${{ github.run_attempt }}
+  # renovate: datasource=github-tags depName=kubernetes-sigs/kubespray
   KUBESPRAY_SHA: 63cdf87915421dda5955281f38401fd1b55b230b # v2.28.0
 
 jobs:

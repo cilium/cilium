@@ -1259,7 +1259,8 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: \"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+lvhImage: \"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)"
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_SHA: (?<currentDigest>[a-f0-9]{40}) # (?<currentValue>.*)"
       ]
     },
     {
