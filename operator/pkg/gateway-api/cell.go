@@ -473,6 +473,11 @@ func registerReconcilers(
 	translationExtensions []TranslationExtension,
 	additionalResources []resource.Resource,
 ) error {
+	translationExtensions, err := orderTranslationExtensions(translationExtensions)
+	if err != nil {
+		return fmt.Errorf("failed to configure Gateway translation extensions: %w", err)
+	}
+
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
