@@ -82,12 +82,18 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/b
     ./install-test-formatters.sh
 
 # clang compiles the BPF datapath in the builder (e.g. 'make -C bpf build_all',
-# 'make run_bpf_tests')
+# 'make run_bpf_tests'),
+# clang-format is used to auto-format protoc files in api/v1,
 # llvm-objcopy/llvm-strip are used by the BPF Go tests (pkg/bpf/testdata).
 # llc is intentionally not copied: the BPF build is clang-only, and the datapath
 # verifier tests extract the toolchain from the cilium-llvm image (see
 # contrib/scripts/extract-llvm.sh), not from this image.
-COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin/
+COPY --from=llvm-dist \
+	/usr/local/bin/clang \
+	/usr/local/bin/clang-format \
+	/usr/local/bin/llvm-objcopy \
+	/usr/local/bin/llvm-strip \
+	/bin/
 
 # Create a cache directory with 777 so that we can run the builder image and
 # compile golang code from any UID.
