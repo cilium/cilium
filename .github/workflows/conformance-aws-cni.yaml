@@ -133,9 +133,10 @@ jobs:
         id: set-matrix
         run: |
           cp /tmp/matrix.json /tmp/result.json
+          aws eks describe-cluster-versions > /tmp/cluster-versions.json
+          jq -r '.clusterVersions[].clusterVersion' /tmp/cluster-versions.json > /tmp/output
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
-            aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
             if grep -q -F $VERSION /tmp/output; then
               echo "Version $VERSION is supported"
             else
