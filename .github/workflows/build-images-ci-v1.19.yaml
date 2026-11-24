@@ -241,6 +241,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.sha }}
+          path: untrusted
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
 
@@ -251,7 +252,7 @@ jobs:
 
       - name: Copy runtime image tag from untrusted branch
         run: |
-          cp -r .github/actions/set-runtime-image/runtime-image*.txt ../cilium-base-branch/.github/actions/set-runtime-image/
+          cp -r untrusted/.github/actions/set-runtime-image/runtime-image*.txt ../cilium-base-branch/.github/actions/set-runtime-image/
 
       - name: Set runtime image environment variable
         uses: ./../cilium-base-branch/.github/actions/set-runtime-image
@@ -264,7 +265,7 @@ jobs:
         id: go-cache
         with:
           path: ${{ runner.temp }}/.cache/go
-          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('untrusted/**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.name }}-cache-
 
@@ -286,7 +287,7 @@ jobs:
         with:
           provenance: false
           context: ${{ runner.temp }}/.cache/go
-          file: ./images/cache/Dockerfile
+          file: untrusted/images/cache/Dockerfile
           push: false
           platforms: linux/amd64
           target: import-cache
@@ -301,7 +302,7 @@ jobs:
         id: check
         run: |
           if [[ -z "${{ matrix.require-dir }}" ]] ||
-             [[ -d "${{ matrix.require-dir }}" ]]; then
+             [[ -d "untrusted/${{ matrix.require-dir }}" ]]; then
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
@@ -341,6 +342,7 @@ jobs:
 
       - name: Tag local module version
         id: create-local-tag
+        working-directory: untrusted
         env:
           PARENT: ${{ steps.tag.outputs.parent_tag }}
         run: |
@@ -357,8 +359,8 @@ jobs:
         if: ${{ steps.check.outputs.build != '' && steps.check-published.outputs.exists != 'true' }}
         with:
           provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
+          context: untrusted
+          file: untrusted/${{ matrix.dockerfile }}
           push: true
           platforms: ${{ matrix.platforms }}
           tags: ${{ steps.tag.outputs.normal_tag }}
@@ -400,8 +402,8 @@ jobs:
         if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.race_tag != ''}}
         with:
           provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
+          context: untrusted
+          file: untrusted/${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.race_tag }}
@@ -418,8 +420,8 @@ jobs:
         if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.unstripped_tag != ''}}
         with:
           provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
+          context: untrusted
+          file: untrusted/${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.unstripped_tag }}
