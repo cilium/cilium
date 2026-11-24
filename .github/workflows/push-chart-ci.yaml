@@ -20,6 +20,8 @@ permissions:
   # To allow retrieving information from the PR API
   pull-requests: read
 
+cache-mode: none
+
 concurrency:
   # We do not use ${{ github.workflow }} because when triggered via
   # workflow_call, the value of it is the same as the calling workflow, which

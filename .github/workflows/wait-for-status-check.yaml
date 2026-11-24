@@ -31,6 +31,8 @@ permissions:
   actions: read
   contents: read
 
+cache-mode: none
+
 jobs:
   wait-for-lint:
     name: Wait for lint checks

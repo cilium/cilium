@@ -12,6 +12,8 @@ on:
 
 permissions: read-all
 
+cache-mode: none
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
   cancel-in-progress: ${{ !github.event.merge_group }}

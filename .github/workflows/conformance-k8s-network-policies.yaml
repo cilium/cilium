@@ -10,6 +10,8 @@ on:
 
 permissions: read-all
 
+cache-mode: none
+
 env:
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml

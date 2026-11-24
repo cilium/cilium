@@ -28,6 +28,8 @@ permissions:
   actions: read
   statuses: write
 
+cache-mode: none
+
 jobs:
   merge-upload:
     if: ${{ always() && inputs.merge-artifacts }}

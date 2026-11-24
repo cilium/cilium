@@ -18,6 +18,8 @@ on:
 
 permissions: read-all
 
+cache-mode: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.after }}
   cancel-in-progress: true
@@ -25,6 +27,8 @@ concurrency:
 jobs:
   build_go_caches:
     name: Build Go Caches
+    # A pull request can run its own workflow under the cleaner's name.
+    if: github.event_name != 'workflow_run' || contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event.workflow_run.event)
     runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
