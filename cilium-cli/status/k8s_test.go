@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -414,4 +415,24 @@ func TestWatchInterval(t *testing.T) {
 	assert.Equal(t, defaults.WaitRetryInterval, K8sStatusParameters{}.watchInterval())
 	assert.Equal(t, defaults.WaitRetryInterval, K8sStatusParameters{WatchInterval: -time.Second}.watchInterval())
 	assert.Equal(t, 10*time.Second, K8sStatusParameters{WatchInterval: 10 * time.Second}.watchInterval())
+}
+
+func TestWrappedLines(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		text  string
+		width int
+		want  int
+	}{
+		{name: "single line", text: "Cilium: OK\n", width: 80, want: 1},
+		{name: "no trailing newline", text: "Cilium: OK", width: 80, want: 1},
+		{name: "blank line", text: "a\n\nb\n", width: 80, want: 3},
+		{name: "wrapped line", text: strings.Repeat("x", 81) + "\n", width: 80, want: 2},
+		{name: "exact width", text: strings.Repeat("x", 80) + "\n", width: 80, want: 1},
+		{name: "colour codes", text: Green + strings.Repeat("x", 10) + Reset + "\n", width: 10, want: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, wrappedLines(tc.text, tc.width))
+		})
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -471,14 +472,24 @@ func cursorUp(w io.Writer, lines int) {
 	}
 }
 
+// ansiEscape matches the ANSI escape sequences used to colour the status.
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// countWrappedLines returns the number of terminal lines that text occupies
+// once printed, including lines wrapped at the terminal width.
 func countWrappedLines(text string) int {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
+	if err != nil || width <= 0 {
 		width = 80 // default width if we can't get the terminal size
 	}
-	lines := 1
-	for line := range strings.SplitSeq(text, "\n") {
-		lines += (utf8.RuneCountInString(line) + width - 1) / width
+	return wrappedLines(text, width)
+}
+
+func wrappedLines(text string, width int) int {
+	lines := 0
+	for line := range strings.SplitSeq(strings.TrimSuffix(text, "\n"), "\n") {
+		visible := utf8.RuneCountInString(ansiEscape.ReplaceAllString(line, ""))
+		lines += max(1, (visible+width-1)/width)
 	}
 	return lines
 }
