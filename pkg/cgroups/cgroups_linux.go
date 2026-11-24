@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"strings"
 
 	"golang.org/x/sys/unix"
 
@@ -28,11 +29,31 @@ func mountCgroup() error {
 		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
 	}
 
-	if err := unix.Mount("none", cgroupRoot, "cgroup2", 0, ""); err != nil {
+	infos, err := mountinfo.GetMountInfo()
+	if err != nil {
+		return err
+	}
+	if err := unix.Mount("none", cgroupRoot, "cgroup2", 0, cgroup2RootFlags(infos)); err != nil {
 		return fmt.Errorf("failed to mount %s: %w", cgroupRoot, err)
 	}
 
 	return nil
+}
+
+func cgroup2RootFlags(infos []*mountinfo.MountInfo) string {
+	for _, info := range infos {
+		if info.FilesystemType != "cgroup2" {
+			continue
+		}
+		var flags []string
+		for opt := range strings.SplitSeq(info.SuperOptions, ",") {
+			if opt != "" && opt != "rw" && opt != "ro" {
+				flags = append(flags, opt)
+			}
+		}
+		return strings.Join(flags, ",")
+	}
+	return ""
 }
 
 // checkOrMountCustomLocation tries to check or mount the cgroup filesystem in the
