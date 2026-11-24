@@ -1062,6 +1062,60 @@ func TestGetDirectionNetworkPolicyCoalescesFiltersByResolvedPort(t *testing.T) {
 	})
 }
 
+func TestGetDirectionNetworkPolicyPortRanges(t *testing.T) {
+	xds := testXdsServer(t)
+	selectors := testSelectorCache.GetSelectorSnapshot()
+	ep := newProxyUpdaterMock(t, 80)
+	egressNamedPorts := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{1001: 80, 1002: 80})
+
+	for _, tt := range []struct {
+		direction string
+		ingress   bool
+	}{
+		{direction: "ingress", ingress: true},
+		{direction: "egress"},
+	} {
+		t.Run(tt.direction, func(t *testing.T) {
+			l4DirectionPolicy := &policy.L4DirectionPolicy{
+				PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+					"http/TCP": {
+						PortName:            "http",
+						EndPort:             90,
+						Protocol:            api.ProtoTCP,
+						U8Proto:             u8proto.TCP,
+						Ingress:             tt.ingress,
+						PerSelectorPolicies: policy.L7DataMap{cachedSelector1: nil},
+					},
+					"81-90/TCP": {
+						Port:                81,
+						EndPort:             90,
+						Protocol:            api.ProtoTCP,
+						U8Proto:             u8proto.TCP,
+						Ingress:             tt.ingress,
+						PerSelectorPolicies: policy.L7DataMap{cachedSelector1: nil},
+					},
+					"92-91/TCP": {
+						Port:                92,
+						EndPort:             91,
+						Protocol:            api.ProtoTCP,
+						U8Proto:             u8proto.TCP,
+						Ingress:             tt.ingress,
+						PerSelectorPolicies: policy.L7DataMap{cachedSelector1: nil},
+					},
+				}),
+			}
+			obtained := GetDirectionNetworkPolicy(ep, egressNamedPorts, selectors, l4DirectionPolicy, true, false, false, tt.direction, "", xds.logger, xds.l7RulesTranslator)
+			require.Len(t, obtained, 3)
+			require.Equal(t, uint32(80), obtained[0].GetPort())
+			require.Zero(t, obtained[0].GetEndPort())
+			require.Equal(t, uint32(81), obtained[1].GetPort())
+			require.Equal(t, uint32(90), obtained[1].GetEndPort())
+			require.Equal(t, uint32(92), obtained[2].GetPort())
+			require.Zero(t, obtained[2].GetEndPort())
+		})
+	}
+}
+
 func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()

@@ -498,7 +498,10 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 				continue
 			}
 
-			port := l4.Port
+			port, endPort := l4.Port, l4.EndPort
+			if l4.PortName != "" || endPort < port {
+				endPort = 0
+			}
 			if port == 0 && l4.PortName != "" && l4.Ingress {
 				port = ep.GetIngressNamedPort(l4.PortName, l4.U8Proto)
 			}
@@ -556,7 +559,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 							)
 						}
 
-						portKey := portKey{port, l4.EndPort}
+						portKey := portKey{port, endPort}
 						byPort := ensurePortState(portKey)
 						if !csc {
 							byPort.cantShortCircuit.Insert(rule.Precedence)
@@ -592,7 +595,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 					)
 				}
 
-				portKey := portKey{port, l4.EndPort}
+				portKey := portKey{port, endPort}
 				byPort := ensurePortState(portKey)
 				if !csc {
 					byPort.cantShortCircuit.Insert(rule.Precedence)
