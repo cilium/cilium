@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -84,41 +83,16 @@ func RunBenchmark(cfg Config) {
 
 	objects := generateBenchmarkObjects(log, cfg)
 
-	var maps lbmaps.LBMaps
-	if testutils.IsPrivileged() {
-		bpfMaps := &lbmaps.BPFLBMaps{
-			Log:    log,
-			Pinned: false,
-			Cfg: loadbalancer.Config{
-				UserConfig: loadbalancer.UserConfig{
-					RetryBackoffMin:         time.Second,
-					RetryBackoffMax:         time.Second,
-					LBMapEntries:            3 * objects.backendCount,
-					LBServiceMapEntries:     3 * cfg.Services,
-					LBBackendMapEntries:     3 * objects.backendCount,
-					LBRevNatEntries:         3 * cfg.Services,
-					LBAffinityMapEntries:    3 * objects.backendCount,
-					LBSourceRangeAllTypes:   false,
-					LBSourceRangeMapEntries: 3 * cfg.Services,
-					LBMaglevMapEntries:      3 * objects.backendCount,
-					LBSockRevNatEntries:     3 * objects.backendCount,
-				},
-				NodePortMin: loadbalancer.NodePortMinDefault,
-				NodePortMax: loadbalancer.NodePortMaxDefault,
-			},
-			ExtCfg: loadbalancer.ExternalConfig{
-				ZoneMapper:           &option.DaemonConfig{},
-				EnableIPv4:           true,
-				EnableIPv6:           true,
-				KubeProxyReplacement: true,
-			},
-			MaglevCfg: maglevConfig,
-		}
-		bpfMaps.Start(context.TODO())
-		maps = bpfMaps
-	} else {
-		maps = lbmaps.NewFakeLBMaps()
-	}
+	lbConfig := loadbalancer.DefaultConfig
+	lbConfig.ReflectorWaitTime = cfg.ReflectorWaitTime
+	lbConfig.LBMapEntries = 3 * objects.backendCount
+	lbConfig.LBServiceMapEntries = 3 * cfg.Services
+	lbConfig.LBBackendMapEntries = 3 * objects.backendCount
+	lbConfig.LBRevNatEntries = 3 * cfg.Services
+	lbConfig.LBAffinityMapEntries = 3 * objects.backendCount
+	lbConfig.LBSourceRangeMapEntries = 3 * cfg.Services
+	lbConfig.LBMaglevMapEntries = 3 * objects.backendCount
+	lbConfig.LBSockRevNatEntries = 3 * objects.backendCount
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1000)
 	endpoints := make(chan resource.Event[*k8s.Endpoints], 1000)
@@ -131,7 +105,7 @@ func RunBenchmark(cfg Config) {
 		podTable statedb.Table[k8sTables.LocalPod]
 		lrpTable statedb.Table[*redirectpolicy.LocalRedirectPolicy]
 	)
-	h := testHive(maps, services, endpoints, cfg.ServiceMatcherLRPs > 0, cfg.ReflectorWaitTime, &writer, &db, &bo, &client, &podTable, &lrpTable)
+	h := testHive(lbConfig, services, endpoints, cfg.ServiceMatcherLRPs > 0, &writer, &db, &bo, &client, &podTable, &lrpTable)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)

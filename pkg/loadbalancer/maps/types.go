@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -25,10 +26,10 @@ import (
 
 const (
 	// Service4MapV2Name is the name of the IPv4 LB Services v2 BPF map.
-	Service4MapV2Name = "cilium_lb4_services_v2"
+	Service4MapV2Name = maps.CiliumLB4ServicesV2
 
 	// Service6MapV2Name is the name of the IPv6 LB Services v2 BPF map.
-	Service6MapV2Name = "cilium_lb6_services_v2"
+	Service6MapV2Name = maps.CiliumLB6ServicesV2
 )
 
 // ServiceKey is the interface describing key for services map v2.
@@ -461,7 +462,7 @@ const (
 	// Backend4MapV2Name is the name of the IPv4 LB backends v2 BPF map.
 	Backend4MapV2Name = "cilium_lb4_backends_v2"
 	// Backend4MapV3Name is the name of the IPv4 LB backends v3 BPF map.
-	Backend4MapV3Name = "cilium_lb4_backends_v3"
+	Backend4MapV3Name = maps.CiliumLB4BackendsV3
 	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
 
 	// Backend6MapName is the name of the IPv6 LB backends BPF map.
@@ -469,7 +470,7 @@ const (
 	// Backend6MapV2Name is the name of the IPv6 LB backends v2 BPF map.
 	Backend6MapV2Name = "cilium_lb6_backends_v2"
 	// Backend6MapV3Name is the name of the IPv6 LB backends v3 BPF map.
-	Backend6MapV3Name = "cilium_lb6_backends_v3"
+	Backend6MapV3Name = maps.CiliumLB6BackendsV3
 )
 
 // BackendKey is the interface describing protocol independent backend key.
@@ -732,10 +733,10 @@ var _ Backend = (*Backend4V3)(nil)
 
 const (
 	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
-	RevNat4MapName = "cilium_lb4_reverse_nat"
+	RevNat4MapName = maps.CiliumLB4ReverseNAT
 
 	// RevNat6MapName is the name of the IPv6 LB reverse NAT BPF map.
-	RevNat6MapName = "cilium_lb6_reverse_nat"
+	RevNat6MapName = maps.CiliumLB6ReverseNAT
 )
 
 type RevNatKey interface {
@@ -875,9 +876,9 @@ var _ RevNatValue = (*RevNat6Value)(nil)
 //
 
 const (
-	AffinityMatchMapName = "cilium_lb_affinity_match"
-	Affinity4MapName     = "cilium_lb4_affinity"
-	Affinity6MapName     = "cilium_lb6_affinity"
+	AffinityMatchMapName = maps.CiliumLBAffinityMatch
+	Affinity4MapName     = maps.CiliumLB4Affinity
+	Affinity6MapName     = maps.CiliumLB6Affinity
 )
 
 type AffinityMatchKey struct {
@@ -967,10 +968,10 @@ func (v *AffinityValue) New() bpf.MapValue { return &AffinityValue{} }
 
 const (
 	// SockRevNat4MapName is the BPF map name.
-	SockRevNat4MapName = "cilium_lb4_reverse_sk"
+	SockRevNat4MapName = maps.CiliumLB4ReverseSk
 
 	// SockRevNat6MapName is the BPF map name.
-	SockRevNat6MapName = "cilium_lb6_reverse_sk"
+	SockRevNat6MapName = maps.CiliumLB6ReverseSk
 
 	// SockRevNat4MapSize is the maximum number of entries in the BPF map.
 	SockRevNat4MapSize = 256 * 1024
@@ -1085,8 +1086,8 @@ func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
 const (
 	// Both outer maps are pinned though given we need to insert
 	// inner maps into them.
-	MaglevOuter4MapName = "cilium_lb4_maglev"
-	MaglevOuter6MapName = "cilium_lb6_maglev"
+	MaglevOuter4MapName = maps.CiliumLB4Maglev
+	MaglevOuter6MapName = maps.CiliumLB6Maglev
 
 	MaglevInnerMapName = "cilium_maglev_inner"
 )
@@ -1148,8 +1149,8 @@ type MaglevInnerVal struct {
 //
 
 const (
-	SourceRange4MapName = "cilium_lb4_source_range"
-	SourceRange6MapName = "cilium_lb6_source_range"
+	SourceRange4MapName = maps.CiliumLB4SourceRange
+	SourceRange6MapName = maps.CiliumLB6SourceRange
 	lpmPrefixLen4       = 16 + 16 // sizeof(SourceRangeKey4.RevNATID)+sizeof(SourceRangeKey4.Pad)
 	lpmPrefixLen6       = 16 + 16 // sizeof(SourceRangeKey6.RevNATID)+sizeof(SourceRangeKey6.Pad)
 )
@@ -1259,10 +1260,10 @@ func (v *SourceRangeValue) New() bpf.MapValue { return &SourceRangeValue{} }
 
 const (
 	// HealthProbe4MapName is the health datapath map name
-	HealthProbe4MapName = "cilium_lb4_health"
+	HealthProbe4MapName = maps.CiliumLB4Health
 
 	// HealthProbe6MapName is the health datapath map name
-	HealthProbe6MapName = "cilium_lb6_health"
+	HealthProbe6MapName = maps.CiliumLB6Health
 )
 
 //

@@ -67,7 +67,7 @@ func newRestoreEnv(t *testing.T) *restoreEnv {
 
 	var rawMaps maps.LBMaps
 	if testutils.IsPrivileged() {
-		r := &maps.BPFLBMaps{Log: log, Pinned: false, Cfg: cfg, ExtCfg: extCfg, MaglevCfg: maglevCfg}
+		r := &maps.BPFLBMaps{Log: log, Pinned: false, ExtCfg: extCfg, MaglevCfg: maglevCfg, MapRegistry: newTestRegistry(t)}
 		lc.Append(r)
 		rawMaps = r
 	} else {

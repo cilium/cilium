@@ -72,7 +72,7 @@ func TestHashDatapathIgnoresAddresses(t *testing.T) {
 	require.Equal(t, a, b)
 
 	resized := localNodeConfig
-	resized.LBConfig.LBServiceMapEntries = 1234
+	resized.MaglevConfig.TableSize = 1021
 	c, err := hashDatapath(cfg, &resized, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, a, c)
