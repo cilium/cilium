@@ -27,6 +27,8 @@ on:
     paths-ignore:
     - 'Documentation/**'
 
+cache-mode: read
+
 concurrency:
   # Structure:
   # - Workflow name

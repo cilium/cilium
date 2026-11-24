@@ -38,6 +38,8 @@ permissions:
   # To be able to request the JWT from GitHub's OIDC provider
   id-token: write
 
+cache-mode: none
+
 concurrency:
   # Structure:
   # - Parent concurrency group name to avoid deadlock with child workflows

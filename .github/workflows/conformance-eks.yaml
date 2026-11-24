@@ -86,6 +86,8 @@ permissions:
   # To be able to request the JWT from GitHub's OIDC provider
   id-token: write
 
+cache-mode: none
+
 concurrency:
   # Structure:
   # - Workflow name

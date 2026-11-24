@@ -42,6 +42,8 @@ permissions:
   # To be able to set commit status
   statuses: write
 
+cache-mode: read
+
 concurrency:
   # Structure:
   # - Workflow name
@@ -107,15 +109,18 @@ jobs:
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
           auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
+  # Push and schedule runs write the caches here, and other runs read them in setup-and-test-dispatch.
   setup-and-test:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    cache-mode: write
     needs: wait-for-images
     runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
     name: "Runtime Test (${{matrix.focus}})"
-    env:
+    env: &setup-and-test-env
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
       # to repeated it here.
       job_name: "Runtime Test (${{matrix.focus}})"
-    strategy:
+    strategy: &setup-and-test-strategy
       fail-fast: false
       max-parallel: 2
       matrix:
@@ -128,7 +133,7 @@ jobs:
             lvhImage: "6.18-20261021.083220"
 
     timeout-minutes: 50
-    steps:
+    steps: &setup-and-test-steps
       - name: Set commit status to pending
         # commit-status-start does not re-run, so this is only needed on a re-run. It's ok
         # to continue on error since the check is reported at the end of the test.
@@ -352,6 +357,16 @@ jobs:
         with:
           junit-directory: "cilium-junits"
 
+  setup-and-test-dispatch:
+    if: github.event_name != 'push' && github.event_name != 'schedule'
+    needs: wait-for-images
+    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    name: "Runtime Test (${{matrix.focus}})"
+    env: *setup-and-test-env
+    strategy: *setup-and-test-strategy
+    timeout-minutes: 50
+    steps: *setup-and-test-steps
+
   merge-upload:
     if: ${{ always() }}
     name: Merge and Upload Artifacts
@@ -359,7 +374,7 @@ jobs:
     # worth failing over it.
     continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
     runs-on: ubuntu-26.04
-    needs: setup-and-test
+    needs: [setup-and-test, setup-and-test-dispatch]
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -377,11 +392,11 @@ jobs:
   commit-status-final:
     if: ${{ always() }}
     name: Commit Status Final
-    needs: setup-and-test
+    needs: [setup-and-test, setup-and-test-dispatch]
     runs-on: ubuntu-26.04
     steps:
       - name: Set final commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+          status: ${{ (needs.setup-and-test.result == 'skipped' && needs.setup-and-test-dispatch.result) || needs.setup-and-test.result }}

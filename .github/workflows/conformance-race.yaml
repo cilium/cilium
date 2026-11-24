@@ -37,6 +37,8 @@ permissions:
   # To be able to set commit status
   statuses: write
 
+cache-mode: read
+
 concurrency:
   # Structure:
   # - Parent concurrency group name to avoid deadlock with child workflows
