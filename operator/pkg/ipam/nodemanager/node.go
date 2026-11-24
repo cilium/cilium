@@ -154,16 +154,11 @@ type Node struct {
 	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
 	excessIPReleaseDelay time.Duration
 
-	// previousAllocatedCIDRs is the set of CIDRs last observed in
-	// Spec.IPAM.Pools.Allocated. Used by multi-pool mode to detect
-	// CIDRs the agent has released (present before, absent now). Nil
-	// until the first CiliumNode observation seeds it.
-	previousAllocatedCIDRs sets.Set[netip.Prefix]
-
-	// multiPoolCIDRsMarkedForRelease tracks CIDRs the agent removed
-	// from Allocated, with the timestamp they were first observed as
-	// removed. The excessIPReleaseDelay must elapse before the operator
-	// calls the cloud API to detach them.
+	// multiPoolCIDRsMarkedForRelease tracks CIDRs the agent reports in
+	// Spec.IPAM.Pools.Released, i.e. CIDRs the agent has released from
+	// its pool and no longer allocates from, with the timestamp they were
+	// first observed. The excessIPReleaseDelay must elapse before the
+	// operator calls the cloud API to detach them.
 	multiPoolCIDRsMarkedForRelease map[netip.Prefix]time.Time
 }
 
@@ -424,22 +419,28 @@ func (n *Node) isIPv6OnlyNodeLocked() bool {
 	return requestedIPv4 == 0 && requestedIPv6 > 0
 }
 
-// trackMultiPoolAllocatedLocked updates previousAllocatedCIDRs and detects
-// CIDRs the agent has removed from Spec.IPAM.Pools.Allocated. Removed CIDRs
-// are added to multiPoolCIDRsMarkedForRelease with the current timestamp.
+// trackMultiPoolReleasedLocked updates multiPoolCIDRsMarkedForRelease
+// from Spec.IPAM.Pools.Released, the snapshot of CIDRs the agent has
+// released from the default pool and no longer allocates from. CIDRs
+// reported as released are marked with the current timestamp, so that
+// the excessIPReleaseDelay elapses before they are detached from the
+// node. CIDRs the agent stops reporting (because they have been
+// unassigned from the node or reclaimed by the agent) are unmarked.
 // Caller must hold n.mutex.
-func (n *Node) trackMultiPoolAllocatedLocked() {
+func (n *Node) trackMultiPoolReleasedLocked() {
 	if !n.isMultiPoolNodeLocked() {
 		return
 	}
 
-	currentCIDRs := sets.New[netip.Prefix]()
-	for _, alloc := range n.resource.Spec.IPAM.Pools.Allocated {
-		for _, c := range alloc.CIDRs {
-			if !c.IsValid() {
-				continue
+	releasedCIDRs := sets.New[netip.Prefix]()
+	for _, release := range n.resource.Spec.IPAM.Pools.Released {
+		if release.Pool == defaults.IPAMDefaultIPPool {
+			for _, c := range release.CIDRs {
+				if !c.IsValid() || !c.Prefix.Addr().Is4() {
+					continue
+				}
+				releasedCIDRs.Insert(c.Prefix)
 			}
-			currentCIDRs.Insert(c.Prefix)
 		}
 	}
 
@@ -447,53 +448,32 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 
 	now := time.Now()
 
-	if n.previousAllocatedCIDRs == nil {
-		// Seed: mark any IPv4 CIDR attached on the ENI but missing from
-		// Allocated. Recovers releases that would otherwise be lost
-		// across operator restart (the agent removed the CIDR while
-		// the operator was down, so there is no transition to observe
-		// in steady state). Mid-allocation CIDRs (attached just before
-		// restart, not yet acked by the agent) are also marked, but
-		// the agent will write them into Allocated well within
-		// excessIPReleaseDelay, and the reconciliation loop below will
-		// clear them from the marked map before any EC2 call happens.
-		for _, cidr := range attachedCIDRs {
-			if cidr.Addr().Is4() && !currentCIDRs.Has(cidr) {
-				n.multiPoolCIDRsMarkedForRelease[cidr] = now
-				n.logger.Load().Debug("Marking CIDR for release at seed", logfields.CIDR, cidr)
-			}
+	// Mark released CIDRs that are still attached to the node.
+	for cidr := range releasedCIDRs {
+		if _, already := n.multiPoolCIDRsMarkedForRelease[cidr]; already {
+			continue
 		}
-		n.previousAllocatedCIDRs = currentCIDRs
-		return
-	}
-
-	for cidr := range n.previousAllocatedCIDRs {
-		if cidr.Addr().Is4() && !currentCIDRs.Has(cidr) {
-			if _, already := n.multiPoolCIDRsMarkedForRelease[cidr]; !already {
-				n.multiPoolCIDRsMarkedForRelease[cidr] = now
-				n.logger.Load().Debug("Marking CIDR for release", logfields.CIDR, cidr)
-			}
+		if slices.Contains(attachedCIDRs, cidr) {
+			n.multiPoolCIDRsMarkedForRelease[cidr] = now
+			n.logger.Load().Debug("Marking CIDR for release", logfields.CIDR, cidr)
 		}
 	}
 
+	// Unmark CIDRs the agent no longer reports as released: either the
+	// agent reclaimed them to serve new allocations, or they have been
+	// unassigned from the node. Also unmark CIDRs no longer attached
+	// at the node level, e.g. detached by a previous release attempt
+	// that returned an error despite succeeding.
 	for cidr := range n.multiPoolCIDRsMarkedForRelease {
-		if currentCIDRs.Has(cidr) {
-			// Agent re-added the CIDR before the operator released it.
-			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
-		} else if !slices.Contains(attachedCIDRs, cidr) {
-			// CIDR is no longer attached at the ENI level, it was
-			// already detached (possibly by a previous release attempt
-			// that returned an error despite succeeding).
+		if !releasedCIDRs.Has(cidr) || !slices.Contains(attachedCIDRs, cidr) {
 			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
 		}
 	}
-
-	n.previousAllocatedCIDRs = currentCIDRs
 }
 
 // handleMultiPoolCIDRRelease releases CIDRs that the multi-pool agent has
-// removed from Spec.IPAM.Pools.Allocated, after the excessIPReleaseDelay
-// has elapsed.
+// reported in Spec.IPAM.Pools.Released and that the operator has marked for
+// release, after the excessIPReleaseDelay has elapsed.
 func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	n.mutex.Lock()
 	if !n.isMultiPoolNodeLocked() || len(n.multiPoolCIDRsMarkedForRelease) == 0 || !n.resyncNeeded.IsZero() {
@@ -532,11 +512,11 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	releasedAddrs := 0
 	for _, action := range actions {
 		// Re-check membership in multiPoolCIDRsMarkedForRelease immediately
-		// before each EC2 release. The agent may have re-added a CIDR to
-		// Spec.IPAM.Pools.Allocated since readyCIDRs was selected, in which
-		// case trackMultiPoolAllocatedLocked will have removed it from the
-		// map. Detaching it would leave the agent's view inconsistent with
-		// the ENI state.
+		// before each EC2 release. The agent may have reclaimed a CIDR
+		// (i.e. removed it from Spec.IPAM.Pools.Released) since readyCIDRs
+		// was selected, in which case trackMultiPoolReleasedLocked will
+		// have removed it from the map. Detaching it would leave the
+		// agent's view inconsistent with the ENI state.
 		n.mutex.Lock()
 		releasable := capMultiPoolCIDRs(n.readyMultiPoolCIDRsLocked(), n.stats.IPv4.ExcessIPs-releasedAddrs)
 		filtered := action.CIDRsToRelease[:0]
@@ -661,7 +641,7 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	if warnMaxAboveWatermark {
 		n.maxAboveWatermarkWarned = true
 	}
-	n.trackMultiPoolAllocatedLocked()
+	n.trackMultiPoolReleasedLocked()
 	n.mutex.Unlock()
 	n.updateLogger()
 

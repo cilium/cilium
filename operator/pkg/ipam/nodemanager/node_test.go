@@ -342,14 +342,15 @@ func TestPoolRequestedIPv4(t *testing.T) {
 }
 
 // newMultiPoolNode creates a Node with a CiliumNode that passes the multi-pool
-// heuristic (Pools.Requested present, Status.IPAM.Used empty). The enis map
+// heuristic (Pools.Requested present, Status.IPAM.Used empty). The released
+// CIDRs are advertised in Pools.Released of the default pool, and the enis map
 // is converted to the attached CIDRs returned by ops.GetAttachedCIDRs.
-func newMultiPoolNode(t *testing.T, allocated []ipamTypes.IPAMPoolAllocation, enis map[string]awsTypes.ENI) *Node {
+func newMultiPoolNode(t *testing.T, released []ipamTypes.IPAMPoolRelease, enis map[string]awsTypes.ENI) *Node {
 	cn := &v2.CiliumNode{}
 	cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
 		{Pool: defaults.IPAMDefaultIPPool, Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16}},
 	}
-	cn.Spec.IPAM.Pools.Allocated = allocated
+	cn.Spec.IPAM.Pools.Released = released
 	n := &Node{
 		rootLogger:                     hivetest.Logger(t),
 		resource:                       cn,
@@ -512,94 +513,83 @@ func TestDetermineMaintenanceActionIPv6Only(t *testing.T) {
 	})
 }
 
-func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
+func TestTrackMultiPoolReleasedLocked(t *testing.T) {
 	t.Run("no-op for non-multi-pool node", func(t *testing.T) {
 		n := &Node{
 			resource:                       &v2.CiliumNode{},
 			multiPoolCIDRsMarkedForRelease: make(map[netip.Prefix]time.Time),
 		}
 		// No Pools.Requested -> not multi-pool.
-		n.trackMultiPoolAllocatedLocked()
-		require.Nil(t, n.previousAllocatedCIDRs)
-	})
-
-	t.Run("seed with no ENI orphans does not mark release", func(t *testing.T) {
-		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
-			}},
-		}, nil)
-
-		n.trackMultiPoolAllocatedLocked()
-
-		require.NotNil(t, n.previousAllocatedCIDRs)
-		require.True(t, n.previousAllocatedCIDRs.Has(netip.MustParsePrefix("10.0.0.1/32")))
-		require.True(t, n.previousAllocatedCIDRs.Has(netip.MustParsePrefix("10.0.0.2/32")))
+		n.trackMultiPoolReleasedLocked()
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
 	})
 
-	t.Run("removed CIDR is marked for release", func(t *testing.T) {
+	t.Run("no released CIDRs does not mark release", func(t *testing.T) {
+		n := newMultiPoolNode(t, nil, map[string]awsTypes.ENI{
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+			}},
+		})
+
+		n.trackMultiPoolReleasedLocked()
+
+		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
+	})
+
+	t.Run("reported released CIDR is marked for release", func(t *testing.T) {
 		enis := map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
 			}},
 		}
-		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
 			}},
 		}, enis)
 
-		// First call: seed.
-		n.trackMultiPoolAllocatedLocked()
-
-		// Agent removes 10.0.0.2/32 from Allocated.
-		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
-			}},
-		}
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 
 		require.Len(t, n.multiPoolCIDRsMarkedForRelease, 1)
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.2/32"))
 	})
 
-	t.Run("reappearing CIDR is removed from marked-for-release", func(t *testing.T) {
+	t.Run("released CIDR no longer attached is not marked", func(t *testing.T) {
+		// The CIDR has already been unassigned from the node, the agent
+		// just has not observed it yet.
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
+		}, nil)
+
+		n.trackMultiPoolReleasedLocked()
+
+		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
+	})
+
+	t.Run("CIDR no longer reported as released is removed from marked-for-release", func(t *testing.T) {
 		enis := map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
 			}},
 		}
-		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
 			}},
 		}, enis)
 
-		// First call: seed.
-		n.trackMultiPoolAllocatedLocked()
-
-		// Remove 10.0.0.2/32.
-		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
-		}
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.2/32"))
 
-		// Agent re-adds 10.0.0.2/32.
-		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
-			}},
-		}
-		n.trackMultiPoolAllocatedLocked()
+		// Agent reclaimed the CIDR to serve new allocations: it is no
+		// longer reported in Released.
+		n.resource.Spec.IPAM.Pools.Released = nil
+		n.trackMultiPoolReleasedLocked()
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
 	})
 
@@ -610,30 +600,23 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
 			}},
 		}
-		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
 			}},
 		}, enis)
 
-		// First call: seed.
-		n.trackMultiPoolAllocatedLocked()
-
-		// Agent removes 10.0.0.2/32.
-		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
-		}
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.2/32"))
 
-		// ENI status updated: 10.0.0.2 no longer attached (operator detached it).
+		// ENI status updated: 10.0.0.2 no longer attached (operator
+		// detached it), but the agent still reports it as released.
 		n.ops.(*nodeOperationsMock).attachedCIDRs = enisToCIDRs(map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 			}},
 		})
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
 	})
 
@@ -644,26 +627,45 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
 			}},
 		}
-		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
 			}},
 		}, enis)
 
-		// First call: seed.
-		n.trackMultiPoolAllocatedLocked()
-
-		// Remove 10.0.0.2/32.
-		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
-		}
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 		firstTS := n.multiPoolCIDRsMarkedForRelease[netip.MustParsePrefix("10.0.0.2/32")]
 
 		// Call again, timestamp should not change.
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 		require.Equal(t, firstTS, n.multiPoolCIDRsMarkedForRelease[netip.MustParsePrefix("10.0.0.2/32")])
+	})
+
+	t.Run("released entries of non-default pools and IPv6 are ignored", func(t *testing.T) {
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
+			{Pool: "other-pool", CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("2001:db8::/80")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
+			}},
+		}, map[string]awsTypes.ENI{
+			"eni-1": {
+				Addresses: []iputil.Addr{
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+				},
+				Prefixes: []iputil.Prefix{
+					iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
+					iputil.PrefixFrom(netip.MustParsePrefix("2001:db8::/80")),
+				},
+			},
+		})
+
+		n.trackMultiPoolReleasedLocked()
+
+		require.Len(t, n.multiPoolCIDRsMarkedForRelease, 1)
+		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.16/28"))
 	})
 
 	t.Run("prefix delegation CIDR tracked correctly", func(t *testing.T) {
@@ -677,21 +679,13 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 				},
 			},
 		}
-		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolRelease{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
-				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
 			}},
 		}, enis)
 
-		// First call: seed.
-		n.trackMultiPoolAllocatedLocked()
-
-		// Agent releases the /28 prefix.
-		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
-		}
-		n.trackMultiPoolAllocatedLocked()
+		n.trackMultiPoolReleasedLocked()
 
 		require.Len(t, n.multiPoolCIDRsMarkedForRelease, 1)
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.16/28"))
@@ -869,9 +863,10 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 
 	t.Run("re-check filters out CIDRs re-added between selection and release", func(t *testing.T) {
 		// Both CIDRs are past the delay. Mid-PrepareCIDRRelease, simulate
-		// trackMultiPoolAllocatedLocked observing the agent re-adding `readd`
-		// by deleting it from the marked map. The re-check inside
-		// handleMultiPoolCIDRRelease must drop it from the EC2 call.
+		// trackMultiPoolReleasedLocked observing the agent reclaiming `readd`
+		// (removing it from Released) by deleting it from the marked map. The
+		// re-check inside handleMultiPoolCIDRRelease must drop it from the EC2
+		// call.
 		keep := netip.MustParsePrefix("10.0.0.16/28")
 		readd := netip.MustParsePrefix("10.0.0.32/28")
 		var n *Node
