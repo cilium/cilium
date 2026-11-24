@@ -5,10 +5,10 @@ sphinx-autobuild==2024.10.3
 git+https://github.com/cilium/sphinx_rtd_theme.git@cilium/main#egg=sphinx-rtd-theme-cilium
 
 # We use semver to parse Cilium's version in the config file
-semver==3.1.0
+semver==3.1.2
 
 # Sphinx extensions
-myst-parser==5.1.0
+myst-parser==5.2.0
 sphinx-tabs==3.5.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-googleanalytics==0.6
@@ -18,5 +18,5 @@ sphinxcontrib-websupport==2.0.0
 sphinxext-rediraffe==0.3.0
 
 # Linters
-rstcheck==6.3.0
+rstcheck==6.3.1
 yamllint==1.38.0

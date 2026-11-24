@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:72378dec43197bab4fd6627006fb27e9617045ec@sha256:1d51396779f3f7787f527d959a85a5686680d95ecae8f1664828ea41884281ff
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:7a01dea7f5eae3e2ef2f8ad13e1dc8eb921bbdd3@sha256:dfd750cbc40eea728d4ea44c19a753057961e51acda99c8e2170910be9187457
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:b517f13a14d2c0696584a978597e785db99840b7@sha256:932dd34b92a034707559263d601f23457d02e5743fe331fb3e30dc539bdf1816
 #
 # cilium-envoy from github.com/cilium/proxy
 #
