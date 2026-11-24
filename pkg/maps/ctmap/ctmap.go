@@ -153,6 +153,10 @@ type Map struct {
 	// Maps which have this non-zero are assumed to not have a
 	// corresponding NAT map.
 	networkID uint32
+
+	// ctIter, when non-nil, accelerates single-IPv4 endpoint scrubs via an
+	// eBPF map iterator.
+	ctIter *ctIterator
 }
 
 // NetAddr is an IP address that belongs to a particular network
@@ -333,6 +337,12 @@ func WithClusterID(clusterID uint32) MapOption {
 	}
 }
 
+func withCTIterator(iter *ctIterator) MapOption {
+	return func(m *Map) {
+		m.ctIter = iter
+	}
+}
+
 // MapConfig defines what kind of CT map type should be used
 type MapConfig struct {
 	IPv6 bool
@@ -481,11 +491,13 @@ func (m *Map) purgeCtEntry(key CtKey, tupleKey tupleKeyAccessor, scratch *CtEntr
 		actCountFailed(scratch.RevNAT, uint32(scratch.Union0[1]))
 	}
 
-	next(GCEvent{
-		Key:    key,
-		Entry:  scratch,
-		NatMap: natMap,
-	})
+	if next != nil {
+		next(GCEvent{
+			Key:    key,
+			Entry:  scratch,
+			NatMap: natMap,
+		})
+	}
 
 	return nil
 }
@@ -513,14 +525,44 @@ type tupleKeyAccessor interface {
 	GetFlags() uint8
 }
 
-func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
-	var countFailedFn func(uint16, uint32)
-	if ACT != nil {
-		countFailedFn = ACT.CountFailed4
-		if ipv6 {
-			countFailedFn = ACT.CountFailed6
+func (m *Map) purgeCtEntryAndRecord(ctKey CtKey, tupleKey tupleKeyAccessor, scratch *CtEntry, filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), countFailedFn func(uint16, uint32)) {
+	err := m.purgeCtEntry(ctKey, tupleKey, scratch, filter, natMap, next, countFailedFn)
+	if err != nil {
+		switch {
+		case errors.Is(err, ebpf.ErrKeyNotExist):
+			m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
+				logfields.Error, err,
+				logfields.Key, ctKey.ToHost(),
+			)
+			stats.skipped++
+		case errors.Is(err, errDeferredReopened):
+			m.Logger.Debug("deferring CT entry delete: entry modified between read and delete",
+				logfields.Key, ctKey.ToHost(),
+			)
+			stats.aliveEntries++
+		default:
+			m.Logger.Error("failed to purge CT entry",
+				logfields.Error, err,
+				logfields.Key, ctKey.ToHost(),
+			)
 		}
+	} else {
+		stats.deleted++
 	}
+}
+
+func countFailedFunc(ipv6 bool) func(uint16, uint32) {
+	if ACT == nil {
+		return nil
+	}
+	if ipv6 {
+		return ACT.CountFailed6
+	}
+	return ACT.CountFailed4
+}
+
+func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
+	countFailedFn := countFailedFunc(ipv6)
 	// Reusing a single buffer for purgeCtEntry's re-lookups reduces memory
 	// allocations so that the lookups are faster. The callbacks run sequentially
 	// within a single GC pass, so reuse is safe.
@@ -534,29 +576,7 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 
 		switch m.filterEntry(filter, tupleKey, entry) {
 		case deleteEntry:
-			err := m.purgeCtEntry(ctKey, tupleKey, scratch, filter, natMap, next, countFailedFn)
-			if err != nil {
-				switch {
-				case errors.Is(err, ebpf.ErrKeyNotExist):
-					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
-						logfields.Error, err,
-						logfields.Key, ctKey.ToHost(),
-					)
-					stats.skipped++
-				case errors.Is(err, errDeferredReopened):
-					m.Logger.Debug("deferring CT entry delete: reopened between batch read and delete",
-						logfields.Key, ctKey.ToHost(),
-					)
-					stats.aliveEntries++
-				default:
-					m.Logger.Error("failed to purge CT entry",
-						logfields.Error, err,
-						logfields.Key, ctKey.ToHost(),
-					)
-				}
-			} else {
-				stats.deleted++
-			}
+			m.purgeCtEntryAndRecord(ctKey, tupleKey, scratch, filter, natMap, stats, next, countFailedFn)
 		default:
 			stats.aliveEntries++
 		}
@@ -597,6 +617,11 @@ func (f GCFilter) doFiltering(srcIP, dstIP NetAddr, srcPort, dstPort uint16, nex
 }
 
 func (m *Map) doGC(filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
+	if m.ctIter != nil {
+		if stats, ok := m.doScrub4WithIterator(filter, next4); ok {
+			return int(stats.deleted), stats.dumpError
+		}
+	}
 	stats := m.doGCForFamily(filter, next4, next6, m.mapType.isIPv6())
 	return int(stats.deleted), stats.dumpError
 }
