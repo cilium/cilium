@@ -367,16 +367,10 @@ type skiplbmapParams struct {
 	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
 }
 
-func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap], err error) {
+func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap]) {
 	if p.TestSkipLBMap != nil {
 		m := lbmaps.SkipLBMap(p.TestSkipLBMap)
 		out = bpf.NewMapOut(m)
-		return
-	}
-
-	var m lbmaps.SkipLBMap
-	m, err = lbmaps.NewSkipLBMap(p.Logger)
-	if err != nil {
 		return
 	}
 
@@ -384,15 +378,7 @@ func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap], err erro
 		return
 	}
 
-	p.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			return m.OpenOrCreate()
-		},
-		OnStop: func(cell.HookContext) error {
-			return m.Close()
-		},
-	})
-	out = bpf.NewMapOut(m)
+	out = bpf.NewMapOut(lbmaps.NewSkipLBMap(p.Lifecycle, p.Logger))
 	return
 }
 

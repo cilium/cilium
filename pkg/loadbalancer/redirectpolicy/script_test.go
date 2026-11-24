@@ -136,16 +136,6 @@ type fakeSkipLBMap struct {
 	entries lock.Map[any, any]
 }
 
-// OpenOrCreate implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) OpenOrCreate() error {
-	return nil
-}
-
-// Close implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) Close() error {
-	return nil
-}
-
 // AddLB4 implements lbmap.SkipLBMap.
 func (f *fakeSkipLBMap) AddLB4(netnsCookie uint64, ip netip.Addr, port uint16) error {
 	key := lbmaps.SkipLB4Key{

@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"unsafe"
 
+	"github.com/cilium/hive/cell"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -27,11 +28,9 @@ type SkipLBMap interface {
 	AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value]
 	DeleteLB4(key *SkipLB4Key) error
 	DeleteLB6(key *SkipLB6Key) error
-	OpenOrCreate() error
-	Close() error
 }
 
-func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
+func NewSkipLBMap(lifecycle cell.Lifecycle, logger *slog.Logger) SkipLBMap {
 	skipLBMap := &skipLBMap{logger: logger}
 
 	pinning := ebpf.PinByName
@@ -63,10 +62,12 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 		})
 	}
 
-	return skipLBMap, nil
+	lifecycle.Append(cell.Hook{OnStart: skipLBMap.start, OnStop: skipLBMap.stop})
+
+	return skipLBMap
 }
 
-func (m *skipLBMap) OpenOrCreate() error {
+func (m *skipLBMap) start(cell.HookContext) error {
 	if m.bpfMap4 != nil {
 		if err := m.bpfMap4.OpenOrCreate(); err != nil {
 			return fmt.Errorf("failed to open or create %s: %w", SkipLB4MapName, err)
@@ -80,7 +81,7 @@ func (m *skipLBMap) OpenOrCreate() error {
 	return nil
 }
 
-func (m *skipLBMap) Close() (err error) {
+func (m *skipLBMap) stop(cell.HookContext) (err error) {
 	if m.bpfMap4 != nil {
 		err = errors.Join(err, m.bpfMap4.Close())
 	}
