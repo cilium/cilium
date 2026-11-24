@@ -154,7 +154,8 @@ CiliumEventType from which the flow originated.
 <a name="flow-DNS"></a>
 
 ### DNS
-DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
+DNS flow. This is basically directly mapped from Cilium&#39;s
+[LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 
 
 | Field | Type | Label | Description |
@@ -454,7 +455,9 @@ experimental features is always optional and subject to change.
 <a name="flow-HTTP"></a>
 
 ### HTTP
-L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
+L7 information for HTTP flows. It corresponds to Cilium&#39;s
+[accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206)
+type.
 
 
 | Field | Type | Label | Description |
@@ -594,7 +597,9 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 <a name="flow-Kafka"></a>
 
 ### Kafka
-L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
+L7 information for Kafka flows. It corresponds to Cilium&#39;s
+[accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229)
+type.
 
 
 | Field | Type | Label | Description |
@@ -634,7 +639,8 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRec
 <a name="flow-Layer7"></a>
 
 ### Layer7
-Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
+Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog
+[LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 
 
 | Field | Type | Label | Description |
@@ -869,7 +875,8 @@ that happened before the events were captured by Hubble.
 ### TraceContext
 TraceContext contains trace context propagation data, i.e. information about a
 distributed trace.
-For more information about trace context, check the [W3C Trace Context specification](https://www.w3.org/TR/trace-context/).
+For more information about trace context, check the [W3C Trace Context
+specification](https://www.w3.org/TR/trace-context/).
 
 
 | Field | Type | Label | Description |
@@ -1231,7 +1238,8 @@ EventType are constants are based on the ones from &lt;linux/perf_event.h&gt;.
 <a name="flow-L7FlowType"></a>
 
 ### L7FlowType
-This enum corresponds to Cilium&#39;s L7 accesslog [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
+This enum corresponds to Cilium&#39;s L7 accesslog
+[FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
