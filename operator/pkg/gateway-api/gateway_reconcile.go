@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -29,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 )
+
+const translationExtensionRequeueAfter = 5 * time.Second
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -235,7 +238,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	if deferReconcile {
 		scopedLog.InfoContext(ctx, "Gateway reconciliation deferred by translation extension")
-		return controllerruntime.Success()
+		return ctrl.Result{RequeueAfter: translationExtensionRequeueAfter}, nil
 	}
 
 	if err = r.ensureService(ctx, svc); err != nil {
