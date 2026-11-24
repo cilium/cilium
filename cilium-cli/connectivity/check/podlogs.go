@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"slices"
 	"strings"
 	"time"
@@ -63,8 +64,10 @@ func (ct *ConnectivityTest) FollowCiliumLogs(ctx context.Context, scenario strin
 			continue
 		}
 
-		// A clientset of its own keeps the log streams off the rate limiter of the tests.
-		clientset, err := kubernetes.NewForConfig(rest.CopyConfig(client.Config))
+		// A clientset with its own dialer keeps the log streams off the tests' rate limiter and HTTP/2 connection.
+		cfg := rest.CopyConfig(client.Config)
+		cfg.Dial = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext
+		clientset, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
 			ct.Warnf("Unable to follow the Cilium pod logs: %s", err)
 			continue
