@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"syscall"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -120,10 +119,10 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 	return discoverCRDsWithRetry(ctx, params.K8sClient, params.Logger, params.Health)
 }
 
-// discoverCRDsWithRetry attempts to discover required Gateway API CRDs, retrying
-// on transient errors until the context expires. Returns a fatal error if the
-// context expires (causing operator restart) or disables Gateway API gracefully
-// if CRDs are permanently missing.
+// discoverCRDsWithRetry attempts to discover required and optional Gateway API CRDs.
+// If required CRDs (or their required versions) are not found, it returns an error
+// immediately so the operator exits. For any other error on required or optional CRDs,
+// it retries with exponential backoff until the context expires, then returns an error.
 func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logger *slog.Logger, health cell.Health) (*gatewayAPIPreconditions, error) {
 	logger.Info(
 		"Checking for required and optional GatewayAPI resources",
@@ -152,39 +151,39 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 			}, nil
 		}
 
-		// Context expiry errors from checkCRDs bypass isTransientError, silently
-		// disabling Gateway API. Catch them here to trigger an operator restart.
+		// Catch context expiry before classifying checkCRDs errors so a timed-out
+		// discovery attempt is always reported as a timeout.
 		if ctx.Err() != nil {
 			logger.Error(
-				"Gateway API CRD discovery timed out after retrying transient errors, operator will restart",
+				"Gateway API CRD discovery timed out, operator will restart",
 				logfields.Error, err,
 			)
-			health.Stopped("Gateway API CRD discovery timed out after transient errors")
+			health.Stopped("Gateway API CRD discovery timed out")
 			return nil, fmt.Errorf("gateway API CRD discovery timed out: %w", err)
 		}
 
-		if !isTransientError(err) {
+		if allCRDsNotFound(err) {
 			logger.Error(
 				"Required GatewayAPI resources are not found, please refer to docs for installation instructions",
 				logfields.Error, err,
 			)
-			health.Degraded("Gateway API CRDs not installed", err)
-			return &gatewayAPIPreconditions{Enabled: false}, nil
+			health.Stopped("Gateway API CRDs not installed")
+			return nil, fmt.Errorf("required Gateway API CRDs not found: %w", err)
 		}
 
 		logger.Warn(
-			"Failed to check GatewayAPI CRDs due to transient error, will retry",
+			"Failed to check GatewayAPI CRDs, will retry",
 			logfields.Error, err,
 		)
-		health.Degraded("Gateway API initialization pending - API server unreachable", err)
+		health.Degraded("Gateway API initialization pending - retrying CRD discovery", err)
 
 		if err := bo.Wait(ctx); err != nil {
 			// Context expired during backoff wait - same handling as above.
 			logger.Error(
-				"Gateway API CRD discovery timed out after retrying transient errors, operator will restart",
+				"Gateway API CRD discovery timed out, operator will restart",
 				logfields.Error, err,
 			)
-			health.Stopped("Gateway API CRD discovery timed out after transient errors")
+			health.Stopped("Gateway API CRD discovery timed out")
 			return nil, fmt.Errorf("gateway API CRD discovery timed out: %w", err)
 		}
 	}
@@ -406,36 +405,40 @@ func validateExternalTrafficPolicy(cfg gatewayApiConfig, logger *slog.Logger) er
 	return fmt.Errorf("invalid externalTrafficPolicy: %s", cfg.GatewayAPIServiceExternalTrafficPolicy)
 }
 
-// isTransientError returns true if the error is temporary and retryable
-// (network issues, API server overload), vs permanent errors (CRD not installed).
-// This is used to determine whether to retry Gateway API CRD discovery.
-func isTransientError(err error) bool {
+// isCRDNotFound returns true if err indicates that a CRD (or its requested
+// version) is not installed in the cluster.
+func isCRDNotFound(err error) bool {
+	return k8serrors.IsNotFound(err) || errors.Is(err, k8sClient.ErrCRDVersionNotFound)
+}
+
+// allCRDsNotFound returns true if err is non-nil and every error in it
+// (unwrapping joined errors) indicates a missing CRD or CRD version.
+// Any other error (e.g. 5xx, 401/403, EOF, network timeout) returns false so
+// discovery will retry instead of failing fast.
+func allCRDsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	// Check for Kubernetes API server errors that are transient
-	if k8serrors.IsServerTimeout(err) ||
-		k8serrors.IsServiceUnavailable(err) ||
-		k8serrors.IsTooManyRequests(err) ||
-		k8serrors.IsTimeout(err) {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		errs := joined.Unwrap()
+		if len(errs) == 0 {
+			return false
+		}
+		for _, sub := range errs {
+			if !allCRDsNotFound(sub) {
+				return false
+			}
+		}
 		return true
 	}
 
-	// Check for network-level errors (connection refused, reset, host unreachable)
-	if errno, ok := errors.AsType[syscall.Errno](err); ok {
-		switch errno {
-		case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.EHOSTUNREACH, syscall.ENETUNREACH:
-			return true
-		}
-	}
-
-	return false
+	return isCRDNotFound(err)
 }
 
-// checkCRDs checks if required and optional CRDs are present in the cluster,
-// returns an error if the required CRDs are not installed, and returns the
-// schema.GroupVersionKind of any optional CRDs that are installed.
+// checkCRDs checks if required and optional CRDs are present in the cluster.
+// Optional CRDs that are not found (or missing the requested version) are skipped.
+// Any error on required CRDs, or any non-NotFound error on optional CRDs, is returned.
 func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.Logger, requiredGVKs, optionalGVKs []schema.GroupVersionKind) ([]schema.GroupVersionKind, error) {
 	var res error
 	var presentOptionalGVKs []schema.GroupVersionKind
@@ -448,7 +451,11 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 	for _, optionalGVK := range optionalGVKs {
 		if err := k8sClient.CheckCRD(ctx, clientset, optionalGVK); err != nil {
-			logger.DebugContext(ctx, "CRD is not present, will not handle it", logfields.OptionalGVK, optionalGVK)
+			if isCRDNotFound(err) {
+				logger.DebugContext(ctx, "CRD is not present, will not handle it", logfields.OptionalGVK, optionalGVK)
+				continue
+			}
+			res = errors.Join(res, err)
 			continue
 		}
 		// note that the .Kind field contains the _resource_ name -
