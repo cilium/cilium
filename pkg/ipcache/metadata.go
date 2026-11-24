@@ -4,7 +4,6 @@
 package ipcache
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -349,9 +348,8 @@ func (m *metadata) findAffectedChildPrefixes(parent cmtypes.PrefixCluster) (chil
 // doInjectLabels injects labels from the ipcache metadata (IDMD) map into the
 // identities used for the prefixes in the IPCache. The given source is the
 // source of the caller, as inserting into the IPCache requires knowing where
-// this updated information comes from. Conversely, RemoveLabelsExcluded()
-// performs the inverse: removes labels from the IDMD map and releases
-// identities allocated by this function.
+// this updated information comes from. For stale prefixes with no remaining
+// metadata, they are removed from the ipcache.
 //
 // Note that as this function iterates through the IDMD, if it detects a change
 // in labels for a given prefix, then this might allocate a new identity. If a
@@ -854,57 +852,6 @@ func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.La
 	)
 
 	return identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
-}
-
-// appendAPIServerLabelsForDeletion inspects labels and performs special handling for corner cases like API server entities
-// deployed external to the cluster.
-func appendAPIServerLabelsForDeletion(lbls labels.Labels, currentLabels labels.Labels) labels.Labels {
-	if currentLabels.HasKubeAPIServerLabel() && currentLabels.HasWorldLabel() && len(currentLabels) == 2 {
-		lbls.MergeLabels(labels.LabelWorld)
-	}
-	return lbls
-}
-
-// RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
-// except for the IPs / prefixes inside the given excluded set.
-//
-// The caller must subsequently call IPCache.TriggerLabelInjection() to push
-// these changes down into the policy engine and ipcache datapath maps.
-func (ipc *IPCache) RemoveLabelsExcluded(
-	lbls labels.Labels,
-	toExclude map[cmtypes.PrefixCluster]struct{},
-	rid types.ResourceID,
-) {
-	ipc.metadata.Lock()
-	defer ipc.metadata.Unlock()
-
-	var affectedPrefixes []cmtypes.PrefixCluster
-	oldSet := ipc.metadata.filterByLabels(lbls)
-	for _, ip := range oldSet {
-		if _, ok := toExclude[ip]; !ok {
-			prefixLabels := ipc.metadata.getLocked(ip).ToLabels()
-			lblsToRemove := appendAPIServerLabelsForDeletion(lbls, prefixLabels)
-			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(ip, rid, lblsToRemove)...)
-		}
-	}
-	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
-}
-
-// filterByLabels returns all the prefixes inside the ipcache metadata map
-// which contain the given labels. Note that `filter` is a subset match, not a
-// full match.
-//
-// Assumes that the ipcache metadata read lock is taken!
-func (m *metadata) filterByLabels(filter labels.Labels) []cmtypes.PrefixCluster {
-	var matching []cmtypes.PrefixCluster
-	sortedFilter := filter.SortedList()
-	for prefix := range m.m {
-		lbls := m.getLocked(prefix).ToLabels()
-		if bytes.Contains(lbls.SortedList(), sortedFilter) {
-			matching = append(matching, prefix)
-		}
-	}
-	return matching
 }
 
 // remove asynchronously removes the labels association for a prefix.
