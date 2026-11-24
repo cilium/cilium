@@ -161,14 +161,37 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
 
 /* Test 1 ---------------------------------------------------------------------------------
  *
- * Under netkit, we expect a tailcall and a bpf_redirect().
+ * Under netkit, with BPF host routing:
+ *  - Per-endpoint route configuration is ignored, because in this test
+ *    scenario ingress_ifindex==0 is assumed. (We are focused on bpf_lxc, see
+ *    tc_redirect_netdev for physical -> netkit pod.)
+ *  - We should then expect a bpf_redirect() because netkit cannot currently
+ *    do a bpf_redirect_peer() (netns switched to destination pod before BPF
+ *    called).
  *
- * Under veth, we expect a tailcall and a bpf_redirect_peer().
+ * Note, netkit does not run under legacy host routing, so that configuration is
+ * not provided for here.
+ *
+ * Under veth, with BPF host routing:
+ *  - Per-endpoint route configuration is ignored by local_delivery code.
+ *  - Instead, we expect to tail call into policy code, and then do a
+ *    bpf_redirect_peer() to bypass cil_to_container.
+ *
+ * Under veth, with legacy host routing:
+ *  - Per-endpoint route configuration is important to local_delivery code.
+ *  - We expect a standard bpf_redirect() to trigger cil_to_container.
+ *  - No tailcall.
  */
 #ifdef __CONFIG_ENABLE_NETKIT
 #define TEST1_EXPECTED_NUM_CALLS { 1, 1, 0 }
-#else
+#else /* !netkit */
+#ifdef __CONFIG_ENABLE_BPF_HOST_ROUTING
 #define TEST1_EXPECTED_NUM_CALLS { 1, 0, 1 }
+#elif defined(__CONFIG_ENABLE_ENDPOINT_ROUTES)
+#define TEST1_EXPECTED_NUM_CALLS { 0, 1, 0 }
+#else
+#define TEST1_EXPECTED_NUM_CALLS { 1, 1, 0 }
+#endif
 #endif
 
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py */
