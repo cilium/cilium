@@ -30,11 +30,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type ipamAction string
+type addrAction int
 
 const (
-	addrAdd ipamAction = "add"
-	addrDel ipamAction = "del"
+	addrAdd addrAction = iota
+	addrDel
 )
 
 var (
@@ -585,7 +585,7 @@ func validateInterfaceNames(alloc []allocation) error {
 	return nil
 }
 
-func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6 netip.Prefix) error {
+func (driver *Driver) configureIPs(l netlink.Link, action addrAction, ipv4, ipv6 netip.Prefix) error {
 	var (
 		addrs []netlink.Addr
 		errs  error
