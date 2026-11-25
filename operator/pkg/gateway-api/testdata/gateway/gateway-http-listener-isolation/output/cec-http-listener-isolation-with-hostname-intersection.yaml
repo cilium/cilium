@@ -105,16 +105,9 @@ spec:
       - match:
           pathSeparatedPrefix: /abc-foo-example-com
         route:
+          cluster: gateway-conformance-infra:infra-backend-v1:8080
           maxStreamDuration:
             maxStreamDuration: 0s
-          weightedClusters:
-            clusters:
-            - name: gateway-conformance-infra:infra-backend-v1:8080
-              weight: 1
-            - name: gateway-conformance-infra:infra-backend-v1:8080
-              weight: 1
-            - name: gateway-conformance-infra:infra-backend-v1:8080
-              weight: 1
     - domains:
       - bar.com
       - bar.com:*

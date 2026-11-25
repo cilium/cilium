@@ -183,7 +183,8 @@ func toGammaHTTPRoutes(
 				}
 				res.Gamma = true
 				emptyBackendTLSPolicyMap := make(helpers.BackendTLSPolicyServiceMap)
-				res.Routes = append(res.Routes, extractRoutes(log, int32(portVal), []string{res.Hostname}, hr, services, []mcsapiv1beta1.ServiceImport{}, grants, emptyBackendTLSPolicyMap, nil)...)
+				res.Routes = extractRoutes(log, int32(portVal), []string{res.Hostname}, hr, services, []mcsapiv1beta1.ServiceImport{}, grants, emptyBackendTLSPolicyMap, nil)
+				retainDuplicateRuleSources(res.Routes)
 				resHTTP = append(resHTTP, res)
 			}
 
@@ -191,6 +192,32 @@ func toGammaHTTPRoutes(
 	}
 
 	return resHTTP
+}
+
+// retainDuplicateRuleSources retains rule identity for duplicate matches within
+// one HTTPRoute. GAMMA groups other backends by match criteria.
+func retainDuplicateRuleSources(routes []model.HTTPRoute) {
+	ruleIndexesByMatch := map[string]map[int]struct{}{}
+	for i := range routes {
+		if routes[i].SourceRule == nil {
+			continue
+		}
+		key := routes[i].GetMatchKey()
+		if _, ok := ruleIndexesByMatch[key]; !ok {
+			ruleIndexesByMatch[key] = map[int]struct{}{}
+		}
+		ruleIndexesByMatch[key][routes[i].SourceRule.RuleIndex] = struct{}{}
+	}
+
+	for i := range routes {
+		if routes[i].SourceRule == nil {
+			continue
+		}
+		key := routes[i].GetMatchKey()
+		if len(ruleIndexesByMatch[key]) < 2 {
+			routes[i].SourceRule = nil
+		}
+	}
 }
 
 func getMatchingService(name string, parentNamespace string, hrNamespace string, services []corev1.Service) (corev1.Service, error) {

@@ -325,7 +325,8 @@ func toHTTPRoutes(log *slog.Logger,
 	infPoolsByKey map[types.NamespacedName]*gateway_inf_ext.InferencePool,
 ) []model.HTTPRoute {
 	input = slices.Clone(input)
-	// Sort by age, namespace and name so matches with equal priority keep this order when Envoy sorts them later.
+	// Sort by age, namespace and name. Rule identity keeps equal-priority
+	// matches separate through translation, and the stable sort preserves their order.
 	sortRoutesByCreationTimeThenNamespacedName(input, func(r gatewayv1.HTTPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var httpRoutes []model.HTTPRoute
@@ -334,7 +335,8 @@ func toHTTPRoutes(log *slog.Logger,
 			continue
 		}
 
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), listenerHostnames)
+		sourceHostnames := toStringSlice(r.Spec.Hostnames)
+		computedHost := slices.Compact(model.ComputeHosts(sourceHostnames, (*string)(listener.Hostname), listenerHostnames))
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
@@ -344,8 +346,11 @@ func toHTTPRoutes(log *slog.Logger,
 			computedHost = nil
 		}
 
-		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap, infPoolsByKey)...)
-
+		routes := extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap, infPoolsByKey)
+		for i := range routes {
+			routes[i].SourceHostnames = sourceHostnames
+		}
+		httpRoutes = append(httpRoutes, routes...)
 	}
 	return httpRoutes
 }
@@ -535,7 +540,6 @@ func extractRoutes(logger *slog.Logger,
 			})
 		}
 	}
-	retainDuplicateRuleSources(httpRoutes)
 	return httpRoutes
 }
 
@@ -551,35 +555,6 @@ func sourceHTTPRouteRule(hr gatewayv1.HTTPRoute, ruleIndex, matchIndex int) *mod
 		},
 		RuleIndex:  ruleIndex,
 		MatchIndex: matchIndex,
-	}
-}
-
-// retainDuplicateRuleSources keeps rule identity only when one HTTPRoute has
-// identical request matches in multiple rules. Other routes keep the existing
-// match-key backend aggregation behavior.
-func retainDuplicateRuleSources(routes []model.HTTPRoute) {
-	ruleIndexesByMatch := map[string]map[int]struct{}{}
-	// First, record which rule indexes produced each request match.
-	for i := range routes {
-		if routes[i].SourceRule == nil {
-			continue
-		}
-		key := routes[i].GetMatchKey()
-		if _, ok := ruleIndexesByMatch[key]; !ok {
-			ruleIndexesByMatch[key] = map[int]struct{}{}
-		}
-		ruleIndexesByMatch[key][routes[i].SourceRule.RuleIndex] = struct{}{}
-	}
-
-	// Then, clear rule identity unless the same match came from multiple rules.
-	for i := range routes {
-		if routes[i].SourceRule == nil {
-			continue
-		}
-		key := routes[i].GetMatchKey()
-		if len(ruleIndexesByMatch[key]) < 2 {
-			routes[i].SourceRule = nil
-		}
 	}
 }
 
@@ -742,7 +717,8 @@ func toGRPCRoutes(log *slog.Logger,
 			continue
 		}
 
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), listenerHostnames)
+		sourceHostnames := toStringSlice(r.Spec.Hostnames)
+		computedHost := slices.Compact(model.ComputeHosts(sourceHostnames, (*string)(listener.Hostname), listenerHostnames))
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
@@ -751,7 +727,11 @@ func toGRPCRoutes(log *slog.Logger,
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
-		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(log, computedHost, r, services, serviceImports, grants, btlspMap)...)
+		routes := extractGRPCRoutes(log, computedHost, r, services, serviceImports, grants, btlspMap)
+		for i := range routes {
+			routes[i].SourceHostnames = sourceHostnames
+		}
+		grpcRoutes = append(grpcRoutes, routes...)
 	}
 	return grpcRoutes
 }

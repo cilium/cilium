@@ -566,6 +566,9 @@ type HTTPRoute struct {
 	SourceRule *HTTPRouteRule `json:"-"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`
+	// SourceHostnames preserves the Gateway API route hostnames before intersection
+	// with the listener hostname, for precedence within an Envoy virtual host.
+	SourceHostnames []string `json:"-"`
 	// PathMatch specifies that the HTTPRoute should match a path.
 	PathMatch StringMatch `json:"path_match"`
 	// HeadersMatch specifies that the HTTPRoute should match a set of headers.

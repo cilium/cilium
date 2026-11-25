@@ -4,9 +4,12 @@
 package translation
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"net"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -162,18 +165,36 @@ type VirtualHostParameter struct {
 // desiredVirtualHost creates a new VirtualHost with the given HTTP routes, set of pre-defined params as well mutator
 // based on global configuration.
 func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) *envoy_config_route_v3.VirtualHost {
-	var routes SortableRoute
-	if param.HTTPSRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters, param.AllEndpointPickers, param.StatefulSessionFilterEnabled)
-	} else {
-		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters, param.AllEndpointPickers, param.StatefulSessionFilterEnabled)
+	// Envoy uses the first matching route. Apply Gateway API hostname precedence
+	// before request-match precedence, even when the listener narrows multiple
+	// route hostnames to the same virtual host.
+	type hostnameMatch struct {
+		nonWildcard int
+		total       int
 	}
+	routesByMatch := make(map[hostnameMatch][]model.HTTPRoute)
+	for _, route := range httpRoutes {
+		nonWildcard, total := route.HostnameMatchLengths(param.HostNames[0])
+		match := hostnameMatch{nonWildcard: nonWildcard, total: total}
+		routesByMatch[match] = append(routesByMatch[match], route)
+	}
+	matches := slices.SortedFunc(maps.Keys(routesByMatch), func(a, b hostnameMatch) int {
+		return cmp.Or(cmp.Compare(b.nonWildcard, a.nonWildcard), cmp.Compare(b.total, a.total))
+	})
 
-	// This is to make sure that the Exact match is always having higher priority.
-	// Each route entry in the virtual host is checked, in order. If there is a
-	// match, the route is used and no further route checks are made.
-	// Related docs https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/route_matching
-	sort.Stable(routes)
+	var routes []*envoy_config_route_v3.Route
+	for _, match := range matches {
+		group := routesByMatch[match]
+		var envoyRoutes SortableRoute
+		if param.HTTPSRedirect {
+			envoyRoutes = envoyHTTPSRoutes(group, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters, param.AllEndpointPickers, param.StatefulSessionFilterEnabled)
+		} else {
+			envoyRoutes = envoyHTTPRoutes(group, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters, param.AllEndpointPickers, param.StatefulSessionFilterEnabled)
+		}
+		// Preserve age, namespace and name ordering on request-match ties.
+		sort.Stable(envoyRoutes)
+		routes = append(routes, envoyRoutes...)
+	}
 
 	var domains []string
 	for _, host := range param.HostNames {

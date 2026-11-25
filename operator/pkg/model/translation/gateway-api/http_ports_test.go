@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"slices"
 	"testing"
+	"time"
 
 	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -226,5 +228,140 @@ func TestHTTPListenerPortIsolation(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestHTTPRoutePrecedenceAcrossListenerPorts(t *testing.T) {
+	const hostname = "app.example.com"
+	source := model.FullyQualifiedResource{Name: "gateway", Namespace: "default", Kind: "Gateway"}
+	gw := gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: source.Name, Namespace: source.Namespace},
+		Spec: gatewayv1.GatewaySpec{Listeners: []gatewayv1.Listener{
+			{Name: "public", Port: 80, Protocol: gatewayv1.HTTPProtocolType, Hostname: ptr.To[gatewayv1.Hostname]("*.example.com")},
+			{Name: "alternate", Port: 8080, Protocol: gatewayv1.HTTPProtocolType, Hostname: ptr.To[gatewayv1.Hostname](hostname)},
+		}},
+	}
+	newRoute := func(name string, backend gatewayv1.ObjectName, timestamp int64) gatewayv1.HTTPRoute {
+		return gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: source.Namespace, CreationTimestamp: metav1.NewTime(time.Unix(timestamp, 0))},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{ParentRefs: []gatewayv1.ParentReference{{Name: gatewayv1.ObjectName(gw.Name)}}},
+				Hostnames:       []gatewayv1.Hostname{hostname},
+				Rules: []gatewayv1.HTTPRouteRule{{
+					Matches: []gatewayv1.HTTPRouteMatch{{
+						Path: &gatewayv1.HTTPPathMatch{Type: ptr.To(gatewayv1.PathMatchPathPrefix), Value: ptr.To("/")},
+					}},
+					BackendRefs: []gatewayv1.HTTPBackendRef{{BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{Name: backend, Port: ptr.To[gatewayv1.PortNumber](80)},
+					}}},
+				}},
+			},
+		}
+	}
+	input := ingestion.Input{Gateway: gw}
+	for _, listener := range gw.Spec.Listeners {
+		input.MergedListeners = append(input.MergedListeners, ingestion.ListenerWithContext{Listener: listener, Source: source})
+	}
+	for _, backend := range []string{"backend-a", "backend-b"} {
+		input.Services = append(input.Services, corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: backend, Namespace: source.Namespace},
+			Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}},
+		})
+	}
+	older := newRoute("z-first", "backend-a", 1)
+	newer := newRoute("a-second", "backend-b", 2)
+	sameAge := newRoute("a-second", "backend-b", 1)
+	cfg := translation.Config{HostNetworkConfig: translation.HostNetworkConfig{Enabled: true}}
+	translator := NewTranslator(translation.NewCECTranslator(cfg), cfg)
+	translate := func(t *testing.T, routes []gatewayv1.HTTPRoute) []*routepb.RouteConfiguration {
+		t.Helper()
+		input := input
+		input.HTTPRoutes = routes
+		m := ingestion.GatewayAPI(slog.Default(), input)
+		cec, _, _, err := translator.Translate(m)
+		require.NoError(t, err)
+		var configs []*routepb.RouteConfiguration
+		for _, res := range cec.Spec.Resources {
+			if res.GetTypeUrl() != envoy.RouteTypeURL {
+				continue
+			}
+			rc := &routepb.RouteConfiguration{}
+			require.NoError(t, proto.Unmarshal(res.Value, rc))
+			configs = append(configs, rc)
+		}
+		return configs
+	}
+
+	for _, tc := range []struct {
+		name   string
+		routes []gatewayv1.HTTPRoute
+		want   []string
+	}{
+		{"oldest first", []gatewayv1.HTTPRoute{newer, older}, []string{"default:backend-a:80", "default:backend-b:80"}},
+		{"name breaks timestamp tie", []gatewayv1.HTTPRoute{older, sameAge}, []string{"default:backend-b:80", "default:backend-a:80"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var routeConfigs []string
+			for _, rc := range translate(t, tc.routes) {
+				require.Len(t, rc.VirtualHosts, 1, rc.Name)
+				routes := rc.VirtualHosts[0].Routes
+				require.Len(t, routes, 2, rc.Name)
+				for i, route := range routes {
+					require.Equal(t, "/", route.GetMatch().GetPrefix())
+					require.Equal(t, tc.want[i], route.GetRoute().GetCluster(), rc.Name)
+				}
+				routeConfigs = append(routeConfigs, rc.Name)
+			}
+			require.ElementsMatch(t, []string{"listener-80-insecure", "listener-8080-insecure"}, routeConfigs)
+		})
+	}
+
+	for _, tc := range []struct {
+		name           string
+		olderHostnames []gatewayv1.Hostname
+		newerHostnames []gatewayv1.Hostname
+		olderPathType  gatewayv1.PathMatchType
+	}{
+		{
+			name:           "exact hostname wins over older wildcard",
+			olderHostnames: []gatewayv1.Hostname{"*.example.com"},
+			newerHostnames: []gatewayv1.Hostname{hostname},
+			olderPathType:  gatewayv1.PathMatchPathPrefix,
+		},
+		{
+			name:           "matching hostname takes precedence over path",
+			olderHostnames: []gatewayv1.Hostname{"*.example.com", "unrelated.example.com"},
+			newerHostnames: []gatewayv1.Hostname{hostname, "*.example.com"},
+			olderPathType:  gatewayv1.PathMatchExact,
+		},
+		{
+			name:           "longer matching wildcard wins",
+			olderHostnames: []gatewayv1.Hostname{"*.com"},
+			newerHostnames: []gatewayv1.Hostname{"*.example.com"},
+			olderPathType:  gatewayv1.PathMatchPathPrefix,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			olderRoute := older.DeepCopy()
+			olderRoute.Spec.Hostnames = tc.olderHostnames
+			olderRoute.Spec.Rules[0].Matches[0].Path.Type = ptr.To(tc.olderPathType)
+			newerRoute := newer.DeepCopy()
+			newerRoute.Spec.Hostnames = tc.newerHostnames
+			for _, rc := range translate(t, []gatewayv1.HTTPRoute{*newerRoute, *olderRoute}) {
+				if rc.Name != "listener-8080-insecure" {
+					continue
+				}
+				require.Len(t, rc.VirtualHosts, 1)
+				vhost := rc.VirtualHosts[0]
+				require.Contains(t, vhost.Domains, hostname)
+				require.NotEmpty(t, vhost.Routes)
+				first := vhost.Routes[0]
+				require.Equal(t, "/", first.GetMatch().GetPrefix())
+				require.Nil(t, first.GetRoute().GetWeightedClusters(), "hostname precedence must select one backend")
+				require.Equal(t, "default:backend-b:80", first.GetRoute().GetCluster())
+				return
+			}
+			t.Fatal("missing route configuration for the exact-hostname listener")
+		})
 	}
 }
