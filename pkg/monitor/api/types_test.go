@@ -43,20 +43,20 @@ func testEqualityEndpoint(got, expected string, t *testing.T) {
 func TestPolicyUpdateMessage(t *testing.T) {
 	rules := api.Rules{
 		&api.Rule{
-			Labels: labels.LabelArray{
-				labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
-			},
+			Labels: []api.Label{{
+				Key: "key1", Value: "value1", Source: labels.LabelSourceUnspec,
+			}},
 		},
 		&api.Rule{
-			Labels: labels.LabelArray{
-				labels.NewLabel("key2", "value2", labels.LabelSourceUnspec),
-			},
+			Labels: []api.Label{{
+				Key: "key2", Value: "value2", Source: labels.LabelSourceUnspec,
+			}},
 		},
 	}
 
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
-		labels = append(labels, r.Labels.GetModel()...)
+		labels = append(labels, api.LabelsToLabelArray(r.Labels).GetModel()...)
 	}
 
 	msg := PolicyUpdateMessage(len(rules), labels, 1)

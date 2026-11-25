@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	testk8s "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/labels"
@@ -89,9 +88,11 @@ func TestRegenerateRetries(t *testing.T) {
 				Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{}}},
 			}},
 		}},
-		Labels: labels.LabelArray{
-			labels.NewLabel(k8sConst.PolicyLabelName, "retryRule", labels.LabelSourceAny),
-		},
+		/*
+			Labels: []api.Label{{
+				Key: k8sConst.PolicyLabelName, Value: "retryRule", Source: labels.LabelSourceAny,
+			}},
+		*/
 	}
 	require.NoError(t, rule.ValidateAndSanitize())
 

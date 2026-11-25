@@ -173,7 +173,7 @@ func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 			EndpointSelector: fooSelector,
 			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
 			EgressDeny:       []api.EgressDenyRule{generateCIDREgressDenyRule(i + 773)},
-			Labels:           utils.GetPolicyLabels("default", fmt.Sprintf("cidr-%d", i), uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			Labels:           api.LabelArrayToLabel(utils.GetPolicyLabels("default", fmt.Sprintf("cidr-%d", i), uuid, utils.ResourceTypeCiliumNetworkPolicy)),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -383,7 +383,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
 		EndpointSelector: selFoo,
-		Labels:           ruleLabel,
+		Labels:           api.LabelArrayToLabel(ruleLabel),
 		IngressDeny: []api.IngressDenyRule{
 			{
 				ToPorts: []api.PortDenyRule{{
@@ -482,7 +482,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
 		EndpointSelector: selFoo,
-		Labels:           ruleLabel,
+		Labels:           api.LabelArrayToLabel(ruleLabel),
 		IngressDeny: []api.IngressDenyRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{

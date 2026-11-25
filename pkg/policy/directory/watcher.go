@@ -103,16 +103,17 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 		return err
 	}
 
+	entries := policyutils.RulesToPolicyEntries(rules)
 	// update labels
 	lbls := getLabels(fileName, cnp)
-	for _, r := range rules {
-		r.Labels = lbls
+	for _, e := range entries {
+		e.Labels = lbls
 	}
 
 	dc := make(chan uint64, 1)
 	// add to policy engine
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               policyutils.RulesToPolicyEntries(rules),
+		Rules:               entries,
 		Source:              source.Directory,
 		Resource:            resourceID,
 		ProcessingStartTime: time.Now(),

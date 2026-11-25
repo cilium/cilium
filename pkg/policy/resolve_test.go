@@ -88,7 +88,7 @@ func GenerateL3IngressRules(numRules int) (api.Rules, identity.IdentityMap) {
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
 			Ingress:          []api.IngressRule{ingRule},
-			Labels:           utils.GetPolicyLabels("default", "l3-ingress", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			Labels:           api.LabelArrayToLabel(utils.GetPolicyLabels("default", "l3-ingress", uuid, utils.ResourceTypeCiliumNetworkPolicy)),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -115,7 +115,7 @@ func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
 			Egress:           []api.EgressRule{egRule},
-			Labels:           utils.GetPolicyLabels("default", "l3-egress", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			Labels:           api.LabelArrayToLabel(utils.GetPolicyLabels("default", "l3-egress", uuid, utils.ResourceTypeCiliumNetworkPolicy)),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -133,7 +133,7 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
 			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
-			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			Labels:           api.LabelArrayToLabel(utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy)),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -149,7 +149,7 @@ func GenerateUniqueRules(numRules int) (api.Rules, identity.IdentityMap) {
 		rule := api.Rule{
 			EndpointSelector: uniqSelector,
 			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
-			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			Labels:           api.LabelArrayToLabel(utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy)),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -165,7 +165,7 @@ func GenerateMatchAllRules(numRules int) (api.Rules, identity.IdentityMap) {
 		rule := api.Rule{
 			EndpointSelector: matchAll,
 			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
-			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+			Labels:           api.LabelArrayToLabel(utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy)),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -707,7 +707,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
 		EndpointSelector: selFoo,
-		Labels:           ruleLabel,
+		Labels:           api.LabelArrayToLabel(ruleLabel),
 		Ingress: []api.IngressRule{
 			{
 				ToPorts: []api.PortRule{{
@@ -802,7 +802,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
 		EndpointSelector: selFoo,
-		Labels:           ruleLabel,
+		Labels:           api.LabelArrayToLabel(ruleLabel),
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{

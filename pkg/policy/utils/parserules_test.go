@@ -20,6 +20,7 @@ import (
 
 func TestRulesToPolicyEntries(t *testing.T) {
 	lbls := labels.LabelArray{labels.NewLabel("foo", "bar", labels.LabelSourceK8s)}
+	ruleLbls := []api.Label{{Key: "foo", Value: "bar", Source: labels.LabelSourceK8s}}
 	es := api.NewESFromLabels(labels.ParseSelectLabel("foo=bar"))
 	ls := types.NewLabelSelector(es)
 	nodeEndpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=selector"))
@@ -43,7 +44,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					EndpointSelector: es,
-					Labels:           lbls,
+					Labels:           ruleLbls,
 					Ingress: []api.IngressRule{
 						{
 							IngressCommonRule: api.IngressCommonRule{
@@ -88,7 +89,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					EndpointSelector: es,
-					Labels:           lbls,
+					Labels:           ruleLbls,
 					IngressDeny: []api.IngressDenyRule{
 						{
 							IngressCommonRule: api.IngressCommonRule{
@@ -131,7 +132,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					EndpointSelector: es,
-					Labels:           lbls,
+					Labels:           ruleLbls,
 					Egress: []api.EgressRule{
 						{
 							EgressCommonRule: api.EgressCommonRule{
@@ -176,7 +177,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					EndpointSelector: es,
-					Labels:           lbls,
+					Labels:           ruleLbls,
 					EgressDeny: []api.EgressDenyRule{
 						{
 							EgressCommonRule: api.EgressCommonRule{
@@ -219,7 +220,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					NodeSelector: nodeEndpointSelector,
-					Labels:       lbls,
+					Labels:       ruleLbls,
 					Ingress: []api.IngressRule{
 						{
 							ToPorts: []api.PortRule{
@@ -258,7 +259,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					EndpointSelector: es,
-					Labels:           lbls,
+					Labels:           ruleLbls,
 					EnableDefaultDeny: api.DefaultDenyConfig{
 						Ingress: &falseBool,
 						Egress:  &falseBool,
@@ -295,7 +296,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			rules: api.Rules{
 				{
 					EndpointSelector: es,
-					Labels:           lbls,
+					Labels:           ruleLbls,
 					EnableDefaultDeny: api.DefaultDenyConfig{
 						Ingress: &trueBool,
 						Egress:  &falseBool,

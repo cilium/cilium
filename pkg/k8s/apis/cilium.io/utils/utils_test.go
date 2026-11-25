@@ -706,12 +706,12 @@ func TestParseToCiliumLabels(t *testing.T) {
 		namespace string
 		name      string
 		uid       types.UID
-		ruleLbs   labels.LabelArray
+		ruleLbs   []api.Label
 	}
 	tests := []struct {
 		name string
 		args args
-		want labels.LabelArray
+		want []api.Label
 	}{
 		{
 			name: "parse labels",
@@ -719,7 +719,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 				name:      "foo",
 				namespace: "bar",
 				uid:       uuid,
-				ruleLbs: labels.LabelArray{
+				ruleLbs: []api.Label{
 					{
 						Key:    "hello",
 						Value:  "world",
@@ -727,7 +727,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 					},
 				},
 			},
-			want: labels.LabelArray{
+			want: []api.Label{
 				{
 					Key:    "hello",
 					Value:  "world",
@@ -761,7 +761,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 				name:      "test-policy",
 				namespace: "default",
 				uid:       uuid,
-				ruleLbs: labels.LabelArray{
+				ruleLbs: []api.Label{
 					{
 						Key:    "policy-comment",
 						Value:  "allow all traffic inside namespace",
@@ -779,7 +779,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 					},
 				},
 			},
-			want: labels.LabelArray{
+			want: []api.Label{
 				{
 					Key:    "explicit-source",
 					Value:  "test",
@@ -819,7 +819,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.uid, tt.args.ruleLbs)
+		got := parseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.uid, tt.args.ruleLbs)
 		require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }

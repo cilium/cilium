@@ -5,6 +5,7 @@ package utils
 
 import (
 	"log/slog"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -396,7 +397,7 @@ func ParseToCiliumRule(logger *slog.Logger, clusterName, namespace, name string,
 	retRule.Egress = parseToCiliumEgressRule(clusterName, namespace, r.EndpointSelector, r.Egress)
 	retRule.EgressDeny = parseToCiliumEgressDenyRule(clusterName, namespace, r.EndpointSelector, r.EgressDeny)
 
-	retRule.Labels = ParseToCiliumLabels(namespace, name, uid, r.Labels)
+	retRule.Labels = parseToCiliumLabels(namespace, name, uid, r.Labels)
 
 	retRule.Description = r.Description
 	retRule.EnableDefaultDeny = r.EnableDefaultDeny
@@ -405,27 +406,40 @@ func ParseToCiliumRule(logger *slog.Logger, clusterName, namespace, name string,
 	return retRule
 }
 
-// ParseToCiliumLabels returns all ruleLbls appended with a specific label that
+// parseToCiliumLabels returns all ruleLbls appended with a specific label that
 // represents the given namespace and name along with a label that specifies
 // these labels were derived from a CiliumNetworkPolicy.
-func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.LabelArray) labels.LabelArray {
+func parseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs []api.Label) []api.Label {
 	resourceType := ResourceTypeCiliumNetworkPolicy
 	if namespace == "" {
 		resourceType = ResourceTypeCiliumClusterwideNetworkPolicy
 	}
 
-	policyLbls := GetPolicyLabels(namespace, name, uid, resourceType)
+	policyLbls := GetPolicyLabels(namespace, name, uid, resourceType).Labels()
 
-	// Ensure user-defined labels have consistent source
-	userLbls := make(labels.LabelArray, len(ruleLbs))
-	for i, lbl := range ruleLbs {
-		if lbl.Source == "" {
-			// If source is empty, set it to unspec
-			userLbls[i] = labels.NewLabel(lbl.Key, lbl.Value, labels.LabelSourceUnspec)
-		} else {
-			userLbls[i] = lbl
-		}
+	out := make([]api.Label, 0, len(policyLbls)+len(ruleLbs))
+	for _, lbl := range policyLbls {
+		out = append(out, api.Label{
+			Key:    lbl.Key,
+			Value:  lbl.Value,
+			Source: lbl.Source,
+		})
 	}
-
-	return append(policyLbls, userLbls...).Sort()
+	for _, lbl := range ruleLbs {
+		// don't permit overwriting the policy labels
+		if _, exists := policyLbls[lbl.Key]; exists {
+			continue
+		}
+		if lbl.Key == "" {
+			continue
+		}
+		if lbl.Source == "" {
+			lbl.Source = labels.LabelSourceUnspec
+		}
+		out = append(out, lbl)
+	}
+	slices.SortFunc(out, func(l, r api.Label) int {
+		return strings.Compare(l.Key, r.Key)
+	})
+	return out
 }

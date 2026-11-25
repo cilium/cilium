@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -116,9 +115,6 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 					},
 				},
 			},
-		},
-		Labels: labels.LabelArray{
-			labels.NewLabel(k8sConst.PolicyLabelName, "egressDenyRule", labels.LabelSourceAny),
 		},
 	}
 
@@ -254,7 +250,6 @@ func computeSelectorPolicy(t *testing.T, f *policyTestFixture, name string) poli
 			},
 			ToPorts: []api.PortDenyRule{{Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}}}},
 		}},
-		Labels: labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceAny)},
 	}
 	_, rev := f.repo.MustAddList(api.Rules{rule})
 	done, err := f.polComputer.RecomputeIdentityPolicy(f.podID, rev)
