@@ -48,6 +48,12 @@ directly on the PR page. The ``/test`` trigger phrase may be used to trigger
 the full testsuite at once. Additional trigger phrases (such as ``/ci-e2e-upgrade``)
 can be used to run individual or optional jobs where supported.
 
+``/test all`` runs every ``/test`` and nightly workflow with the matrix that
+``main`` runs on schedule, except that the AKS, EKS and GKE workflows other than
+AWS-CNI keep their PR matrix. ``/test all-cloud-scheduled`` also gives those
+cloud workflows their scheduled matrix, apart from the quarantined netkit legs,
+which needs about 63 cloud clusters against 14 for ``/test``.
+
 More triggers can be found in `ariane-config.yaml <https://github.com/cilium/cilium/blob/main/.github/ariane-config.yaml>`_
 
 For a full list of GHA, see `GitHub Actions Page <https://github.com/cilium/cilium/actions>`_
