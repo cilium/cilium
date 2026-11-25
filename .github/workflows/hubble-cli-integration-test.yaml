@@ -237,7 +237,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"

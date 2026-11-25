@@ -213,7 +213,7 @@ jobs:
 
       - name: Wait for images to be available
         timeout-minutes: 30
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ steps.vars.outputs.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci
@@ -347,7 +347,7 @@ jobs:
           kubectl get pods -n kube-system
 
       - name: Gather metrics
-        uses: ./.github/actions/gather-metrics
+        uses: $/.github/actions/gather-metrics
         with:
           job: "${{ env.job_name }}-${{ matrix.ipFamily }}"
 
@@ -411,7 +411,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: $/.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.ipFamily }}"
           job_status: "${{ job.status }}"

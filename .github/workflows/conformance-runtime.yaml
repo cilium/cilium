@@ -98,7 +98,7 @@ jobs:
           persist-credentials: false
 
       - name: Wait for images
-        uses: ./.github/actions/wait-for-images
+        uses: $/.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci
@@ -378,7 +378,7 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
+        uses: $/.github/actions/merge-artifacts
         with:
           name: cilium-junits
           pattern: cilium-junits-*
