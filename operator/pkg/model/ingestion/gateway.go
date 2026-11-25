@@ -180,16 +180,16 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 	listeners := input.MergedListeners
 
-	// Find all the listener host names, so that we can match them with the routes
-	// Gateway API spec guarantees that the hostnames are unique across all listeners
-	listenerHostnamesByProtocol := make(map[gatewayv1.ProtocolType][]string)
+	// Hostname precedence applies to listeners serving the same protocol and port.
+	type listenerPort struct {
+		protocol gatewayv1.ProtocolType
+		port     gatewayv1.PortNumber
+	}
+	hostnamesByPort := make(map[listenerPort][]string)
 	for _, l := range listeners {
 		if l.Hostname != nil {
-			_, ok := listenerHostnamesByProtocol[l.Protocol]
-			if !ok {
-				listenerHostnamesByProtocol[l.Protocol] = []string{}
-			}
-			listenerHostnamesByProtocol[l.Protocol] = append(listenerHostnamesByProtocol[l.Protocol], toHostname(l.Hostname))
+			key := listenerPort{protocol: l.Protocol, port: l.Port}
+			hostnamesByPort[key] = append(hostnamesByPort[key], toHostname(l.Hostname))
 		}
 	}
 
@@ -201,6 +201,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 	}
 
 	for _, l := range listeners {
+		listenerHostnames := hostnamesByPort[listenerPort{protocol: l.Protocol, port: l.Port}]
 		switch l.Protocol {
 		case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType:
 			var frontendTLSValidation *model.FrontendTLSValidation
@@ -212,8 +213,8 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 			var httpRoutes []model.HTTPRoute
 
-			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap, infPoolsByKey)...)
-			httpRoutes = append(httpRoutes, toGRPCRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
+			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, listenerHostnames, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap, infPoolsByKey)...)
+			httpRoutes = append(httpRoutes, toGRPCRoutes(log, l.Listener, listenerHostnames, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
 			m.HTTP = append(m.HTTP, model.HTTPListener{
 				Name:                       string(l.Name),
 				Sources:                    []model.FullyQualifiedResource{l.Source},
@@ -234,7 +235,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
 				Hostname:       toHostname(l.Hostname),
-				Routes:         toTLSRoutes(l.Listener, listenerHostnamesByProtocol, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
+				Routes:         toTLSRoutes(l.Listener, listenerHostnames, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
@@ -315,7 +316,7 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 
 func toHTTPRoutes(log *slog.Logger,
 	listener gatewayv1.Listener,
-	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
+	listenerHostnames []string,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
@@ -333,9 +334,7 @@ func toHTTPRoutes(log *slog.Logger,
 			continue
 		}
 
-		allProtocolHostnames := listenerHostnamesByProtocol[listener.Protocol]
-
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), allProtocolHostnames)
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), listenerHostnames)
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
@@ -727,7 +726,7 @@ func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
 
 func toGRPCRoutes(log *slog.Logger,
 	listener gatewayv1beta1.Listener,
-	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
+	listenerHostnames []string,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
@@ -743,9 +742,7 @@ func toGRPCRoutes(log *slog.Logger,
 			continue
 		}
 
-		allProtocolHostnames := listenerHostnamesByProtocol[listener.Protocol]
-
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), allProtocolHostnames)
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), listenerHostnames)
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue
@@ -844,15 +841,14 @@ func extractGRPCRoutes(log *slog.Logger, hostnames []string, grpcr gatewayv1.GRP
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.TLSPassthroughRoute {
+func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnames []string, input []gatewayv1.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.TLSPassthroughRoute {
 	var tlsRoutes []model.TLSPassthroughRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
 			continue
 		}
 
-		allProtocolHostnames := listenerHostnamesByProtocol[listener.Protocol]
-		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), allProtocolHostnames)
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname), listenerHostnames)
 		// No matching host, skip this route
 		if len(computedHost) == 0 {
 			continue

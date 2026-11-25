@@ -11,7 +11,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
+
+func eligibleGatewayListeners(listeners []gatewayv1.Listener, input Input, parentRef gatewayv1.ParentReference) []gatewayv1.Listener {
+	routeProtocols := input.GetValidProtocols()
+	routeKind := gatewayv1.Kind(input.GetGVK().Kind)
+	var eligible []gatewayv1.Listener
+	for _, listener := range listeners {
+		if !slices.Contains(routeProtocols, listener.Protocol) {
+			continue
+		}
+		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
+			continue
+		}
+		if parentRef.Port != nil && listener.Port != *parentRef.Port {
+			continue
+		}
+
+		if helpers.ListenerAllowsRouteKind(listener, routeKind) {
+			eligible = append(eligible, listener)
+		}
+	}
+	return eligible
+}
 
 func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	owner, err := input.GetListenerOwner(parentRef)
@@ -26,18 +50,10 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 		return false, nil
 	}
 
-	listeners := owner.GetListeners()
-	allListenerHostNames := GetAllListenerHostNames(listeners)
 	hasNamespaceRestriction := false
-	for _, listener := range listeners {
-		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
-			continue
-		}
-		if parentRef.Port != nil && listener.Port != *parentRef.Port {
-			continue
-		}
-
-		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), allListenerHostNames)) == 0 {
+	for _, listener := range eligibleGatewayListeners(owner.GetListeners(), input, parentRef) {
+		// Route attachment checks hostname intersection with each eligible listener.
+		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), nil)) == 0 {
 			continue
 		}
 
@@ -101,17 +117,11 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 			continue
 		}
 
-		if listener.AllowedRoutes == nil || len(listener.AllowedRoutes.Kinds) == 0 {
+		if helpers.ListenerAllowsRouteKind(listener, gatewayv1.Kind(routeGVK.Kind)) {
 			return true, nil
 		}
 
 		matchedListeners++
-		for _, kind := range listener.AllowedRoutes.Kinds {
-			if (kind.Group == nil || (kind.Group != nil && *kind.Group == gatewayv1.Group(routeGVK.Group))) &&
-				kind.Kind == gatewayv1.Kind(routeGVK.Kind) {
-				return true, nil
-			}
-		}
 	}
 
 	if matchedListeners > 0 {
@@ -140,19 +150,19 @@ func CheckGatewayMatchingHostnames(input Input, parentRef gatewayv1.ParentRefere
 		return false, nil
 	}
 
-	if len(computeHosts(owner.GetListeners(), input.GetHostnames(), nil)) == 0 {
-
-		input.SetParentCondition(parentRef, metav1.Condition{
-			Type:    string(gatewayv1.RouteConditionAccepted),
-			Status:  metav1.ConditionFalse,
-			Reason:  string(gatewayv1.RouteReasonNoMatchingListenerHostname),
-			Message: "No matching listener hostname",
-		})
-
-		return false, nil
+	listeners := eligibleGatewayListeners(owner.GetListeners(), input, parentRef)
+	// The parent reference checks report missing listeners.
+	if len(listeners) == 0 || len(computeHosts(listeners, input.GetHostnames(), nil)) > 0 {
+		return true, nil
 	}
 
-	return true, nil
+	input.SetParentCondition(parentRef, metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(gatewayv1.RouteReasonNoMatchingListenerHostname),
+		Message: "No matching listener hostname",
+	})
+	return false, nil
 }
 
 func CheckGatewayMatchingPorts(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
@@ -247,10 +257,25 @@ func CheckGatewayMatchingProtocol(input Input, parentRef gatewayv1.ParentReferen
 	}
 
 	routeProtocols := input.GetValidProtocols()
+	hasSelectedListener := false
+	hasMatchingProtocol := false
 	for _, listener := range owner.GetListeners() {
-		if slices.Contains(routeProtocols, listener.Protocol) {
+		matchesProtocol := slices.Contains(routeProtocols, listener.Protocol)
+		hasMatchingProtocol = hasMatchingProtocol || matchesProtocol
+		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
+			continue
+		}
+		if parentRef.Port != nil && listener.Port != *parentRef.Port {
+			continue
+		}
+		hasSelectedListener = true
+		if matchesProtocol {
 			return true, nil
 		}
+	}
+	// Let the port or section check report an unmatched parent reference.
+	if !hasSelectedListener && hasMatchingProtocol {
+		return true, nil
 	}
 
 	input.SetParentCondition(parentRef, metav1.Condition{

@@ -189,15 +189,17 @@ func TestRouteValidationPreservesForeignParentStatuses(t *testing.T) {
 			status := gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{*foreign.DeepCopy()}}
 			var route client.Object
 			if tt.httpRule != nil {
-				r := &gatewayv1.HTTPRoute{ObjectMeta: metadata,
-					Spec:   gatewayv1.HTTPRouteSpec{CommonRouteSpec: spec, Rules: []gatewayv1.HTTPRouteRule{*tt.httpRule}},
-					Status: gatewayv1.HTTPRouteStatus{RouteStatus: status},
+				r := &gatewayv1.HTTPRoute{
+					ObjectMeta: metadata,
+					Spec:       gatewayv1.HTTPRouteSpec{CommonRouteSpec: spec, Rules: []gatewayv1.HTTPRouteRule{*tt.httpRule}},
+					Status:     gatewayv1.HTTPRouteStatus{RouteStatus: status},
 				}
 				route = r
 			} else {
-				r := &gatewayv1.GRPCRoute{ObjectMeta: metadata,
-					Spec:   gatewayv1.GRPCRouteSpec{CommonRouteSpec: spec, Rules: []gatewayv1.GRPCRouteRule{*tt.grpcRule}},
-					Status: gatewayv1.GRPCRouteStatus{RouteStatus: status},
+				r := &gatewayv1.GRPCRoute{
+					ObjectMeta: metadata,
+					Spec:       gatewayv1.GRPCRouteSpec{CommonRouteSpec: spec, Rules: []gatewayv1.GRPCRouteRule{*tt.grpcRule}},
+					Status:     gatewayv1.GRPCRouteStatus{RouteStatus: status},
 				}
 				route = r
 			}
@@ -206,11 +208,17 @@ func TestRouteValidationPreservesForeignParentStatuses(t *testing.T) {
 				"cilium-gw": defaultControllerName, "other-gw": foreignController,
 			} {
 				objects = append(objects,
-					&gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: name},
-						Spec: gatewayv1.GatewayClassSpec{ControllerName: controller}},
-					&gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metadata.Namespace},
-						Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName(name),
-							Listeners: []gatewayv1.Listener{{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType}}}},
+					&gatewayv1.GatewayClass{
+						ObjectMeta: metav1.ObjectMeta{Name: name},
+						Spec:       gatewayv1.GatewayClassSpec{ControllerName: controller},
+					},
+					&gatewayv1.Gateway{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metadata.Namespace},
+						Spec: gatewayv1.GatewaySpec{
+							GatewayClassName: gatewayv1.ObjectName(name),
+							Listeners:        []gatewayv1.Listener{{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType}},
+						},
+					},
 				)
 			}
 			c := fake.NewClientBuilder().
@@ -254,6 +262,134 @@ func TestRouteValidationPreservesForeignParentStatuses(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHTTPRouteStatusRejectsNamespaceOnIneligibleListeners(t *testing.T) {
+	const hostname = "app.example.test"
+	gwClass := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
+		Spec:       gatewayv1.GatewayClassSpec{ControllerName: defaultControllerName},
+	}
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway", Namespace: "infra"},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gatewayv1.HTTPProtocolType,
+					Port:     8443,
+					Hostname: new(gatewayv1.Hostname("*.example.test")),
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{From: new(gatewayv1.NamespacesFromSame)},
+					},
+				},
+				{
+					Name:     "https",
+					Protocol: gatewayv1.HTTPSProtocolType,
+					Port:     8443,
+					Hostname: new(gatewayv1.Hostname(hostname)),
+					TLS: &gatewayv1.ListenerTLSConfig{
+						Mode:            new(gatewayv1.TLSModeTerminate),
+						CertificateRefs: []gatewayv1.SecretObjectReference{{Name: "gateway-tls"}},
+					},
+				},
+			},
+		},
+	}
+	checkRejection := func(t *testing.T, gateway *gatewayv1.Gateway, section *gatewayv1.SectionName, reason gatewayv1.RouteConditionReason) {
+		t.Helper()
+		parentRef := gatewayv1.ParentReference{
+			Name:        gatewayv1.ObjectName(gateway.Name),
+			Namespace:   new(gatewayv1.Namespace(gateway.Namespace)),
+			SectionName: section,
+		}
+		route := &gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "apps", Generation: 2},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{ParentRefs: []gatewayv1.ParentReference{parentRef}},
+				Hostnames:       []gatewayv1.Hostname{hostname},
+			},
+		}
+
+		ctx := t.Context()
+		c := fake.NewClientBuilder().
+			WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
+			WithStatusSubresource(route).
+			WithObjects(gwClass, gateway, route).
+			Build()
+		key := client.ObjectKeyFromObject(route)
+		require.NoError(t, c.Get(ctx, key, route))
+
+		m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, helpers.ResourceConfig{}, nil)
+		require.NoError(t, m.SetRouteStatuses(ctx, slog.Default(), RouteStatusInputs{HTTPRoutes: []gatewayv1.HTTPRoute{*route}}))
+		require.NoError(t, c.Get(ctx, key, route))
+
+		require.Len(t, route.Status.Parents, 1)
+		parent := route.Status.Parents[0]
+		require.Equal(t, parentRef, parent.ParentRef)
+		require.Equal(t, gatewayv1.GatewayController(defaultControllerName), parent.ControllerName)
+		accepted := meta.FindStatusCondition(parent.Conditions, string(gatewayv1.RouteConditionAccepted))
+		require.NotNil(t, accepted)
+		require.Equal(t, route.Generation, accepted.ObservedGeneration)
+		require.Equal(t, metav1.ConditionFalse, accepted.Status, "reason: %s", accepted.Reason)
+		require.Equal(t, string(reason), accepted.Reason)
+	}
+
+	t.Run("HTTP listener is not shadowed by HTTPS hostname", func(t *testing.T) {
+		checkRejection(t, gw, new(gatewayv1.SectionName("http")), gatewayv1.RouteReasonNotAllowedByListeners)
+	})
+
+	tlsGateway := gw.DeepCopy()
+	tlsGateway.Spec.Listeners[0].Hostname = new(gatewayv1.Hostname(hostname))
+	tlsGateway.Spec.Listeners[1] = gatewayv1.Listener{
+		Name:     "tls",
+		Port:     8443,
+		Protocol: gatewayv1.TLSProtocolType,
+		Hostname: new(gatewayv1.Hostname("*.example.test")),
+		TLS:      &gatewayv1.ListenerTLSConfig{Mode: new(gatewayv1.TLSModePassthrough)},
+		AllowedRoutes: &gatewayv1.AllowedRoutes{
+			Namespaces: &gatewayv1.RouteNamespaces{From: new(gatewayv1.NamespacesFromAll)},
+		},
+	}
+	t.Run("TLS listener cannot allow a route targeting the Gateway", func(t *testing.T) {
+		checkRejection(t, tlsGateway, nil, gatewayv1.RouteReasonNotAllowedByListeners)
+	})
+	t.Run("TLS listener cannot allow an HTTPRoute targeting its section", func(t *testing.T) {
+		checkRejection(t, tlsGateway, new(gatewayv1.SectionName("tls")), gatewayv1.RouteReasonNotAllowedByListeners)
+	})
+
+	grpcGateway := gw.DeepCopy()
+	exactListener := &grpcGateway.Spec.Listeners[1]
+	exactListener.Name = "grpc"
+	exactListener.Protocol = gatewayv1.HTTPProtocolType
+	exactListener.TLS = nil
+	exactListener.AllowedRoutes = grpcGateway.Spec.Listeners[0].AllowedRoutes.DeepCopy()
+	exactListener.AllowedRoutes.Kinds = []gatewayv1.RouteGroupKind{{Kind: "GRPCRoute"}}
+	t.Run("GRPCRoute-only listener shares a port with an HTTPRoute listener", func(t *testing.T) {
+		checkRejection(t, grpcGateway, nil, gatewayv1.RouteReasonNotAllowedByListeners)
+	})
+	t.Run("only the GRPCRoute listener matches the hostname", func(t *testing.T) {
+		gateway := grpcGateway.DeepCopy()
+		gateway.Spec.Listeners[0].Hostname = new(gatewayv1.Hostname("different.example.test"))
+		checkRejection(t, gateway, nil, gatewayv1.RouteReasonNoMatchingListenerHostname)
+	})
+
+	t.Run("GRPCRoute-only listener cannot allow an HTTPRoute on another port", func(t *testing.T) {
+		gateway := gw.DeepCopy()
+		gateway.Spec.Listeners[0].Hostname = new(gatewayv1.Hostname(hostname))
+		gateway.Spec.Listeners[1] = gatewayv1.Listener{
+			Name:     "grpc",
+			Port:     8080,
+			Protocol: gatewayv1.HTTPProtocolType,
+			Hostname: new(gatewayv1.Hostname("*.example.test")),
+			AllowedRoutes: &gatewayv1.AllowedRoutes{
+				Kinds:      []gatewayv1.RouteGroupKind{{Kind: "GRPCRoute"}},
+				Namespaces: &gatewayv1.RouteNamespaces{From: new(gatewayv1.NamespacesFromAll)},
+			},
+		}
+		checkRejection(t, gateway, nil, gatewayv1.RouteReasonNotAllowedByListeners)
+	})
 }
 
 func Test_setTCPRouteStatusesPrunesDetachedParents(t *testing.T) {

@@ -120,6 +120,55 @@ func TestHTTPGatewayAPI(t *testing.T) {
 	}
 }
 
+func TestHTTPGatewayAPIListenerHostnameIsolationByPort(t *testing.T) {
+	const hostname = "app.example.com"
+	input := Input{
+		Gateway: gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{Name: "gateway", Namespace: "default"},
+			Spec: gatewayv1.GatewaySpec{
+				Listeners: []gatewayv1.Listener{
+					{Name: "public", Port: 80, Protocol: gatewayv1.HTTPProtocolType, Hostname: ptr.To[gatewayv1.Hostname]("*.example.com")},
+					{Name: "alternate", Port: 8080, Protocol: gatewayv1.HTTPProtocolType, Hostname: ptr.To[gatewayv1.Hostname](hostname)},
+				},
+			},
+		},
+	}
+	backends := []string{"backend-a", "backend-b"}
+	for i, listener := range input.Gateway.Spec.Listeners {
+		input.Services = append(input.Services, corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: backends[i], Namespace: "default"},
+			Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}},
+		})
+		input.HTTPRoutes = append(input.HTTPRoutes, gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: string(listener.Name), Namespace: "default"},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{{Name: "gateway", SectionName: ptr.To(listener.Name)}},
+				},
+				Hostnames: []gatewayv1.Hostname{hostname},
+				Rules: []gatewayv1.HTTPRouteRule{{
+					BackendRefs: []gatewayv1.HTTPBackendRef{{
+						BackendRef: gatewayv1.BackendRef{BackendObjectReference: gatewayv1.BackendObjectReference{
+							Name: gatewayv1.ObjectName(backends[i]),
+							Port: ptr.To[gatewayv1.PortNumber](80),
+						}},
+					}},
+				}},
+			},
+		})
+	}
+	setTestMergedListeners(&input, nil)
+	listeners := GatewayAPI(hivetest.Logger(t), input).HTTP
+	require.Len(t, listeners, 2)
+	for i, listener := range listeners {
+		require.Len(t, listener.Routes, 1, "listener on port %d", listener.Port)
+		route := listener.Routes[0]
+		assert.Equal(t, []string{hostname}, route.Hostnames)
+		require.Len(t, route.Backends, 1)
+		assert.Equal(t, backends[i], route.Backends[0].Name)
+	}
+}
+
 func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	pathType := gatewayv1.PathMatchExact
