@@ -72,56 +72,11 @@ spec:
             description: EndpointStatus is the status of a Cilium endpoint.
             properties:
               controllers:
-                description: Controllers is the list of failing controllers for this
-                  endpoint.
+                description: 'Removed: this field is no longer set'
                 items:
-                  description: ControllerStatus is the status of a failing controller.
-                  properties:
-                    configuration:
-                      description: Configuration is the controller configuration
-                      properties:
-                        error-retry:
-                          description: Retry on error
-                          type: boolean
-                        error-retry-base:
-                          description: |-
-                            Base error retry back-off time
-                            Format: duration
-                          format: int64
-                          type: integer
-                        interval:
-                          description: |-
-                            Regular synchronization interval
-                            Format: duration
-                          format: int64
-                          type: integer
-                      type: object
-                    name:
-                      description: Name is the name of the controller
-                      type: string
-                    status:
-                      description: Status is the status of the controller
-                      properties:
-                        consecutive-failure-count:
-                          format: int64
-                          type: integer
-                        failure-count:
-                          format: int64
-                          type: integer
-                        last-failure-msg:
-                          type: string
-                        last-failure-timestamp:
-                          type: string
-                        last-success-timestamp:
-                          type: string
-                        success-count:
-                          format: int64
-                          type: integer
-                      type: object
-                    uuid:
-                      description: UUID is the UUID of the controller
-                      type: string
+                  description: Unused
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 type: array
               encryption:
                 description: Encryption is the encryption configuration of the node
@@ -168,21 +123,9 @@ spec:
                     type: string
                 type: object
               health:
-                description: Health is the overall endpoint & subcomponent health.
-                properties:
-                  bpf:
-                    description: bpf
-                    type: string
-                  connected:
-                    description: Is this endpoint reachable
-                    type: boolean
-                  overallHealth:
-                    description: overall health
-                    type: string
-                  policy:
-                    description: policy
-                    type: string
+                description: 'Removed: this field is no longer set'
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               id:
                 description: ID is the cilium-agent-local ID of the endpoint.
                 format: int64
@@ -203,29 +146,11 @@ spec:
                     type: array
                 type: object
               log:
-                description: Log is the list of the last few warning and error log
-                  entries
+                description: 'Removed: this field is no longer set'
                 items:
-                  description: |-
-                    EndpointStatusChange Indication of a change of status
-
-                    swagger:model EndpointStatusChange
-                  properties:
-                    code:
-                      description: |-
-                        Code indicate type of status change
-                        Enum: ["ok","failed"]
-                      type: string
-                    message:
-                      description: Status message
-                      type: string
-                    state:
-                      description: state
-                      type: string
-                    timestamp:
-                      description: Timestamp when status change occurred
-                      type: string
+                  description: Unused
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 type: array
               named-ports:
                 description: |-
@@ -275,197 +200,9 @@ spec:
                 - addressing
                 type: object
               policy:
-                description: |-
-                  EndpointPolicy represents the endpoint's policy by listing all allowed
-                  ingress and egress identities in combination with L4 port and protocol.
-                properties:
-                  egress:
-                    description: EndpointPolicyDirection is the list of allowed identities
-                      per direction.
-                    properties:
-                      adding:
-                        description: Deprecated
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      allowed:
-                        description: |-
-                          AllowedIdentityList is a list of IdentityTuples that species peers that are
-                          allowed.
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      denied:
-                        description: |-
-                          DenyIdentityList is a list of IdentityTuples that species peers that are
-                          denied.
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      enforcing:
-                        type: boolean
-                      removing:
-                        description: Deprecated
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      state:
-                        description: 'EndpointPolicyState defines the state of the
-                          Policy mode: "enforcing", "non-enforcing", "disabled"'
-                        type: string
-                    required:
-                    - enforcing
-                    type: object
-                  ingress:
-                    description: EndpointPolicyDirection is the list of allowed identities
-                      per direction.
-                    properties:
-                      adding:
-                        description: Deprecated
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      allowed:
-                        description: |-
-                          AllowedIdentityList is a list of IdentityTuples that species peers that are
-                          allowed.
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      denied:
-                        description: |-
-                          DenyIdentityList is a list of IdentityTuples that species peers that are
-                          denied.
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      enforcing:
-                        type: boolean
-                      removing:
-                        description: Deprecated
-                        items:
-                          description: IdentityTuple specifies a peer by identity,
-                            destination port and protocol.
-                          properties:
-                            dest-port:
-                              type: integer
-                            identity:
-                              format: int64
-                              type: integer
-                            identity-labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            protocol:
-                              type: integer
-                          type: object
-                        type: array
-                      state:
-                        description: 'EndpointPolicyState defines the state of the
-                          Policy mode: "enforcing", "non-enforcing", "disabled"'
-                        type: string
-                    required:
-                    - enforcing
-                    type: object
+                description: 'Removed: this field is no longer set'
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               service-account:
                 description: ServiceAccount is the service account associated with
                   the endpoint

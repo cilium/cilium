@@ -67,10 +67,10 @@ type EndpointStatus struct {
 	// +kubebuilder:validation:Optional
 	ID int64 `json:"id,omitempty"`
 
-	// Controllers is the list of failing controllers for this endpoint.
+	// Removed: this field is no longer set
 	//
 	// +kubebuilder:validation:Optional
-	Controllers ControllerList `json:"controllers,omitempty"`
+	Controllers UnusedPlaceholders `json:"controllers,omitempty"`
 
 	// ExternalIdentifiers is a set of identifiers to identify the endpoint
 	// apart from the pod name. This includes container runtime IDs.
@@ -78,20 +78,20 @@ type EndpointStatus struct {
 	// +kubebuilder:validation:Optional
 	ExternalIdentifiers *models.EndpointIdentifiers `json:"external-identifiers,omitempty"`
 
-	// Health is the overall endpoint & subcomponent health.
+	// Removed: this field is no longer set
 	//
 	// +kubebuilder:validation:Optional
-	Health *models.EndpointHealth `json:"health,omitempty"`
+	Health *UnusedPlaceholder `json:"health,omitempty"`
 
 	// Identity is the security identity associated with the endpoint
 	//
 	// +kubebuilder:validation:Optional
 	Identity *EndpointIdentity `json:"identity,omitempty"`
 
-	// Log is the list of the last few warning and error log entries
+	// Removed: this field is no longer set
 	//
 	// +kubebuilder:validation:Optional
-	Log []models.EndpointStatusChange `json:"log,omitempty"`
+	Log UnusedPlaceholders `json:"log,omitempty"`
 
 	// Networking is the networking properties of the endpoint.
 	//
@@ -103,8 +103,10 @@ type EndpointStatus struct {
 	// +kubebuilder:validation:Optional
 	Encryption EncryptionSpec `json:"encryption,omitzero"`
 
+	// Removed: this field is no longer set
+	//
 	// +kubebuilder:validation:Optional
-	Policy *EndpointPolicy `json:"policy,omitempty"`
+	Policy *UnusedPlaceholder `json:"policy,omitempty,omitzero"`
 
 	// State is the state of the endpoint.
 	//
@@ -124,139 +126,6 @@ type EndpointStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	Workload *EndpointWorkload `json:"workload,omitempty"`
-}
-
-// +k8s:deepcopy-gen=false
-
-// ControllerList is a list of ControllerStatus.
-type ControllerList []ControllerStatus
-
-// Sort sorts the ControllerList by controller name
-func (c ControllerList) Sort() {
-	sort.Slice(c, func(i, j int) bool { return c[i].Name < c[j].Name })
-}
-
-// ControllerStatus is the status of a failing controller.
-type ControllerStatus struct {
-	// Name is the name of the controller
-	//
-	// +kubebuilder:validation:Optional
-	Name string `json:"name,omitempty"`
-
-	// Configuration is the controller configuration
-	//
-	// +kubebuilder:validation:Optional
-	Configuration *models.ControllerStatusConfiguration `json:"configuration,omitempty"`
-
-	// Status is the status of the controller
-	//
-	// +kubebuilder:validation:Optional
-	Status ControllerStatusStatus `json:"status,omitzero"`
-
-	// UUID is the UUID of the controller
-	//
-	// +kubebuilder:validation:Optional
-	UUID string `json:"uuid,omitempty"`
-}
-
-// +k8s:deepcopy-gen=false
-
-// ControllerStatusStatus is the detailed status section of a controller.
-type ControllerStatusStatus struct {
-	// +kubebuilder:validation:Optional
-	ConsecutiveFailureCount int64 `json:"consecutive-failure-count,omitempty"`
-	// +kubebuilder:validation:Optional
-	FailureCount int64 `json:"failure-count,omitempty"`
-	// +kubebuilder:validation:Optional
-	LastFailureMsg string `json:"last-failure-msg,omitempty"`
-	// +kubebuilder:validation:Optional
-	LastFailureTimestamp string `json:"last-failure-timestamp,omitempty"`
-	// +kubebuilder:validation:Optional
-	LastSuccessTimestamp string `json:"last-success-timestamp,omitempty"`
-	// +kubebuilder:validation:Optional
-	SuccessCount int64 `json:"success-count,omitempty"`
-}
-
-// EndpointPolicy represents the endpoint's policy by listing all allowed
-// ingress and egress identities in combination with L4 port and protocol.
-type EndpointPolicy struct {
-	// +kubebuilder:validation:Optional
-	Ingress *EndpointPolicyDirection `json:"ingress,omitempty"`
-	// +kubebuilder:validation:Optional
-	Egress *EndpointPolicyDirection `json:"egress,omitempty"`
-}
-
-// EndpointPolicyDirection is the list of allowed identities per direction.
-type EndpointPolicyDirection struct {
-	// +kubebuilder:validation:Required
-	Enforcing bool `json:"enforcing"`
-	// +kubebuilder:validation:Optional
-	Allowed AllowedIdentityList `json:"allowed,omitempty"`
-	// +kubebuilder:validation:Optional
-	Denied DenyIdentityList `json:"denied,omitempty"`
-	// Deprecated
-	// +kubebuilder:validation:Optional
-	Removing AllowedIdentityList `json:"removing,omitempty"`
-	// Deprecated
-	// +kubebuilder:validation:Optional
-	Adding AllowedIdentityList `json:"adding,omitempty"`
-	// +kubebuilder:validation:Optional
-	State EndpointPolicyState `json:"state,omitempty"`
-}
-
-// IdentityTuple specifies a peer by identity, destination port and protocol.
-type IdentityTuple struct {
-	// +kubebuilder:validation:Optional
-	Identity uint64 `json:"identity,omitempty"`
-	// +kubebuilder:validation:Optionals
-	IdentityLabels map[string]string `json:"identity-labels,omitempty"`
-	// +kubebuilder:validation:Optional
-	DestPort uint16 `json:"dest-port,omitempty"`
-	// +kubebuilder:validation:Optional
-	Protocol uint8 `json:"protocol,omitempty"`
-}
-
-// +k8s:deepcopy-gen=false
-
-// IdentityList is a list of IdentityTuple.
-type IdentityList []IdentityTuple
-
-// Sort sorts a list IdentityList by numeric identity, port and protocol.
-func (a IdentityList) Sort() {
-	sort.Slice(a, func(i, j int) bool {
-		if a[i].Identity < a[j].Identity {
-			return true
-		} else if a[i].Identity == a[j].Identity {
-			if a[i].DestPort < a[j].DestPort {
-				return true
-			} else if a[i].DestPort == a[j].DestPort {
-				return a[i].Protocol < a[j].Protocol
-			}
-		}
-		return false
-	})
-}
-
-// +k8s:deepcopy-gen=false
-
-// AllowedIdentityList is a list of IdentityTuples that species peers that are
-// allowed.
-type AllowedIdentityList IdentityList
-
-// Sort sorts a list IdentityList by numeric identity, port and protocol.
-func (a AllowedIdentityList) Sort() {
-	IdentityList(a).Sort()
-}
-
-// +k8s:deepcopy-gen=false
-
-// DenyIdentityList is a list of IdentityTuples that species peers that are
-// denied.
-type DenyIdentityList IdentityList
-
-// Sort sorts a list IdentityList by numeric identity, port and protocol.
-func (d DenyIdentityList) Sort() {
-	IdentityList(d).Sort()
 }
 
 // EndpointIdentity is the identity information of an endpoint.
