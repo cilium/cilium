@@ -19,7 +19,6 @@ import (
 	fakegneigh "github.com/cilium/cilium/pkg/datapath/gneigh/fake"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
@@ -106,7 +105,6 @@ var Cell = cell.Module(
 	tunnel.Cell,
 	xdp.Cell,
 	cell.Provide(fakeDevices),
-	link.Cell,
 )
 
 func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {

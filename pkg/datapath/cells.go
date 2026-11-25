@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/adnr"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
@@ -156,9 +155,6 @@ var Cell = cell.Module(
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed
 	// connections (from ctmap's GC).
 	act.Cell,
-
-	// Provides a cache of link names to ifindex mappings
-	link.Cell,
 
 	// Neighbor cell provides the ability for other components to request an IP be
 	// "forwardable". The neighbor subsystem converts these IPs into neighbor entries
