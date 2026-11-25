@@ -5,13 +5,21 @@ package status
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	versionapi "k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -160,4 +168,101 @@ func TestGetStatusStaleKubernetesProbe(t *testing.T) {
 		s := sc.GetStatus(true, true)
 		return s.Cilium != nil && s.Cilium.State == models.StatusStateOk && len(s.Stale) == 0
 	}, 2*time.Second))
+}
+
+type discoveryOverrideClientset struct {
+	client.Clientset
+	discoveryClient discovery.DiscoveryInterfaces
+}
+
+func (c *discoveryOverrideClientset) Discovery() discovery.DiscoveryInterfaces {
+	return c.discoveryClient
+}
+
+func resetK8sVersionCache(t *testing.T) {
+	t.Helper()
+	clear := func() {
+		k8sVersionCache.lock.Lock()
+		k8sVersionCache.version = ""
+		k8sVersionCache.lastVersionCheck = time.Time{}
+		k8sVersionCache.lock.Unlock()
+	}
+	clear()
+	t.Cleanup(clear)
+}
+
+func TestGetK8sStatusContextCancellationAndRecovery(t *testing.T) {
+	resetK8sVersionCache(t)
+
+	logger := hivetest.Logger(t)
+	_, fakeCS := k8sClient.NewFakeClientset(logger)
+
+	var block atomic.Bool
+	block.Store(true)
+	serverSawCancel := make(chan struct{}, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/version" {
+			http.NotFound(w, r)
+			return
+		}
+		if block.Load() {
+			<-r.Context().Done()
+			select {
+			case serverSawCancel <- struct{}{}:
+			default:
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(versionapi.Info{
+			Major:      "1",
+			Minor:      "35",
+			GitVersion: "v1.35.0",
+			Platform:   "linux/amd64",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	realK8s, err := kubernetes.NewForConfig(&rest.Config{Host: srv.URL})
+	require.NoError(t, err)
+
+	sc := &statusCollector{
+		statusParams: statusParams{
+			Clientset: &discoveryOverrideClientset{
+				Clientset:       fakeCS,
+				discoveryClient: realK8s.Discovery(),
+			},
+		},
+	}
+
+	// Blocked /version request must be cancelled when the probe context expires.
+	probeCtx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+
+	st := sc.getK8sStatus(probeCtx)
+	require.Equal(t, models.StatusStateFailure, st.State)
+	require.Contains(t, st.Msg, context.DeadlineExceeded.Error())
+
+	select {
+	case <-serverSawCancel:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected blocked /version request to be cancelled on probe context timeout")
+	}
+
+	// Once the server unblocks, subsequent probes recover cleanly.
+	block.Store(false)
+	recovered := sc.getK8sStatus(t.Context())
+	require.Equal(t, models.StatusStateOk, recovered.State)
+	require.Equal(t, "1.35 (v1.35.0) [linux/amd64]", recovered.Msg)
+
+	// Fake clientset Discovery().ServerVersionWithContext also works cleanly.
+	resetK8sVersionCache(t)
+	fakeSC := &statusCollector{
+		statusParams: statusParams{
+			Clientset: fakeCS,
+		},
+	}
+	fakeSt := fakeSC.getK8sStatus(t.Context())
+	require.Equal(t, models.StatusStateOk, fakeSt.State)
 }

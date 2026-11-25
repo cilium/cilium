@@ -104,14 +104,14 @@ func (k *k8sVersion) update(version *versionapi.Info) string {
 
 var k8sVersionCache k8sVersion
 
-func (d *statusCollector) getK8sStatus() *models.K8sStatus {
+func (d *statusCollector) getK8sStatus(ctx context.Context) *models.K8sStatus {
 	if !d.statusParams.Clientset.IsEnabled() {
 		return &models.K8sStatus{State: models.StatusStateDisabled}
 	}
 
 	version, valid := k8sVersionCache.cachedVersion()
 	if !valid {
-		k8sVersion, err := d.statusParams.Clientset.Discovery().ServerVersion()
+		k8sVersion, err := d.statusParams.Clientset.Discovery().ServerVersionWithContext(ctx)
 		if err != nil {
 			return &models.K8sStatus{State: models.StatusStateFailure, Msg: err.Error()}
 		}
@@ -120,9 +120,11 @@ func (d *statusCollector) getK8sStatus() *models.K8sStatus {
 	}
 
 	k8sStatus := &models.K8sStatus{
-		State:          models.StatusStateOk,
-		Msg:            version,
-		K8sAPIVersions: d.statusParams.K8sWatcher.GetAPIGroups(),
+		State: models.StatusStateOk,
+		Msg:   version,
+	}
+	if d.statusParams.K8sWatcher != nil {
+		k8sStatus.K8sAPIVersions = d.statusParams.K8sWatcher.GetAPIGroups()
 	}
 
 	return k8sStatus
@@ -714,7 +716,7 @@ func (d *statusCollector) getProbes() []Probe {
 				return d.statusParams.ClusterSizeDependantInterval(10 * time.Second)
 			},
 			Probe: func(ctx context.Context) (any, error) {
-				return d.getK8sStatus(), nil
+				return d.getK8sStatus(ctx), nil
 			},
 			OnStatusUpdate: func(status Status) {
 				d.statusCollectMutex.Lock()
