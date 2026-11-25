@@ -146,22 +146,6 @@ func TestPrivilegedDelete(t *testing.T) {
 	require.Emptyf(t, dump, "Returned cache entries from cache dump after the cache was fully cleared: %v", dump)
 }
 
-func Test_forceExpiredByNames(t *testing.T) {
-	names := []string{"test1.com", "test2.com"}
-	cache := NewDNSCache(0)
-	for i := 1; i < 4; i++ {
-		cache.Update(
-			now,
-			fmt.Sprintf("test%d.com", i),
-			[]netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))},
-			5)
-	}
-
-	require.Len(t, cache.forward, 3)
-	cache.forceExpireByNames(time.Now(), names)
-	require.NotNil(t, cache.forward["test3.com"])
-}
-
 func TestReverseUpdateLookup(t *testing.T) {
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),

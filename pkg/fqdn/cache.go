@@ -148,10 +148,6 @@ type DNSCache struct {
 	// sent in the Update is lower, the TTL will be overwritten to this value.
 	// Due is only read-only is not protected by the mutex.
 	minTTL int
-
-	// updated is a set tracking the other DNSCaches that have contributed to the given DNSCache
-	// since last GC round. This is used during GC to ensure no per-endpoint changes are lost.
-	updated sets.Set[*DNSCache]
 }
 
 // NewDNSCache returns an initialized DNSCache
@@ -164,7 +160,6 @@ func NewDNSCache(minTTL int) *DNSCache {
 		overLimit:    map[string]bool{},
 		perHostLimit: 0,
 		minTTL:       minTTL,
-		updated:      sets.New[*DNSCache](),
 	}
 	return c
 }
@@ -177,12 +172,6 @@ func NewDNSCacheWithLimit(minTTL int, limit int) *DNSCache {
 	return c
 }
 
-func (c *DNSCache) DisableCleanupTrack() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.cleanup = nil
-}
-
 // Update inserts a new entry into the cache.
 // After insertion cache entries for name are expired and redundant entries
 // evicted. This is O(number of new IPs) for eviction, and O(number of IPs for
@@ -192,7 +181,7 @@ func (c *DNSCache) DisableCleanupTrack() {
 // name is used as is and may be an unqualified name (e.g. myservice.namespace).
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
-func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int, updates ...*DNSCache) UpdateStatus {
+func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int) UpdateStatus {
 	if c.minTTL > ttl {
 		ttl = c.minTTL
 	}
@@ -207,9 +196,6 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, t
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, cache := range updates {
-		c.updated.Insert(cache)
-	}
 	return c.updateWithEntry(entry)
 }
 
@@ -238,9 +224,6 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) UpdateStatus {
 // delete the entry from the policy when it expires.
 // Need to be called with a write lock
 func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
-	if c.cleanup == nil {
-		return
-	}
 	if c.lastCleanup.IsZero() || entry.ExpirationTime.Before(c.lastCleanup) {
 		c.lastCleanup = entry.ExpirationTime
 	}
@@ -370,113 +353,6 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 	}
 
 	return expiredNames.Union(overLimitNames)
-}
-
-// UpdateFromCache is a utility function that allows updating a DNSCache
-// instance with all the internal entries of another. Latest-Expiration still
-// applies, thus the merged outcome is consistent with adding the entries
-// individually.
-func (c *DNSCache) UpdateFromCache(update *DNSCache) {
-	if update == nil {
-		return
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	update.mu.RLock()
-	defer update.mu.RUnlock()
-
-	for _, newEntries := range update.forward {
-		for _, newEntry := range newEntries {
-			c.updateWithEntry(newEntry)
-		}
-	}
-}
-
-// sortedIPNames is a snapshot of IP-to-name mappings whose name slices are sorted.
-// Keep the sorting here so callers can only search through a sorted snapshot.
-type sortedIPNames struct {
-	byIP map[netip.Addr][]string
-}
-
-func newSortedIPNames(byIP map[netip.Addr][]string) sortedIPNames {
-	for _, names := range byIP {
-		slices.Sort(names)
-	}
-	return sortedIPNames{byIP: byIP}
-}
-
-func (s sortedIPNames) contains(ip netip.Addr, name string) bool {
-	_, found := slices.BinarySearch(s.byIP[ip], name)
-	return found
-}
-
-// partialRestoreFromCache is a utility function that upserts the entries of one DNSCache into another.
-// It takes a set of existing entries to ensure that it will only upsert IPs and IP->name mappings that is
-// part of that mapping.
-func (c *DNSCache) partialRestoreFromCache(update *DNSCache, namesToUpdate []string, oldEntries sortedIPNames) {
-	update.mu.RLock()
-	defer update.mu.RUnlock()
-
-	for _, name := range namesToUpdate {
-		newEntries, exists := update.forward[name]
-		if !exists {
-			continue
-		}
-		for _, newEntry := range newEntries {
-			newIps := make([]netip.Addr, 0, len(newEntry.IPs))
-			for _, ip := range newEntry.IPs {
-				if oldEntries.contains(ip, newEntry.Name) {
-					newIps = append(newIps, ip)
-				}
-			}
-			if len(newIps) > 0 {
-				c.updateWithEntry(&cacheEntry{
-					Name:           newEntry.Name,
-					ExpirationTime: newEntry.ExpirationTime,
-					LookupTime:     newEntry.LookupTime,
-					IPs:            newIps,
-					TTL:            newEntry.TTL,
-				})
-			}
-		}
-	}
-}
-
-// ReplaceFromCacheByNames operates as an atomic combination of ForceExpire and
-// multiple partialRestoreFromCache invocations. The result is the union of the existing
-// DNSCache and the updates. We do this to ensure that this process does not upsert new
-// entries to the global DNSCache that has not been seen yet. We do this to ensure the
-// dns code path is the one doing the ipcache upsert correctly so the lookups can correctly
-// wait for ipcache propagation of new IPs. We also do this to ensure IPs are correctly upserted,
-// since they will not be upserted during the GC cycle.
-func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*DNSCache) map[netip.Addr][]string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// merge the set of DNSCaches from the endpoints present during the start of the GC with
-	// the ones used to update the global DNSCache since last GC. This ensures that new endpoints
-	// created after the start of the GC iteration are also accounted for when updating the
-	// global cache.
-	for _, update := range updates {
-		c.updated.Insert(update)
-	}
-
-	// Dump the existing IP->[names...] mapping that can be used to decide
-	// what information should be restored from the local caches.
-	oldEntries := newSortedIPNames(c.getIPsLocked())
-
-	// Remove any DNS name in namesToUpdate with a lookup before "now". This
-	// effectively deletes all lookups because we're holding the lock.
-	c.forceExpireByNames(time.Now(), namesToUpdate)
-
-	for update := range c.updated {
-		c.partialRestoreFromCache(update, namesToUpdate, oldEntries)
-	}
-
-	c.updated.Clear()
-	return oldEntries.byIP
 }
 
 // Lookup returns a set of unique IPs that are currently unexpired for name, if
@@ -698,25 +574,6 @@ func (c *DNSCache) removeReverse(ip netip.Addr, entry *cacheEntry) {
 	}
 }
 
-// GetIPs takes a snapshot of all IPs in the reverse cache.
-func (c *DNSCache) GetIPs() map[netip.Addr][]string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.getIPsLocked()
-}
-
-// getIPsLocked takes a snapshot of all IPs in the reverse cache.
-func (c *DNSCache) getIPsLocked() map[netip.Addr][]string {
-	out := make(map[netip.Addr][]string, len(c.reverse))
-
-	for ip, names := range c.reverse {
-		out[ip] = slices.Collect(maps.Keys(names))
-	}
-
-	return out
-}
-
 // ForceExpire is used to clear entries from the cache before their TTL is
 // over. This operation does not keep previous guarantees that, for each IP,
 // the most recent lookup to provide that IP is used.
@@ -752,21 +609,6 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 	}
 
 	return namesAffected
-}
-
-func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) {
-	for _, name := range names {
-		entries, exists := c.forward[name]
-		if !exists {
-			continue
-		}
-
-		// We pass expireLookupsBefore as the `now` parameter but it is redundant
-		// because LookupTime must be before ExpirationTime.
-		// The second expireLookupsBefore actually matches lookup times, and will
-		// delete the entries completely.
-		c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
-	}
 }
 
 // Dump returns unexpired cache entries in the cache. They are deduplicated,
@@ -843,8 +685,7 @@ func (c *DNSCache) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON rebuilds a DNSCache from serialized JSON.
-// Note: This is destructive to any correct data. Use UpdateFromCache for bulk
-// updates.
+// Note: This replaces the existing cache contents.
 func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 	lookups := make([]*cacheEntry, 0)
 	if err := json.Unmarshal(raw, &lookups); err != nil {
