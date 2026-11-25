@@ -28,7 +28,7 @@ jobs:
       # grained permissions installed in the repository for that.
       - name: Get token
         id: get_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ secrets.CILIUM_RENOVATE_CLIENT_ID }}
           private-key: ${{ secrets.CILIUM_RENOVATE_PEM }}
@@ -46,7 +46,7 @@ jobs:
           RENOVATE_BASE_DIR: /var/tmp/renovate
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 44.257.9
+          renovate-version: 44.261.2
           docker-user: root
           docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5
