@@ -76,7 +76,7 @@ jobs:
     runs-on: ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
     steps:
       - name: Set initial commit status
-        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        uses: cilium/actions/set-commit-status@079219db27301da70306eb5c0a038dc21c59781b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -98,7 +98,7 @@ jobs:
         # to continue on error since the check is reported at the end of the test.
         if: ${{ github.run_attempt != '1' }}
         continue-on-error: true
-        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        uses: cilium/actions/set-commit-status@079219db27301da70306eb5c0a038dc21c59781b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -261,7 +261,7 @@ jobs:
     runs-on: ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
     steps:
       - name: Set final commit status
-        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        uses: cilium/actions/set-commit-status@079219db27301da70306eb5c0a038dc21c59781b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.integration-test.result }}
