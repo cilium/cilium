@@ -59,6 +59,9 @@ type statusCollector struct {
 var _ StatusCollector = &statusCollector{}
 
 const (
+	// k8sProbeName is the name of the Kubernetes connectivity status probe.
+	k8sProbeName = "kubernetes"
+
 	// k8sVersionCheckInterval is the interval in which the Kubernetes
 	// version is verified even if connectivity is given
 	k8sVersionCheckInterval = 15 * time.Minute
@@ -557,6 +560,9 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 	staleProbes := d.statusCollector.GetStaleProbes()
 	stale := make(map[string]strfmt.DateTime, len(staleProbes))
 	for probe, startTime := range staleProbes {
+		if !requireK8sConnectivity && probe == k8sProbeName {
+			continue
+		}
 		stale[probe] = strfmt.DateTime(startTime)
 	}
 
@@ -673,7 +679,7 @@ func (d *statusCollector) getProbes() []Probe {
 			},
 		},
 		{
-			Name: "kubernetes",
+			Name: k8sProbeName,
 			Interval: func(failures int) time.Duration {
 				if failures > 0 {
 					// While failing, we want an initial
