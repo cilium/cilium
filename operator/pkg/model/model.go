@@ -939,6 +939,15 @@ func (m *Model) HTTPSPortsSorted() []uint32 {
 // distinct ports, or when HTTP and TLS passthrough listeners coexist across
 // multiple ports and must keep their filter chains on the configured ports.
 func (m *Model) NeedsPerPortHTTPListeners() bool {
+	// Preserve the Ingress listener layout used by Service and HTTPS redirects.
+	for _, listener := range m.HTTP {
+		for _, source := range listener.Sources {
+			if source.Kind == "Ingress" {
+				return false
+			}
+		}
+	}
+
 	if m.IsHTTPListenerConfigured() && m.IsTLSPassthroughListenerConfigured() && len(m.AllPorts()) > 1 {
 		return true
 	}
