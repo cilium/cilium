@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
+/* This file was not reviewed by a human before submission */
 
 #include <bpf/ctx/skb.h>
 #include "common.h"
@@ -199,7 +200,13 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
  * ingress_ifindex > 0 makes the runtime arm true on netkit, an
  * !enable_netkit makes the loadtime arm true on veth
  */
+#ifdef __CONFIG_ENABLE_BPF_HOST_ROUTING
+#define TEST1_EXPECTED_RETURN CTX_ACT_REDIRECT
 #define TEST1_EXPECTED_CALLS { 1, 0, 1 }
+#else
+#define TEST1_EXPECTED_RETURN CTX_ACT_OK
+#define TEST1_EXPECTED_CALLS { 0, 0, 0 }
+#endif
 
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py (reused from the host
  * test - same external -> local Pod shape).
@@ -268,7 +275,9 @@ int tc_redirect_netdev_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST1_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST1_EXPECTED_RETURN, *status_code);
 
 	test_log(TEST_CONFIG_NAME ": netdev %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
@@ -343,7 +352,9 @@ int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST1_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST1_EXPECTED_RETURN, *status_code);
 
 	test_log(TEST_CONFIG_NAME ": netdev %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
@@ -373,19 +384,34 @@ int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
  * is the right answer (and matches the existing tc_redirect_lxc_veth_*
  * expectations).
  */
- #ifdef __CONFIG_ENABLE_NETKIT
+#ifdef __CONFIG_ENABLE_NETKIT
 /* netkit + ingress_ifindex==0: predicate is false on both arms,
  * so should_redirect_peer() returns false and the tail-called
  * mock_tail_policy uses ctx_redirect() (which on netkit lets the
  * primary's xmit handle the ns switch).
  */
 #define TEST2_EXPECTED_CALLS {1, 1, 0}
-#else
-/* veth + ingress_ifindex==0: !CONFIG(enable_netkit) folds true at
- * load time so should_redirect_peer() still returns true. veth Pod
- * -> Pod uses redirect_peer() and matches tc_redirect_lxc_veth_*.
+#define TEST2_EXPECTED_RETURN CTX_ACT_REDIRECT
+#elif defined(__CONFIG_ENABLE_BPF_HOST_ROUTING)
+/* veth + bpf_host_routing + ingress_ifindex==0: !CONFIG(enable_netkit)
+ * folds true at load time so should_redirect_peer() still returns true.
+ * veth Pod -> Pod uses redirect_peer() and matches tc_redirect_lxc_veth_*.
  */
 #define TEST2_EXPECTED_CALLS {1, 0, 1}
+#define TEST2_EXPECTED_RETURN CTX_ACT_REDIRECT
+#else
+/* veth + !bpf_host_routing + ingress_ifindex==0: CONFIG(bpf_host_routing)
+ * folds false at load time so should_redirect_peer() should always return
+ * false.
+ *
+ * In this permutation, this test still enters via cil_from_netdev, which
+ * returns CTX_ACT_OK before reaching local_delivery code. Therefore, these
+ * zero helper counts only verify pass-through to the stack. They do not
+ * exercise the pod-egress redirect path in bpf_lxc - see tc_redirect_lxc
+ * for that.
+ */
+#define TEST2_EXPECTED_CALLS {0, 0, 0}
+#define TEST2_EXPECTED_RETURN CTX_ACT_OK
 #endif
 
 PKTGEN(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
@@ -436,7 +462,9 @@ int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ct
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST2_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST2_EXPECTED_RETURN, *status_code);
 
 	test_log(TEST_CONFIG_NAME ": pod %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
@@ -503,7 +531,9 @@ int tc_redirect_pod_egress_ipv6_check(__maybe_unused const struct __ctx_buff *ct
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST2_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST2_EXPECTED_RETURN, *status_code);
 
 	test_log(TEST_CONFIG_NAME ": pod %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
