@@ -7,11 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
@@ -57,6 +59,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		hostMac, vethLXCMac                         mac.MAC
 		vethHostIdx, peerIndex                      int
 		peer                                        netlink.Link
+		cookie                                      uint64
 	)
 
 	ns, err := netns.OpenPinned(pluginCtx.Args.Netns)
@@ -170,6 +173,16 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			}
 		}
 
+		var cookieErr error
+		cookie, cookieErr = netns.GetNetNSCookie()
+		if cookieErr != nil && !errors.Is(cookieErr, unix.ENOPROTOOPT) {
+			pluginCtx.Logger.Warn(
+				"Unable to get netns cookie",
+				logfields.Error, cookieErr,
+				logfields.ContainerID, pluginCtx.Args.ContainerID,
+			)
+		}
+
 		return nil
 	}); err != nil {
 		return
@@ -219,6 +232,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		K8sPodName:             string(pluginCtx.CniArgs.K8S_POD_NAME),
 		K8sNamespace:           string(pluginCtx.CniArgs.K8S_POD_NAMESPACE),
 		K8sUID:                 string(pluginCtx.CniArgs.K8S_POD_UID),
+		NetnsCookie:            strconv.FormatUint(cookie, 10),
 		SyncBuildEndpoint:      true,
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			// aws-cni requires ARP passthrough between Linux and
