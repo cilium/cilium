@@ -545,6 +545,7 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 	setTestMergedListeners(&input, nil)
 	m := GatewayAPI(logger, input)
 
+	require.Empty(t, m.HTTP)
 	require.Len(t, m.TLSPassthrough, 2)
 	require.Equal(t, "tls-same", m.TLSPassthrough[0].Name)
 	assert.Empty(t, m.TLSPassthrough[0].Routes)

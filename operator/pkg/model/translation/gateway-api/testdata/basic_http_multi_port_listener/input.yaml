@@ -1,0 +1,49 @@
+http:
+- name: http
+  hostname: '*'
+  port: 8080
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
+  routes:
+  - path_match:
+      prefix: /
+    backends:
+    - name: base
+      namespace: default
+      port:
+        port: 8080
+- name: extra
+  hostname: '*'
+  port: 8081
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: ListenerSet
+    name: extra
+    namespace: apps
+    version: v1
+  routes:
+  - path_match:
+      prefix: /
+    backends:
+    - name: extra
+      namespace: apps
+      port:
+        port: 9090
+  - path_match:
+      prefix: /redirect
+    request_redirect:
+      hostname: redirected.example.test
+      status_code: 302
+- name: empty
+  hostname: '*'
+  port: 8082
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

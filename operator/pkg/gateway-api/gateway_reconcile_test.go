@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -110,9 +111,10 @@ func Test_Conformance(t *testing.T) {
 	})
 
 	type gwDetails struct {
-		FullName types.NamespacedName
-		wantErr  bool
-		skipCEC  bool
+		FullName  types.NamespacedName
+		wantErr   bool
+		skipCEC   bool
+		wantNoCEC bool
 	}
 
 	var (
@@ -255,7 +257,7 @@ func Test_Conformance(t *testing.T) {
 		},
 		{
 			name:    "httproute-disallowed-kind",
-			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}}},
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}, wantNoCEC: true}},
 		},
 		{name: "httproute-exact-path-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-header-matching", gateway: []gwDetails{gatewaySameNamespace}},
@@ -360,7 +362,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "tlsroute-invalid-no-matching-listener", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-http-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-https-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
-			{FullName: types.NamespacedName{Name: "gateway-tlsroute-tls-passthrough-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-tls-passthrough-only", Namespace: "gateway-conformance-infra"}, wantNoCEC: true},
 		}},
 		{name: "tlsroute-mixed-protocol-listeners", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
@@ -559,6 +561,10 @@ func Test_Conformance(t *testing.T) {
 						Namespace: gwDetail.FullName.Namespace,
 						Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gwDetail.FullName.Name),
 					}, actualCEC)
+					if gwDetail.wantNoCEC {
+						require.True(t, apierrors.IsNotFound(err), "expected no CiliumEnvoyConfig, got error %v", err)
+						continue
+					}
 					require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
 					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
 					k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)

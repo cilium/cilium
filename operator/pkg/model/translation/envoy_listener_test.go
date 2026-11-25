@@ -347,8 +347,8 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 		wantWeighted     []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight
 	}{
 		{
-			name:             "no valid backends emits no filter chain",
-			wantFilterChains: 0,
+			name:             "no valid backends rejects TLS",
+			wantFilterChains: 1,
 		},
 		{
 			name: "single backend",
@@ -433,7 +433,10 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			})
 
 			require.Len(t, filterChains, tt.wantFilterChains)
-			if tt.wantFilterChains == 0 {
+			if len(tt.backends) == 0 {
+				assert.Equal(t, tlsTransportProtocol, filterChains[0].GetFilterChainMatch().GetTransportProtocol())
+				assert.Equal(t, []string{"test.example.com"}, filterChains[0].GetFilterChainMatch().GetServerNames())
+				assert.Empty(t, filterChains[0].Filters)
 				return
 			}
 
@@ -452,10 +455,44 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 	}
 }
 
-func Test_tlsPassthroughFilterChains_AccessLogs(t *testing.T) {
-	filterChains := tlsPassthroughFilterChains(&model.Model{
+func TestTLSPassthroughRejectionPerPort(t *testing.T) {
+	const healthy = "healthy.example.com"
+	const rejected = "rejected.example.com"
+	m := &model.Model{
 		TLSPassthrough: []model.TLSPassthroughListener{
 			{
+				Port: 443,
+				Routes: []model.TLSPassthroughRoute{
+					{Hostnames: []string{healthy, "*.example.com"}, Backends: []model.Backend{tlsBackend("default", "backend", 443, nil)}},
+					{Hostnames: []string{healthy, rejected}},
+					{Hostnames: []string{rejected}},
+				},
+			},
+			{
+				Port:   8443,
+				Routes: []model.TLSPassthroughRoute{{Hostnames: []string{healthy}}},
+			},
+		},
+	}
+
+	chains := tlsPassthroughFilterChainsForPort(443, m)
+	require.Len(t, chains, 2)
+	assert.Equal(t, []string{"*.example.com", healthy}, chains[0].GetFilterChainMatch().GetServerNames())
+	assert.NotEmpty(t, chains[0].Filters)
+	assert.Equal(t, []string{rejected}, chains[1].GetFilterChainMatch().GetServerNames())
+	assert.Empty(t, chains[1].Filters)
+
+	chains = tlsPassthroughFilterChainsForPort(8443, m)
+	require.Len(t, chains, 1)
+	assert.Equal(t, []string{healthy}, chains[0].GetFilterChainMatch().GetServerNames())
+	assert.Empty(t, chains[0].Filters)
+}
+
+func TestDesiredEnvoyListenerTLSPassthroughAccessLogs(t *testing.T) {
+	m := &model.Model{
+		TLSPassthrough: []model.TLSPassthroughListener{
+			{
+				Port: 443,
 				Routes: []model.TLSPassthroughRoute{
 					{
 						Hostnames: []string{"test.example.com"},
@@ -476,12 +513,49 @@ func Test_tlsPassthroughFilterChains_AccessLogs(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
 
-	require.Len(t, filterChains, 1)
-	tcpProxy := getTCPProxy(t, filterChains[0])
-	require.Len(t, tcpProxy.GetAccessLog(), 1)
-	require.Equal(t, "envoy.access_loggers.stdout", tcpProxy.GetAccessLog()[0].GetName())
+	for _, tt := range []struct {
+		name      string
+		httpPorts []uint32
+		tlsPorts  []uint32
+	}{
+		{name: "combined", httpPorts: []uint32{80}, tlsPorts: []uint32{443}},
+		{name: "multiple HTTP ports", httpPorts: []uint32{80, 8080}, tlsPorts: []uint32{443}},
+		{name: "multiple TLS ports", httpPorts: []uint32{80}, tlsPorts: []uint32{443, 8443}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			input := *m
+			for _, port := range tt.httpPorts {
+				input.HTTP = append(input.HTTP, model.HTTPListener{Port: port, Hostname: "*"})
+			}
+			input.TLSPassthrough = nil
+			for _, port := range tt.tlsPorts {
+				listener := m.TLSPassthrough[0]
+				listener.Port = port
+				input.TLSPassthrough = append(input.TLSPassthrough, listener)
+			}
+
+			i := &cecTranslator{}
+			resources, err := i.desiredEnvoyListener(&input)
+			require.NoError(t, err)
+			proxies := 0
+			for _, resource := range resources {
+				listener := &envoy_config_listener.Listener{}
+				require.NoError(t, proto.Unmarshal(resource.Value, listener))
+				for _, fc := range listener.FilterChains {
+					if fc.Filters[0].Name != tcpProxyType {
+						continue
+					}
+					proxies++
+					tcpProxy := getTCPProxy(t, fc)
+					require.Len(t, tcpProxy.GetAccessLog(), 1)
+					require.Equal(t, "envoy.access_loggers.stdout", tcpProxy.GetAccessLog()[0].GetName())
+				}
+			}
+			require.Equal(t, len(tt.tlsPorts), proxies)
+		})
+	}
 }
 
 func Test_tlsPassthroughFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t *testing.T) {
