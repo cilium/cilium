@@ -194,7 +194,7 @@ func (c *Client) GetAPIServerHostAndPort() (string, string) {
 }
 
 func (c *Client) CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
-	return c.Clientset.CoreV1().Secrets(namespace).Create(ctx, secret, opts)
+	return createRetry(ctx, c.Clientset.CoreV1().Secrets(namespace), secret, opts)
 }
 
 func (c *Client) UpdateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error) {
@@ -214,7 +214,7 @@ func (c *Client) GetSecret(ctx context.Context, namespace, name string, opts met
 }
 
 func (c *Client) CreateServiceAccount(ctx context.Context, namespace string, account *corev1.ServiceAccount, opts metav1.CreateOptions) (*corev1.ServiceAccount, error) {
-	return c.Clientset.CoreV1().ServiceAccounts(namespace).Create(ctx, account, opts)
+	return createRetry(ctx, c.Clientset.CoreV1().ServiceAccounts(namespace), account, opts)
 }
 
 func (c *Client) DeleteServiceAccount(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
@@ -238,7 +238,7 @@ func (c *Client) PatchConfigMap(ctx context.Context, namespace, name string, pt 
 }
 
 func (c *Client) CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error) {
-	return c.Clientset.CoreV1().Services(namespace).Create(ctx, service, opts)
+	return createRetry(ctx, c.Clientset.CoreV1().Services(namespace), service, opts)
 }
 
 func (c *Client) DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
@@ -254,7 +254,7 @@ func (c *Client) GetEndpointSlice(ctx context.Context, namespace, name string, o
 }
 
 func (c *Client) CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error) {
-	return c.Clientset.AppsV1().Deployments(namespace).Create(ctx, deployment, opts)
+	return createRetry(ctx, c.Clientset.AppsV1().Deployments(namespace), deployment, opts)
 }
 
 func (c *Client) GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error) {
@@ -304,7 +304,7 @@ func (c *Client) CheckDeploymentStatus(ctx context.Context, namespace, deploymen
 }
 
 func (c *Client) CreateNamespace(ctx context.Context, namespace *corev1.Namespace, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-	return c.Clientset.CoreV1().Namespaces().Create(ctx, namespace, opts)
+	return createRetry(ctx, c.Clientset.CoreV1().Namespaces(), namespace, opts)
 }
 
 func (c *Client) UpdateNamespace(ctx context.Context, namespace *corev1.Namespace, opts metav1.UpdateOptions) (*corev1.Namespace, error) {
@@ -633,7 +633,7 @@ func (c *Client) CiliumDbgEndpoints(ctx context.Context, namespace, pod string) 
 }
 
 func (c *Client) CreateConfigMap(ctx context.Context, namespace string, config *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error) {
-	return c.Clientset.CoreV1().ConfigMaps(namespace).Create(ctx, config, opts)
+	return createRetry(ctx, c.Clientset.CoreV1().ConfigMaps(namespace), config, opts)
 }
 
 func (c *Client) DeleteConfigMap(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
@@ -641,7 +641,7 @@ func (c *Client) DeleteConfigMap(ctx context.Context, namespace, name string, op
 }
 
 func (c *Client) CreateDaemonSet(ctx context.Context, namespace string, ds *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error) {
-	return c.Clientset.AppsV1().DaemonSets(namespace).Create(ctx, ds, opts)
+	return createRetry(ctx, c.Clientset.AppsV1().DaemonSets(namespace), ds, opts)
 }
 
 func (c *Client) PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error) {
@@ -1230,7 +1230,7 @@ func (c *Client) GetIngress(ctx context.Context, namespace string, name string, 
 }
 
 func (c *Client) CreateIngress(ctx context.Context, namespace string, ingress *networkingv1.Ingress, opts metav1.CreateOptions) (*networkingv1.Ingress, error) {
-	return c.Clientset.NetworkingV1().Ingresses(namespace).Create(ctx, ingress, opts)
+	return createRetry(ctx, c.Clientset.NetworkingV1().Ingresses(namespace), ingress, opts)
 }
 
 // GetHelmValues is the function for cilium cli sysdump to collect the helm values from the release directly
