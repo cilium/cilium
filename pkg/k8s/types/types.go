@@ -30,6 +30,8 @@ type CiliumEndpoint struct {
 	NamedPorts     models.NamedPorts
 	ServiceAccount string
 	Workload       *v2.EndpointWorkload
+	// NodeName may be unset if learned from CiliumEndpointSlice
+	NodeName string
 }
 
 func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {

@@ -831,6 +831,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 						Name: "test-workload",
 						Kind: "Deployment",
 					},
+					NodeName: "foo",
 				},
 			},
 			want: &types.CiliumEndpoint{
@@ -888,6 +889,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 					Name: "test-workload",
 					Kind: "Deployment",
 				},
+				NodeName: "foo",
 			},
 		},
 	}
