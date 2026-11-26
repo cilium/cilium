@@ -345,27 +345,33 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 				l, err := safenetlink.LinkByName(ifName)
 				if err != nil {
-					return fmt.Errorf("failed to retrieve device %s: %w", ifName, err)
+					log.WarnContext(ctx, "Failed to find device in the pod namespace, skipping its cleanup",
+						logfields.Device, ifName,
+						logfields.Error, err)
+					continue
 				}
 
 				if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-					return fmt.Errorf("failed to delete device %s IPs: %w", ifName, err)
+					log.WarnContext(ctx, "Failed to delete addresses",
+						logfields.Device, ifName,
+						logfields.Error, err)
 				}
 
 				if err := netlink.LinkSetDown(l); err != nil {
-					return fmt.Errorf("failed to set device %s down: %w", ifName, err)
+					log.WarnContext(ctx, "Failed to set device down",
+						logfields.Device, ifName,
+						logfields.Error, err)
 				}
 
 				// Rename back to original kernel name before moving to root namespace
-				l, err = configureIfName(l, a.Device.KernelIfName())
-				if err != nil {
+				// (if it fails, the device is moved back anyway with its pod-side name)
+				if renamed, err := configureIfName(l, a.Device.KernelIfName()); err != nil {
 					driver.logger.ErrorContext(
 						ctx, "failed to restore device name",
 						logfields.Error, err,
 					)
-
-					// we want to continue here to clean up the remaining, even if this one failed
-					continue
+				} else {
+					l = renamed
 				}
 
 				// Always try to move back to root netns
