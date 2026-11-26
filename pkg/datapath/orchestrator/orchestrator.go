@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
@@ -132,6 +133,7 @@ type orchestratorParams struct {
 	JobGroup            job.Group
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
+	HostEndpointPromise endpointstate.HostEndpointPromise
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
 	DatapathReady       promise.Resolver[cni.DatapathReady]
 	XDPConfig           xdp.Config
@@ -271,6 +273,11 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		return err
 	}
 
+	health.OK("Waiting for host endpoint")
+	if err := o.waitForHostEndpoint(ctx); err != nil {
+		return err
+	}
+
 	var (
 		request          = reinitializeRequest{ctx: ctx}
 		retryChan        <-chan time.Time
@@ -402,6 +409,11 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			return err
 		}
 	}
+}
+
+func (o *orchestrator) waitForHostEndpoint(ctx context.Context) error {
+	_, err := o.params.HostEndpointPromise.Await(ctx)
+	return err
 }
 
 // waitForHostDevices blocks until cilium_host and cilium_net are present in the devices table.
