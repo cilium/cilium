@@ -224,5 +224,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableActiveConnectionTracking = lnc.EnableActiveConnectionTracking
 
+	node.EnableSharedPolicy = option.Config.EnableSharedPolicy
+
 	return node
 }

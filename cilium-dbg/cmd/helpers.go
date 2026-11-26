@@ -303,6 +303,14 @@ func parsePolicyUpdateArgsHelper(logger *slog.Logger, args []string, isDeny bool
 // Adds the entry to the PolicyMap if add is true, otherwise the entry is
 // deleted.
 func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
+	// The entries of an endpoint that uses the shared policy map belong to its rule set,
+	// which other endpoints may use too.
+	if _, shared, err := policymap.PinnedEndpointRuleSet(pa.path); err != nil {
+		Fatalf("Cannot read the policy overlay map: %s", err)
+	} else if shared {
+		Fatalf("Cannot change the policy of an endpoint that uses the shared policy map, as other endpoints may share its entries")
+	}
+
 	// The map needs not to be transparently initialized here even if
 	// it's not present for some reason. Triggering map recreation with
 	// OpenOrCreate when some map attribute had changed would be much worse.

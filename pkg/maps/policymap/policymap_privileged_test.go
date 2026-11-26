@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -37,6 +38,7 @@ func newTestRegistry(tb testing.TB, maxEntries uint32) (*registry.MapRegistry, *
 		}),
 		cell.Provide(newStatsMap),
 		cell.Provide(createFactory),
+		cell.Provide(func() *option.DaemonConfig { return &option.DaemonConfig{} }),
 		cell.Invoke(configurePolicyMaps),
 		cell.Invoke(func(r *registry.MapRegistry, s *StatsMap) {
 			reg = r
