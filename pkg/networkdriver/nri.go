@@ -219,26 +219,28 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 			}
 
 			if err := netlink.LinkSetNsFd(l, podNs.FD()); err != nil {
-				return err
+				return fmt.Errorf("failed to move device to network namespace pinned at %s: %w",
+					nsPath, err)
 			}
 
 			if err := podNs.Do(func() error {
-				// Rename interface to custom name
+				// Rename device to custom name
 				l, err = configureIfName(l, a.Config.PodIfName)
 				if err != nil {
-					return fmt.Errorf("failed to set interface name: %w", err)
+					return fmt.Errorf("failed to set device name: %w", err)
 				}
 
 				if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-					return err
+					return fmt.Errorf("failed to configure IPs: %w", err)
 				}
 
 				if err := netlink.LinkSetUp(l); err != nil {
-					return err
+					return fmt.Errorf("failed to set device up: %w", err)
 				}
 
 				if err := driver.configureSysctl(l, a.Config); err != nil {
-					return fmt.Errorf("failed to configure sysctl for device %s: %w", l.Attrs().Name, err)
+					return fmt.Errorf("failed to configure sysctl for device %s: %w",
+						l.Attrs().Name, err)
 				}
 
 				return nil
@@ -343,22 +345,22 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 				l, err := safenetlink.LinkByName(ifName)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to retrieve device %s: %w", ifName, err)
 				}
 
 				if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-					return err
+					return fmt.Errorf("failed to delete device %s IPs: %w", ifName, err)
 				}
 
 				if err := netlink.LinkSetDown(l); err != nil {
-					return err
+					return fmt.Errorf("failed to set device %s down: %w", ifName, err)
 				}
 
 				// Rename back to original kernel name before moving to root namespace
 				l, err = configureIfName(l, a.Device.KernelIfName())
 				if err != nil {
 					driver.logger.ErrorContext(
-						ctx, "failed to restore interface name",
+						ctx, "failed to restore device name",
 						logfields.Error, err,
 					)
 
@@ -368,7 +370,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 				// Always try to move back to root netns
 				if err := netlink.LinkSetNsFd(l, rootNs.FD()); err != nil {
-					driver.logger.WarnContext(ctx, "Failed to move interface to root namespace",
+					driver.logger.WarnContext(ctx, "Failed to move device to root namespace",
 						logfields.Error, err,
 						logfields.Device, a.Device.KernelIfName())
 					// Log but don't return - continue with other devices
