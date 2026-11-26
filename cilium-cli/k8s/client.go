@@ -22,6 +22,7 @@ import (
 	"github.com/moby/spdystream"
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/cli/output"
+	"helm.sh/helm/v4/pkg/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -149,6 +150,9 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 	actionConfig := action.Configuration{}
 	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver); err != nil {
 		return nil, err
+	}
+	if kubeClient, ok := actionConfig.KubeClient.(*kube.Client); ok {
+		actionConfig.KubeClient = &helmKubeClient{Client: kubeClient}
 	}
 
 	return &Client{
