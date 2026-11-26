@@ -62,6 +62,8 @@ const (
 
 	// logMaxJitter is the logfield key for the maximum jitter duration.
 	logMaxJitter = "maxJitter"
+
+	maxSPI = 15
 )
 
 type dir string
@@ -1167,6 +1169,9 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 		if a.key != nil {
 			if a.key.Spi == newKey.Spi {
 				return 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
+			}
+			if a.key.Spi == maxSPI && newKey.Spi != 1 {
+				return 0, fmt.Errorf("invalid SPI: it should rollover from %d to 1", maxSPI)
 			}
 			if a.key.KeyLen != newKey.KeyLen {
 				return 0, fmt.Errorf("invalid key rotation: key length must not change")
