@@ -302,47 +302,12 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	if a.src == nil {
 		a.Fatalf("No source Pod to execute command from: %s", cmd)
 	}
-	pod := a.src
 
 	a.Debug("Executing command", cmd)
 	cmdName := cmd[0]
 	cmdStr := strings.Join(cmd, " ")
 
-	var output bytes.Buffer
-	var errOutput bytes.Buffer
-	var err error
-	// We retry the command in case of inconclusive results. The result is
-	// deemed inconclusive when the command succeeded, but we don't have any
-	// output. We've seen this happen when there are connectivity blips on the
-	// k8s side.
-	// Ping Command is treated specially: its output may contain the header
-	// `PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.` even if the command hangs.
-	// This check currently only works because all our test commands expect an
-	// output.
-	for i := 1; i <= testCommandRetries; i++ {
-		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
-			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd)
-		a.cmdOutput = output.String()
-		// Check for inconclusive results.
-		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
-			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
-			continue
-		} else if _, lost := lostCurlExitCode(output, errOutput); err == nil && lost {
-			// The exec stream reported success, but curl printed an error to
-			// its output: the command's real exit status was dropped by the
-			// apiserver<->kubelet exec transport. Retry to obtain a reliable
-			// status before interpreting the result.
-			a.Debugf("retrying command %s due to lost exit status", cmdStr)
-			continue
-		} else if err != nil {
-			exitCode, _ := a.extractExitCode(err)
-			if exitCode == ExitInvalidCode {
-				a.Debugf("retrying command %s to command execution error", cmdStr)
-				continue
-			}
-		}
-		break
-	}
+	output, errOutput, err := a.execInSrcPod(ctx, cmd)
 	// Check for inconclusive results.
 	if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 		a.Failf("inconclusive results: command %q was successful but without output", cmdStr)
@@ -391,6 +356,49 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		a.test.Log(strings.TrimSpace(errOutput.String()))
 		a.test.Log()
 	}
+}
+
+// execInSrcPod runs cmd in the source Pod, retrying an inconclusive exec result.
+func (a *Action) execInSrcPod(ctx context.Context, cmd []string) (bytes.Buffer, bytes.Buffer, error) {
+	pod := a.src
+	cmdStr := strings.Join(cmd, " ")
+
+	var output bytes.Buffer
+	var errOutput bytes.Buffer
+	var err error
+	// We retry the command in case of inconclusive results. The result is
+	// deemed inconclusive when the command succeeded, but we don't have any
+	// output. We've seen this happen when there are connectivity blips on the
+	// k8s side.
+	// Ping Command is treated specially: its output may contain the header
+	// `PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.` even if the command hangs.
+	// This check currently only works because all our test commands expect an
+	// output.
+	for i := 1; i <= testCommandRetries; i++ {
+		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
+			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd)
+		a.cmdOutput = output.String()
+		// Check for inconclusive results.
+		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
+			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
+			continue
+		} else if _, lost := lostCurlExitCode(output, errOutput); err == nil && lost {
+			// The exec stream reported success, but curl printed an error to
+			// its output: the command's real exit status was dropped by the
+			// apiserver<->kubelet exec transport. Retry to obtain a reliable
+			// status before interpreting the result.
+			a.Debugf("retrying command %s due to lost exit status", cmdStr)
+			continue
+		} else if err != nil {
+			exitCode, _ := a.extractExitCode(err)
+			if exitCode == ExitInvalidCode {
+				a.Debugf("retrying command %s to command execution error", cmdStr)
+				continue
+			}
+		}
+		break
+	}
+	return output, errOutput, err
 }
 
 var exitCodeRegex = regexp.MustCompile("exit code ([0-9]+)")
