@@ -1,0 +1,57 @@
+hive start
+
+k8s/add claim.yaml
+
+# The network config referenced by the claim does not exist: the claim preparation fails and nothing
+# is allocated.
+! driver/prepare-resource-claims default/test-claim
+db/empty networkdriver-dra-allocations
+
+# Just like in a real cluster, the claim preparation is retried until it succeeds: once the network
+# config shows up, the claim is prepared.
+db/insert k8s-cilium-resource-netconfigs netconfig.yaml
+driver/prepare-resource-claims default/test-claim
+db/cmp networkdriver-dra-allocations allocations.table
+
+hive stop
+
+-- netconfig.yaml --
+name: test-network-config
+spec:
+  ipv4:
+  - cidr: 10.30.0.0/16
+    prefixLength: 24
+
+-- claim.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+  uid: ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+spec: {}
+status:
+  allocation:
+    devices:
+      config:
+      - source: FromClaim
+        requests:
+        - test-request
+        opaque:
+          driver: networkdriver.cilium.io
+          parameters:
+            ipv4Addr: 10.30.0.1/32
+            networkConfig: test-network-config
+      results:
+      - device: test-device
+        driver: networkdriver.cilium.io
+        pool: test-device-pool
+        request: test-request
+  reservedFor:
+  - resource: pods
+    name: test-pod
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+
+-- allocations.table --
+Device        PodUID                                ClaimUID
+test-device   bec9dd67-13f9-4d4b-a3c1-76fc3e485e68  ba3c7922-9a56-44eb-a96f-84ee8b74dd23

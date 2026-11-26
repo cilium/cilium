@@ -80,6 +80,26 @@ func TestSerializeDevice(t *testing.T) {
 		require.NotEmpty(t, serialized.Dev)
 	})
 
+	t.Run("static routes round-trip", func(t *testing.T) {
+		gateway := netip.MustParseAddr("10.20.0.1")
+		routes := []types.StaticRoute{
+			{Destination: netip.MustParsePrefix("10.40.0.0/16"), Gateway: &gateway},
+			{Destination: netip.MustParsePrefix("fd00:30::/48")},
+		}
+		a := allocation{
+			Device:       &trackedDevice{name: "eth0"},
+			Manager:      types.DeviceManagerTypeMock,
+			StaticRoutes: routes,
+		}
+
+		raw, err := serializeDevice(a)
+		require.NoError(t, err)
+
+		serialized, err := deserializeDevice(raw)
+		require.NoError(t, err)
+		require.Equal(t, routes, serialized.StaticRoutes)
+	})
+
 	t.Run("dummy device round-trip", func(t *testing.T) {
 		dev := &dummy.DummyDevice{Name: "dummy0", HWAddr: "aa:bb:cc:dd:ee:ff", MTU: 1500}
 		cfg := types.DeviceConfig{PodIfName: "eth-pod"}
