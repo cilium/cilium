@@ -539,6 +539,19 @@ func TestReconciliationLoop(t *testing.T) {
 		return true
 	}, 10*time.Second, 10*time.Millisecond, "expected state not reached. %v", expected)
 
+	t.Run("duplicate proxy requests complete", func(t *testing.T) {
+		info := proxyInfo{name: "proxy-test-1", port: 9090}
+		for range 2 {
+			updated := make(chan struct{})
+			params.proxies <- reconciliationRequest[proxyInfo]{info: info, updated: updated}
+			select {
+			case <-updated:
+			case <-time.After(time.Second):
+				t.Fatal("duplicate proxy request did not complete")
+			}
+		}
+	})
+
 	assert.NoError(t, h.Stop(tlog, ctx))
 
 	close(params.proxies)

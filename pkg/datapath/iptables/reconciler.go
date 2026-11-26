@@ -193,6 +193,14 @@ stop:
 				break stop
 			}
 			if info, ok := state.proxies[req.info.name]; ok && info == req.info {
+				// Dropping a duplicate leaves its InstallProxyRules caller
+				// blocked on req.updated. Let a pending rebuild close it,
+				// or close it here if the rule is already current.
+				if stateChanged {
+					updatedChs = append(updatedChs, req.updated)
+				} else {
+					close(req.updated)
+				}
 				continue
 			}
 
