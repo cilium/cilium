@@ -842,7 +842,7 @@ func (a *agent) ipsecDeleteXfrmState(nodeID uint16) error {
 			oldXfrmInState = &old
 		}
 		if err := a.safeDeleteXfrmState(&s, oldXfrmInState); err != nil {
-			errs.Add(fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
+			errs.Add(fmt.Errorf("failed to delete xfrm state (dst %d spi %d): %w", s.Dst, s.Spi, err))
 		}
 	}
 
@@ -872,7 +872,7 @@ func (a *agent) safeDeleteXfrmState(state *netlink.XfrmState, oldState *netlink.
 
 		err, deferFn := a.xfrmTemporarilyRemoveState(scopedLog, *oldState, string(dirIngress))
 		if err != nil {
-			errs.Add(fmt.Errorf("Failed to remove old XFRM %s state %s: %w", string(dirIngress), oldState.String(), err))
+			errs.Add(fmt.Errorf("Failed to remove old XFRM %s state: %w", string(dirIngress), err))
 		} else {
 			defer deferFn()
 		}
