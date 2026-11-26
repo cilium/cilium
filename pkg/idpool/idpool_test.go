@@ -22,13 +22,24 @@ func TestInsertIDs(t *testing.T) {
 	minID, maxID := 2, 6
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	// Insert IDs beyond minID, maxID range.
+	// IDs within the range are already available, and IDs beyond the
+	// range must never be inserted.
 	for i := minID - 1; i <= maxID+1; i++ {
-		require.Equal(t, i < minID || i > maxID, p.Insert(ID(i)))
 		require.False(t, p.Insert(ID(i)))
 	}
 
-	leaseAllIDs(p, minID-1, maxID+1, t)
+	// Make all IDs within the range unavailable.
+	for i := minID; i <= maxID; i++ {
+		require.True(t, p.Remove(ID(i)))
+	}
+
+	// Inserting unavailable IDs within the range makes them available again,
+	// but IDs beyond the range must still be rejected.
+	for i := minID - 1; i <= maxID+1; i++ {
+		require.Equal(t, i >= minID && i <= maxID, p.Insert(ID(i)))
+	}
+
+	leaseAllIDs(p, minID, maxID, t)
 }
 
 func TestInsertRemoveIDs(t *testing.T) {

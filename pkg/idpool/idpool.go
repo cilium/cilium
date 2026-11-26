@@ -34,7 +34,9 @@ func (i ID) String() string {
 // The table below shows the state transitions in the ID's life cycle.
 // In the case of LeaseAvailableID() the ID is returned rather
 // than provided as an input to the operation.
-// All ID's begin in the available state.
+// All ID's begin in the available state. IDs outside of the
+// [minID, maxID] range are never part of the pool: Insert
+// ignores them.
 /*
 ---------------------------------------------------------------------
 |state\event   | LeaseAvailableID | Release | Use | Insert | Remove |
@@ -117,9 +119,14 @@ func (p *IDPool) Use(id ID) bool {
 }
 
 // Insert makes an unavailable ID available in the pool
-// and has no effect otherwise. Returns true if the ID
-// was added back to the pool.
+// and has no effect otherwise. IDs outside of the pool's
+// [minID, maxID] range are never inserted. Returns true if
+// the ID was added back to the pool.
 func (p *IDPool) Insert(id ID) bool {
+	if id < p.minID || id > p.maxID {
+		return false
+	}
+
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
