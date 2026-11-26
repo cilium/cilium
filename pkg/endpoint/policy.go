@@ -218,10 +218,8 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	// If selector policy is detached _before_ endpoint regeneration has started,
 	// we keep track of the timestamp to check how long it ends up in a detached state.
-	if e.desiredPolicy != nil {
-		if isDetached, t := e.desiredPolicy.SelectorPolicy.IsDetached(); isDetached {
-			stats.policyDetachedTimestamp = &t
-		}
+	if isDetached, t := e.desiredPolicy.SelectorPolicy.IsDetached(); isDetached {
+		stats.policyDetachedTimestamp = &t
 	}
 	e.unlock()
 
@@ -273,10 +271,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		// Add a finalize function to clear out stale redirects. This will be called after
 		// new redirects have been acknowledged, and policy maps and NetworkPolicy have been
 		// updated.  We are not waiting for an acknowledgement for the removal.
-		var previousRedirects map[string]uint16
-		if e.desiredPolicy != nil {
-			previousRedirects = e.desiredPolicy.Redirects
-		}
+		previousRedirects := e.desiredPolicy.Redirects
 		datapathRegenCtxt.revertibles.AddFinalize(func() {
 			// At the point of this call, traffic is no longer redirected to the proxy
 			// for now-obsolete redirects, since we synced the updated policy map above.

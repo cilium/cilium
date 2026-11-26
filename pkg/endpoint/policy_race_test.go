@@ -15,6 +15,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/completion"
+	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -60,15 +61,11 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 	podID := addIdentity("pod")
 	idManager.Add(podID)
 
-	ep := Endpoint{
-		policyRepo:       repo,
-		policyFetcher:    polComputer,
-		desiredPolicy:    policy.NewEndpointPolicy(logger, repo),
-		labels:           labels.NewOpLabels(),
-		SecurityIdentity: podID,
-		identityManager:  idManager,
-		status:           NewEndpointStatus(),
-	}
+	p := createEndpointParams(t, &fakeendpoint.FakeOrchestrator{}, repo, polComputer)
+	p.IdentityManager = idManager
+	ep := createEndpoint(p, nil, nil, 0, "", nil)
+	t.Cleanup(ep.aliveCancel)
+	ep.SecurityIdentity = podID
 	ep.UpdateLogger(nil)
 
 	// Deny egress from the pod to all 'peer' identities. The named port makes the computed
@@ -93,7 +90,7 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 		},
 	}
 	_, rev := repo.MustAddList(api.Rules{egressDenyRule})
-	computePolicyForEPAndWait(t, &ep, polComputer, rev)
+	computePolicyForEPAndWait(t, ep, polComputer, rev)
 
 	stats := new(regenerationStatistics)
 	datapathRegenCtxt := new(datapathRegenerationContext)

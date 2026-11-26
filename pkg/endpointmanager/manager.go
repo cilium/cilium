@@ -208,21 +208,30 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	var revertibles revert.Revertibles
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
+	// proxyPolicyRevisions are the proxy policy revisions to notify the endpoints of once
+	// the proxy updates are acknowledged.
+	proxyPolicyRevisions := make(map[*endpoint.Endpoint]uint64)
+	applied := func(ep *endpoint.Endpoint, err error, revertible revert.Revertible, proxyPolicyRevision uint64) {
+		guard.Lock()
+		revertibles.Add(revertible)
+		if proxyPolicyRevision != 0 {
+			proxyPolicyRevisions[ep] = proxyPolicyRevision
+		}
+		guard.Unlock()
+
+		if err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
+			ep.Logger("endpointmanager").Warn("Failed to apply policy map changes. These will be re-applied in future updates.", logfields.Error, err)
+		}
+	}
+
+	var sharedPolicyBatch endpoint.SharedPolicyBatch
 	eps := mgr.GetEndpoints()
-	proxyPolicyRevisions := make([]uint64, len(eps))
 	wg.Add(len(eps))
 
-	for i, ep := range eps {
+	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			err, revertible, revision := ep.ApplyPolicyMapChanges(proxyWaitGroup)
-			proxyPolicyRevisions[i] = revision
-			guard.Lock()
-			revertibles.Add(revertible)
-			guard.Unlock()
-
-			if err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
-				ep.Logger("endpointmanager").Warn("Failed to apply policy map changes. These will be re-applied in future updates.", logfields.Error, err)
-			}
+			err, revertible, revision := ep.ApplyPolicyMapChangesBatched(proxyWaitGroup, &sharedPolicyBatch)
+			applied(ep, err, revertible, revision)
 			wg.Done()
 		}(ep)
 	}
@@ -230,6 +239,10 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	// Wait for all the eps to have applied policy map
 	// changes before waiting for the changes to be ACKed
 	wg.Wait()
+
+	// With the shared policy map, sync the endpoints' policies to it together, so that
+	// endpoints that share a rule set and get the same change update it in place.
+	sharedPolicyBatch.Sync(applied)
 
 	// Waiting for proxy completions can return with no error immediately without waiting for
 	// anything if all Endpoint updates failed synchronously, but even in that case finalizing
@@ -250,10 +263,8 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	if err != nil {
 		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	} else {
-		for i, revision := range proxyPolicyRevisions {
-			if revision != 0 {
-				eps[i].OnProxyPolicyUpdate(revision)
-			}
+		for ep, revision := range proxyPolicyRevisions {
+			ep.OnProxyPolicyUpdate(revision)
 		}
 	}
 

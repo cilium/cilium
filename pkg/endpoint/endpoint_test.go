@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -316,6 +317,7 @@ func TestEndpointStatus(t *testing.T) {
 }
 
 func createEndpointParams(tb testing.TB, o endpoint.Orchestrator, r policy.PolicyRepository, fetcher compute.PolicyRecomputer) EndpointParams {
+	tb.Helper()
 	logger := hivetest.Logger(tb)
 	return EndpointParams{
 		Logger:           logger,
@@ -323,6 +325,7 @@ func createEndpointParams(tb testing.TB, o endpoint.Orchestrator, r policy.Polic
 		Orchestrator:     o,
 		PolicyRepo:       r,
 		PolicyFetcher:    fetcher,
+		PolicyMapFactory: &fakepolicymap.Factory{},
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		BandwidthManager: &fakebandwidth.Manager{},
 		IPSecConfig:      fakeipsec.Config{},
