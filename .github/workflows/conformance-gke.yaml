@@ -468,6 +468,7 @@ jobs:
           nodes: ${{ matrix.config.nodes || 2 }}
           machine-type: e2-custom-2-4096
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
+          logging: SYSTEM,API_SERVER
 
       - name: Create ESP allow firewall rule
         if: ${{ matrix.config.ipsec == true }}
@@ -520,6 +521,7 @@ jobs:
           cp -a .github/actions/cli-test-config ../cilium-base-branch/.github/actions/
           cp -a .github/actions/post-logic ../cilium-base-branch/.github/actions/
           cp -a .github/actions/gke-clean-esp-rule ../cilium-base-branch/.github/actions/
+          cp -a .github/actions/gke-apiserver-log ../cilium-base-branch/.github/actions/
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -636,6 +638,16 @@ jobs:
           job_status: "${{ job.status }}"
           sysdump_extra_label_selector: k8s-app=konnectivity-agent
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+
+      - name: Save the GKE API server log
+        if: ${{ !cancelled() && steps.install-cilium.outcome != 'skipped' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./../cilium-base-branch/.github/actions/gke-apiserver-log
+        with:
+          cluster: ${{ env.clusterName }}-${{ matrix.config.index }}
+          zone: ${{ steps.create-cluster.outputs.zone }}
+          artifact_name: "gke-apiserver-log-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})-attempt-${{ github.run_attempt }}"
 
       - name: Clean up ESP allow firewall rule
         if: ${{ always() && matrix.config.ipsec == true }}

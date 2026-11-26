@@ -31,6 +31,10 @@ inputs:
     description: ""
     required: false
     default: ""
+  logging:
+    description: "Components whose logs GKE sends to Cloud Logging, as for gcloud --logging"
+    required: false
+    default: "NONE"
 outputs:
   native_cidr:
     description: ""
@@ -61,6 +65,7 @@ runs:
       env:
         RUNNER_CIDR: ${{ steps.get-runner-ip.outputs.cidr }}
         AUTHORIZED_CIDRS: ${{ steps.authorized-networks.outputs.cidrs }}
+        LOGGING: ${{ inputs.logging }}
       run: |
         LABELS=""
         VERSION=""
@@ -119,7 +124,7 @@ runs:
             --no-enable-insecure-kubelet-readonly-port \
             --enable-master-authorized-networks \
             --master-authorized-networks "${authorized_networks}" \
-            --logging=NONE \
+            --logging="${LOGGING}" \
             --monitoring=NONE \
             --no-enable-managed-prometheus \
             $VERSION \

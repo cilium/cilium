@@ -1,0 +1,32 @@
+name: GKE API server log
+description: Saves the API server's warnings, timeouts and etcd client lines from Cloud Logging
+inputs:
+  cluster:
+    description: "Name of the GKE cluster."
+    required: true
+  zone:
+    description: "Zone of the GKE cluster."
+    required: true
+  artifact_name:
+    description: "Artifact to upload the log to."
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Read the API server log from Cloud Logging
+      shell: bash
+      env:
+        CLUSTER: ${{ inputs.cluster }}
+        ZONE: ${{ inputs.zone }}
+      run: bash "${GITHUB_ACTION_PATH}/log.sh"
+
+    - name: Upload the API server log
+      continue-on-error: true
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: |
+          gke-apiserver-log.json
+          gke-apiserver-log.tsv
+        if-no-files-found: ignore
+        retention-days: 7
