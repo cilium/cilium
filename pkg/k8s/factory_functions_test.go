@@ -788,9 +788,6 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 					},
 					Identity: &v2.EndpointIdentity{
 						ID: 9654,
-						Labels: []string{
-							"k8s:io.cilium.namespace=bar",
-						},
 					},
 					Networking: &v2.EndpointNetworking{
 						Addressing: []*v2.AddressPair{
@@ -846,9 +843,6 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 				},
 				Identity: &v2.EndpointIdentity{
 					ID: 9654,
-					Labels: []string{
-						"k8s:io.cilium.namespace=bar",
-					},
 				},
 				Networking: &v2.EndpointNetworking{
 					Addressing: []*v2.AddressPair{

@@ -139,9 +139,9 @@ spec:
                     format: int64
                     type: integer
                   labels:
-                    description: Labels is the list of labels associated with the
-                      identity
+                    description: Labels is unused
                     items:
+                      description: Unused
                       type: string
                     type: array
                 type: object

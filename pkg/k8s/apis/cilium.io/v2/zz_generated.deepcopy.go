@@ -2385,8 +2385,10 @@ func (in *EndpointIdentity) DeepCopyInto(out *EndpointIdentity) {
 	*out = *in
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels
-		*out = make([]string, len(*in))
-		copy(*out, *in)
+		*out = make([]UnusedPlaceholderString, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }

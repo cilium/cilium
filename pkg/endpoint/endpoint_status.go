@@ -6,30 +6,14 @@ package endpoint
 import (
 	"context"
 	"log/slog"
-	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
-	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
-
-func getEndpointIdentity(mdlIdentity *models.Identity) (identity *cilium_v2.EndpointIdentity) {
-	if mdlIdentity == nil {
-		return
-	}
-	identity = &cilium_v2.EndpointIdentity{
-		ID: mdlIdentity.ID,
-	}
-
-	identity.Labels = make([]string, len(mdlIdentity.Labels))
-	copy(identity.Labels, mdlIdentity.Labels)
-	slices.Sort(identity.Labels)
-	return
-}
 
 func (e *Endpoint) getEndpointNetworking(logger *slog.Logger, mdlNetworking *models.EndpointNetworking) (networking *cilium_v2.EndpointNetworking) {
 	if mdlNetworking == nil {
@@ -96,7 +80,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 	status := &cilium_v2.EndpointStatus{
 		ID:                  int64(e.ID),
 		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
-		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
+		Identity:            &cilium_v2.EndpointIdentity{ID: int64(e.SecurityIdentity.ID)},
 		Networking:          e.getEndpointNetworking(logger, e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled()))},

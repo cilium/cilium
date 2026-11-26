@@ -135,10 +135,9 @@ type EndpointIdentity struct {
 	// +kubebuilder:validation:Optional
 	ID int64 `json:"id,omitempty"`
 
-	// Labels is the list of labels associated with the identity
-	//
-	// +kubebuilder:validation:Optional
-	Labels []string `json:"labels,omitempty"`
+	// Labels is unused
+	// +optional
+	Labels []UnusedPlaceholderString `json:"labels,omitempty"`
 }
 
 // +genclient
