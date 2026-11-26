@@ -70,8 +70,8 @@ cilium connectivity test [flags]
       --print-flows[=true|false]                                   Print flow logs for each test
       --print-image-artifacts[=true|false]                         Prints the used image artifacts
       --request-timeout duration                                   Maximum time to allow a request to take (default 10s)
-      --retry uint                                                 Number of retries on connection failure to external targets (default 3)
-      --retry-delay duration                                       Delay between retries for external targets (default 3s)
+      --retry uint                                                 Number of retries on connection failure to external targets, and of pings expected to succeed that got no reply (default 3)
+      --retry-delay duration                                       Delay between retries for external targets and pings (default 3s)
       --secondary-network-iface string                             Secondary network iface name (e.g., to test NodePort BPF on multiple networks)
       --service-type string                                        Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node[=true|false]                                   Limit to tests able to run on a single node

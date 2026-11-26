@@ -186,8 +186,8 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.SocatImage, "socat-image", defaults.ConnectivityCheckImagesTest["ConnectivityTestSocatImage"], "Image path to use for multicast tests")
 	cmd.Flags().StringVar(&params.EchoImage, "echo-image", defaults.ConnectivityCheckOptionalImagesTest["ConnectivityTestEchoImage"], "Image path to use for echo server")
 
-	cmd.Flags().UintVar(&params.Retry, "retry", defaults.ConnectRetry, "Number of retries on connection failure to external targets")
-	cmd.Flags().DurationVar(&params.RetryDelay, "retry-delay", defaults.ConnectRetryDelay, "Delay between retries for external targets")
+	cmd.Flags().UintVar(&params.Retry, "retry", defaults.ConnectRetry, "Number of retries on connection failure to external targets, and of pings expected to succeed that got no reply")
+	cmd.Flags().DurationVar(&params.RetryDelay, "retry-delay", defaults.ConnectRetryDelay, "Delay between retries for external targets and pings")
 
 	cmd.Flags().DurationVar(&params.ConnectTimeout, "connect-timeout", defaults.ConnectTimeout, "Maximum time to allow initiation of the connection to take")
 	cmd.Flags().DurationVar(&params.RequestTimeout, "request-timeout", defaults.RequestTimeout, "Maximum time to allow a request to take")

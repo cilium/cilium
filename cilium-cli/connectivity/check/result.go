@@ -72,6 +72,8 @@ const (
 	ExitAnyError    ExitCode = -1
 	ExitInvalidCode ExitCode = -2
 
+	ExitPingNoReply ExitCode = 1
+
 	ExitCurlHTTPError ExitCode = 22
 	ExitCurlTimeout   ExitCode = 28
 

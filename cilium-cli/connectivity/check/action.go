@@ -308,6 +308,16 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	cmdStr := strings.Join(cmd, " ")
 
 	output, errOutput, err := a.execInSrcPod(ctx, cmd)
+	params := a.test.ctx.params
+	for retry := uint(1); retry <= params.Retry && ctx.Err() == nil && a.pingGotNoReply(cmdName, err); retry++ {
+		select {
+		case <-ctx.Done():
+			continue
+		case <-time.After(params.RetryDelay):
+		}
+		a.logPingRetry(retry, params.Retry)
+		output, errOutput, err = a.execInSrcPod(ctx, cmd)
+	}
 	// Check for inconclusive results.
 	if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 		a.Failf("inconclusive results: command %q was successful but without output", cmdStr)
@@ -399,6 +409,15 @@ func (a *Action) execInSrcPod(ctx context.Context, cmd []string) (bytes.Buffer, 
 		break
 	}
 	return output, errOutput, err
+}
+
+// pingGotNoReply reports whether a ping expected to succeed exited because no reply arrived.
+func (a *Action) pingGotNoReply(cmdName string, err error) bool {
+	if cmdName != "ping" || err == nil || !a.ExpectingSuccess() {
+		return false
+	}
+	exitCode, _ := a.extractExitCode(err)
+	return exitCode == ExitPingNoReply
 }
 
 var exitCodeRegex = regexp.MustCompile("exit code ([0-9]+)")
