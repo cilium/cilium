@@ -157,35 +157,93 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		dpInitialized: make(chan struct{}),
 	}
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			for {
-				rxt := params.DB.ReadTxn()
-				mtuRoute, _, watch, found := params.MTU.GetWatch(rxt, mtu.MTURouteByPrefix(mtu.DefaultPrefixV4))
-				if !found {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-watch:
-						continue
-					}
-				}
-
-				// Reinitialize the host device in a separate, blocking start hook to make sure all
-				// our dependencies can access the host device. This is necessary because one of these
-				// is the Daemon, which the main reconciliation loop has to wait for.
-				if err := o.params.Loader.ReinitializeHostDev(ctx, mtuRoute.DeviceMTU); err != nil {
-					return fmt.Errorf("failed to reinitialize host device: %w", err)
-				}
-				return nil
-			}
-		},
-	})
-
+	params.JobGroup.Add(job.OneShot("datapath-device-reconciler", o.reconcileDatapathDevices))
 	params.JobGroup.Add(job.OneShot("datapath-reconciler", o.reconciler, job.WithShutdown()))
 	params.JobGroup.Add(job.OneShot("precompile-endpoint-template", o.precompileEndpointTemplate))
 
 	return o
+}
+
+func (o *orchestrator) reconcileDatapathDevices(ctx context.Context, health cell.Health) error {
+	agentConfig, err := o.params.ConfigPromise.Await(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get agent config: %w", err)
+	}
+
+	limiter := rate.NewLimiter(5*time.Second, 1)
+
+	for {
+		var err error
+		rxn := o.params.DB.ReadTxn()
+		mtuRoute, _, watch, found := o.params.MTU.GetWatch(rxn, mtu.MTURouteByPrefix(mtu.DefaultPrefixV4))
+		if !found {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-watch:
+				continue
+			}
+		}
+
+		// Reinitialize the host device with the current MTU.
+		err = o.params.Loader.ReinitializeHostDev(ctx, mtuRoute.DeviceMTU)
+		if err != nil {
+			health.Degraded("failed to reinitialize host device", err)
+			goto errcheck
+		}
+
+		// If encap protocol is enabled, setup the tunnel device. If disabled, remove it.
+		err = device.SetupTunnelDevice(
+			o.params.Log,
+			o.params.Sysctl,
+			o.params.TunnelConfig.EncapProtocol(),
+			o.params.TunnelConfig.Port(),
+			o.params.TunnelConfig.SrcPortLow(),
+			o.params.TunnelConfig.SrcPortHigh(),
+			mtuRoute.DeviceMTU,
+			o.params.BIGTCPConfig,
+		)
+		if err != nil {
+			health.Degraded("failed to setup tunnel device", err)
+			goto errcheck
+		}
+
+		// If IPIP devices are enabled, setup the IPIP devices. If disabled, remove them.
+		err = device.SetupIPIPDevices(
+			o.params.Log,
+			o.params.Sysctl,
+			agentConfig.IPv4Enabled() && agentConfig.UnsafeDaemonConfigOption.EnableIPIPDevices,
+			agentConfig.IPv6Enabled() && agentConfig.UnsafeDaemonConfigOption.EnableIPIPDevices,
+			mtuRoute.DeviceMTU,
+		)
+		if err != nil {
+			health.Degraded("failed to setup IPIP devices", err)
+			goto errcheck
+		}
+
+	errcheck:
+		if err == nil {
+			health.OK("datapath devices reconciled")
+		}
+
+		// Limit reconciliation rate in both success and error cases.
+		if limitErr := limiter.Wait(ctx); limitErr != nil && ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		// Retry on error
+		if err != nil {
+			continue
+		}
+
+		// On success wait for MTU changes before reconciling again.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-watch:
+			continue
+		}
+	}
 }
 
 // precompileEndpointTemplate compiles the bpf_lxc template as soon as the datapath is initialized.
@@ -265,9 +323,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		return fmt.Errorf("waiting for plugin registry: %w", err)
 	}
 
-	health.OK("Waiting for host devices")
+	health.OK("Waiting for datapath devices")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
-	if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
+	if err := o.waitForDatapathDevices(ctx, health, agentConfig); err != nil {
 		return err
 	}
 
@@ -355,28 +413,6 @@ func (o *orchestrator) reconcile(
 	)
 	rxn := o.params.DB.ReadTxn()
 
-	tunnelWatch, err := o.ensureTunnelDevice(rxn)
-	watches = append(watches, tunnelWatch)
-	if err != nil {
-		o.params.Log.Warn("Failed to ensure tunnel device, retrying later",
-			logfields.Error, err,
-			logfields.RetryDelay, reinitRetryDuration,
-		)
-		health.Degraded("Failed to ensure tunnel device", err)
-		return watches, err
-	}
-
-	ipipWatch, err := o.ensureIPIPDevices(rxn, agentConfig)
-	watches = append(watches, ipipWatch)
-	if err != nil {
-		o.params.Log.Warn("Failed to ensure IPIP devices, retrying later",
-			logfields.Error, err,
-			logfields.RetryDelay, reinitRetryDuration,
-		)
-		health.Degraded("Failed to ensure IPIP devices", err)
-		return watches, err
-	}
-
 	localNodeConfig, localNodeConfigWatches, err := newLocalNodeConfig(
 		ctx,
 		option.Config,
@@ -431,81 +467,67 @@ func (o *orchestrator) reconcile(
 	return watches, nil
 }
 
-// waitForHostDevices blocks until cilium_host and cilium_net are present in the devices table.
-func (o *orchestrator) waitForHostDevices(ctx context.Context, health cell.Health, limiter *rate.Limiter) error {
-	// Avoid a startup race with the devices controller.
-	health.OK("Waiting for host devices")
+// waitForDatapathDevices blocks until datapath owned devices (cilium_*) are present in the devices table.
+func (o *orchestrator) waitForDatapathDevices(
+	ctx context.Context,
+	health cell.Health,
+	agentConfig *option.DaemonConfig,
+) error {
 	for {
+		var nok bool
 		rxt := o.params.DB.ReadTxn()
-		_, _, hostWatch, hostOK := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.HostDevice))
-		_, _, netWatch, netOK := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.SecondHostDevice))
-		if hostOK && netOK {
+		watchSet := statedb.NewWatchSet()
+
+		if _, _, watch, ok := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.HostDevice)); !ok {
+			nok = true
+			watchSet.Add(watch)
+		}
+
+		if _, _, watch, ok := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.SecondHostDevice)); !ok {
+			nok = true
+			watchSet.Add(watch)
+		}
+
+		switch o.params.TunnelConfig.EncapProtocol() {
+		case tunnel.Geneve:
+			if _, _, watch, ok := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.GeneveDevice)); !ok {
+				nok = true
+				watchSet.Add(watch)
+			}
+		case tunnel.VXLAN:
+			if _, _, watch, ok := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.VxlanDevice)); !ok {
+				nok = true
+				watchSet.Add(watch)
+			}
+		}
+
+		if agentConfig.UnsafeDaemonConfigOption.EnableIPIPDevices {
+			if agentConfig.IPv4Enabled() {
+				if _, _, watch, ok := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.IPIPv4Device)); !ok {
+					nok = true
+					watchSet.Add(watch)
+				}
+			}
+
+			if agentConfig.IPv6Enabled() {
+				if _, _, watch, ok := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.IPIPv6Device)); !ok {
+					nok = true
+					watchSet.Add(watch)
+				}
+			}
+		}
+
+		// If all required datapath devices are present, return immediately.
+		if !nok {
 			return nil
 		}
-		if hostWatch == nil && netWatch == nil {
-			if err := limiter.Wait(ctx); err != nil {
-				return err
-			}
-			continue
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-hostWatch:
-		case <-netWatch:
+
+		// Wait for any of the watches to expire, then wait for the minimum reinit interval to settle and rate limit.
+		// If ctx is canceled or expires, Wait will return ctx.Err().
+		if _, err := watchSet.Wait(ctx, minReinitInterval); err != nil {
+			return err
 		}
 	}
-}
-
-func (o *orchestrator) ensureIPIPDevices(rtx statedb.ReadTxn, agentConfig *option.DaemonConfig) (<-chan struct{}, error) {
-	if !agentConfig.UnsafeDaemonConfigOption.EnableIPIPDevices {
-		return nil, nil
-	}
-
-	mtuRoute, _, mtuWatch, found := o.params.MTU.GetWatch(
-		rtx,
-		mtu.MTURouteByPrefix(mtu.DefaultPrefixV4),
-	)
-	if !found {
-		return mtuWatch, fmt.Errorf("default route MTU is not available")
-	}
-
-	err := device.SetupIPIPDevices(
-		o.params.Log,
-		o.params.Sysctl,
-		agentConfig.IPv4Enabled(),
-		agentConfig.IPv6Enabled(),
-		mtuRoute.DeviceMTU,
-	)
-	if err != nil {
-		return mtuWatch, fmt.Errorf("reconciling IPIP devices: %w", err)
-	}
-	return mtuWatch, nil
-}
-
-func (o *orchestrator) ensureTunnelDevice(rtx statedb.ReadTxn) (<-chan struct{}, error) {
-	mtuRoute, _, mtuWatch, found := o.params.MTU.GetWatch(
-		rtx,
-		mtu.MTURouteByPrefix(mtu.DefaultPrefixV4),
-	)
-	if !found {
-		return mtuWatch, fmt.Errorf("default route MTU is not available")
-	}
-
-	err := device.SetupTunnelDevice(
-		o.params.Log,
-		o.params.Sysctl,
-		o.params.TunnelConfig.EncapProtocol(),
-		o.params.TunnelConfig.Port(),
-		o.params.TunnelConfig.SrcPortLow(),
-		o.params.TunnelConfig.SrcPortHigh(),
-		mtuRoute.DeviceMTU,
-		o.params.BIGTCPConfig,
-	)
-	if err != nil {
-		return mtuWatch, fmt.Errorf("reconciling tunnel device: %w", err)
-	}
-	return mtuWatch, nil
 }
 
 func (o *orchestrator) DatapathInitialized() <-chan struct{} {
