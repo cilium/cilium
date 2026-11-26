@@ -223,14 +223,6 @@ jobs:
             mv /tmp/result.json.tmp /tmp/result.json
           fi
 
-          # Allow a caller to opt out of the IPv6 leg of the matrix
-          SKIP_IPV6=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["skip-ipv6"] // false')
-          if [[ "$SKIP_IPV6" == "true" ]]; then
-            echo "::notice::skip-ipv6 requested - removing IPv6 entries from the matrix"
-            jq '.include |= map(select(.["ip-family"] != "IPv6"))' /tmp/result.json > /tmp/result.json.tmp
-            mv /tmp/result.json.tmp /tmp/result.json
-          fi
-
           # Check if KPR is requested via extra-args
           KPR=$(echo "${EXTRA_ARGS}" | jq -r '.["kpr"] // false')
           if [[ "$KPR" == "true" ]]; then
