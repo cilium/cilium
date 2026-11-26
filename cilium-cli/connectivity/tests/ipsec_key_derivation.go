@@ -122,20 +122,17 @@ func (t *ipsecKeyDerivationTest) validateKeysWith(test *check.Test, state1, stat
 
 	// Compare authentication keys
 	if state1.AuthKey != state2.AuthKey {
-		test.Fatalf("Authentication key mismatch for tunnel %s: %s has %s, %s has %s",
-			tunnelKey, node1, state1.AuthKey, node2, state2.AuthKey)
+		test.Fatalf("Authentication key mismatch for tunnel %s between %s and %s", tunnelKey, node1, node2)
 	}
 
 	// Compare encryption keys
 	if state1.CryptKey != state2.CryptKey {
-		test.Fatalf("Encryption key mismatch for tunnel %s: %s has %s, %s has %s",
-			tunnelKey, node1, state1.CryptKey, node2, state2.CryptKey)
+		test.Fatalf("Encryption key mismatch for tunnel %s: %s and %s", tunnelKey, node1, node2)
 	}
 
 	// Compare AEAD keys
 	if state1.AeadKey != state2.AeadKey {
-		test.Fatalf("AEAD key mismatch for tunnel %s: %s has %s, %s has %s",
-			tunnelKey, node1, state1.AeadKey, node2, state2.AeadKey)
+		test.Fatalf("AEAD key mismatch for tunnel %s: %s and %s", tunnelKey, node1, node2)
 	}
 
 	test.Debugf("Keys validated successfully for tunnel %s", tunnelKey)
