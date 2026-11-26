@@ -36,9 +36,18 @@ func (d *DeviceConfig) Validate() error {
 		return fmt.Errorf("invalid address allocation: %w", err)
 	}
 
-	// empty pool name is allowed, otherwise validate as DNS1123 subdomain
-	if errs := validation.IsDNS1123Subdomain(d.IPPool); d.IPPool != "" && len(errs) > 0 {
-		return fmt.Errorf("invalid pool name: %v", strings.Join(errs, "; "))
+	// Empty pool name is allowed, otherwise validate as DNS1123 subdomain.
+	if d.IPPool != "" {
+		if errs := validation.IsDNS1123Subdomain(d.IPPool); len(errs) > 0 {
+			return fmt.Errorf("invalid pool name: %v", strings.Join(errs, "; "))
+		}
+	}
+
+	// Empty network config is allowed, otherwise validate as DNS1123 subdomain.
+	if d.NetworkConfig != "" {
+		if errs := validation.IsDNS1123Subdomain(d.NetworkConfig); len(errs) > 0 {
+			return fmt.Errorf("invalid network config name: %v", strings.Join(errs, "; "))
+		}
 	}
 
 	return nil

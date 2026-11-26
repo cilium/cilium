@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/networkdriver/networkconfig"
 	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -682,6 +683,7 @@ func TestClaimConfigModifier(t *testing.T) {
 	h := hive.New(
 		k8sClient.FakeClientCell(),
 		cell.Config(config.Config{Enabled: true}),
+		networkconfig.TableCell,
 		cell.Provide(
 			registerNetworkDriver,
 			newDeviceTable,

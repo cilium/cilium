@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/netip"
 	"path"
 
@@ -17,8 +19,10 @@ import (
 	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
+	"golang.org/x/sys/unix"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
+	linuxroute "github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -35,6 +39,13 @@ type addrAction int
 const (
 	addrAdd addrAction = iota
 	addrDel
+)
+
+type routeAction int
+
+const (
+	routeAdd routeAction = iota
+	routeDel
 )
 
 var (
@@ -243,6 +254,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 						l.Attrs().Name, err)
 				}
 
+				if err := driver.configureRoutes(log, l, routeAdd, a.StaticRoutes); err != nil {
+					return fmt.Errorf("failed to configure routes: %w", err)
+				}
+
 				return nil
 			}); err != nil {
 				log.ErrorContext(ctx, "failed to configure device",
@@ -349,6 +364,12 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 						logfields.Device, ifName,
 						logfields.Error, err)
 					continue
+				}
+
+				if err := driver.configureRoutes(log, l, routeDel, a.StaticRoutes); err != nil {
+					log.WarnContext(ctx, "Failed to delete static routes",
+						logfields.Device, ifName,
+						logfields.Error, err)
 				}
 
 				if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
@@ -616,4 +637,34 @@ func (driver *Driver) configureIPs(l netlink.Link, action addrAction, ipv4, ipv6
 	}
 
 	return errs
+}
+
+func (driver *Driver) configureRoutes(logger *slog.Logger, l netlink.Link, action routeAction, routes []types.StaticRoute) error {
+	var errs []error
+	for _, r := range routes {
+		var nextHop *net.IP
+		if gw := r.Gateway; gw != nil {
+			addr := net.IP(gw.AsSlice())
+			nextHop = &addr
+		}
+		route := linuxroute.Route{
+			Prefix:  *netipx.PrefixIPNet(r.Destination),
+			Nexthop: nextHop,
+			Device:  l.Attrs().Name,
+			Table:   unix.RT_TABLE_MAIN,
+			Proto:   unix.RTPROT_STATIC,
+		}
+
+		switch action {
+		case routeAdd:
+			if err := linuxroute.Upsert(logger, route); err != nil {
+				errs = append(errs, fmt.Errorf("failed to add static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
+			}
+		case routeDel:
+			if err := linuxroute.Delete(route); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
+			}
+		}
+	}
+	return errors.Join(errs...)
 }

@@ -28,6 +28,15 @@ var Cell = cell.Group(
 	cell.ProvidePrivate(newTableAndReflector),
 )
 
+// TableCell can be used in tests for providing the table, both as a statedb.RWTable and as a
+// statedb.Table, without the associated k8s reflector.
+var TableCell = cell.Provide(
+	newTable,
+	func(t statedb.RWTable[LocalResourceNetworkConfig]) statedb.Table[LocalResourceNetworkConfig] {
+		return t
+	},
+)
+
 // LocalResourceNetworkConfig is Cilium's internal model of a CiliumResourceNetworkConfig.
 type LocalResourceNetworkConfig struct {
 	Name string            `json:"name" yaml:"name"`
@@ -36,6 +45,31 @@ type LocalResourceNetworkConfig struct {
 	// UpdatedAt is the time when [LocalResourceNetworkConfig] was last updated, e.g. it shows when
 	// last change was received from the api-server.
 	UpdatedAt time.Time `json:"updatedAt" yaml:"updatedAt"`
+}
+
+// LongestPrefixSpecMatch returns the spec entry, for the provided address family, whose CIDR
+// qualifies as longest prefix match. If no entry matches, the returned boolean is set to false.
+func (c LocalResourceNetworkConfig) LongestPrefixSpecMatch(addr netip.Addr) (IPSpec, bool) {
+	var ipSpec []IPSpec
+	if addr.Is4() {
+		ipSpec = c.Spec.IPv4
+	} else {
+		ipSpec = c.Spec.IPv6
+	}
+	return longestPrefixIPSpecMatch(ipSpec, addr)
+}
+
+func longestPrefixIPSpecMatch(ipSpec []IPSpec, addr netip.Addr) (IPSpec, bool) {
+	found := false
+	var entry IPSpec
+	for i := range ipSpec {
+		spec := &ipSpec[i]
+		if spec.CIDR.Contains(addr) && (!found || spec.CIDR.Bits() > entry.CIDR.Bits()) {
+			entry = *spec
+			found = true
+		}
+	}
+	return entry, found
 }
 
 type networkConfigSpec struct {
@@ -47,6 +81,16 @@ type IPSpec struct {
 	CIDR         netip.Prefix        `json:"cidr" yaml:"cidr"`
 	PrefixLength *int                `json:"prefixLength,omitempty" yaml:"prefixLength,omitempty"`
 	Routes       []IPStaticRouteSpec `json:"routes,omitempty" yaml:"routes,omitempty"`
+}
+
+// GetPrefixLength returns the prefix length field value if available, and the CIDR's prefix length
+// otherwise.
+func (s *IPSpec) GetPrefixLength() int {
+	if s.PrefixLength == nil {
+		// note: the CIDR is valid, so Bits() doesn't return -1.
+		return s.CIDR.Bits()
+	}
+	return *s.PrefixLength
 }
 
 type IPStaticRouteSpec struct {
