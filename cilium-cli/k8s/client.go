@@ -1348,7 +1348,9 @@ func (c *Client) ApplyGeneric(ctx context.Context, obj Object) (*unstructured.Un
 	u.SetManagedFields(nil)
 
 	dynamicClient := c.DynamicClientset.Resource(resource).Namespace(obj.GetNamespace())
-	return dynamicClient.Apply(ctx, obj.GetName(), u, metav1.ApplyOptions{Force: true, FieldManager: "cilium-cli"})
+	return retryWrite(ctx, obj.GetName(), func() (*unstructured.Unstructured, error) {
+		return dynamicClient.Apply(ctx, obj.GetName(), u, metav1.ApplyOptions{Force: true, FieldManager: "cilium-cli"})
+	}, nil)
 }
 
 func (c *Client) GetGeneric(ctx context.Context, namespace, name string, obj Object) (*unstructured.Unstructured, error) {
