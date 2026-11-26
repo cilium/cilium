@@ -409,7 +409,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/tests/from-cidr.go @cilium/sig-policy
 /cilium-cli/connectivity/tests/health.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/host.go @cilium/sig-agent
-/cilium-cli/connectivity/tests/ipsec_xfrm.go @cilium/ipsec
+/cilium-cli/connectivity/tests/ipsec* @cilium/ipsec
 /cilium-cli/connectivity/tests/lrp.go @cilium/sig-lb
 /cilium-cli/connectivity/tests/pod.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/service.go @cilium/sig-lb
