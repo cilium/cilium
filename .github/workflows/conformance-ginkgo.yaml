@@ -363,7 +363,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ needs.setup-vars.outputs.SHA }}
+          image-tag: ${{ env.CILIUM_CLI_IMAGE_TAG }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
@@ -371,7 +371,7 @@ jobs:
         if: ${{ env.CILIUM_CLI_VERSION == '' }}
         shell: bash
         run: |
-          cid=$(docker create ${{ env.CILIUM_CLI_IMAGE_REPO }}:${{ needs.setup-vars.outputs.SHA }} ls)
+          cid=$(docker create ${{ env.CILIUM_CLI_IMAGE_REPO }}:${{ env.CILIUM_CLI_IMAGE_TAG }} ls)
           docker cp $cid:/usr/local/bin/cilium "$PWD/cilium-cli-bin"
           docker rm $cid
 
