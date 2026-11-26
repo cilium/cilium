@@ -2515,6 +2515,8 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		logger.Warn("IPv6 support in the ENI IPAM mode (ipam.mode=eni, ipv6.enabled=true) is a beta feature. Please use it with caution and report any issues you encounter: https://github.com/cilium/cilium/issues/new?template=bug_report.yaml")
 	}
 
+	c.EnableIdentityMark = vp.GetBool(EnableIdentityMark)
+
 	encryptionStrictModeEgressEnabled := vp.GetBool(EnableEncryptionStrictModeEgress)
 	if encryptionStrictModeEgressEnabled {
 		if c.EnableIPv6 {
@@ -2536,6 +2538,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	c.EnableEncryptionStrictModeIngress = vp.GetBool(EnableEncryptionStrictModeIngress)
+	if c.EnableEncryptionStrictModeIngress && !c.EnableIdentityMark {
+		logging.Fatal(logger, fmt.Sprintf("Ingress strict mode for encryption requires --%s", EnableIdentityMark))
+	}
 
 	// The service ranges are optional: the AutoCIDR sentinel (the flag
 	// default) means the services CIDR is inside the cluster prefix, and is
@@ -2601,7 +2606,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	c.ClockSource = ClockSourceKtime
-	c.EnableIdentityMark = vp.GetBool(EnableIdentityMark)
 
 	// toFQDNs options
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)
