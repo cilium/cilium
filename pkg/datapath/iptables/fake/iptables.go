@@ -4,6 +4,8 @@
 package fake
 
 import (
+	"iter"
+	"maps"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -26,8 +28,12 @@ func (f *Manager) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (m *Manager) GetProxyPorts() map[string]uint16 {
-	return nil
+func (m *Manager) RestoredProxyPorts() iter.Seq2[string, uint16] {
+	return maps.All(map[string]uint16(nil))
+}
+
+func (m *Manager) RestoredProxyPort(string) uint16 {
+	return 0
 }
 
 func (m *Manager) InstallNoTrackRules(ip netip.Addr, port uint16) {

@@ -8,7 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -344,12 +346,14 @@ func (ports noTrackHostPortsByPod) exclude(key podAndNameSpace) noTrackHostPorts
 	return result
 }
 
-// anager manages the iptables-related configuration for Cilium.
+// manager manages the iptables-related configuration for Cilium.
 type manager struct {
 	logger *slog.Logger
-	// This lock ensures there are no concurrent executions of the doInstallRules() and
-	// GetProxyPort() methods.
-	lock lock.Mutex
+
+	// argsInit orders the startup snapshot read before reconciliation.
+	// The reconciler then serializes rule updates in one goroutine, so
+	// neither path needs a manager mutex.
+	restoredProxyPorts map[string]uint16
 
 	ip4tables, ip6tables iptablesInterface
 
@@ -414,9 +418,11 @@ type Manager interface {
 	// connections.
 	SupportsOriginalSourceAddr() bool
 
-	// GetProxyPorts fetches the existing proxy ports configured in the
-	// datapath. Used early in bootstrap to reopen proxy ports.
-	GetProxyPorts() map[string]uint16
+	// RestoredProxyPorts iterates the original port hints after manager startup.
+	RestoredProxyPorts() iter.Seq2[string, uint16]
+
+	// RestoredProxyPort returns the startup port for name, or zero if absent.
+	RestoredProxyPort(name string) uint16
 
 	// InstallNoTrackRules is explicitly called when a pod has valid
 	// "policy.cilium.io/no-track-port" annotation.  When
@@ -479,7 +485,7 @@ func newManager(p params) Manager {
 		panic("Egress masquerading interfaces cannot be empty when IP masquerading is enabled with IPAM mode other than ClusterPool or Kubernetes")
 	}
 
-	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
+	// Initialize the command arguments before capturing the startup proxy ports.
 	initDone := iptMgr.argsInit.Add()
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -491,6 +497,9 @@ func newManager(p params) Manager {
 			if p.SharedCfg.EnableIPv6 {
 				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
 			}
+			if p.SharedCfg.EnableL7Proxy {
+				iptMgr.restoredProxyPorts = iptMgr.readPreviousProxyPorts()
+			}
 			return nil
 		},
 	})
@@ -500,17 +509,23 @@ func newManager(p params) Manager {
 
 	p.JobGroup.Add(
 		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.Health) error {
-			// each job runs in an independent goroutine, so we need to explicitly wait for both
-			// ip{4,6}tables and haveIp6tables initialization before starting the reconciler.
+			// Each job runs in its own goroutine. Wait for the command arguments,
+			// startup proxy ports, and the manager's kernel capability probes.
 			iptMgr.argsInit.Stop()
 			select {
 			case <-ctx.Done():
 				return nil
 			case <-iptMgr.argsInit.WaitChannel():
 			}
+			restoredProxyPorts := iptMgr.restoredProxyPorts
+			// Only keep restored proxy ports if still needed for iptables rules.
+			if !iptMgr.sharedCfg.InstallIptRules || iptMgr.sharedCfg.EnableBPFTProxy {
+				restoredProxyPorts = nil
+			}
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
+				restoredProxyPorts,
 				iptMgr.doInstallRules,
 				iptMgr.doInstallProxyRules,
 				iptMgr.installNoTrackRules,
@@ -1059,59 +1074,6 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 	return nil
 }
 
-func (m *manager) doCopyProxyRules(prog iptablesInterface, table string, re *regexp.Regexp, match, oldChain, newChain string) error {
-	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
-	if err != nil {
-		return err
-	}
-
-	scanner := bufio.NewScanner(strings.NewReader(rules))
-	for scanner.Scan() {
-		rule := scanner.Text()
-		if !re.MatchString(rule) || !strings.Contains(rule, match) {
-			continue
-		}
-
-		args, err := shellwords.Parse(strings.Replace(rule, oldChain, newChain, 1))
-		if err != nil {
-			m.logger.Warn(
-				"Unable to parse TPROXY rule, disruption to traffic selected by L7 policy possible",
-				logfields.Error, err,
-				logfields.Object, rule,
-				logfields.Table, table,
-				logfields.Prog, prog.getProg(),
-			)
-			continue
-		}
-
-		copyRule := append([]string{"-t", table}, args...)
-		if err := prog.runProg(copyRule); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-var tproxyMatch = regexp.MustCompile("CILIUM_PRE_mangle .*cilium: TPROXY")
-
-// copies old proxy rules
-func (m *manager) copyProxyRules(oldChain string, match string) error {
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.doCopyProxyRules(m.ip4tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
-			return err
-		}
-	}
-
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.doCopyProxyRules(m.ip6tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // Redirect packets to the host proxy via TPROXY, as directed by the Cilium
 // datapath bpf programs via skb marks.
 func (m *manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name string) error {
@@ -1301,22 +1263,33 @@ func (m *manager) doInstallProxyRules(proxyPort uint16, name string) error {
 	return nil
 }
 
-// GetProxyPorts enumerates all existing TPROXY rules in the datapath installed earlier with
-// InstallProxyRules and returns all proxy ports found.
-func (m *manager) GetProxyPorts() map[string]uint16 {
+func (m *manager) RestoredProxyPorts() iter.Seq2[string, uint16] {
+	return maps.All(m.restoredProxyPorts)
+}
+
+func (m *manager) RestoredProxyPort(name string) uint16 {
+	return m.restoredProxyPorts[name]
+}
+
+func (m *manager) readPreviousProxyPorts() map[string]uint16 {
 	prog := m.ip4tables
 	if !m.sharedCfg.EnableIPv4 {
 		prog = m.ip6tables
 	}
-
-	return m.doGetProxyPorts(prog)
+	ports := m.doGetProxyPorts(prog)
+	if m.sharedCfg.EnableIPv4 && m.sharedCfg.EnableIPv6 {
+		for name, port := range m.doGetProxyPorts(m.ip6tables) {
+			// Preserve IPv6-only entries. Prefer IPv4 when the port differs.
+			if _, found := ports[name]; !found {
+				ports[name] = port
+			}
+		}
+	}
+	return ports
 }
 
 func (m *manager) doGetProxyPorts(prog iptablesInterface) map[string]uint16 {
 	portMap := make(map[string]uint16)
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
 
 	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain})
 	if err != nil {
@@ -1776,10 +1749,7 @@ func (m *manager) installHostTrafficMarkRule(prog runnable) error {
 		"-j", "MARK", "--set-xmark", markAsFromHost})
 }
 
-func (m *manager) doInstallRules(state desiredState, firstInit bool) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
+func (m *manager) doInstallRules(state desiredState) error {
 	// Make sure we have no old "backups"
 	if err := m.removeRules(oldCiliumPrefix); err != nil {
 		// We could fail if netfilter was compiled out from the kernel
@@ -1799,14 +1769,7 @@ func (m *manager) doInstallRules(state desiredState, firstInit bool) error {
 			return fmt.Errorf("failed to install rules: %w", err)
 		}
 
-		// copy old proxy rules over at initialization
-		if firstInit {
-			if err := m.copyProxyRules(oldCiliumPrefix+ciliumPreMangleChain, "cilium-dns-egress"); err != nil {
-				return fmt.Errorf("cannot copy old proxy rules, disruption to traffic selected by L7 policy possible: %w", err)
-			}
-		}
-
-		for _, proxy := range state.proxies {
+		for proxy := range state.proxyRules {
 			if err := m.doInstallProxyRules(proxy.port, proxy.name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", proxy.name, err)
 			}

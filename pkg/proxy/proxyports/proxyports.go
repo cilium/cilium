@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"math/rand/v2"
 	"os"
@@ -41,7 +42,7 @@ const (
 
 type DatapathUpdater interface {
 	InstallProxyRules(proxyPort uint16, name string)
-	GetProxyPorts() map[string]uint16
+	RestoredProxyPorts() iter.Seq2[string, uint16]
 }
 
 type ProxyPort struct {
@@ -712,9 +713,7 @@ func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint
 // as defaults for proxy ports
 // must be called with mutex held
 func (p *ProxyPorts) restoreProxyPortsFromIptables() {
-	// restore proxy ports from the datapath iptables rules
-	portsMap := p.datapathUpdater.GetProxyPorts()
-	for name, port := range portsMap {
+	for name, port := range p.datapathUpdater.RestoredProxyPorts() {
 		pp := p.proxyPorts[name]
 		if pp != nil {
 			if pp.proxyPort != 0 {
