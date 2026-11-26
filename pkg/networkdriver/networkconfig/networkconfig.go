@@ -45,7 +45,7 @@ type networkConfigSpec struct {
 
 type ipNetworkConfigSpec struct {
 	CIDR         netip.Prefix        `json:"cidr" yaml:"cidr"`
-	PrefixLength *uint8              `json:"prefixLength,omitempty" yaml:"prefixLength,omitempty"`
+	PrefixLength *int                `json:"prefixLength,omitempty" yaml:"prefixLength,omitempty"`
 	Routes       []ipStaticRouteSpec `json:"routes,omitempty" yaml:"routes,omitempty"`
 }
 
@@ -212,9 +212,9 @@ func parseIPv4Spec(spec *v2alpha1.IPv4NetworkConfigSpec) (ipNetworkConfigSpec, b
 	if err != nil {
 		return ipNetworkConfigSpec{}, false
 	}
-	var prefixLength *uint8
+	var prefixLength *int
 	if spec.PrefixLength != nil {
-		prefixLength = new(*spec.PrefixLength)
+		prefixLength = new(int(*spec.PrefixLength))
 	}
 
 	routes := make([]ipStaticRouteSpec, 0, len(spec.Routes))
@@ -238,9 +238,9 @@ func parseIPv6Spec(spec *v2alpha1.IPv6NetworkConfigSpec) (ipNetworkConfigSpec, b
 	if err != nil {
 		return ipNetworkConfigSpec{}, false
 	}
-	var prefixLength *uint8
+	var prefixLength *int
 	if spec.PrefixLength != nil {
-		prefixLength = new(*spec.PrefixLength)
+		prefixLength = new(int(*spec.PrefixLength))
 	}
 
 	routes := make([]ipStaticRouteSpec, 0, len(spec.Routes))
