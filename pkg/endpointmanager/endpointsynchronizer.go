@@ -281,9 +281,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 										UID:        cepOwner.GetUID(),
 									},
 								},
-								// Mirror the labels of parent pod in CiliumEndpoint object to enable
-								// label based selection for CiliumEndpoints.
-								Labels: cepOwner.GetLabels(),
 							},
 							Status: *mdl,
 						}
