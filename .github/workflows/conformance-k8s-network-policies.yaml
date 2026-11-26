@@ -174,7 +174,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ steps.vars.outputs.tag }}
+          image-tag: ${{ env.CILIUM_CLI_IMAGE_TAG }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
