@@ -903,6 +903,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		}
 		n.registerIpsecMetricOnce()
 	} else {
+		n.log.Info("Cleaning up stale IPsec configuration")
 		if err := n.removeDecryptRules(); err != nil {
 			n.log.Warn("Cannot cleanup previous decryption rule state.", logfields.Error, err)
 		}
