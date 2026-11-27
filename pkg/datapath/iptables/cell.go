@@ -79,6 +79,10 @@ type Config struct {
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
+
+	// IPTablesRemoveAWSRules enables the removal, on agent startup, of the
+	// IPv4 iptables rules installed by the AWS VPC CNI plugin.
+	IPTablesRemoveAWSRules bool
 }
 
 var defaultConfig = Config{
@@ -87,6 +91,7 @@ var defaultConfig = Config{
 	DisableIptablesFeederRules: []string{},
 	IPTablesRandomFully:        false,
 	EnableXTSocketFallback:     true,
+	IPTablesRemoveAWSRules:     false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -95,6 +100,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("iptables-random-fully", def.IPTablesRandomFully, "Set iptables flag random-fully on masquerading rules")
 	flags.Bool("prepend-iptables-chains", def.PrependIptablesChains, "Prepend custom iptables chains instead of appending")
 	flags.Bool("enable-xt-socket-fallback", def.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
+	flags.Bool("iptables-remove-aws-rules", def.IPTablesRemoveAWSRules, "Remove the IPv4 iptables rules installed by the AWS VPC CNI plugin on startup")
 }
 
 type SharedConfig struct {

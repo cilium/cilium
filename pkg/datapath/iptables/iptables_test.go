@@ -727,6 +727,99 @@ func TestRemoveCiliumRulesv6(t *testing.T) {
 	}
 }
 
+func TestRemoveAWSVPCCNIRules(t *testing.T) {
+	// Representative of what aws-node installs in the nat table, mixed with
+	// rules owned by others that must be left untouched.
+	natRules := `-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N AWS-CONNMARK-CHAIN-0
+-N AWS-SNAT-CHAIN-0
+-N AWS-SNAT-CHAIN-1
+-N KUBE-POSTROUTING
+-A PREROUTING -i eni+ -m comment --comment "AWS, outbound connections" -j AWS-CONNMARK-CHAIN-0
+-A POSTROUTING -m comment --comment "kubernetes postrouting rules" -j KUBE-POSTROUTING
+-A POSTROUTING -m comment --comment "AWS SNAT CHAIN" -j AWS-SNAT-CHAIN-0
+-A AWS-CONNMARK-CHAIN-0 -d 10.0.0.0/16 -m comment --comment "AWS CONNMARK CHAIN, VPC CIDR" -j RETURN
+-A AWS-CONNMARK-CHAIN-0 -m comment --comment "AWS, CONNMARK" -j CONNMARK --set-xmark 0x80/0x80
+-A AWS-SNAT-CHAIN-0 ! -d 10.0.0.0/16 -m comment --comment "AWS SNAT CHAIN" -j AWS-SNAT-CHAIN-1
+-A AWS-SNAT-CHAIN-1 ! -o vlan+ -m comment --comment "AWS, SNAT" -m addrtype ! --dst-type LOCAL -j SNAT --to-source 10.0.1.23 --random-fully
+-A KUBE-POSTROUTING -m mark ! --mark 0x4000/0x4000 -j RETURN
+`
+	noAWSRules := `-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P OUTPUT ACCEPT
+-N KUBE-KUBELET-CANARY
+`
+
+	tests := []struct {
+		name         string
+		expectations []expectation
+		wantErr      bool
+	}{
+		{
+			name: "removes AWS rules and chains",
+			expectations: []expectation{
+				{args: "-t nat -S", out: []byte(natRules)},
+				{args: "-t nat -D PREROUTING -i eni+ -m comment --comment AWS, outbound connections -j AWS-CONNMARK-CHAIN-0"},
+				{args: "-t nat -D POSTROUTING -m comment --comment AWS SNAT CHAIN -j AWS-SNAT-CHAIN-0"},
+				{args: "-t nat -F AWS-CONNMARK-CHAIN-0"},
+				{args: "-t nat -F AWS-SNAT-CHAIN-0"},
+				{args: "-t nat -F AWS-SNAT-CHAIN-1"},
+				{args: "-t nat -X AWS-CONNMARK-CHAIN-0"},
+				{args: "-t nat -X AWS-SNAT-CHAIN-0"},
+				{args: "-t nat -X AWS-SNAT-CHAIN-1"},
+				{args: "-t mangle -S", out: []byte(noAWSRules)},
+				{args: "-t raw -S", out: []byte(noAWSRules)},
+				{args: "-t filter -S", out: []byte(noAWSRules)},
+			},
+		},
+		{
+			name: "no AWS rules",
+			expectations: []expectation{
+				{args: "-t nat -S", out: []byte(noAWSRules)},
+				{args: "-t mangle -S", out: []byte(noAWSRules)},
+				{args: "-t raw -S", out: []byte(noAWSRules)},
+				{args: "-t filter -S", out: []byte(noAWSRules)},
+			},
+		},
+		{
+			name: "failures don't stop the removal",
+			expectations: []expectation{
+				{args: "-t nat -S", out: []byte(natRules)},
+				{args: "-t nat -D PREROUTING -i eni+ -m comment --comment AWS, outbound connections -j AWS-CONNMARK-CHAIN-0", err: errors.New("boom")},
+				{args: "-t nat -D POSTROUTING -m comment --comment AWS SNAT CHAIN -j AWS-SNAT-CHAIN-0"},
+				{args: "-t nat -F AWS-CONNMARK-CHAIN-0"},
+				{args: "-t nat -F AWS-SNAT-CHAIN-0"},
+				{args: "-t nat -F AWS-SNAT-CHAIN-1"},
+				{args: "-t nat -X AWS-CONNMARK-CHAIN-0", err: errors.New("chain still referenced")},
+				{args: "-t nat -X AWS-SNAT-CHAIN-0"},
+				{args: "-t nat -X AWS-SNAT-CHAIN-1"},
+				{args: "-t mangle -S", err: errors.New("table unavailable")},
+				{args: "-t raw -S", out: []byte(noAWSRules)},
+				{args: "-t filter -S", out: []byte(noAWSRules)},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockIp4tables := &mockIptables{t: t, prog: "iptables", expectations: tt.expectations}
+			m := &manager{logger: hivetest.Logger(t), ip4tables: mockIp4tables}
+
+			err := m.removeAWSVPCCNIRules()
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.NoError(t, mockIp4tables.checkExpectations())
+		})
+	}
+}
+
 func TestNodeIpsetNATCmds(t *testing.T) {
 	allocRange := "10.0.0.0/16"
 	ipset := "1.1.1.1"
