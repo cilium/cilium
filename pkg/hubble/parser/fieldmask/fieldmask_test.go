@@ -152,6 +152,65 @@ func TestFieldMask_oneof_multiple_variants(t *testing.T) {
 	assert.Nil(t, dstFlow.L7.GetDns(), "Should not have DNS structure")
 }
 
+func TestFieldMask_copy_clears_stale_field(t *testing.T) {
+	fm, err := New(&fieldmaskpb.FieldMask{Paths: []string{
+		"l4.TCP.source_port",
+		"l4.TCP.destination_port",
+		"l7.http.url",
+		"l7.http.method",
+		"l7.dns.query",
+	}})
+	assert.NoError(t, err)
+
+	dstFlow := &flowpb.Flow{}
+	fm.Alloc(dstFlow.ProtoReflect())
+
+	httpFlow := &flowpb.Flow{
+		L7: &flowpb.Layer7{
+			Record: &flowpb.Layer7_Http{
+				Http: &flowpb.HTTP{
+					Method: "POST",
+					Url:    "https://example.com/old-request",
+				},
+			},
+		},
+	}
+	dnsFlow := &flowpb.Flow{
+		L7: &flowpb.Layer7{
+			Record: &flowpb.Layer7_Dns{
+				Dns: &flowpb.DNS{
+					Query: "example.com",
+				},
+			},
+		},
+	}
+	tcpFlow := &flowpb.Flow{
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					SourcePort:      33001,
+					DestinationPort: 443,
+				},
+			},
+		},
+	}
+
+	fm.Copy(dstFlow.ProtoReflect(), httpFlow.ProtoReflect())
+	assert.Equal(t, "https://example.com/old-request", dstFlow.GetL7().GetHttp().GetUrl())
+
+	fm.Copy(dstFlow.ProtoReflect(), dnsFlow.ProtoReflect())
+	assert.Equal(t, "example.com", dstFlow.GetL7().GetDns().GetQuery())
+	assert.Nil(t, dstFlow.GetL7().GetHttp())
+
+	// Exporters reuse the destination flow. A subsequent non-L7 flow must not
+	// retain the L7 variant copied from the previous flow.
+	fm.Copy(dstFlow.ProtoReflect(), tcpFlow.ProtoReflect())
+	assert.Equal(t, uint32(33001), dstFlow.GetL4().GetTCP().GetSourcePort())
+	assert.Equal(t, uint32(443), dstFlow.GetL4().GetTCP().GetDestinationPort())
+	assert.Nil(t, dstFlow.GetL7().GetHttp())
+	assert.Nil(t, dstFlow.GetL7().GetDns())
+}
+
 func TestFieldMask_nested_vs_parent_only(t *testing.T) {
 	// Test the difference between specifying nested properties vs parent-only fields:
 	// - Nested property (e.g., "source.namespace") creates empty object when not present
