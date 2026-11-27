@@ -2216,6 +2216,7 @@ Before terminating a socket, Cilium verifies that the socket was actually load-b
 the socket's cookie and destination in the ``cilium_lb4_reverse_sk`` and ``cilium_lb6_reverse_sk`` BPF maps.
 This prevents unrelated sockets from being terminated. When these maps become full, LRU eviction may remove entries
 belonging to active connections, causing those connections to fail the verification and be skipped during socket termination.
+Map pressure can be monitored via the ``cilium_bpf_map_pressure{map_name="lb4_reverse_sk"}`` and ``cilium_bpf_map_pressure{map_name="lb6_reverse_sk"}`` metrics.
 
 A cleanup mechanism exists to remove entries from these maps when sockets are closed, but there are cases where cleanup
 does not work correctly: unconnected UDP sockets (i.e. the ``create → sendto() → close`` pattern without calling ``connect()``),
