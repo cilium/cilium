@@ -4,10 +4,13 @@
 package ctmap
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/maps"
@@ -18,11 +21,30 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+const conntrackScrubBPFIteratorName = "conntrack-scrub-bpf-iterator"
+
+// Config contains configuration for the connection tracking BPF maps.
+type Config struct {
+	ConntrackScrubBPFIterator bool `mapstructure:"conntrack-scrub-bpf-iterator"`
+}
+
+// Flags registers the CLI and ConfigMap flags for [Config].
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool(conntrackScrubBPFIteratorName, def.ConntrackScrubBPFIterator,
+		"Enable in-kernel eBPF map iterator for IPv4 endpoint connection tracking scrubbing")
+	_ = flags.MarkHidden(conntrackScrubBPFIteratorName)
+}
+
+var defaultConfig = Config{
+	ConntrackScrubBPFIterator: true,
+}
+
 // Cell provides the ctmap.Map which contains the connection tracking state.
 var Cell = cell.Module(
 	"ct-map",
 	"eBPF map which manages connection tracking",
 
+	cell.Config(defaultConfig),
 	cell.Provide(newCTMaps),
 	cell.Invoke(configure),
 )
@@ -32,6 +54,7 @@ func newCTMapFromRegistry(
 	mapName string,
 	m mapType,
 	metrics *metrics.Registry,
+	opts ...MapOption,
 ) (*Map, error) {
 	bpfMap, err := bpf.NewMapFromRegistry(reg, mapName, m.key(), m.value())
 	if err != nil {
@@ -40,11 +63,16 @@ func newCTMapFromRegistry(
 	bpfMap.WithPressureMetric(metrics)
 
 	result := &Map{Map: bpfMap, mapType: m}
+	for _, opt := range opts {
+		opt(result)
+	}
 	return result, nil
 }
 
 func newCTMaps(
+	logger *slog.Logger,
 	lifecycle cell.Lifecycle,
+	cfg Config,
 	daemonConfig *option.DaemonConfig,
 	metrics *metrics.Registry,
 	reg *mapregistry.MapRegistry,
@@ -54,16 +82,19 @@ func newCTMaps(
 	InitMapInfo(natMap4, natMap6)
 
 	ctMaps := &ctMaps{}
+	if daemonConfig.IPv4Enabled() && cfg.ConntrackScrubBPFIterator {
+		ctMaps.ctIter = newCTIterator(logger)
+	}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
 			if daemonConfig.IPv4Enabled() {
 				var err error
-				ctMaps.v4AnyMap, err = newCTMapFromRegistry(reg, maps.CiliumCTAny4Global, mapTypeIPv4AnyGlobal, metrics)
+				ctMaps.v4AnyMap, err = newCTMapFromRegistry(reg, maps.CiliumCTAny4Global, mapTypeIPv4AnyGlobal, metrics, withCTIterator(ctMaps.ctIter))
 				if err != nil {
 					return err
 				}
-				ctMaps.v4TCPMap, err = newCTMapFromRegistry(reg, maps.CiliumCT4Global, mapTypeIPv4TCPGlobal, metrics)
+				ctMaps.v4TCPMap, err = newCTMapFromRegistry(reg, maps.CiliumCT4Global, mapTypeIPv4TCPGlobal, metrics, withCTIterator(ctMaps.ctIter))
 				if err != nil {
 					return err
 				}
@@ -127,6 +158,7 @@ type CTMaps interface {
 }
 
 type ctMaps struct {
+	ctIter   *ctIterator
 	v4AnyMap *Map
 	v4TCPMap *Map
 	v6AnyMap *Map
@@ -145,16 +177,29 @@ func (r *ctMaps) init() error {
 			return fmt.Errorf("failed to open and create %s map: %w", m.Name(), err)
 		}
 	}
+	if r.ctIter != nil {
+		// Iterator unavailability logs and falls back to batch scrub; never fail agent startup.
+		_ = r.ctIter.init()
+	}
 
 	return nil
 }
 
 func (r *ctMaps) close() error {
+	var errs []error
+	// Close the iterator before closing maps so any in-flight iterator scan
+	// drains while maps are still open, avoiding ErrMapNotOpened and breaker
+	// trips during shutdown.
+	if r.ctIter != nil {
+		if err := r.ctIter.close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close CT iterator: %w", err))
+		}
+	}
 	for _, m := range r.ActiveMaps() {
 		if err := m.Close(); err != nil {
-			return fmt.Errorf("failed to close %s map: %w", m.Name(), err)
+			errs = append(errs, fmt.Errorf("failed to close %s map: %w", m.Name(), err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
