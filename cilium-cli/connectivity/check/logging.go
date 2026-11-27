@@ -28,6 +28,7 @@ const (
 	testPrefix = "  "
 
 	execRetryFormat = "Retrying exec after attempt %d/%d: %s"
+	pingRetryFormat = "Retrying ping %d/%d after no reply: %s"
 )
 
 // Logger abstracts the logging functionalities implemented by the
@@ -398,6 +399,11 @@ func (a *Action) Log(s ...any) {
 // Logf logs a formatted message.
 func (a *Action) Logf(format string, s ...any) {
 	a.test.Logf(format, s...)
+}
+
+// logPingRetry prints a ping retry in a line that shows even when the Test passes.
+func (a *Action) logPingRetry(retry, retries uint) {
+	a.test.ctx.logger.Printf(a.test, "\n"+testPrefix+warn+" "+pingRetryFormat+"\n", retry, retries, a)
 }
 
 // Debug logs a debug message.
