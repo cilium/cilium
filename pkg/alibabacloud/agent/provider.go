@@ -56,7 +56,7 @@ func (p *provider) PoolSpecAccessors() ipam.PoolSpecAccessors {
 	return poolAccessor
 }
 
-func (p *provider) Initialize() (ipam.RoutingMetadataResolver, error) {
+func (p *provider) Initialize(_ context.Context) (ipam.RoutingMetadataResolver, error) {
 	p.nativeRoutingCIDRReady = startNativeRoutingCIDRSync(
 		p.params.Logger,
 		p.params.JobGroup,

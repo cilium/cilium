@@ -29,10 +29,6 @@ func TestAllocationResult(t *testing.T) {
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: awsTypes.AwsVPC{
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-				CIDRs:       prefixes("10.2.0.0/16"),
-			},
 		},
 		"eni-2": {
 			ID:  "eni-2",
@@ -43,10 +39,6 @@ func TestAllocationResult(t *testing.T) {
 			Number: 2,
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.3.1.0/24")),
-			},
-			VPC: awsTypes.AwsVPC{
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-				CIDRs:       prefixes("10.2.0.0/16"),
 			},
 		},
 	}
@@ -90,9 +82,6 @@ func TestAllocationResultPrefixDelegation(t *testing.T) {
 			Number: 1,
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
-			},
-			VPC: awsTypes.AwsVPC{
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 			},
 		},
 	}

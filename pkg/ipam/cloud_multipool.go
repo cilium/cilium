@@ -102,7 +102,7 @@ type cloudMultiPoolParams struct {
 // together lets them make progress concurrently instead of serializing their
 // startup latencies.
 func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (ipv4, ipv6 *cloudMultiPoolAllocator, err error) {
-	resolver, err := p.Provider.Initialize()
+	resolver, err := p.Provider.Initialize(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to initialize the %s IPAM provider: %w", p.Provider.Mode(), err)
 	}

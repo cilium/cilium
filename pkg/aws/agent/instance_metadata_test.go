@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -21,6 +22,8 @@ import (
 type stubMetadata struct {
 	info     awsMetadata.MetaDataInfo
 	err      error
+	vpcCIDRs []netip.Prefix
+	vpcErr   error
 	fetches  atomic.Int32
 	newCalls atomic.Int32
 }
@@ -28,6 +31,10 @@ type stubMetadata struct {
 func (s *stubMetadata) GetInstanceMetadata(context.Context) (awsMetadata.MetaDataInfo, error) {
 	s.fetches.Add(1)
 	return s.info, s.err
+}
+
+func (s *stubMetadata) GetVPCIPv4CIDRs(context.Context) ([]netip.Prefix, error) {
+	return s.vpcCIDRs, s.vpcErr
 }
 
 func (s *stubMetadata) instanceMetadata() *instanceMetadata {

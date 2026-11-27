@@ -33,7 +33,7 @@ type CloudProvider interface {
 	// to configure the node. It is called once, before the multi-pool manager is
 	// constructed, and returns the resolver the allocators enrich their results
 	// with.
-	Initialize() (RoutingMetadataResolver, error)
+	Initialize(ctx context.Context) (RoutingMetadataResolver, error)
 
 	// WaitReady blocks until the state the jobs registered by Initialize set in
 	// motion has converged and the agent is allowed to serve allocations. A
