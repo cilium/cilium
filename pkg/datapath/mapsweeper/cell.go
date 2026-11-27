@@ -22,7 +22,10 @@ import (
 var Cell = cell.Module(
 	"map-sweeper",
 	"Cleanup of stale and disabled BPF maps",
-	cell.Invoke(registerMapSweeper),
+	cell.Invoke(
+		registerMapSweeper,
+		registerBandwidthEdtInitializer,
+	),
 )
 
 // DisabledMapsHookOut allows other modules to contribute hooks that return
