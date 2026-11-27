@@ -563,6 +563,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	if err != nil {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
 	}
+	if err := validateHostPorts(n.RuntimeConfig.PortMappings); err != nil {
+		return fmt.Errorf("hostPort validation failed: %w", err)
+	}
 
 	if err = cmd.setupLogging(n); err != nil {
 		return fmt.Errorf("unable to setup logging: %w", err)
@@ -609,6 +612,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 	conf, err := getConfigFromCiliumAgent(c)
 	if err != nil {
+		return err
+	}
+	if err := validateHostPortNodePortOverlap(n.RuntimeConfig.PortMappings, conf.DaemonConfigurationMap); err != nil {
 		return err
 	}
 
