@@ -103,6 +103,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		NamedPorts:          e.getNamedPortsModel(),
 		ServiceAccount:      svcAccount,
 		Workload:            workload,
+		NodeName:            ln.Name,
 	}
 
 	return status

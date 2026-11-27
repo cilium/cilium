@@ -57,6 +57,10 @@ func (in *CiliumEndpoint) deepEqual(other *CiliumEndpoint) bool {
 		}
 	}
 
+	if in.NodeName != other.NodeName {
+		return false
+	}
+
 	return true
 }
 

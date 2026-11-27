@@ -2156,6 +2156,10 @@ func (in *EndpointStatus) DeepEqual(other *EndpointStatus) bool {
 		}
 	}
 
+	if in.NodeName != other.NodeName {
+		return false
+	}
+
 	return true
 }
 
