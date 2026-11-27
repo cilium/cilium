@@ -22,45 +22,48 @@
  * Datapath configurations
  */
 
-/* Set dummy ifindex for tunnel device */
-#define ENCAP_IFINDEX 1
+ /* Overlapping PodCIDR is only supported for IPv4 for now */
+ #define ENABLE_IPV4 1
 
-/* Overlapping PodCIDR is only supported for IPv4 for now */
-#define ENABLE_IPV4 1
+ /* Overlapping PodCIDR depends on tunnel */
+ #define TUNNEL_MODE 1
 
-/* Cluster-aware addressing is mandatory for overlapping PodCIDR support */
-#define ENABLE_CLUSTER_AWARE_ADDRESSING		1
+ /* Cluster-aware addressing is mandatory for overlapping PodCIDR support */
+ #define ENABLE_CLUSTER_AWARE_ADDRESSING		1
 
-/* Import some default values */
+ /* Import some default values */
 
-/* Import map definitions and some default values */
-#include <bpf/config/node.h>
+ /* Import map definitions and some default values */
+ #include <bpf/config/node.h>
 
-/* Need to undef EVENT_SOURCE here since it is defined in
+ /* Need to undef EVENT_SOURCE here since it is defined in
  * both of common.h and bpf_lxc.c.
  */
-#undef EVENT_SOURCE
+ #undef EVENT_SOURCE
 
-/* Include an actual datapath code */
-#include "lib/bpf_lxc.h"
+ /* Include an actual datapath code */
+ #include "lib/bpf_lxc.h"
 
-/* Overwrite (local) cluster_id defined in clustermesh.h */
-ASSIGN_CONFIG(__u32, cluster_id, 1)
+ /* Overwrite (local) cluster_id defined in clustermesh.h */
+ ASSIGN_CONFIG(__u32, cluster_id, 1)
 
-/* Set the LXC source address to be the address of the backend pod */
-ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
+ /* Set the LXC source address to be the address of the backend pod */
+ ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
 
-ASSIGN_CONFIG(bool, enable_ipv4, true)
-ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
+ ASSIGN_CONFIG(bool, enable_ipv4, true)
+ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+ ASSIGN_CONFIG(bool, enable_nodeport, true)
 
-/* Overlapping PodCIDR depends on tunnel */
-ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
+ /* Set dummy ifindex for tunnel device */
+ ASSIGN_CONFIG(__u32, encap_ifindex, 1)
 
-#include "lib/ipcache.h"
-#include "lib/policy.h"
+ /* Overlapping PodCIDR depends on tunnel */
+ ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
 
-/*
+ #include "lib/ipcache.h"
+ #include "lib/policy.h"
+
+ /*
  * Tests
  */
 

@@ -23,7 +23,6 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 #define DEFAULT_IFACE		24
-#define ENCAP_IFINDEX		42
 
 #define fib_lookup mock_fib_lookup
 
@@ -60,6 +59,7 @@ ASSIGN_CONFIG(__u16, tunnel_port, 8472)
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

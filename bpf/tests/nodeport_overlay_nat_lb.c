@@ -8,8 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 
-#define ENCAP_IFINDEX		42
-
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_SEC_IDENTITY	112233
@@ -49,7 +47,7 @@ mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __may
 		  __u32 flags __maybe_unused)
 {
 	/* in this scenario, all traffic should flow through the overlay interface */
-	if (ifindex != ENCAP_IFINDEX)
+	if ((__u32)ifindex != CONFIG(encap_ifindex))
 		return CTX_ACT_DROP;
 
 	return CTX_ACT_REDIRECT;
@@ -105,6 +103,8 @@ ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, enable_tunnel_mode, true)
+
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 /* Test that a SVC request to an intermediate LB node gets DNATed and SNATed,
  * and flows back out on the overlay interface to a remote backend

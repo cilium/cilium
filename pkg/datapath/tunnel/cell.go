@@ -20,9 +20,6 @@ var Cell = cell.Module(
 	cell.Provide(
 		newConfig,
 
-		// Provide the datapath options.
-		Config.datapathConfigProvider,
-
 		// Enable tunnel configuration when it is the primary routing mode.
 		func(dcfg *option.DaemonConfig) EnablerOut {
 			return NewEnabler(dcfg.TunnelingEnabled())

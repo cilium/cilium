@@ -5,11 +5,12 @@
 #include "common.h"
 #include "pktgen.h"
 
+#include <bpf/config/node.h>
+
 /* Enable code paths under test */
 #define ETH_HLEN		0
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
-#define ENCAP_IFINDEX		42
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
@@ -34,7 +35,7 @@ static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {
-	if (ifindex != ENCAP_IFINDEX)
+	if ((__u32)ifindex != CONFIG(encap_ifindex))
 		return -1;
 
 	return CTX_ACT_REDIRECT;
@@ -49,6 +50,7 @@ ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_ipv6, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .dispatch_mode = DSR_DISPATCH_GENEVE })
+ASSIGN_CONFIG(__u32, encap_ifindex, 42)
 
 /* Test that a SVC request that is LBed to a DSR remote backend
  * - gets DNATed,

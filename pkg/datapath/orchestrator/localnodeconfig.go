@@ -158,6 +158,16 @@ func newLocalNodeConfig(
 		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
 	}
 
+	var encapIfIndex uint32
+	if tunnelCfg.EncapProtocol() != tunnel.Disabled {
+		dev, _, watch, ok := devices.GetWatch(txn, tables.DeviceByName(tunnelCfg.DeviceName()))
+		if !ok {
+			return config.Config{}, []<-chan struct{}{watch}, fmt.Errorf("failed to look up VXLAN/GENEVE tunnel device '%s'", tunnelCfg.DeviceName())
+		}
+		watchChans = append(watchChans, watch)
+		encapIfIndex = uint32(dev.Index)
+	}
+
 	var encap4IfIndex, encap6IfIndex uint32
 	if daemon.UnsafeDaemonConfigOption.EnableIPIPDevices {
 		if daemon.EnableIPv4 {
@@ -228,6 +238,7 @@ func newLocalNodeConfig(
 		EnableIPv4:                     daemon.EnableIPv4,
 		EnableIPv6:                     daemon.EnableIPv6,
 		EnableEncapsulation:            daemon.TunnelingEnabled(),
+		EncapIfIndex:                   encapIfIndex,
 		Encap4IfIndex:                  encap4IfIndex,
 		Encap6IfIndex:                  encap6IfIndex,
 		RequiresNativeRouting:          daemon.RequiresNativeRouting(),
