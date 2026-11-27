@@ -33,3 +33,4 @@ backends are shared.
 
    mcsapi
    global-services
+   namespace-export

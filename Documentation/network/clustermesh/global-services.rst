@@ -13,6 +13,17 @@ Prerequisites
 You need to have a functioning Cluster Mesh setup, please follow the guide
 :ref:`gs_clustermesh` to set it up.
 
+.. _gs_clustermesh_global_namespace:
+
+Namespace export scope
+######################
+
+ClusterMesh namespace-level export controls determine which namespaces can
+share endpoint, identity, and service information across clusters. See
+:ref:`gs_clustermesh_global_namespace` for the default-global setting,
+per-namespace annotation overrides, and the implications for Global Services,
+MCS-API, and network policy.
+
 Load-balancing with Global Services
 ###################################
 
