@@ -41,6 +41,9 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// policyComputationWaitTimeout bounds how long a regeneration waits for the policy computer.
+const policyComputationWaitTimeout = 10 * time.Second
+
 var (
 	endpointRegenerationRecoveryControllerGroup = controller.NewGroup("endpoint-regeneration-recovery")
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
@@ -300,7 +303,7 @@ func (e *Endpoint) waitForPolicyComputationResult(
 ) (*compute.Result, error) {
 	wantedRevision := datapathRegenCtxt.policyRevisionToWaitFor
 
-	timeout := time.NewTimer(time.Second)
+	timeout := time.NewTimer(policyComputationWaitTimeout)
 	defer timeout.Stop()
 
 	for {
