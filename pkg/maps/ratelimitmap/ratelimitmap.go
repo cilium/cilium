@@ -49,14 +49,6 @@ type ratelimitMap struct {
 	*bpf.Map
 }
 
-const (
-	// MetricsMapName for ratelimit metrics map.
-	MetricsMapName = "cilium_ratelimit_metrics"
-	// MetricsMaxEntries is the maximum number of keys that can be present in
-	// the Ratelimit Metrics Map.
-	MaxMetricsEntries = 64
-)
-
 // usageType represents source of ratelimiter usage in datapath code.
 type usageType uint32
 
@@ -243,19 +235,20 @@ func newRatelimitMap(
 	return bpf.NewMapOut(ratelimitMap)
 }
 
-func newRatelimitMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMetricsMap] {
+func newRatelimitMetricsMap(
+	lifecycle cell.Lifecycle,
+	reg *registry.MapRegistry,
+) bpf.MapOut[*ratelimitMetricsMap] {
 	// ratelimitMetrics is the bpf ratelimit metrics map.
-	ratelimitMetricsMap := &ratelimitMetricsMap{bpf.NewMap(
-		MetricsMapName,
-		ebpf.Hash,
-		&MetricsKey{},
-		&MetricsValue{},
-		MaxMetricsEntries,
-		0,
-	)}
-
+	ratelimitMetricsMap := &ratelimitMetricsMap{}
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			m, err := bpf.NewMapFromRegistry(reg, datapathmaps.CiliumRatelimitMetrics, &MetricsKey{}, &MetricsValue{})
+			if err != nil {
+				return fmt.Errorf("create ratelimit metrics BPF map: %w", err)
+			}
+			ratelimitMetricsMap.Map = m
+
 			if err := ratelimitMetricsMap.OpenOrCreate(); err != nil {
 				return fmt.Errorf("failed to init ratelimit metrics bpf map: %w", err)
 			}
@@ -278,5 +271,12 @@ func configure(reg *registry.MapRegistry) error {
 	}); err != nil {
 		return fmt.Errorf("configure map %s: %w", datapathmaps.CiliumRatelimit, err)
 	}
+
+	if err := reg.Modify(datapathmaps.CiliumRatelimitMetrics, func(m *registry.MapSpecPatch) {
+		m.Flags = bpf.GetMapMemoryFlags(ebpf.Hash)
+	}); err != nil {
+		return fmt.Errorf("configure map %s: %w", datapathmaps.CiliumRatelimitMetrics, err)
+	}
+
 	return nil
 }

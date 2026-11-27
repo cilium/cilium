@@ -47,7 +47,7 @@ struct {
 	__type(value, struct ratelimit_metrics_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 64);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, 0);
 } cilium_ratelimit_metrics __section_maps_btf;
 
 struct ratelimit_settings {

@@ -1054,7 +1054,7 @@ func newCiliumRatelimitMetricsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "ratelimit_metrics_value"),
 		MaxEntries: 64,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
 }
