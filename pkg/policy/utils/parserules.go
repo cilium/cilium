@@ -15,6 +15,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 		ls, node := getSelector(rule)
 
 		subjectSelector := types.NewLabelSelector(ls)
+		labels := api.LabelsToLabelArray(rule.Labels)
 
 		for _, iRule := range rule.Ingress {
 			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
@@ -36,7 +37,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Tier:        types.Normal,
 				Subject:     subjectSelector,
 				Node:        node,
-				Labels:      rule.Labels,
+				Labels:      labels,
 				DefaultDeny: defaultDeny,
 				Verdict:     types.Allow,
 				Ingress:     true,
@@ -67,7 +68,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Tier:        types.Normal,
 				Subject:     subjectSelector,
 				Node:        node,
-				Labels:      rule.Labels,
+				Labels:      labels,
 				DefaultDeny: defaultDeny,
 				Verdict:     types.Deny,
 				Ingress:     true,
@@ -106,7 +107,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Tier:        types.Normal,
 				Subject:     subjectSelector,
 				Node:        node,
-				Labels:      rule.Labels,
+				Labels:      labels,
 				DefaultDeny: defaultDeny,
 				Verdict:     types.Allow,
 				Ingress:     false,
@@ -137,7 +138,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Tier:        types.Normal,
 				Subject:     subjectSelector,
 				Node:        node,
-				Labels:      rule.Labels,
+				Labels:      labels,
 				DefaultDeny: defaultDeny,
 				Verdict:     types.Deny,
 				Ingress:     false,

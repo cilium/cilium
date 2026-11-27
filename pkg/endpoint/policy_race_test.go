@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -88,9 +87,6 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 				},
 			}},
 		}},
-		Labels: labels.LabelArray{
-			labels.NewLabel(k8sConst.PolicyLabelName, "egressDenyRule", labels.LabelSourceAny),
-		},
 	}
 	_, rev := repo.MustAddList(api.Rules{egressDenyRule})
 	computePolicyForEPAndWait(t, &ep, polComputer, rev)

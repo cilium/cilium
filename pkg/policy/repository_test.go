@@ -264,7 +264,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	httpRule := api.Rule{
@@ -285,7 +285,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsHTTP,
+		Labels: api.LabelArrayToLabel(labelsHTTP),
 	}
 
 	l7Rule := api.Rule{
@@ -306,7 +306,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL7,
+		Labels: api.LabelArrayToLabel(labelsL7),
 	}
 
 	icmpV4Type := intstr.FromInt(8)
@@ -323,7 +323,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsICMP,
+		Labels: api.LabelArrayToLabel(labelsICMP),
 	}
 
 	icmpV6Type := intstr.FromInt(128)
@@ -341,7 +341,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsICMPv6,
+		Labels: api.LabelArrayToLabel(labelsICMPv6),
 	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -433,7 +433,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL4HTTP,
+		Labels: api.LabelArrayToLabel(labelsL4HTTP),
 	}
 
 	httpRule := api.Rule{
@@ -454,7 +454,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL7HTTP,
+		Labels: api.LabelArrayToLabel(labelsL7HTTP),
 	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -501,7 +501,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL4,
+		Labels: api.LabelArrayToLabel(labelsL4),
 	}
 
 	dnsRule := api.Rule{
@@ -522,7 +522,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsDNS,
+		Labels: api.LabelArrayToLabel(labelsDNS),
 	}
 
 	httpRule := api.Rule{
@@ -543,7 +543,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsHTTP,
+		Labels: api.LabelArrayToLabel(labelsHTTP),
 	}
 
 	icmpV4Type := intstr.FromInt(8)
@@ -560,7 +560,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsICMP,
+		Labels: api.LabelArrayToLabel(labelsICMP),
 	}
 
 	icmpV6Type := intstr.FromInt(128)
@@ -578,7 +578,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsICMPv6,
+		Labels: api.LabelArrayToLabel(labelsICMPv6),
 	}
 
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
@@ -674,7 +674,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL3DNS,
+		Labels: api.LabelArrayToLabel(labelsL3DNS),
 	}
 
 	dnsRule := api.Rule{
@@ -695,7 +695,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL7DNS,
+		Labels: api.LabelArrayToLabel(labelsL7DNS),
 	}
 
 	l480Rule := api.Rule{
@@ -711,7 +711,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL3HTTP,
+		Labels: api.LabelArrayToLabel(labelsL3HTTP),
 	}
 
 	httpRule := api.Rule{
@@ -732,7 +732,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL7HTTP,
+		Labels: api.LabelArrayToLabel(labelsL7HTTP),
 	}
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
@@ -820,7 +820,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsHTTP,
+		Labels: api.LabelArrayToLabel(labelsHTTP),
 	}
 
 	l3Rule := api.Rule{
@@ -831,7 +831,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will allow the traffic.
@@ -887,7 +887,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	httpRule := api.Rule{
@@ -908,7 +908,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsHTTP,
+		Labels: api.LabelArrayToLabel(labelsHTTP),
 	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -967,7 +967,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 	dnsRule := api.Rule{
 		Egress: []api.EgressRule{
@@ -987,7 +987,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsDNS,
+		Labels: api.LabelArrayToLabel(labelsDNS),
 	}
 
 	httpRule := api.Rule{
@@ -1008,7 +1008,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsHTTP,
+		Labels: api.LabelArrayToLabel(labelsHTTP),
 	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{

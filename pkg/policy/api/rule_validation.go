@@ -46,6 +46,12 @@ func (r *Rule) Validate() error {
 		return errors.New("rule cannot have both EndpointSelector and NodeSelector")
 	}
 
+	for _, lbl := range r.Labels {
+		if lbl.Key == "" {
+			return errors.New("label key is required")
+		}
+	}
+
 	if r.EndpointSelector.LabelSelector != nil {
 		if err := r.EndpointSelector.Validate(); err != nil {
 			return err

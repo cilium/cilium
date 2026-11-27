@@ -116,8 +116,12 @@ type Rule struct {
 	// or delete strings based on labels. Labels are not required to be
 	// unique, multiple rules can have overlapping or identical labels.
 	//
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=key
 	// +kubebuilder:validation:Optional
-	Labels labels.LabelArray `json:"labels,omitempty"`
+	Labels []Label `json:"labels,omitempty"`
 
 	// EnableDefaultDeny determines whether this policy configures the
 	// subject endpoint(s) to have a default deny mode. If enabled,
@@ -204,7 +208,14 @@ func (r *Rule) WithEnableDefaultDeny(ingress, egress bool) *Rule {
 
 // WithLabels configures the Rule with the specified labels metadata.
 func (r *Rule) WithLabels(labels labels.LabelArray) *Rule {
-	r.Labels = labels
+	r.Labels = make([]Label, 0, len(labels))
+	for _, l := range labels {
+		r.Labels = append(r.Labels, Label{
+			Key:    l.Key,
+			Value:  l.Value,
+			Source: l.Source,
+		})
+	}
 	return r
 }
 
@@ -212,4 +223,38 @@ func (r *Rule) WithLabels(labels labels.LabelArray) *Rule {
 func (r *Rule) WithDescription(desc string) *Rule {
 	r.Description = desc
 	return r
+}
+
+// Label is a copy of the labels.Label struct, but additional
+// CRD validation and without a custom fallible UnmarshalJSON method.
+
+type Label struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
+
+	// +kubebuilder:validation:Optional
+	Value string `json:"value,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Source string `json:"source"`
+}
+
+func LabelsToLabelArray(lbls []Label) labels.LabelArray {
+	out := make(labels.LabelArray, 0, len(lbls))
+	for _, lbl := range lbls {
+		if lbl.Key == "" {
+			continue
+		}
+		out = append(out, labels.NewLabel(lbl.Key, lbl.Value, lbl.Source))
+	}
+	return out.Sort()
+}
+
+func LabelArrayToLabel(lbls labels.LabelArray) []Label {
+	out := make([]Label, 0, len(lbls))
+	for _, lbl := range lbls {
+		out = append(out, Label{Key: lbl.Key, Value: lbl.Value, Source: lbl.Source})
+	}
+	return out
 }

@@ -322,7 +322,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -359,7 +359,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL4Kafka,
+		Labels: api.LabelArrayToLabel(labelsL4Kafka),
 	}
 
 	l480Rule := api.Rule{
@@ -375,7 +375,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL4HTTP,
+		Labels: api.LabelArrayToLabel(labelsL4HTTP),
 	}
 
 	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -418,7 +418,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL4,
+		Labels: api.LabelArrayToLabel(labelsL4),
 	}
 
 	icmpV4Type := intstr.FromInt(8)
@@ -435,7 +435,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsICMP,
+		Labels: api.LabelArrayToLabel(labelsICMP),
 	}
 
 	icmpV6Type := intstr.FromInt(128)
@@ -453,7 +453,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsICMPv6,
+		Labels: api.LabelArrayToLabel(labelsICMPv6),
 	}
 
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
@@ -513,7 +513,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL3DNS,
+		Labels: api.LabelArrayToLabel(labelsL3DNS),
 	}
 
 	l480Rule := api.Rule{
@@ -529,7 +529,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsL3HTTP,
+		Labels: api.LabelArrayToLabel(labelsL3HTTP),
 	}
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
@@ -586,7 +586,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 				}},
 			},
 		},
-		Labels: labelsHTTP,
+		Labels: api.LabelArrayToLabel(labelsHTTP),
 	}
 
 	l3Rule := api.Rule{
@@ -597,7 +597,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will deny the traffic.
@@ -639,7 +639,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -679,7 +679,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 				},
 			},
 		},
-		Labels: labelsL3,
+		Labels: api.LabelArrayToLabel(labelsL3),
 	}
 
 	// We should expect an empty deny policy because the policy does not

@@ -111,9 +111,9 @@ func makeRuleSelectingAllIdentities(numIdentities, seed, httpRules int) *api.Rul
 	return &api.Rule{
 		EndpointSelector: api.NewESFromLabels(benchNamespaceLabel),
 		Egress:           []api.EgressRule{egress},
-		Labels: labels.LabelArray{
-			labels.NewLabel(k8sConst.PolicyLabelName, fmt.Sprintf("bench-rule-%d", seed), labels.LabelSourceAny),
-		},
+		Labels: []api.Label{{
+			Key: k8sConst.PolicyLabelName, Value: fmt.Sprintf("bench-rule-%d", seed), Source: labels.LabelSourceAny,
+		}},
 	}
 }
 
