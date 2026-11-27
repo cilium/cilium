@@ -111,8 +111,8 @@ func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTx
 // Delete handles service redirects and reconciled xDS cleanup, which may be
 // retried without repeating port release or policy notification.
 func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
-	if res.Redirects.Len() > 0 {
-		// Remove redirects from services no longer selected by the CEC
+	// A pending update may already have removed the desired redirects.
+	if res.ReconciledRedirects.Len() > 0 {
 		wtxn := ops.writer.WriteTxn()
 		defer wtxn.Abort()
 		for name := range res.ReconciledRedirects.All() {

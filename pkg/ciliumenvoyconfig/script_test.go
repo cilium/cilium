@@ -86,6 +86,18 @@ func TestScript(t *testing.T) {
 			}
 		}
 
+		for _, arg := range args {
+			if listener, ok := strings.CutPrefix(arg, "--reject-listener="); ok {
+				fakeEnvoy.beforeUpdate = func(_ context.Context, _, resources xds.Resources) error {
+					if _, found := resources.Listeners[listener]; found {
+						return &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "listener rejected"}
+					}
+					return nil
+				}
+				break
+			}
+		}
+
 		h := hive.New(
 			k8sClient.FakeClientCell(),
 			synced.Cell,
@@ -187,6 +199,17 @@ func TestScript(t *testing.T) {
 		require.NoError(t, err, "ScriptCommands")
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 
+		cmds["envoy/empty"] = script.Command(
+			script.CmdUsage{Summary: "Check that Envoy has no resources"},
+			func(*script.State, ...string) (script.WaitFunc, error) {
+				fakeEnvoy.Lock()
+				defer fakeEnvoy.Unlock()
+				if n := len(fakeEnvoy.store); n != 0 {
+					return nil, fmt.Errorf("%d Envoy resources remain", n)
+				}
+				return nil, nil
+			},
+		)
 		cmds["envoy/cmp"] = script.Command(
 			script.CmdUsage{
 				Summary: "Compare Envoy resources",
