@@ -126,6 +126,7 @@ const (
 	ciliumGatewayClassConfigsFileName        = "ciliumgatewayclassconfigs-<ts>.yaml"
 	ingressClassesFileName                   = "ingressclasses-<ts>.yaml"
 	k8sResourceFileName                      = "%s-<ts>.yaml"
+	ciliumNetworkDriverFileName              = "ciliumnetworkdriver-%s-<ts>.yaml"
 )
 
 const (
