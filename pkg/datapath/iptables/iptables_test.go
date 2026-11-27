@@ -952,6 +952,27 @@ func TestTunnelGeneveRulesTunnelingEnabled(t *testing.T) {
 	testTunnelRulesTunnelingEnabled(t, 6081)
 }
 
+func TestTunnelRulesZeroPort(t *testing.T) {
+	// Even when a feature requests the tunnel, a zero port leaves nothing to
+	// match on, so no iptables commands must be issued.
+	for _, sharedCfg := range []SharedConfig{
+		{EnableIPv4: true, EnableIPv6: true, TunnelingEnabled: true},
+		{EnableIPv4: true, EnableIPv6: true, EnableTunneledDSR: true},
+	} {
+		mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+		mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+		mockManager := &manager{
+			sharedCfg: sharedCfg,
+			ip4tables: mockIp4tables,
+			ip6tables: mockIp6tables,
+		}
+
+		require.NoError(t, mockManager.addCiliumTunnelRules())
+		require.NoError(t, mockIp4tables.checkExpectations())
+		require.NoError(t, mockIp6tables.checkExpectations())
+	}
+}
+
 func TestTunnelRulesTunnelingDisabled(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
@@ -972,7 +993,10 @@ func TestTunnelRulesTunnelingDisabled(t *testing.T) {
 	require.NoError(t, mockIp6tables.checkExpectations())
 }
 
-func TestTunnelRulesNativeRoutingWithTunneledDSR(t *testing.T) {
+func TestTunnelRulesEgressGatewayOnlyTunnel(t *testing.T) {
+	// Egress gateway can enable the tunnel device (port != 0) without routing
+	// node-to-node traffic through it. The ACCEPT and NOTRACK rules must not be
+	// installed in that case, to keep the previous behaviour.
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
@@ -987,12 +1011,34 @@ func TestTunnelRulesNativeRoutingWithTunneledDSR(t *testing.T) {
 		ip6tables: mockIp6tables,
 	}
 
-	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
+	require.NoError(t, mockManager.addCiliumTunnelRules())
+	require.NoError(t, mockIp4tables.checkExpectations())
+	require.NoError(t, mockIp6tables.checkExpectations())
+}
+
+func TestTunnelRulesNativeRoutingWithTunneledDSR(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	mockManager := &manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:        true,
+			EnableIPv6:        true,
+			TunnelingEnabled:  false,
+			TunnelPort:        6081,
+			EnableTunneledDSR: true,
+		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
+	}
+
+	expectedFilter := "%s -A %s -p udp --dport %d -m comment --comment %s"
+	expectedRaw := "%s -A %s -p udp --dport %d -m addrtype --%s-type LOCAL -m comment --comment %s"
 
 	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", 6081, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", 6081, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", 6081, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedFilter, "-t filter", "CILIUM_OUTPUT", 6081, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_PRE_raw", 6081, "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_OUTPUT_raw", 6081, "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
 	}
 	mockIp6tables.expectations = mockIp4tables.expectations
 

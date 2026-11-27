@@ -50,6 +50,13 @@ notes carefully below to understand what to do during upgrade.
   ``10.0.0.0/24`` instead), duplicate ``cidrs`` entries, and IPv6 CIDRs with
   uppercase letters. Existing objects that break these rules are rejected the
   next time you edit them, so fix them before you change them.
+* Cilium now installs ``NOTRACK`` iptables rules for the Geneve tunnel port when
+  DSR with Geneve dispatch (``loadBalancer.dsrDispatch=geneve``) is used in
+  native routing mode. The tunnel underlay traffic is therefore no longer tracked
+  in conntrack. If your nodes rely on connection tracking to allow tunnel traffic
+  (for example, a host firewall with a ``DROP`` policy in the ``filter`` table),
+  explicitly allow UDP port 6081 as described in
+  :ref:`host_firewall_requirements`.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~

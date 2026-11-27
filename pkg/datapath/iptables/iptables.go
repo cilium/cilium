@@ -752,9 +752,17 @@ func (m *manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 // - an ACCEPT rule in the output chain in the filter table (to explicitly allow it to pass)
 func (m *manager) addCiliumTunnelRules() (err error) {
 	port := m.sharedCfg.TunnelPort
-
-	// port is only set when encapsulation is in use (tunnel mode or tunneled DSR)
 	if port == 0 {
+		return nil
+	}
+
+	// The tunnel device can be enabled by features that do not route node-to-node
+	// traffic through it (e.g. egress gateway), so gate these rules on the
+	// features that actually use the tunnel:
+	//   - tunnel routing mode (VXLAN or Geneve);
+	//   - DSR with Geneve dispatch, where the tunnel carries the DSR return
+	//     traffic even in native routing mode.
+	if !m.sharedCfg.TunnelingEnabled && !m.sharedCfg.EnableTunneledDSR {
 		return nil
 	}
 
