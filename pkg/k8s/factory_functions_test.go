@@ -786,17 +786,8 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 					ExternalIdentifiers: &models.EndpointIdentifiers{
 						CniAttachmentID: "3290f4bc32129cb3e2f81074557ad9690240ea8fcce84bcc51a9921034875878",
 					},
-					Health: &models.EndpointHealth{
-						Bpf:           "good",
-						Connected:     false,
-						OverallHealth: "excellent",
-						Policy:        "excellent",
-					},
 					Identity: &v2.EndpointIdentity{
 						ID: 9654,
-						Labels: []string{
-							"k8s:io.cilium.namespace=bar",
-						},
 					},
 					Networking: &v2.EndpointNetworking{
 						Addressing: []*v2.AddressPair{
@@ -809,14 +800,6 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 					},
 					Encryption: v2.EncryptionSpec{
 						Key: 250,
-					},
-					Policy: &v2.EndpointPolicy{
-						Ingress: &v2.EndpointPolicyDirection{
-							Enforcing: true,
-						},
-						Egress: &v2.EndpointPolicyDirection{
-							Enforcing: true,
-						},
 					},
 					State: "",
 					NamedPorts: []*models.Port{
@@ -860,9 +843,6 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 				},
 				Identity: &v2.EndpointIdentity{
 					ID: 9654,
-					Labels: []string{
-						"k8s:io.cilium.namespace=bar",
-					},
 				},
 				Networking: &v2.EndpointNetworking{
 					Addressing: []*v2.AddressPair{
