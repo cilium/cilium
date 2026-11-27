@@ -863,6 +863,7 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 	if n.nodeConfig.EnableIPv4 {
 		if !option.Config.EnableEndpointRoutes {
 			rule.Mark = linux_defaults.RouteMarkDecrypt
+			n.log.Info(fmt.Sprintf("Installing decrypt rule for IPv4: %s", rule))
 			if err := route.ReplaceRule(rule); err != nil {
 				n.log.Error("Replace IPv4 route decrypt rule failed", logfields.Error, err)
 				return err
@@ -872,6 +873,7 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 
 	if n.nodeConfig.EnableIPv6 {
 		rule.Mark = linux_defaults.RouteMarkDecrypt
+		n.log.Info(fmt.Sprintf("Installing decrypt rule for IPv4: %s", rule))
 		if err := route.ReplaceRuleIPv6(rule); err != nil {
 			n.log.Error("Replace IPv6 route decrypt rule failed", logfields.Error, err)
 			return err
@@ -903,6 +905,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		}
 		n.registerIpsecMetricOnce()
 	} else {
+		n.log.Info("Cleaning up stale IPsec configuration")
 		if err := n.removeDecryptRules(); err != nil {
 			n.log.Warn("Cannot cleanup previous decryption rule state.", logfields.Error, err)
 		}
