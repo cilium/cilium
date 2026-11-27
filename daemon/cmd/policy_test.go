@@ -188,8 +188,7 @@ func (ds *DaemonSuite) getXDSNetworkPolicies(t *testing.T, resourceNames []strin
 	for ctx.Err() == nil {
 		attemptCtx, attemptCancel := context.WithTimeout(ctx, time.Second)
 		networkPolicies, err := func() (map[string]*cilium.NetworkPolicy, error) {
-			conn, err := grpc.DialContext(attemptCtx, "passthrough:///xds",
-				grpc.WithBlock(),
+			conn, err := grpc.NewClient("passthrough:///xds",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 				grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 					var d net.Dialer
@@ -200,7 +199,8 @@ func (ds *DaemonSuite) getXDSNetworkPolicies(t *testing.T, resourceNames []strin
 			}
 			defer conn.Close()
 
-			stream, err := cilium.NewNetworkPolicyDiscoveryServiceClient(conn).StreamNetworkPolicies(attemptCtx)
+			// Wait for the socket to become available within the attempt deadline.
+			stream, err := cilium.NewNetworkPolicyDiscoveryServiceClient(conn).StreamNetworkPolicies(attemptCtx, grpc.WaitForReady(true))
 			if err != nil {
 				return nil, err
 			}
