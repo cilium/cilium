@@ -49,7 +49,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		require.NoError(t, attachXDPProgram(logger, veth, prog, symbolFromHostNetdevXDP, vethLinkPath, link.XDPGenericMode))
 
 		// Clean up all interfaces except lo.
-		maybeUnloadObsoleteXDPPrograms(logger, []string{lo.Attrs().Name}, option.XDPModeLinkGeneric, basePath)
+		maybeUnloadObsoleteXDPPrograms(logger, []string{lo.Attrs().Name}, option.XDPModeLinkGeneric, basePath, newBPFCollectionLoader(false, "", &fakeHooksStatusWriter{}))
 
 		// Wait for veth to be detached.
 		require.NoError(t, testutils.WaitUntil(func() bool {
