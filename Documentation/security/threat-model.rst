@@ -580,6 +580,11 @@ For such an attacker, our threat matrix is as follows:
 |                  | ability to spoof identities or tamper with policy |
 |                  | enforcement could also allow them to view network |
 |                  | data.                                             |
+|                  | |br| |br|                                         |
+|                  | The ability to modify the CiliumNode resources    |
+|__________________| would allow an attacker to perform denial of      |
+|__________________| service attacks and to bypass the anti-replay     |
+|__________________| protection of IPsec.                              |
 +------------------+---------------------------------------------------+
 | Observability    | Users with permissions to configure workload      |
 | data             | settings could cause denial of service.           |
