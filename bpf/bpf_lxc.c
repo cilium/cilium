@@ -1871,6 +1871,18 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		/* proxy_port remains 0 in this case */
 		break;
 	default:
+		/* The proxy only sends replies on its downstream connections,
+		 * and it can keep them open for longer than the CT entry of the
+		 * client lives. Such a reply is not a new connection towards
+		 * the client's source port, so neither enforce ingress policy
+		 * nor create a CT entry in the reverse direction.
+		 */
+		if (ret == CT_NEW && tc_index_from_proxy_reply(ctx)) {
+			ret = CT_REPLY;
+			trace.reason = TRACE_REASON_CT_REPLY;
+			break;
+		}
+
 		/* If packet is coming from the ingress proxy we have to skip
 		 * redirection to the ingress proxy as we would loop forever.
 		 */
@@ -1965,6 +1977,11 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY)
 		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_PROXY_REPLY)
+		ctx->tc_index |= TC_INDEX_F_FROM_PROXY_REPLY;
+	else
+		ctx->tc_index &= ~TC_INDEX_F_FROM_PROXY_REPLY;
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
 		use_redirect_peer = true;
@@ -2161,6 +2178,18 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		/* proxy_port remains 0 in this case */
 		break;
 	default:
+		/* The proxy only sends replies on its downstream connections,
+		 * and it can keep them open for longer than the CT entry of the
+		 * client lives. Such a reply is not a new connection towards
+		 * the client's source port, so neither enforce ingress policy
+		 * nor create a CT entry in the reverse direction.
+		 */
+		if (ret == CT_NEW && tc_index_from_proxy_reply(ctx)) {
+			ret = CT_REPLY;
+			trace.reason = TRACE_REASON_CT_REPLY;
+			break;
+		}
+
 		/* If packet is coming from the ingress proxy we have to skip
 		 * redirection to the ingress proxy as we would loop forever.
 		 */
@@ -2267,6 +2296,11 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY)
 		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_PROXY_REPLY)
+		ctx->tc_index |= TC_INDEX_F_FROM_PROXY_REPLY;
+	else
+		ctx->tc_index &= ~TC_INDEX_F_FROM_PROXY_REPLY;
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
 		use_redirect_peer = true;

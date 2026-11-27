@@ -321,6 +321,15 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = WORLD_ID;
 	}
 
+	/* Only upstream connections of the proxy carry a source identity. A
+	 * downstream connection inherits the bare mark of its listener, and
+	 * only ever sends replies to the client that was redirected to it.
+	 */
+	if (ctx->mark == MARK_MAGIC_PROXY_INGRESS || ctx->mark == MARK_MAGIC_PROXY_EGRESS)
+		ctx->tc_index |= TC_INDEX_F_FROM_PROXY_REPLY;
+	else
+		ctx->tc_index &= ~TC_INDEX_F_FROM_PROXY_REPLY;
+
 	/* Reset packet mark to avoid hitting routing rules again */
 	ctx->mark = 0;
 

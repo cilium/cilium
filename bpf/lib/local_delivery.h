@@ -130,6 +130,8 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 		delivery_flags |= CB_DELIVERY_FLAGS_FROM_INGRESS_PROXY;
 	if (tc_index_from_egress_proxy(ctx))
 		delivery_flags |= CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY;
+	if (from_host && tc_index_from_proxy_reply(ctx))
+		delivery_flags |= CB_DELIVERY_FLAGS_FROM_PROXY_REPLY;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_DELIVERY_FLAGS, delivery_flags);
@@ -180,6 +182,12 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	     * here instead.
 	     */
 	    (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0)) {
+		/* cil_to_container can only tell the replies of a downstream
+		 * proxy connection apart by their bare mark.
+		 */
+		if (from_host && tc_index_from_proxy_reply(ctx))
+			seclabel = UNKNOWN_ID;
+
 		set_identity_mark(ctx, seclabel, magic);
 
 		/* In tunneling mode, we execute this code to send the packet from
