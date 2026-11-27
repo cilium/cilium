@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -20,11 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	healthmodels "github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
+	healthclient "github.com/cilium/cilium/pkg/health/client"
 )
 
 const (
@@ -225,8 +228,8 @@ func supersededDaemonSetPods(ctx context.Context, client *k8s.Client, namespace,
 }
 
 // WaitForPodDNS waits until src can query the DNS server on dst successfully.
-func WaitForPodDNS(parentCtx context.Context, log Logger, src, dst Pod) error {
-	log.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...",
+func WaitForPodDNS(parentCtx context.Context, ct *ConnectivityTest, src, dst Pod) error {
+	ct.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...",
 		src.K8sClient.ClusterName(), src.Name(), dst.Name())
 
 	// We don't care about the actual response content, we just want to check the DNS operativity.
@@ -234,45 +237,128 @@ func WaitForPodDNS(parentCtx context.Context, log Logger, src, dst Pod) error {
 	// we query it with a so-called "local request" (e.g. "localhost") to get a response.
 	// See https://coredns.io/plugins/local/ for more info.
 	target := "localhost"
-	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
+	lookup := func() error {
 		stdout, err := src.K8sClient.ExecInPod(parentCtx, src.Namespace(), src.NameWithoutNamespace(),
 			src.Pod.Spec.Containers[0].Name, []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
 		if err != nil {
-			log.Debugf("[%s] Error looking up %s from pod %s to server on pod %s: %s: %s",
+			ct.Debugf("[%s] Error looking up %s from pod %s to server on pod %s: %s: %s",
 				src.K8sClient.ClusterName(), target, src.Name(), dst.Name(), err, stdout.String())
 		}
 		return err
-	})
+	}
+	err := pollExecProbe(parentCtx, ShortTimeout, lookup)
 	if err != nil {
-		return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to server on pod %s to succeed (last error: %w)",
-			target, src.Name(), dst.Name(), err,
-		)
+		err = withNodeReachability(parentCtx, ct,
+			fmt.Errorf("timeout reached waiting for lookup for %s from pod %s (node %s, %s) to server on pod %s (node %s, %s) to succeed (last error: %w)",
+				target, src.Name(), src.NodeName(), src.Address(features.IPFamilyAny), dst.Name(), dst.NodeName(), dst.Address(features.IPFamilyAny), err))
+		return withRecoveryTime(parentCtx, err, lookup)
 	}
 
 	return nil
 }
 
 // WaitForCoreDNS waits until the client pod can reach coredns.
-func WaitForCoreDNS(parentCtx context.Context, log Logger, client Pod) error {
-	log.Logf("⌛ [%s] Waiting for pod %s to reach default/kubernetes service...",
+func WaitForCoreDNS(parentCtx context.Context, ct *ConnectivityTest, client Pod) error {
+	ct.Logf("⌛ [%s] Waiting for pod %s to reach default/kubernetes service...",
 		client.K8sClient.ClusterName(), client.Name())
 
 	target := "kubernetes.default"
-	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
+	lookup := func() error {
 		stdout, err := client.K8sClient.ExecInPod(parentCtx, client.Namespace(), client.NameWithoutNamespace(),
 			client.Pod.Spec.Containers[0].Name, []string{"nslookup", target})
 		if err != nil {
-			log.Debugf("[%s] Error looking up %s from pod %s: %s: %s",
+			ct.Debugf("[%s] Error looking up %s from pod %s: %s: %s",
 				client.K8sClient.ClusterName(), target, client.Name(), err, stdout.String())
 		}
 		return err
-	})
+	}
+	err := pollExecProbe(parentCtx, ShortTimeout, lookup)
 	if err != nil {
-		return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to succeed (last error: %w)",
-			target, client.Name(), err)
+		err = withNodeReachability(parentCtx, ct,
+			fmt.Errorf("timeout reached waiting for lookup for %s from pod %s (node %s, %s) to succeed (last error: %w)",
+				target, client.Name(), client.NodeName(), client.Address(features.IPFamilyAny), err))
+		return withRecoveryTime(parentCtx, err, lookup)
 	}
 
 	return nil
+}
+
+// withRecoveryTime keeps running probe after a wait gave up, and appends to err how long it took to succeed.
+func withRecoveryTime(parentCtx context.Context, err error, probe func() error) error {
+	if parentCtx.Err() != nil {
+		return err
+	}
+	start := time.Now()
+	if pollExecProbe(parentCtx, LongTimeout, probe) != nil {
+		return fmt.Errorf("%w; the lookup still failed %s after the wait gave up", err, time.Since(start).Round(time.Second))
+	}
+	return fmt.Errorf("%w; the lookup succeeded %s after the wait gave up", err, time.Since(start).Round(time.Second))
+}
+
+// withNodeReachability appends to err every path that a fresh cilium-health probe does not report reachable.
+func withNodeReachability(parentCtx context.Context, ct *ConnectivityTest, err error) error {
+	agents := ct.CiliumPods()
+	if len(agents) == 0 || parentCtx.Err() != nil {
+		return err
+	}
+
+	var lines []string
+	for _, name := range slices.Sorted(maps.Keys(agents)) {
+		agent := agents[name]
+		var status healthmodels.HealthStatusResponse
+		// A synchronous probe waits up to 10 s, so each agent gets its own 20 s.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(parentCtx), 20*time.Second)
+		stdout, execErr := agent.K8sClient.ExecInPod(ctx, agent.Pod.Namespace, agent.Pod.Name,
+			defaults.AgentContainerName, []string{"cilium-health", "status", "--probe", "-o", "json"})
+		cancel()
+		if execErr == nil {
+			execErr = json.Unmarshal(stdout.Bytes(), &status)
+		}
+		if execErr != nil {
+			lines = append(lines, fmt.Sprintf("%s: cilium-health status: %s", agent.NodeName(), execErr))
+			continue
+		}
+		lines = append(lines, unreachablePaths(agent.NodeName(), &status)...)
+	}
+	if len(lines) == 0 {
+		return fmt.Errorf("%w; cilium-health reports every node reachable", err)
+	}
+	return fmt.Errorf("%w; cilium-health reports:\n\t%s", err, strings.Join(lines, "\n\t"))
+}
+
+// unreachablePaths returns one line per path in status whose last probe failed or never ran.
+func unreachablePaths(from string, status *healthmodels.HealthStatusResponse) []string {
+	var lines []string
+	for _, node := range status.Nodes {
+		if node == nil {
+			continue
+		}
+		hosts := healthclient.GetAllHostAddresses(node)
+		for i, path := range append(hosts, healthclient.GetAllEndpointAddresses(node)...) {
+			if path == nil {
+				continue
+			}
+			kind := "endpoint"
+			if i < len(hosts) {
+				kind = "host"
+			}
+			var failures []string
+			if path.Icmp != nil && path.Icmp.Status != "" {
+				failures = append(failures, "icmp "+path.Icmp.Status)
+			}
+			if path.HTTP != nil && path.HTTP.Status != "" {
+				failures = append(failures, "http "+path.HTTP.Status)
+			}
+			if path.Icmp == nil && path.HTTP == nil {
+				failures = append(failures, "no probe result")
+			}
+			if len(failures) > 0 {
+				lines = append(lines, fmt.Sprintf("%s -> %s: %s %s: %s",
+					from, node.Name, kind, path.IP, strings.Join(failures, ", ")))
+			}
+		}
+	}
+	return lines
 }
 
 // Service waits until the specified service is created and can be retrieved.

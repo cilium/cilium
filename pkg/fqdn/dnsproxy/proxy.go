@@ -950,8 +950,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 	epAddr := addrPort.Addr()
+	stat.EndpointLookupTime.Start()
 	ep, _, err := p.LookupEndpointByIP(epAddr)
 	if err != nil {
+		stat.EndpointLookupTime.End(false)
 		scopedLog.Error("cannot extract endpoint ID from DNS request", logfields.Error, err)
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
@@ -964,9 +966,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.EndpointID, ep.StringID(),
 		logfields.Identity, ep.GetIdentity(),
 	)
+	stat.EndpointLookupTime.End(true)
 
+	stat.ServerLookupTime.Start()
 	proto, targetServer, err := p.lookupTargetDNSServer(w)
 	if err != nil {
+		stat.ServerLookupTime.End(false)
 		p.logger.Error("cannot extract destination IP:port from DNS request", logfields.Error, err)
 		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
@@ -978,7 +983,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	// Ignore invalid IP - getter will handle invalid value.
 	targetServerID := identity.GetWorldIdentityFromIP(targetServer.Addr())
-	if serverSecID, exists := p.proxyLookupHandler.LookupSecIDByIP(targetServer.Addr()); !exists {
+	serverSecID, exists := p.proxyLookupHandler.LookupSecIDByIP(targetServer.Addr())
+	stat.ServerLookupTime.End(true)
+	if !exists {
 		scopedLog.Debug(
 			"cannot find server ip in ipcache, defaulting to WORLD",
 			logfields.Server, targetServer.Addr(),
@@ -1022,7 +1029,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, requestDetails, protocol, true, &stat); err != nil {
+	stat.RequestNotifyTime.Start()
+	err = p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, requestDetails, protocol, true, &stat)
+	stat.RequestNotifyTime.End(err == nil)
+	if err != nil {
 		scopedLog.Error("Failed to process DNS query", logfields.Error, err)
 		p.sendErrorResponse(scopedLog, w, request, false)
 		return
