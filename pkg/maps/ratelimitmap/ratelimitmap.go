@@ -12,8 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapathmaps "github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -22,7 +24,10 @@ var Cell = cell.Module(
 	"eBPF Ratelimit Map",
 	cell.Provide(newRatelimitMap),
 	cell.Provide(newRatelimitMetricsMap),
-	cell.Invoke(RegisterCollector),
+	cell.Invoke(
+		configure,
+		RegisterCollector,
+	),
 )
 
 // DumpCallback represents the signature of the callback function expected by
@@ -47,14 +52,9 @@ type ratelimitMap struct {
 const (
 	// MetricsMapName for ratelimit metrics map.
 	MetricsMapName = "cilium_ratelimit_metrics"
-	// MapName for ratelimit map.
-	MapName = "cilium_ratelimit"
 	// MetricsMaxEntries is the maximum number of keys that can be present in
 	// the Ratelimit Metrics Map.
 	MaxMetricsEntries = 64
-	// MaxEntries is the maximum number of keys that can be present in the
-	// Ratelimit Map.
-	MaxEntries = 1024
 )
 
 // usageType represents source of ratelimiter usage in datapath code.
@@ -213,18 +213,20 @@ func RegisterCollector(logger *slog.Logger, ratelimitMetricsMap *ratelimitMetric
 	}
 }
 
-func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
-	ratelimitMap := &ratelimitMap{bpf.NewMap(
-		MapName,
-		ebpf.LRUHash,
-		&Key{},
-		&Value{},
-		MaxEntries,
-		0,
-	)}
+func newRatelimitMap(
+	lifecycle cell.Lifecycle,
+	reg *registry.MapRegistry,
+) bpf.MapOut[*ratelimitMap] {
+	ratelimitMap := &ratelimitMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			m, err := bpf.NewMapFromRegistry(reg, datapathmaps.CiliumRatelimit, &Key{}, &Value{})
+			if err != nil {
+				return fmt.Errorf("create ratelimit BPF map: %w", err)
+			}
+			ratelimitMap.Map = m
+
 			if err := ratelimitMap.OpenOrCreate(); err != nil {
 				return fmt.Errorf("failed to init ratelimit bpf map: %w", err)
 			}
@@ -268,4 +270,13 @@ func newRatelimitMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMetri
 	})
 
 	return bpf.NewMapOut(ratelimitMetricsMap)
+}
+
+func configure(reg *registry.MapRegistry) error {
+	if err := reg.Modify(datapathmaps.CiliumRatelimit, func(m *registry.MapSpecPatch) {
+		m.Flags = bpf.GetMapMemoryFlags(ebpf.LRUHash)
+	}); err != nil {
+		return fmt.Errorf("configure map %s: %w", datapathmaps.CiliumRatelimit, err)
+	}
+	return nil
 }
