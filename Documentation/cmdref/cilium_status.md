@@ -13,11 +13,13 @@ cilium status [flags]
 ```
   -h, --help[=true|false]              help for status
       --ignore-warnings[=true|false]   Ignore warnings when waiting for status to report success
-      --interactive[=true|false]       Refresh the status summary output after each retry when --wait flag is specified (default true)
+      --interactive[=true|false]       Refresh the status summary output in place when --wait or --watch flag is specified (default true)
   -o, --output string                  Output format. One of: json, summary (default "summary")
       --verbose[=true|false]           Print more verbose error / log messages
       --wait[=true|false]              Wait for status to report success (no errors and warnings)
       --wait-duration duration         Maximum time to wait for status (default 5m0s)
+      --watch[=true|false]             Continuously refresh the status until interrupted
+      --watch-interval duration        Time between status refreshes when --watch flag is specified (default 2s)
       --worker-count int               The number of workers to use (default 5)
 ```
 
