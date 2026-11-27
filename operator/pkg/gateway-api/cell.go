@@ -263,7 +263,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		installedOptionalKinds = append(installedOptionalKinds, mcsapiv1beta1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind))
 	}
 
-	if err := registerGatewayAPITypesToScheme(params.Scheme, installedOptionalKinds); err != nil {
+	if err := registerGatewayAPITypesToScheme(params.Scheme, installedOptionalKinds, params.GatewayApiConfig.GatewayAPIInferenceExtensionEnabled); err != nil {
 		return err
 	}
 
@@ -550,7 +550,7 @@ func registerReconcilers(
 	return nil
 }
 
-func registerGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []schema.GroupVersionKind) error {
+func registerGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []schema.GroupVersionKind, inferenceExtensionEnabled bool) error {
 	// Autodetection of installed types means we have to add things to the scheme
 	// ourselves for non-Standard GroupVersions, we can't use the generated
 	// functions.
@@ -575,6 +575,9 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 	addToSchema[gatewayv1beta1.GroupVersion] = gatewayv1beta1.Install
 
 	for _, optionalKind := range optionalKinds {
+		if optionalKind.Kind == helpers.InferencePoolKind && !inferenceExtensionEnabled {
+			continue
+		}
 		// Note that we're using the full GVK as the map key here - this is fine
 		// because the key is just a fmt.Stringer
 		// We need to do this because there needs to be one entry

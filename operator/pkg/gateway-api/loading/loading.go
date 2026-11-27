@@ -280,7 +280,7 @@ func newServiceImportLookup(serviceImports []mcsapiv1beta1.ServiceImport) servic
 	return lookup
 }
 
-func appendBackendRef(refs backendReferenceSet, routeNamespace string, backendRef gatewayv1.BackendObjectReference) {
+func (l *TranslationInputLoader) appendBackendRef(refs backendReferenceSet, routeNamespace string, backendRef gatewayv1.BackendObjectReference) {
 	backendKey := types.NamespacedName{
 		Namespace: helpers.NamespaceDerefOr(backendRef.Namespace, routeNamespace),
 		Name:      string(backendRef.Name),
@@ -292,6 +292,9 @@ func appendBackendRef(refs backendReferenceSet, routeNamespace string, backendRe
 	case helpers.IsServiceImport(backendRef):
 		refs.serviceImportKeys[backendKey] = struct{}{}
 	case helpers.IsInferencePool(backendRef):
+		if !l.config.IncludeInferencePools {
+			return
+		}
 		// A pool backendRef resolves to its shadow Service during ingestion,
 		// so load that Service (not the pool name) into the input set.
 		refs.serviceKeys[types.NamespacedName{
@@ -305,7 +308,7 @@ func (l *TranslationInputLoader) collectBackendReferencesFromHTTPRoutes(refs bac
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
+				l.appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 			for _, filter := range rule.Filters {
 				var backendRef gatewayv1.BackendObjectReference
@@ -318,7 +321,7 @@ func (l *TranslationInputLoader) collectBackendReferencesFromHTTPRoutes(refs bac
 					continue
 				}
 
-				appendBackendRef(refs, route.Namespace, backendRef)
+				l.appendBackendRef(refs, route.Namespace, backendRef)
 			}
 		}
 	}
@@ -328,14 +331,14 @@ func (l *TranslationInputLoader) collectBackendReferencesFromGRPCRoutes(refs bac
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
+				l.appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 			for _, filter := range rule.Filters {
 				if filter.Type != gatewayv1.GRPCRouteFilterRequestMirror || filter.RequestMirror == nil {
 					continue
 				}
 
-				appendBackendRef(refs, route.Namespace, filter.RequestMirror.BackendRef)
+				l.appendBackendRef(refs, route.Namespace, filter.RequestMirror.BackendRef)
 			}
 		}
 	}
@@ -345,7 +348,7 @@ func (l *TranslationInputLoader) collectBackendReferencesFromTLSRoutes(refs back
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
+				l.appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 		}
 	}
@@ -355,7 +358,7 @@ func (l *TranslationInputLoader) collectBackendReferencesFromTCPRoutes(refs back
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
+				l.appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 		}
 	}
@@ -365,7 +368,7 @@ func (l *TranslationInputLoader) collectBackendReferencesFromUDPRoutes(refs back
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
+				l.appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 		}
 	}

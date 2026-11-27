@@ -6,6 +6,7 @@ package gateway_api
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -20,8 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sTesting "k8s.io/client-go/testing"
+	ctrlRuntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/resource"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -257,4 +263,162 @@ func TestDiscoverCRDsWithRetry_ContextDeadlineExceeded(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "gateway API CRD discovery timed out")
 	assert.Equal(t, cell.StatusStopped, simpleHealth.Level)
+}
+
+func TestRegisterGatewayAPITypesToScheme_InferenceExtensionGating(t *testing.T) {
+	optionalKindsWithoutInferencePool := slices.DeleteFunc(slices.Clone(helpers.AllOptionalKinds), func(gvk schema.GroupVersionKind) bool {
+		return gvk.Kind == helpers.InferencePoolKind
+	})
+
+	tests := []struct {
+		name                      string
+		optionalKinds             []schema.GroupVersionKind
+		inferenceExtensionEnabled bool
+		expectInferencePool       bool
+	}{
+		{
+			name:                      "InferencePool CRD installed but inference extension disabled",
+			optionalKinds:             helpers.AllOptionalKinds,
+			inferenceExtensionEnabled: false,
+			expectInferencePool:       false,
+		},
+		{
+			name:                      "InferencePool CRD installed and inference extension enabled",
+			optionalKinds:             helpers.AllOptionalKinds,
+			inferenceExtensionEnabled: true,
+			expectInferencePool:       true,
+		},
+		{
+			name:                      "InferencePool CRD missing and inference extension enabled",
+			optionalKinds:             optionalKindsWithoutInferencePool,
+			inferenceExtensionEnabled: true,
+			expectInferencePool:       false,
+		},
+		{
+			name:                      "InferencePool CRD missing and inference extension disabled",
+			optionalKinds:             optionalKindsWithoutInferencePool,
+			inferenceExtensionEnabled: false,
+			expectInferencePool:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			err := registerGatewayAPITypesToScheme(scheme, tt.optionalKinds, tt.inferenceExtensionEnabled)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectInferencePool, helpers.HasInferencePoolSupport(scheme))
+			assert.True(t, helpers.HasTCPRouteSupport(scheme))
+			assert.True(t, helpers.HasUDPRouteSupport(scheme))
+			assert.True(t, helpers.HasListenerSetSupport(scheme))
+			assert.True(t, helpers.HasServiceImportSupport(scheme))
+		})
+	}
+}
+
+type fakeManager struct {
+	ctrlRuntime.Manager
+	client client.Client
+	scheme *runtime.Scheme
+}
+
+func (m *fakeManager) GetClient() client.Client   { return m.client }
+func (m *fakeManager) GetScheme() *runtime.Scheme { return m.scheme }
+
+func TestNewGatewayReconciler_InferenceExtensionGating(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	optionalKindsWithoutInferencePool := slices.DeleteFunc(slices.Clone(helpers.AllOptionalKinds), func(gvk schema.GroupVersionKind) bool {
+		return gvk.Kind == helpers.InferencePoolKind
+	})
+
+	hasResource := func(resources []resource.Resource, check func(resource.Resource) bool) bool {
+		return slices.ContainsFunc(resources, check)
+	}
+
+	isInferencePoolResource := func(r resource.Resource) bool {
+		_, ok := r.(*resource.InferencePoolResource)
+		return ok
+	}
+	isEndpointSliceResource := func(r resource.Resource) bool {
+		_, ok := r.(*resource.EndpointSliceResource)
+		return ok
+	}
+
+	tests := []struct {
+		name                      string
+		optionalKinds             []schema.GroupVersionKind
+		registerInferenceInScheme bool
+		inferenceExtensionEnabled bool
+		expectInferencePool       bool
+	}{
+		{
+			name:                      "disabled flag excludes InferencePool resources even when scheme recognizes InferencePool",
+			optionalKinds:             helpers.AllOptionalKinds,
+			registerInferenceInScheme: true,
+			inferenceExtensionEnabled: false,
+			expectInferencePool:       false,
+		},
+		{
+			name:                      "enabled flag with InferencePool in scheme includes InferencePool resources",
+			optionalKinds:             helpers.AllOptionalKinds,
+			registerInferenceInScheme: true,
+			inferenceExtensionEnabled: true,
+			expectInferencePool:       true,
+		},
+		{
+			name:                      "enabled flag without InferencePool in scheme excludes InferencePool resources",
+			optionalKinds:             optionalKindsWithoutInferencePool,
+			registerInferenceInScheme: true,
+			inferenceExtensionEnabled: true,
+			expectInferencePool:       false,
+		},
+		{
+			name:                      "disabled flag without InferencePool in scheme excludes InferencePool resources",
+			optionalKinds:             optionalKindsWithoutInferencePool,
+			registerInferenceInScheme: false,
+			inferenceExtensionEnabled: false,
+			expectInferencePool:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, registerGatewayAPITypesToScheme(scheme, tt.optionalKinds, tt.registerInferenceInScheme))
+
+			mgr := &fakeManager{
+				client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+				scheme: scheme,
+			}
+			rec := newGatewayReconciler(mgr, nil, logger, defaultControllerName, false, metav1.LabelSelector{}, tt.inferenceExtensionEnabled, nil, nil)
+
+			resources := rec.resourceRegistry.GetResources()
+			assert.Equal(t, tt.expectInferencePool, hasResource(resources, isInferencePoolResource))
+			assert.Equal(t, tt.expectInferencePool, hasResource(resources, isEndpointSliceResource))
+
+			var httpRouteRes *resource.HTTPRouteResource
+			var serviceRes *resource.ServiceResource
+			for _, res := range resources {
+				switch typed := res.(type) {
+				case *resource.HTTPRouteResource:
+					httpRouteRes = typed
+				case *resource.ServiceResource:
+					serviceRes = typed
+				}
+			}
+			require.NotNil(t, httpRouteRes)
+			require.NotNil(t, serviceRes)
+
+			_, hasInfPoolIndexer := httpRouteRes.GetIndexers(logger)[indexers.InferencePoolHTTPRouteIndex]
+			assert.Equal(t, tt.expectInferencePool, hasInfPoolIndexer)
+
+			expectedWatchHandlers := 1
+			if tt.expectInferencePool {
+				expectedWatchHandlers = 2
+			}
+			assert.Len(t, serviceRes.GetWatchHandlers(mgr.GetClient(), logger, scheme, defaultControllerName), expectedWatchHandlers)
+		})
+	}
 }
