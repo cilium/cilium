@@ -732,7 +732,11 @@ func (pp *PortProtocol) Validate(hasDNSRules bool) (isZero bool, err error) {
 		}
 	}
 
-	if !iana.IsSvcName(pp.Port) && pp.Port != "" {
+	if iana.IsSvcName(pp.Port) {
+		if pp.EndPort != 0 {
+			return isZero, errors.New("endPort cannot be used with a named port")
+		}
+	} else if pp.Port != "" {
 		// Extended IP protocols and tunnel/encapsulation protocols do not have
 		// transport-layer ports. Require port to be empty or 0 for these protocols.
 		if pp.Port != "0" && isExtendedIPProtocol(pp.Protocol) {
@@ -743,6 +747,9 @@ func (pp *PortProtocol) Validate(hasDNSRules bool) (isZero bool, err error) {
 			return isZero, fmt.Errorf("unable to parse port: %w", err)
 		}
 		isZero = p == 0
+		if pp.EndPort != 0 && pp.EndPort < int32(p) {
+			return isZero, errors.New("endPort must be greater than or equal to port")
+		}
 		if hasDNSRules && pp.EndPort > int32(p) {
 			return isZero, errors.New("DNS rules do not support port ranges")
 		}

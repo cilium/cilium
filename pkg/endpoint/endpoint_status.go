@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func getEndpointIdentity(mdlIdentity *models.Identity) (identity *cilium_v2.EndpointIdentity) {
@@ -103,6 +104,14 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		NamedPorts:          e.getNamedPortsModel(),
 		ServiceAccount:      svcAccount,
 		Workload:            workload,
+	}
+
+	if !e.proxyNACKSince.IsZero() {
+		status.Log = []models.EndpointStatusChange{{
+			Code:      models.EndpointStatusChangeCodeFailed,
+			Message:   "Envoy rejected an update required for endpoint policy. Regeneration will retry.",
+			Timestamp: e.proxyNACKSince.Format(time.RFC3339),
+		}}
 	}
 
 	return status

@@ -30,11 +30,11 @@ which is defined as follows:
         // PortProtocol specifies an L4 port with an optional transport protocol
         type PortProtocol struct {
                 // Port can be an L4 port number, or a name in the form of "http"
-                // or "http-8080". EndPort is ignored if Port is a named port.
+                // or "http-8080".
                 Port string `json:"port"`
 
-                // EndPort can only be an L4 port number. It is ignored when
-                // Port is a named port.
+                // A nonzero EndPort specifies the inclusive end of a range.
+                // It requires a numeric Port and must be greater than or equal to Port.
                 //
                 // +optional
                 EndPort int32 `json:"endPort,omitempty"`

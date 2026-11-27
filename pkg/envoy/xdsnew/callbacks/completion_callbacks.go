@@ -835,8 +835,8 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 	if rejectedVersion == "" {
 		rejectedVersion = req.GetVersionInfo()
 	}
-	nackErr := fmt.Errorf("NACK from %s for %s version %s: %s",
-		nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
+	nackErr := fmt.Errorf("%w from %s for %s version %s: %s",
+		xds.ErrNackReceived, nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
 	*response = pendingResponse{}
 	if state.pendingStreamID == streamID {
 		state.clearPending()

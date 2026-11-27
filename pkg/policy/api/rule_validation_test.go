@@ -740,6 +740,49 @@ func TestPortRangesNotAllowedWithDNSRules(t *testing.T) {
 	require.Equal(t, "DNS rules do not support port ranges", err.Error())
 }
 
+func TestPortRanges(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		port    string
+		endPort int32
+		wantErr string
+	}{
+		{name: "named port", port: "http"},
+		{name: "numeric port", port: "80"},
+		{name: "numeric range", port: "80", endPort: 90},
+		{name: "singular port range", port: "80", endPort: 80},
+		{
+			name:    "named port with end port",
+			port:    "http",
+			endPort: 90,
+			wantErr: "endPort cannot be used with a named port",
+		},
+		{
+			name:    "inverted numeric range",
+			port:    "90",
+			endPort: 80,
+			wantErr: "endPort must be greater than or equal to port",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rule := Rule{
+				EndpointSelector: WildcardEndpointSelector,
+				Ingress: []IngressRule{{
+					ToPorts: []PortRule{{
+						Ports: []PortProtocol{{Port: tt.port, EndPort: tt.endPort, Protocol: ProtoTCP}},
+					}},
+				}},
+			}
+			err := rule.Validate()
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 // This test ensures that host policies with L7 rules (except for DNS egress) are rejected.
 func TestL7RulesWithNodeSelector(t *testing.T) {
 	toPortsHTTP := []PortRule{{
