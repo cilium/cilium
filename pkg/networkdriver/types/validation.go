@@ -116,6 +116,10 @@ func ValidateInterfaceName(name string) error {
 		return fmt.Errorf("interface name %q is reserved (loopback)", name)
 	}
 
+	if name == "." || name == ".." {
+		return fmt.Errorf("interface name %q is reserved (relative path)", name)
+	}
+
 	if len(name) >= 7 && name[:7] == "cilium_" {
 		return fmt.Errorf("interface name %q is reserved (cilium_ prefix)", name)
 	}

@@ -161,3 +161,32 @@ func TestValidateInterfaceSysctl(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateInterfaceName(t *testing.T) {
+	tests := []struct {
+		name    string
+		ifName  string
+		wantErr bool
+	}{
+		{name: "empty name", ifName: ""},
+		{name: "simple name", ifName: "eth0"},
+		{name: "name with dots and dashes", ifName: "net-1.5"},
+		{name: "loopback", ifName: "lo", wantErr: true},
+		{name: "cilium prefix", ifName: "cilium_host", wantErr: true},
+		{name: "single dot", ifName: ".", wantErr: true},
+		{name: "double dot", ifName: "..", wantErr: true},
+		{name: "invalid characters", ifName: "eth/0", wantErr: true},
+		{name: "too long", ifName: "abcdefghijklmnop", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateInterfaceName(tt.ifName)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
