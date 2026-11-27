@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/revert"
@@ -33,11 +34,17 @@ type StandaloneDNSProxy struct {
 	standaloneDNSProxyServerPort uint16
 	enableL7Proxy                bool
 	enableStandaloneDNSProxy     bool
-	dnsProxier                   proxy.DNSProxier
 	proxyPort                    uint16
 
 	// connHandler is the gRPC connection handler client for standalone DNS proxy
 	connHandler client.ConnectionHandler
+
+	// dnsProxierAllowedRuleKeys is the cache of allowed DNS rule keys(endpointID + portproto)
+	// in DNS proxier managed by SDP.
+	// This cache is required to clean up stale allowed DNS rules in proxier for keys that
+	// were removed in the snapshot update received from the agent.
+	dnsProxierAllowedRules map[dnsRuleKey]struct{}
+	dnsProxier             proxy.DNSProxier
 
 	// dnsRulesTable is the table that holds DNS rules received from the Cilium agent
 	// It is used by the DNS proxy to enforce DNS policies
@@ -50,6 +57,13 @@ type StandaloneDNSProxy struct {
 
 	// readinessStatus tracks the readiness status of this standalone DNS proxy instance
 	readinessStatus atomic.Bool
+}
+
+// dnsRuleKey uniquely identifies one (endpointID, portProto) entry in the
+// DNS proxy's allowed map.
+type dnsRuleKey struct {
+	endpointID uint64
+	portProto  restore.PortProto
 }
 
 // IsReady returns the current readiness status of the standalone DNS proxy
@@ -190,7 +204,11 @@ func (sdp *StandaloneDNSProxy) updateDNSRules(dnsRules iter.Seq2[client.DNSRules
 		}
 	}()
 
+	dnsProxierAllowedKeys := make(map[dnsRuleKey]struct{})
 	for rule := range dnsRules {
+		key := dnsRuleKey{endpointID: uint64(rule.EndpointID), portProto: rule.PortProto}
+		dnsProxierAllowedKeys[key] = struct{}{}
+
 		revertFunc, err := sdp.dnsProxier.UpdateAllowed(uint64(rule.EndpointID), rule.PortProto, rule.DNSRule)
 		if err != nil {
 			retErr = err
@@ -198,5 +216,21 @@ func (sdp *StandaloneDNSProxy) updateDNSRules(dnsRules iter.Seq2[client.DNSRules
 		}
 		revertFuncs.Push(revertFunc)
 	}
+
+	for prevRule := range sdp.dnsProxierAllowedRules {
+		if _, ok := dnsProxierAllowedKeys[prevRule]; !ok {
+			// Remove entries that were present in the previous snapshot but are
+			// absent from the current one. Passing nil rules causes the proxy to
+			// delete the allowed entry and release regex-cache references.
+			if _, err := sdp.dnsProxier.UpdateAllowed(prevRule.endpointID, prevRule.portProto, nil); err != nil {
+				sdp.logger.Warn("Failed to remove stale DNS rule",
+					logfields.Error, err,
+					logfields.EndpointID, prevRule.endpointID,
+					logfields.PortProtocol, prevRule.portProto)
+			}
+		}
+	}
+
+	sdp.dnsProxierAllowedRules = dnsProxierAllowedKeys
 	return nil
 }

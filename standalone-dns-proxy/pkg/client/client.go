@@ -60,8 +60,8 @@ type PrefixToIdentity struct {
 }
 
 type IPtoEndpointInfo struct {
-	IP       []netip.Addr
 	ID       uint64
+	IPs      []netip.Addr
 	Identity identity.NumericIdentity
 }
 
@@ -86,14 +86,25 @@ var (
 		FromString: index.Uint64String,
 		Unique:     true,
 	}
+	IPToEndpointInfoIDIndex = statedb.Index[IPtoEndpointInfo, uint64]{
+		Name: "id",
+		FromObject: func(e IPtoEndpointInfo) index.KeySet {
+			return index.NewKeySet(index.Uint64(e.ID))
+		},
+		FromKey: func(key uint64) index.Key {
+			return index.Uint64(key)
+		},
+		FromString: index.Uint64String,
+		Unique:     true,
+	}
 	IdIPToEndpointIndex = statedb.Index[IPtoEndpointInfo, netip.Addr]{
 		Name: "ip",
 		FromObject: func(e IPtoEndpointInfo) index.KeySet {
-			if len(e.IP) == 0 {
+			if len(e.IPs) == 0 {
 				return index.EmptyKeySet
 			}
-			keys := make([]index.Key, len(e.IP))
-			for i, ip := range e.IP {
+			keys := make([]index.Key, len(e.IPs))
+			for i, ip := range e.IPs {
 				keys[i] = index.NetIPAddr(ip)
 			}
 			return index.NewKeySet(keys[0], keys[1:]...)
@@ -102,7 +113,7 @@ var (
 			return index.NetIPAddr(key)
 		},
 		FromString: index.NetIPAddrString,
-		Unique:     true,
+		Unique:     false,
 	}
 	PrefixToIdentityIndex = statedb.Index[PrefixToIdentity, netip.Prefix]{
 		Name: "prefix",
@@ -158,16 +169,16 @@ func (p DNSRules) TableRow() []string {
 
 func (i IPtoEndpointInfo) TableHeader() []string {
 	return []string{
-		"IP",
 		"Endpoint ID",
+		"IP",
 		"Identity",
 	}
 }
 
 func (i IPtoEndpointInfo) TableRow() []string {
 	return []string{
-		fmt.Sprintf("%v", i.IP),
 		fmt.Sprintf("%d", i.ID),
+		fmt.Sprintf("%v", i.IPs),
 		fmt.Sprintf("%d", i.Identity.Uint32()),
 	}
 }
@@ -410,6 +421,7 @@ func NewIPtoEndpointTable(db *statedb.DB) (statedb.RWTable[IPtoEndpointInfo], er
 	return statedb.NewTable(
 		db,
 		IPtoEndpointTableName,
+		IPToEndpointInfoIDIndex,
 		IdIPToEndpointIndex,
 	)
 }
@@ -535,7 +547,7 @@ func (c *GRPCClient) updateIPToEndpoint(mappings []*pb.IdentityToEndpointMapping
 				ips = append(ips, addr)
 			}
 			_, _, err := c.ipToEndpointTable.Insert(wtxn, IPtoEndpointInfo{
-				IP:       ips,
+				IPs:      ips,
 				ID:       epInfo.GetId(),
 				Identity: identity.NumericIdentity(mapping.GetIdentity()),
 			})
