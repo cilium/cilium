@@ -84,13 +84,3 @@ func (s *hubbleWorkload) Run(ctx context.Context, t *check.Test) {
 		})
 	})
 }
-
-func podWithName(pods map[string]check.Pod, name string) *check.Pod {
-	for key := range pods {
-		pod := pods[key]
-		if pod.HasLabel("name", name) {
-			return &pod
-		}
-	}
-	return nil
-}
