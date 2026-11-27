@@ -107,6 +107,12 @@ func (w *watcher) process() {
 
 		w.lastSeenVersion = version
 		resVer := w.resources.GetResources(w.typeUrl, 0, nil)
+		// Remove may have closed stop even though select returned through changed.
+		select {
+		case <-w.stop:
+			return
+		default:
+		}
 		w.log.Debug("Invoke callback")
 		w.cb(resVer)
 	}
