@@ -110,9 +110,12 @@ type Error struct {
 type Failure struct {
 	XMLName xml.Name `xml:"failure"`
 
-	Message         string   `xml:"message,attr,omitempty"`
-	FailureMessages []string `xml:"failureMessage,attr,omitempty"`
-	Type            string   `xml:"type,attr"`
+	Message string `xml:"message,attr,omitempty"`
+	// FailureMessage holds all failure messages of the test case, separated by
+	// newlines. It is a single string because an XML attribute can only appear
+	// once per element.
+	FailureMessage string `xml:"failureMessage,attr,omitempty"`
+	Type           string `xml:"type,attr"`
 
 	Value string `xml:",chardata"`
 }
