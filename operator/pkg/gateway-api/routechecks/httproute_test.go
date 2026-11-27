@@ -14,7 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 func TestHTTPRouteValidateHeaderModifier(t *testing.T) {
@@ -262,6 +265,96 @@ func TestCheckBackendIsExistingServiceSetsResolvedRefsFalseForUnknownServicePort
 	assert.Equal(t, metav1.ConditionFalse, cond.Status)
 	assert.Equal(t, string(gatewayv1.RouteReasonBackendNotFound), cond.Reason)
 	assert.Equal(t, "Service port 8080 could not be resolved for backend default/backend-svc", cond.Message)
+}
+
+func TestCheckHasInferencePoolSupport(t *testing.T) {
+	tests := []struct {
+		name                  string
+		registerInferencePool bool
+		includeInferencePools bool
+		expectContinue        bool
+	}{
+		{
+			name:                  "disabled in resource config even when InferencePool is in scheme",
+			registerInferencePool: true,
+			includeInferencePools: false,
+			expectContinue:        false,
+		},
+		{
+			name:                  "enabled in resource config but InferencePool missing from scheme",
+			registerInferencePool: false,
+			includeInferencePools: true,
+			expectContinue:        false,
+		},
+		{
+			name:                  "enabled in resource config and InferencePool registered in scheme",
+			registerInferencePool: true,
+			includeInferencePools: true,
+			expectContinue:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, gatewayv1.Install(scheme))
+			if tt.registerInferencePool {
+				require.NoError(t, gateway_inf_ext.Install(scheme))
+			}
+
+			route := &gatewayv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-route",
+					Namespace:  "default",
+					Generation: 1,
+				},
+				Spec: gatewayv1.HTTPRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{{Name: "my-gw"}},
+					},
+					Rules: []gatewayv1.HTTPRouteRule{{
+						BackendRefs: []gatewayv1.HTTPBackendRef{{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Group: ptrTo(gatewayv1.Group(gateway_inf_ext.GroupName)),
+									Kind:  ptrTo(gatewayv1.Kind("InferencePool")),
+									Name:  "my-pool",
+								},
+							},
+						}},
+					}},
+				},
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(route).Build()
+			input := &HTTPRouteInput{
+				Ctx:            context.Background(),
+				Logger:         slog.New(slog.DiscardHandler),
+				Client:         cl,
+				HTTPRoute:      route,
+				ControllerName: "io.cilium/gateway-controller",
+				ResourceConfig: helpers.ResourceConfig{
+					IncludeInferencePools: tt.includeInferencePools,
+				},
+			}
+
+			ok, err := CheckHasInferencePoolSupport(input, gatewayv1.ParentReference{Name: "my-gw"})
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectContinue, ok)
+
+			if tt.expectContinue {
+				assert.Empty(t, route.Status.Parents)
+				return
+			}
+
+			require.Len(t, route.Status.Parents, 1)
+			require.Len(t, route.Status.Parents[0].Conditions, 1)
+			cond := route.Status.Parents[0].Conditions[0]
+			assert.Equal(t, string(gatewayv1.RouteConditionResolvedRefs), cond.Type)
+			assert.Equal(t, metav1.ConditionFalse, cond.Status)
+			assert.Equal(t, string(gatewayv1.RouteReasonBackendNotFound), cond.Reason)
+		})
+	}
 }
 
 func ptrTo[T any](value T) *T {

@@ -111,14 +111,14 @@ func CheckHasInferencePoolSupport(input Input, parentRef gatewayv1.ParentReferen
 				continue
 			}
 
-			if !helpers.HasInferencePoolSupport(input.GetClient().Scheme()) {
+			if !input.GetResourceConfig().IncludeInferencePools || !helpers.HasInferencePoolSupport(input.GetClient().Scheme()) {
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:   string(gatewayv1.RouteConditionResolvedRefs),
 					Status: metav1.ConditionFalse,
 					Reason: string(gatewayv1.RouteReasonBackendNotFound),
 					Message: "Attempt to reference an InferencePool backend while " +
-						"the corresponding CRD is not installed, " +
-						"please restart the cilium-operator if the CRD is already installed",
+						"Gateway API Inference Extension is not enabled or the corresponding CRD is not installed, " +
+						"please ensure Gateway API Inference Extension is enabled and restart the cilium-operator if the CRD is already installed",
 				})
 				return false, nil
 			}

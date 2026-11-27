@@ -16,6 +16,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -200,4 +201,92 @@ func serviceImportKeys(serviceImports []mcsapiv1beta1.ServiceImport) []client.Ob
 		keys = append(keys, client.ObjectKeyFromObject(&svcImport))
 	}
 	return keys
+}
+
+func TestLoadInferencePoolShadowServiceGating(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+		},
+	}
+
+	gwc := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
+	}
+
+	httpRoute := &gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pool-route",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1.CommonRouteSpec{
+				ParentRefs: []gatewayv1.ParentReference{{Name: "gw"}},
+			},
+			Rules: []gatewayv1.HTTPRouteRule{{
+				BackendRefs: []gatewayv1.HTTPBackendRef{{
+					BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{
+							Group: ptr.To(gatewayv1.Group(gateway_inf_ext.GroupName)),
+							Kind:  ptr.To(gatewayv1.Kind("InferencePool")),
+							Name:  "my-pool",
+						},
+					},
+				}},
+			}},
+		},
+		Status: gatewayv1.HTTPRouteStatus{
+			RouteStatus: gatewayv1.RouteStatus{
+				Parents: []gatewayv1.RouteParentStatus{{
+					ParentRef:      gatewayv1.ParentReference{Name: "gw"},
+					ControllerName: "io.cilium/gateway-controller",
+					Conditions: []metav1.Condition{{
+						Type:   string(gatewayv1.RouteConditionAccepted),
+						Status: metav1.ConditionTrue,
+					}},
+				}},
+			},
+		},
+	}
+
+	shadowService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helpers.ShadowServiceName("my-pool"),
+			Namespace: "default",
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
+		WithObjects(gw, gwc, httpRoute, shadowService).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
+		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
+		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
+		Build()
+
+	t.Run("skips shadow service when IncludeInferencePools is false", func(t *testing.T) {
+		loader := NewTranslationInputLoader(c, logger, "io.cilium/gateway-controller", helpers.ResourceConfig{
+			IncludeInferencePools: false,
+		})
+		inputs, err := loader.Load(t.Context(), logger, gw, gwc)
+		require.NoError(t, err)
+		require.Empty(t, inputs.Services)
+	})
+
+	t.Run("loads shadow service when IncludeInferencePools is true", func(t *testing.T) {
+		loader := NewTranslationInputLoader(c, logger, "io.cilium/gateway-controller", helpers.ResourceConfig{
+			IncludeInferencePools: true,
+		})
+		inputs, err := loader.Load(t.Context(), logger, gw, gwc)
+		require.NoError(t, err)
+		require.Equal(t, []client.ObjectKey{
+			{Namespace: "default", Name: helpers.ShadowServiceName("my-pool")},
+		}, serviceKeys(inputs.Services))
+	})
 }

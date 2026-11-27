@@ -75,7 +75,7 @@ func newGatewayReconciler(
 		IncludeUDPRoutes:        helpers.HasUDPRouteSupport(mgr.GetScheme()),
 		IncludeServiceImports:   helpers.HasServiceImportSupport(mgr.GetScheme()),
 		IncludeListenerSets:     helpers.HasListenerSetSupport(mgr.GetScheme()),
-		IncludeInferencePools:   helpers.HasInferencePoolSupport(mgr.GetScheme()),
+		IncludeInferencePools:   gatewayAPIInferenceExtensionEnabled && helpers.HasInferencePoolSupport(mgr.GetScheme()),
 		TCPRouteUDPRouteSupport: !hostNetworkEnabled,
 		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 		OwningGatewayLabel:      owningGatewayLabel,
