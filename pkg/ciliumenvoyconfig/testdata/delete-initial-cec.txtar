@@ -1,0 +1,40 @@
+#! --gate-xds
+# Initialize xDS with a CEC before it starts serving.
+k8s/add cec.yaml
+hive start
+* envoy/cmp initial.expected
+
+# Delete the CEC after its listener reaches xDS and before the reconciler starts.
+# The row disappears first, so an iterator opened after serving would miss it.
+k8s/delete cec.yaml
+* db/empty ciliumenvoyconfigs envoy-resources
+envoy/cmp initial.expected
+
+# Allow per-resource reconciliation to start.
+envoy/serve
+
+# Reconciliation deletes the initial listener even when the desired table is empty.
+* envoy/cmp empty.expected
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: withdrawn
+  namespace: test
+spec:
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: listener
+    internal_listener: {}
+
+-- initial.expected --
+policy-trigger-count:
+  0
+listener:test/withdrawn/listener:
+  name: "test/withdrawn/listener"
+  internal_listener: {}
+
+-- empty.expected --
+policy-trigger-count:
+  0

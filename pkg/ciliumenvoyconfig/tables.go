@@ -187,8 +187,8 @@ type EnvoyResource struct {
 	// AllocatedListeners is copied from the parsed CEC and remains immutable.
 	AllocatedListeners set.Set[string] `json:"-" yaml:"-"`
 
-	// ReconciledResources are the last resources that were successfully reconciled.
-	// Used when updating or deleting to compute the delta.
+	// ReconciledResources are the last resources submitted to xDS. This
+	// includes resources initialized before xDS starts serving.
 	ReconciledResources *xds.Resources
 
 	// ReconciledAllocatedListeners identifies allocator-managed listeners in

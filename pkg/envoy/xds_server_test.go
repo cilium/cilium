@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/test"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -37,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/promise"
 	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
@@ -2661,6 +2664,23 @@ func (m *recordingAckingResourceMutator) Delete(
 }
 
 func (*recordingAckingResourceMutator) CancelCompletions(string) {}
+
+func TestLegacyXDSInitializesResourcesBeforeServing(t *testing.T) {
+	_, restorer := promise.New[endpointstate.Restorer]()
+	server := newXDSServer(hivetest.Logger(t), restorer, nil, newLocalEndpointStore(),
+		xdsServerConfig{metrics: noopXDSMetrics{}}, certificatemanager.NewMockSecretManagerInline())
+	initial := xds.NewResources()
+	initial.Listeners["listener"] = testListenerWithPorts(8080)
+	initial.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), initial, nil))
+	for _, typeURL := range []string{ClusterTypeURL, ListenerTypeURL} {
+		resources := server.resourceConfig[typeURL].Source.GetResources(typeURL, 0, nil)
+		require.Len(t, resources.VersionedResources, 1)
+	}
+}
 
 func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 	rejection := &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "invalid listener"}

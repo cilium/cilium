@@ -41,21 +41,40 @@ type envoyOps struct {
 	writer        *writer.Writer
 	portAllocator PortAllocator
 
-	initDone      chan struct{}
 	resourceTable statedb.RWTable[*EnvoyResource]
 }
 
-// Initiailizer returns a function that sets up the downstream envoy resource cache
-// and starts the reconciler.
-func (ops *envoyOps) Initializer(config CECConfig, params reconciler.Params) job.OneShotFunc {
+// envoyReconcileTable hands the reconciler the change iterator opened before
+// xDS initialization so it can observe deletions made while xDS was starting.
+type envoyReconcileTable struct {
+	statedb.RWTable[*EnvoyResource]
+	startupChanges <-chan statedb.ChangeIterator[*EnvoyResource]
+}
+
+func (t *envoyReconcileTable) Changes(statedb.WriteTxn) (statedb.ChangeIterator[*EnvoyResource], error) {
+	if changes, ok := <-t.startupChanges; ok {
+		return changes, nil
+	}
+	// Startup ended before handing over the iterator.
+	return nil, context.Canceled
+}
+
+// Initializer initializes xDS resources and starts per-resource reconciliation
+// once xDS is serving.
+func (ops *envoyOps) Initializer(
+	params reconciler.Params,
+	serving envoy.XDSServing,
+	initDone chan<- struct{},
+) job.OneShotFunc {
 	return func(ctx context.Context, _ cell.Health) error {
 		// Wait for EnvoyResources table to be initialized by CEC controller.
-		initialized, initDone := ops.resourceTable.Initialized(params.DB.ReadTxn())
+		initialized, tableReady := ops.resourceTable.Initialized(params.DB.ReadTxn())
 		for !initialized {
 			select {
 			case <-ctx.Done():
+				close(initDone)
 				return ctx.Err()
-			case <-initDone:
+			case <-tableReady:
 				initialized = true
 			case <-time.After(time.Second):
 				pending := ops.resourceTable.PendingInitializers(params.DB.ReadTxn())
@@ -64,33 +83,74 @@ func (ops *envoyOps) Initializer(config CECConfig, params reconciler.Params) job
 			}
 		}
 
-		// Before starting the reconciler, seed the xDS cache with the resources known so far so
-		// that Envoy xDS server can be started with an up-to-date snapshot.
-		// Don't wait for ACKs and don't ACK proxy ports, that is done later once the reconciler
-		// picks up these resources.
-		if err := ops.initializeResources(ctx, params.DB.ReadTxn()); err != nil {
+		// Track deletions before submitting the initial resources, in the same
+		// transaction that records what was submitted.
+		txn := params.DB.WriteTxn(ops.resourceTable)
+		changes, err := ops.resourceTable.Changes(txn)
+		if err != nil {
+			txn.Abort()
+			close(initDone)
+			return fmt.Errorf("tracking Envoy resource changes: %w", err)
+		}
+		// An empty initial update still starts embedded Envoy on demand.
+		if err := ops.initializeResources(ctx, txn); err != nil {
 			ops.log.Error("Failed to initialize envoy resource xDS cache", logfields.Error, err)
 		}
-		close(ops.initDone)
+		txn.Commit()
+		// xDS waits for endpoint policy restoration, so release the fence before waiting for xDS.
+		close(initDone)
 
-		_, err := reconciler.Register(
+		startupChanges := make(chan statedb.ChangeIterator[*EnvoyResource])
+		table := &envoyReconcileTable{
+			RWTable:        ops.resourceTable,
+			startupChanges: startupChanges,
+		}
+		defer func() {
+			// Changes can hold the table write lock while waiting for the
+			// handoff. Unblock it before closing an iterator we still own,
+			// since Close takes the same lock.
+			close(startupChanges)
+			if changes != nil {
+				changes.Close()
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		// Wait for xDS to start serving before processing changes that need Envoy ACKs.
+		case <-serving:
+		}
+		_, err = reconciler.Register(
 			params,
-			ops.resourceTable,
+			table,
 			(*EnvoyResource).Clone,
 			(*EnvoyResource).SetStatus,
 			(*EnvoyResource).GetStatus,
 			ops,
 			nil,
 			reconciler.WithoutPruning(),
-			reconciler.WithRetry(config.EnvoyConfigRetryInterval, config.EnvoyConfigRetryInterval),
+			reconciler.WithRetry(ops.config.EnvoyConfigRetryInterval, ops.config.EnvoyConfigRetryInterval),
 		)
-		return err
+		if err != nil {
+			return err
+		}
+
+		// Register starts the reconciler asynchronously. Sending the iterator
+		// transfers ownership to the reconciler.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case startupChanges <- changes:
+			changes = nil
+			return nil
+		}
 	}
 }
 
-// initializeResources seeds the xDS cache with the currently known EnvoyResources so that Envoy
-// can be started with an up-to-date snapshot before the reconciler starts processing changes.
-func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTxn) error {
+// initializeResources installs the initial xDS resources without waiting for
+// Envoy ACKs and records which resources were submitted.
+func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.WriteTxn) error {
 	initCtx, cancel := context.WithTimeout(ctx, maxSyncWaitTime)
 	defer cancel()
 
@@ -102,7 +162,16 @@ func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTx
 		maps.Copy(merged.Endpoints, res.Resources.Endpoints)
 		maps.Copy(merged.Secrets, res.Resources.Secrets)
 	}
-	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged, nil)
+	if err := ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged, nil); err != nil {
+		return err
+	}
+
+	for res := range ops.resourceTable.All(txn) {
+		res = res.Clone()
+		res.ReconciledResources = &res.Resources
+		ops.resourceTable.Insert(txn, res)
+	}
+	return nil
 }
 
 // Delete implements reconciler.Operations.
@@ -127,8 +196,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 	}
 
 	if prev := res.ReconciledResources; prev != nil {
-		// Perform the deletion with the resources that were last successfully reconciled
-		// instead of whatever the latest one is (which would have not been pushed to Envoy).
+		// Delete the resources that were actually submitted to xDS.
 		if err := ops.xds.DeleteEnvoyResources(ctx, *prev, nil); err != nil {
 			return err
 		}
@@ -250,7 +318,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 }
 
 // Update implements reconciler.Operations.
-func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
+func (ops *envoyOps) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
 	resources := res.Resources
 
 	ctx, cancel := context.WithTimeout(ctx, ops.config.EnvoyConfigTimeout)
@@ -393,7 +461,13 @@ func registerEnvoyReconciler(
 	envoyResources statedb.RWTable[*EnvoyResource],
 	portAllocator PortAllocator,
 	fence regeneration.Fence,
+	serving envoy.XDSServing,
+	dcfg *option.DaemonConfig,
 ) {
+	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
+		return
+	}
+
 	ops := &envoyOps{
 		config:        config,
 		log:           log,
@@ -402,9 +476,9 @@ func registerEnvoyReconciler(
 		policyTrigger: pt,
 		portAllocator: portAllocator,
 
-		initDone:      make(chan struct{}),
 		resourceTable: envoyResources,
 	}
+	initDone := make(chan struct{})
 
 	// Register initializer to block endpoint regeneration before Envoy cache is initialized.
 	fence.Add("ciliumenvoyconfig", func(ctx context.Context) error {
@@ -414,11 +488,11 @@ func registerEnvoyReconciler(
 		select {
 		case <-ctx.Done():
 			log.Error("Failed waiting on CiliumEnvoyConfig reconciler initialization", logfields.Error, ctx.Err())
-		case <-ops.initDone:
+		case <-initDone:
 		}
 		return nil
 	})
-	params.JobGroup.Add(job.OneShot("envoy-reconciler", ops.Initializer(config, params)))
+	params.JobGroup.Add(job.OneShot("envoy-reconciler", ops.Initializer(params, serving, initDone)))
 }
 
 type policyTriggerWrapper struct{ updater *policy.Updater }

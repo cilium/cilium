@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/envoy"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/hive"
@@ -72,6 +73,11 @@ func TestScript(t *testing.T) {
 			store: resourceStore{},
 		}
 		var lns *node.LocalNodeStore
+		gateServing := slices.Contains(args, "--gate-xds")
+		serving := make(chan struct{})
+		if !gateServing {
+			close(serving)
+		}
 
 		bindRetry := slices.Contains(args, "--bind-retry")
 		if bindRetry {
@@ -115,6 +121,7 @@ func TestScript(t *testing.T) {
 			lbcell.Cell,
 
 			cell.Provide(
+				func() envoy.XDSServing { return serving },
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
 				source.NewSources,
@@ -273,6 +280,15 @@ func TestScript(t *testing.T) {
 				return nil, err
 			},
 		)
+		if gateServing {
+			cmds["envoy/serve"] = script.Command(
+				script.CmdUsage{Summary: "Unblock per-resource reconciliation"},
+				func(*script.State, ...string) (script.WaitFunc, error) {
+					close(serving)
+					return nil, nil
+				},
+			)
+		}
 		cmds["set-node-labels"] = script.Command(
 			script.CmdUsage{Summary: "Set local node labels", Args: "key=value..."},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {

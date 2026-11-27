@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
+
 package envoy
 
 import (
@@ -160,6 +161,7 @@ func (t npdsListenersTracker) Empty() bool {
 }
 
 type xdsServerConfig struct {
+	serving                       chan struct{}
 	envoySocketDir                string
 	proxyGID                      int
 	httpRequestTimeout            int
@@ -200,6 +202,12 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 	}
 
 	xdsServer.initializeXdsConfigs()
+	if restorerPromise != nil {
+		// Initial resources may be submitted before the gRPC job starts.
+		for _, resource := range xdsServer.resourceConfig {
+			resource.AckObserver.MarkRestorePending()
+		}
+	}
 
 	return xdsServer
 }
