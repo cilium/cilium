@@ -137,6 +137,8 @@ func (l *bpfCollectionLoader) runGC(logger *slog.Logger, jg job.Group) {
 
 		for {
 			select {
+			case <-ctx.Done():
+				return nil
 			case <-l.gcWakeup:
 			case <-retry:
 			}
