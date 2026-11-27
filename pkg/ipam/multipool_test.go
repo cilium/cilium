@@ -1587,6 +1587,14 @@ func (f *fakeK8sCiliumNodeAPIResource) updateNode(newNode *ciliumv2.CiliumNode) 
 }
 
 func TestAllocateNext_SkipMasquerade(t *testing.T) {
+	for _, family := range []Family{IPv4, IPv6} {
+		t.Run(string(family), func(t *testing.T) {
+			testAllocateNextSkipMasquerade(t, family)
+		})
+	}
+}
+
+func testAllocateNextSkipMasquerade(t *testing.T, family Family) {
 	db := statedb.New()
 	poolsTbl, err := podippool.NewTable(db)
 	require.NoError(t, err)
@@ -1597,7 +1605,7 @@ func TestAllocateNext_SkipMasquerade(t *testing.T) {
 	insertPool(t, db, poolsTbl, "green", false)
 
 	// onlyMasqueradeDefaultPool = true, non-default pool
-	mgr := createSkipMasqTestManager(t, db, poolsTbl, true)
+	mgr := createSkipMasqTestManager(t, db, poolsTbl, true, family)
 	res, err := mgr.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
 	require.NoError(t, err)
 	require.True(t, res.SkipMasquerade, "SkipMasquerade should be true for non-default pools when onlyMasqueradeDefaultPool is set")
@@ -1608,20 +1616,20 @@ func TestAllocateNext_SkipMasquerade(t *testing.T) {
 	require.False(t, res.SkipMasquerade, "default pool should always be masqueraded even if global flag set")
 
 	// onlyMasqueradeDefaultPool = false but pool annotated with skip-masquerade
-	mgr = createSkipMasqTestManager(t, db, poolsTbl, false)
+	mgr = createSkipMasqTestManager(t, db, poolsTbl, false, family)
 	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "red")
 	require.NoError(t, err)
 	require.True(t, res.SkipMasquerade, "SkipMasquerade should be true based on pool annotation")
 
 	// honour annotation on default pool also
 	insertPool(t, db, poolsTbl, "default", true)
-	mgr = createSkipMasqTestManager(t, db, poolsTbl, false)
+	mgr = createSkipMasqTestManager(t, db, poolsTbl, false, family)
 	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "default")
 	require.NoError(t, err)
 	require.True(t, res.SkipMasquerade, "default pool should not be masqueraded if annotation set")
 
 	// neither flag nor annotation set
-	mgr = createSkipMasqTestManager(t, db, poolsTbl, false)
+	mgr = createSkipMasqTestManager(t, db, poolsTbl, false, family)
 	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "green")
 	require.NoError(t, err)
 	require.False(t, res.SkipMasquerade, "SkipMasquerade should default to false")
@@ -1653,6 +1661,184 @@ func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T
 	result, err := mgr.AllocateIP(lastIP, "pod-a", "default", IPv4, false)
 	require.NoError(t, err)
 	require.Equal(t, lastIP, result.IP)
+}
+
+func TestAllocateNext_SkipMasqueradePoolNotInStateDB(t *testing.T) {
+	for _, family := range []Family{IPv4, IPv6} {
+		t.Run(string(family), func(t *testing.T) {
+			db := statedb.New()
+			poolsTbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+			insertPool(t, db, poolsTbl, "default", false)
+
+			alloc := createSkipMasqTestManager(t, db, poolsTbl, false, family)
+
+			_, err = alloc.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+			require.Error(t, err)
+
+			allocated, _ := alloc.Dump()
+			require.Empty(t, allocated["blue"], "no IP should be allocated when the pool lookup fails")
+
+			insertPool(t, db, poolsTbl, "blue", false)
+			res, err := alloc.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+			require.NoError(t, err)
+			require.False(t, res.SkipMasquerade)
+		})
+	}
+}
+
+func TestShouldSkipMasqForPool(t *testing.T) {
+	tests := []struct {
+		name            string
+		onlyMasqDefault bool
+		pool            Pool
+		poolAnnotations map[string]map[string]string
+		want            bool
+		wantErr         bool
+	}{
+		{
+			name:            "annotation true",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": {annotation.IPAMSkipMasquerade: "true"}},
+			want:            true,
+		},
+		{
+			name:            "annotation false",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": {annotation.IPAMSkipMasquerade: "false"}},
+		},
+		{
+			name:            "annotation value is case sensitive",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": {annotation.IPAMSkipMasquerade: "True"}},
+		},
+		{
+			name:            "no annotation",
+			pool:            "red",
+			poolAnnotations: map[string]map[string]string{"red": nil},
+		},
+		{
+			name:    "pool not in stateDB",
+			pool:    "red",
+			wantErr: true,
+		},
+		{
+			name:            "only default pool, non-default pool not in stateDB",
+			onlyMasqDefault: true,
+			pool:            "red",
+			want:            true,
+		},
+		{
+			name:            "only default pool, default pool",
+			onlyMasqDefault: true,
+			pool:            PoolDefault(),
+			poolAnnotations: map[string]map[string]string{string(PoolDefault()): nil},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := statedb.New()
+			poolsTbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+
+			w := db.WriteTxn(poolsTbl)
+			for name, annotations := range tt.poolAnnotations {
+				poolsTbl.Insert(w, podippool.LocalPodIPPool{
+					CiliumPodIPPool: &ciliumv2.CiliumPodIPPool{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: annotations},
+					},
+					UpdatedAt: time.Now(),
+				})
+			}
+			w.Commit()
+
+			got, err := shouldSkipMasqForPool(db, poolsTbl, tt.onlyMasqDefault)(tt.pool)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestWaitForPool(t *testing.T) {
+	newTable := func(t *testing.T) (*statedb.DB, statedb.RWTable[podippool.LocalPodIPPool]) {
+		t.Helper()
+		db := statedb.New()
+		tbl, err := podippool.NewTable(db)
+		require.NoError(t, err)
+		return db, tbl
+	}
+
+	t.Run("pool already present", func(t *testing.T) {
+		db, tbl := newTable(t)
+		insertPool(t, db, tbl, "red", false)
+		require.True(t, waitForPool(hivetest.Logger(t), db, tbl, "red"))
+	})
+
+	t.Run("pool added while waiting", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db, tbl := newTable(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+
+			start := time.Now()
+			found := make(chan bool, 1)
+			go func() { found <- waitForPool(logger, db, tbl, "red") }()
+			synctest.Wait()
+
+			select {
+			case <-found:
+				t.Fatal("waitForPool returned before the pool was added")
+			default:
+			}
+
+			insertPool(t, db, tbl, "red", false)
+			require.True(t, <-found)
+			require.Zero(t, time.Since(start))
+		})
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db, tbl := newTable(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+			start := time.Now()
+			require.False(t, waitForPool(logger, db, tbl, "red"))
+			require.Equal(t, waitForPoolInStateDBTimeout, time.Since(start))
+		})
+	})
+}
+
+func TestWaitForAllPoolsInStateDB(t *testing.T) {
+	preAlloc := preAllocatePerPool{"red": 1, "blue": 1}
+
+	t.Run("all pools present", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db := statedb.New()
+			tbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+			insertPool(t, db, tbl, "red", false)
+			insertPool(t, db, tbl, "blue", false)
+			start := time.Now()
+			waitForAllPools(hivetest.Logger(t), db, tbl, preAlloc)
+			require.Zero(t, time.Since(start))
+		})
+	})
+
+	t.Run("gives up after the first pool that times out", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			db := statedb.New()
+			tbl, err := podippool.NewTable(db)
+			require.NoError(t, err)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+			start := time.Now()
+			waitForAllPools(logger, db, tbl, preAlloc)
+			require.Equal(t, waitForPoolInStateDBTimeout, time.Since(start))
+		})
+	})
 }
 
 func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
@@ -1779,7 +1965,14 @@ func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.Loca
 	w.Commit()
 }
 
-func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table[podippool.LocalPodIPPool], onlyMasqDefault bool) Allocator {
+func skipMasqPoolCIDRs(v4, v6 string) []iputil.Prefix {
+	return []iputil.Prefix{
+		iputil.PrefixFrom(netip.MustParsePrefix(v4)),
+		iputil.PrefixFrom(netip.MustParsePrefix(v6)),
+	}
+}
+
+func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table[podippool.LocalPodIPPool], onlyMasqDefault bool, family Family) Allocator {
 	t.Helper()
 
 	fakeConfig := testConfiguration
@@ -1791,10 +1984,10 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 			IPAM: types.IPAMSpec{
 				Pools: types.IPAMPoolSpec{
 					Allocated: []types.IPAMPoolAllocation{
-						{Pool: "default", CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24"))}},
-						{Pool: "blue", CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/24"))}},
-						{Pool: "red", CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.2.0/24"))}},
-						{Pool: "green", CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.3.0/24"))}},
+						{Pool: "default", CIDRs: skipMasqPoolCIDRs("10.0.0.0/24", "fd00:10::/120")},
+						{Pool: "blue", CIDRs: skipMasqPoolCIDRs("10.0.1.0/24", "fd00:11::/120")},
+						{Pool: "red", CIDRs: skipMasqPoolCIDRs("10.0.2.0/24", "fd00:12::/120")},
+						{Pool: "green", CIDRs: skipMasqPoolCIDRs("10.0.3.0/24", "fd00:13::/120")},
 					},
 				},
 			},
@@ -1834,7 +2027,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), initialNode, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	v4Alloc, _, err := newMultiPoolAllocators(t.Context(), MultiPoolAllocatorParams{
+	v4Alloc, v6Alloc, err := newMultiPoolAllocators(t.Context(), MultiPoolAllocatorParams{
 		Logger:                    hivetest.Logger(t),
 		IPv4Enabled:               fakeConfig.EnableIPv4,
 		IPv6Enabled:               fakeConfig.EnableIPv6,
@@ -1850,6 +2043,9 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	})
 	require.NoError(t, err)
 
+	if family == IPv6 {
+		return v6Alloc
+	}
 	return v4Alloc
 }
 
