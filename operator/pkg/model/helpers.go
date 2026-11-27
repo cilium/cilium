@@ -95,6 +95,20 @@ func ComputeHosts(routeHostnames []string, listenerHostname *string, otherListen
 	return hostnames
 }
 
+// HostnameMatchLengths returns the character counts of the most specific original
+// route hostname matching hostname, with non-wildcard matches taking precedence.
+func (r *HTTPRoute) HostnameMatchLengths(hostname string) (nonWildcard, total int) {
+	for _, source := range r.SourceHostnames {
+		if source == hostname && !strings.HasPrefix(source, allHosts) {
+			return len(source), len(source)
+		}
+		if strings.HasPrefix(source, "*.") && hostnameMatchesWildcardHostname(hostname, source) {
+			total = max(total, len(source))
+		}
+	}
+	return 0, total
+}
+
 func sortHostnamesByWildcards(a, b string) int {
 	if a == b {
 		return 0

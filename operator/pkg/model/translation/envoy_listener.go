@@ -6,6 +6,7 @@ package translation
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	goslices "slices"
 	"strings"
 	"syscall"
@@ -286,8 +287,8 @@ func withSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // desiredEnvoyListener returns the desired Envoy listeners for the given model.
-// When the model has multiple distinct HTTPS ports, one Listener is emitted per
-// HTTPS port; otherwise a single combined Listener is returned.
+// Multiple plaintext HTTP ports require separate listeners and route configurations.
+// HTTPS and TLS passthrough may also require splitting to preserve port boundaries.
 func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	if m.IsEmpty() {
 		return nil, nil
@@ -475,9 +476,12 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 	return filterChains, nil
 }
 
-// desiredEnvoyListenerPerPort returns one Listener per distinct HTTPS port
-// and, when applicable, per TLS passthrough port.
+// desiredEnvoyListenerPerPort preserves port boundaries for HTTP, HTTPS and
+// TLS passthrough when a combined listener cannot safely share configuration.
 func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.XDSResource, error) {
+	if m.NeedsPerPortHTTPListeners() {
+		return i.desiredEnvoyListenerHTTPPerPort(m)
+	}
 	var allResources []ciliumv2.XDSResource
 
 	needsPerPortTLS := m.NeedsPerPortTLSPassthroughListeners()
@@ -616,6 +620,55 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 	}
 
 	return allResources, nil
+}
+
+// Multiple plaintext HTTP ports need separate route configurations. Keep all
+// protocols sharing a port on one socket so HTTP, HTTPS and TLS passthrough can
+// still coexist without duplicate binds.
+func (i *cecTranslator) desiredEnvoyListenerHTTPPerPort(m *model.Model) ([]ciliumv2.XDSResource, error) {
+	var resources []ciliumv2.XDSResource
+	for _, port := range slices.SortedUnique(append(m.HTTPPorts(), m.TLSPassthroughPorts()...)) {
+		name := listenerNameForPort(port)
+		var chains []*envoy_config_listener.FilterChain
+		for _, l := range m.HTTP {
+			if l.Port != port || len(l.TLS) > 0 {
+				continue
+			}
+			fc, err := i.httpFilterChain(name, m)
+			if err != nil {
+				return nil, err
+			}
+			chains = append(chains, fc)
+			break
+		}
+		https, err := i.httpsFilterChainsForPort(name, port, m)
+		if err != nil {
+			return nil, err
+		}
+		chains = append(chains, https...)
+		chains = append(chains, tlsPassthroughFilterChainsForPort(port, m)...)
+		listener := &envoy_config_listener.Listener{
+			Name:         name,
+			FilterChains: chains,
+			ListenerFilters: []*envoy_config_listener.ListenerFilter{
+				{
+					Name: tlsInspectorType,
+					ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+						TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+					},
+				},
+			},
+		}
+		for _, mutate := range i.listenerMutatorsForPorts(m, []uint32{port}) {
+			listener = mutate(listener)
+		}
+		resource, err := toXdsResource(listener, envoy.ListenerTypeURL)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, resource)
+	}
+	return resources, nil
 }
 
 // listenerMutators returns a list of listener mutators to apply to the listener.
@@ -769,23 +822,37 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 	}, additionalAddress
 }
 
-// tlsPassthroughFilterChains returns TLS passthrough filter chains for all backends.
-// These functions do not depend on cecTranslator state, so they are defined as
-// package-level helpers rather than receiver methods.
+// tlsPassthroughFilterChains returns TLS passthrough filter chains for all listener ports.
 func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
+	return tlsPassthroughFilterChainsForPort(0, m)
+}
+
+// tlsPassthroughFilterChainsForPort returns TLS passthrough filter chains for
+// routes on the given listener port. Port zero includes all listeners.
+func tlsPassthroughFilterChainsForPort(port uint32, m *model.Model) []*envoy_config_listener.FilterChain {
 	var filterChains []*envoy_config_listener.FilterChain
+	rejectedHostnames := map[string]struct{}{}
+	rejectCatchAll := false
 
 	for _, listener := range stableTLSPassthroughListeners(m.TLSPassthrough) {
+		if port != 0 && listener.Port != port {
+			continue
+		}
 		for _, route := range stableTLSPassthroughRoutes(listener.Routes) {
+			match := toFilterChainMatch(route.Hostnames)
 			backends := stableTLSPassthroughBackends(route.Backends)
 			if len(backends) == 0 {
+				rejectCatchAll = rejectCatchAll || len(match.ServerNames) == 0
+				for _, hostname := range match.ServerNames {
+					rejectedHostnames[hostname] = struct{}{}
+				}
 				continue
 			}
 
 			tcpProxy := tcpProxyForTLSPassthroughRoute(route, backends)
 			tcpProxy.AccessLog = getTCPAccessLogs(m)
 			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-				FilterChainMatch: toFilterChainMatch(route.Hostnames),
+				FilterChainMatch: match,
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: tcpProxyType,
@@ -797,40 +864,31 @@ func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterC
 			})
 		}
 	}
-
-	return filterChains
-}
-
-// tlsPassthroughFilterChainsForPort returns TLS passthrough filter chains for
-// routes on a specific port, used when per-port listeners are needed to scope
-// filter chains to the routes attached to a single listener port.
-func tlsPassthroughFilterChainsForPort(port uint32, m *model.Model) []*envoy_config_listener.FilterChain {
-	var filterChains []*envoy_config_listener.FilterChain
-
-	for _, listener := range stableTLSPassthroughListeners(m.TLSPassthrough) {
-		if listener.Port != port {
-			continue
-		}
-		for _, route := range stableTLSPassthroughRoutes(listener.Routes) {
-			backends := stableTLSPassthroughBackends(route.Backends)
-			if len(backends) == 0 {
-				continue
-			}
-
-			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-				FilterChainMatch: toFilterChainMatch(route.Hostnames),
-				Filters: []*envoy_config_listener.Filter{
-					{
-						Name: tcpProxyType,
-						ConfigType: &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route, backends)),
-						},
-					},
-				},
-			})
-		}
+	if !rejectCatchAll && len(rejectedHostnames) == 0 {
+		return filterChains
 	}
 
+	// Keep a single chain for each SNI match. A matching chain with no
+	// network filters closes the connection without contacting a backend.
+	for _, chain := range filterChains {
+		names := chain.FilterChainMatch.ServerNames
+		if len(names) == 0 {
+			rejectCatchAll = false
+		}
+		for _, name := range names {
+			delete(rejectedHostnames, name)
+		}
+	}
+	if rejectCatchAll {
+		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+			FilterChainMatch: toFilterChainMatch(nil),
+		})
+	}
+	if len(rejectedHostnames) > 0 {
+		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+			FilterChainMatch: toFilterChainMatch(goslices.Collect(maps.Keys(rejectedHostnames))),
+		})
+	}
 	return filterChains
 }
 
@@ -1015,23 +1073,21 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, fron
 			),
 		}
 		if frontendValidation.RequireClientCertificate {
-			downStreamContext.CommonTlsContext.ValidationContextType =
-				&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
-					ValidationContextSdsSecretConfig: validationContextSDS,
-				}
+			downStreamContext.CommonTlsContext.ValidationContextType = &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
+				ValidationContextSdsSecretConfig: validationContextSDS,
+			}
 		} else {
 			// AllowInsecureFallback permits both absent and untrusted client
 			// certificates. Keep the CA bundle available through SDS while
 			// overriding verification behavior for this filter chain only.
-			downStreamContext.CommonTlsContext.ValidationContextType =
-				&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
-							TrustChainVerification: envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext_ACCEPT_UNTRUSTED,
-						},
-						ValidationContextSdsSecretConfig: validationContextSDS,
+			downStreamContext.CommonTlsContext.ValidationContextType = &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
+						TrustChainVerification: envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext_ACCEPT_UNTRUSTED,
 					},
-				}
+					ValidationContextSdsSecretConfig: validationContextSDS,
+				},
+			}
 		}
 	}
 

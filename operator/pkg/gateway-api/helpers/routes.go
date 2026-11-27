@@ -152,18 +152,22 @@ func NormalizeAllowedGroupKinds(protocol gatewayv1.ProtocolType, allowed []gatew
 // listener based on whether it's supported by the listener's protocol and if it's explicitly
 // allowed.
 func IsRouteKindAllowedForListener(listener gatewayv1.Listener, route metav1.Object) bool {
-	routeKind := GetRouteGroupKind(route)
-	supported := GetSupportedRouteKindsForProtocol(listener.Protocol)
+	return ListenerAllowsRouteKind(listener, GetRouteGroupKind(route).Kind)
+}
+
+// ListenerAllowsRouteKind checks whether the listener's protocol and allowed
+// route kinds permit the given kind.
+func ListenerAllowsRouteKind(listener gatewayv1.Listener, routeKind gatewayv1.Kind) bool {
 
 	if listener.AllowedRoutes == nil || len(listener.AllowedRoutes.Kinds) == 0 {
 		// Per Gateway API spec, when AllowedRoutes.Kinds is unspecified the listener
 		// accepts only the route kinds compatible with its protocol.
-		return supported.Has(routeKind.Kind)
+		return GetSupportedRouteKindsForProtocol(listener.Protocol).Has(routeKind)
 	}
 
 	// normalize allowed kinds
 	for _, kind := range NormalizeAllowedGroupKinds(listener.Protocol, listener.AllowedRoutes.Kinds) {
-		if kind.Kind == routeKind.Kind {
+		if kind.Kind == routeKind {
 			return true
 		}
 	}

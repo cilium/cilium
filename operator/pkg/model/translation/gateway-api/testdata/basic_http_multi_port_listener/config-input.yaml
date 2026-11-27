@@ -1,0 +1,13 @@
+secrets_namespace: cilium-secrets
+host_network_config:
+  enabled: true
+ip_config:
+  ipv4_enabled: true
+listener_config:
+  stream_idle_timeout_seconds: 300
+cluster_config:
+  idle_timeout_seconds: 60
+original_ip_detection_config:
+  use_remote_address: true
+route_config:
+  host_name_suffix_match: true

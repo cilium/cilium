@@ -34,18 +34,24 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 
 	portHostNameRedirect := map[string][]hostnameRedirect{}
 	hostNamePortRoutes := map[string]map[string][]model.HTTPRoute{}
+	insecurePorts := map[string]uint32{}
+	splitHTTP := m.NeedsPerPortHTTPListeners()
 
 	for _, l := range m.HTTP {
-		for _, r := range l.Routes {
-			port := insecureHost
-			if len(l.TLS) > 0 {
-				if m.NeedsPerPortListeners() {
-					port = fmt.Sprintf("%d", l.Port)
-				} else {
-					port = secureHost
-				}
+		port := insecureHost
+		if len(l.TLS) > 0 {
+			if m.NeedsPerPortListeners() {
+				port = fmt.Sprintf("%d", l.Port)
+			} else {
+				port = secureHost
 			}
-
+		} else {
+			if splitHTTP {
+				port = fmt.Sprintf("%d-%s", l.Port, insecureHost)
+			}
+			insecurePorts[port] = l.Port
+		}
+		for _, r := range l.Routes {
 			if len(r.Hostnames) == 0 {
 				hnr := hostnameRedirect{
 					hostname: l.Hostname,
@@ -80,8 +86,14 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	goslices.Sort(allPorts)
 
 	// Also emit an empty RouteConfiguration for configured ports with no routes.
-	if !goslices.Contains(allPorts, insecureHost) && m.IsHTTPListenerConfigured() {
-		allPorts = append([]string{insecureHost}, allPorts...)
+	// Preserve the legacy empty insecure configuration for HTTPS-only models.
+	if !splitHTTP && len(insecurePorts) == 0 && m.IsHTTPListenerConfigured() {
+		insecurePorts[insecureHost] = m.HTTP[0].Port
+	}
+	for port := range insecurePorts {
+		if !goslices.Contains(allPorts, port) {
+			allPorts = append(allPorts, port)
+		}
 	}
 	for _, httpsPort := range httpsPortKeys(m) {
 		if !goslices.Contains(allPorts, httpsPort) {
@@ -89,24 +101,29 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 		}
 	}
 	goslices.SortFunc(allPorts, func(a, b string) int {
-		// "insecure" always sorts first to preserve backward-compatible ordering.
-		if a == insecureHost {
-			return -1
-		}
-		if b == insecureHost {
+		_, aInsecure := insecurePorts[a]
+		_, bInsecure := insecurePorts[b]
+		if aInsecure != bInsecure {
+			if aInsecure {
+				return -1
+			}
 			return 1
 		}
 		return cmp.Compare(a, b)
 	})
 
 	for _, port := range allPorts {
+		listenerPort, insecure := insecurePorts[port]
+		if !insecure {
+			listenerPort = m.HTTP[0].Port
+		}
 		// the route name should match the value in http connection manager
 		// otherwise the request will be dropped by envoy
 		routeName := fmt.Sprintf("listener-%s", port)
 
 		hostNames, exists := portHostNameRedirect[port]
 		if !exists {
-			if port == insecureHost {
+			if insecure {
 				if !m.IsHTTPListenerConfigured() {
 					continue
 				}
@@ -132,7 +149,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 
 		redirectedHost := map[string]struct{}{}
 		// Add HTTPS redirect virtual hosts across all configured HTTPS ports.
-		if port == insecureHost {
+		if insecure {
 			for _, httpsPort := range httpsPortKeys(m) {
 				for _, h := range slices.Unique(portHostNameRedirect[httpsPort]) {
 					if h.redirect {
@@ -143,7 +160,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 						vhs := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][httpsPort], VirtualHostParameter{
 							HostNames:                    []string{h.hostname},
 							HTTPSRedirect:                true,
-							ListenerPort:                 m.HTTP[0].Port,
+							ListenerPort:                 listenerPort,
 							AllAuthFilters:               allAuthFilters,
 							AllEndpointPickers:           allEPPs,
 							StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
@@ -154,7 +171,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 			}
 		}
 		for _, h := range slices.Unique(hostNames) {
-			if port == insecureHost {
+			if insecure {
 				if _, ok := redirectedHost[h.hostname]; ok {
 					continue
 				}
@@ -166,7 +183,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 			vhs := i.desiredVirtualHost(routes, VirtualHostParameter{
 				HostNames:                    []string{h.hostname},
 				HTTPSRedirect:                false,
-				ListenerPort:                 m.HTTP[0].Port,
+				ListenerPort:                 listenerPort,
 				AllAuthFilters:               allAuthFilters,
 				AllEndpointPickers:           allEPPs,
 				StatefulSessionFilterEnabled: statefulSessionFilterEnabled,

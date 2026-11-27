@@ -172,6 +172,7 @@ var gatewayFixtures = []client.Object{
 				{
 					Name:     "http-same",
 					Port:     8080,
+					Protocol: gatewayv1.HTTPProtocolType,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.http-same.io"),
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
@@ -183,6 +184,7 @@ var gatewayFixtures = []client.Object{
 				{
 					Name:     "http-selector",
 					Port:     8082,
+					Protocol: gatewayv1.HTTPProtocolType,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.http-selector.io"),
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
@@ -198,6 +200,7 @@ var gatewayFixtures = []client.Object{
 				{
 					Name:     "https-same",
 					Port:     8443,
+					Protocol: gatewayv1.HTTPSProtocolType,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.https-same.io"),
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
@@ -209,6 +212,7 @@ var gatewayFixtures = []client.Object{
 				{
 					Name:     "https-selector",
 					Port:     8445,
+					Protocol: gatewayv1.HTTPSProtocolType,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.https-selector.io"),
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
@@ -235,6 +239,7 @@ var gatewayFixtures = []client.Object{
 				{
 					Name:     "http-all",
 					Port:     8081,
+					Protocol: gatewayv1.HTTPProtocolType,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.http-all.io"),
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
@@ -245,6 +250,7 @@ var gatewayFixtures = []client.Object{
 				{
 					Name:     "https-all",
 					Port:     8444,
+					Protocol: gatewayv1.HTTPSProtocolType,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.https-all.io"),
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
@@ -299,10 +305,15 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 	_ = gatewayv1.Install(scheme)
 	_ = corev1.AddToScheme(scheme)
 
+	overlappingGateway := mixedNamespaceGateway.DeepCopy()
+	overlappingGateway.Name = "overlapping-gateway"
+	overlappingGateway.Spec.Listeners[0].AllowedRoutes.Namespaces.Selector.MatchLabels = map[string]string{"allowed": "true"}
+	overlappingGateway.Spec.Listeners[1].Hostname = ptr.To[gatewayv1.Hostname]("app.http-selector.io")
+
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(gatewayFixtures...).
-		WithObjects(mixedNamespaceGateway).
+		WithObjects(mixedNamespaceGateway, overlappingGateway).
 		WithObjects(namespaceFixture...).
 		WithObjects(&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -719,6 +730,24 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 					Name:        "mixed-ns-gateway",
 					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
 					SectionName: ptr.To[gatewayv1.SectionName]("http-all"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "exact hostname on another port does not shadow wildcard listener",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "allowed-1"},
+						Spec:       gatewayv1.HTTPRouteSpec{Hostnames: []gatewayv1.Hostname{"app.http-selector.io"}},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:        "overlapping-gateway",
+					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
+					SectionName: ptr.To[gatewayv1.SectionName]("http-selector"),
 				},
 			},
 			want: true,

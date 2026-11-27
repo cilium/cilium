@@ -189,10 +189,14 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 				{
 					Name:      "cilium-ingress",
 					Namespace: "kube-system",
-					Ports: []uint16{
-						80,
-						443,
-					},
+					Ports:     []uint16{80},
+					Listener:  "listener-80",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "kube-system",
+					Ports:     []uint16{443},
+					Listener:  "listener-443",
 				},
 			},
 		},

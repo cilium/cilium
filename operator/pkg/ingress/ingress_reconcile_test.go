@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -1394,6 +1395,75 @@ func defaultBackend() *networkingv1.IngressBackend {
 				Number: 8080,
 			},
 		},
+	}
+}
+
+func TestSharedIngressKeepsCombinedListenerWithTLSPassthrough(t *testing.T) {
+	newIngress := func(name, hostname string) *networkingv1.Ingress {
+		return &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"},
+			Spec: networkingv1.IngressSpec{
+				IngressClassName: ptr.To("cilium"),
+				Rules: []networkingv1.IngressRule{{
+					Host: hostname,
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{{
+								Path: "/", PathType: ptr.To(networkingv1.PathTypePrefix), Backend: *defaultBackend(),
+							}},
+						},
+					},
+				}},
+			},
+		}
+	}
+	web := newIngress("web", "web.example.test")
+	web.Spec.TLS = []networkingv1.IngressTLS{{Hosts: []string{"web.example.test"}, SecretName: "web-tls"}}
+	passthrough := newIngress("tls", "tls.example.test")
+	passthrough.Annotations = map[string]string{"ingress.cilium.io/tls-passthrough": "true"}
+
+	for _, tt := range []struct {
+		name        string
+		hostNetwork bool
+	}{
+		{name: "Service"},
+		{name: "host network", hostNetwork: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			kube := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(web, passthrough).Build()
+			translator := translation.NewCECTranslator(translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{Enabled: tt.hostNetwork},
+				IPConfig:          translation.IPConfig{IPv4Enabled: true},
+			})
+			r := newIngressReconciler(logger, kube, translator, nil, testCiliumNamespace, nil, testDefaultLoadbalancingServiceName, "shared", "", "", true, 0, tt.hostNetwork, 0, 8080, 8443, 9443)
+			cec, err := r.buildSharedResources(t.Context())
+			require.NoError(t, err)
+			require.Len(t, cec.Spec.Services, 1)
+			require.Empty(t, cec.Spec.Services[0].Listener)
+
+			var listeners []*listenerpb.Listener
+			for _, resource := range cec.Spec.Resources {
+				if resource.GetTypeUrl() == envoy.ListenerTypeURL {
+					listener := &listenerpb.Listener{}
+					require.NoError(t, resource.Any.UnmarshalTo(listener))
+					listeners = append(listeners, listener)
+				}
+			}
+			require.Len(t, listeners, 1)
+			listener := listeners[0]
+			require.Equal(t, "listener", listener.GetName())
+			require.Len(t, listener.GetFilterChains(), 3)
+			if tt.hostNetwork {
+				ports := []uint32{listener.GetAddress().GetSocketAddress().GetPortValue()}
+				for _, address := range listener.GetAdditionalAddresses() {
+					ports = append(ports, address.GetAddress().GetSocketAddress().GetPortValue())
+				}
+				require.ElementsMatch(t, []uint32{8080, 8443, 9443}, ports)
+			} else {
+				require.Contains(t, cec.Spec.Services[0].Ports, uint16(443))
+			}
+		})
 	}
 }
 

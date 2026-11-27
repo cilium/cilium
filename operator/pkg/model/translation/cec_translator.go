@@ -193,10 +193,23 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 }
 
 // desiredServicesWithPortsSplit returns per-port ServiceListeners for HTTPS and
-// TLS passthrough, plus one shared entry for plaintext HTTP ports.
+// TLS passthrough. Plaintext HTTP also gets per-port entries when it spans
+// multiple ports; otherwise its existing shared entry is preserved.
 func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
 	shortenedName := shortener.ShortenDNSLabelK8sName(name)
 	var result []*ciliumv2.ServiceListener
+
+	if m.NeedsPerPortHTTPListeners() {
+		for _, port := range slices.SortedUnique(append(m.HTTPPorts(), m.TLSPassthroughPorts()...)) {
+			result = append(result, &ciliumv2.ServiceListener{
+				Namespace: namespace,
+				Name:      shortenedName,
+				Ports:     []uint16{uint16(port)},
+				Listener:  listenerNameForPort(port),
+			})
+		}
+		return result, nil
+	}
 
 	// All TLS passthrough ports are excluded from the plaintext HTTP port list,
 	// since they are handled by the TLS passthrough section below.
