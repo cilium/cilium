@@ -96,6 +96,7 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/qos"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
@@ -295,6 +296,10 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgp.Cell,
+
+		// QoS implements the Network QoS API.
+		qos.Cell,
+
 		// Provides the BGP DatapathWaiter that gates route announcements on
 		// host datapath and load-balancing state initialization.
 		//

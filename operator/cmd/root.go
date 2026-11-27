@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/networkdriver"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
+	operatorQoS "github.com/cilium/cilium/operator/pkg/qos"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/operator/pkg/ztunnel"
 	"github.com/cilium/cilium/operator/unmanagedpods"
@@ -222,6 +223,7 @@ var (
 		clustercfgcell.Cell,
 
 		bgp.Cell,
+		operatorQoS.Cell,
 		lbipam.Cell,
 		nodeipam.Cell,
 		store.Cell,

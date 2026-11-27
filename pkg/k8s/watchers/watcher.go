@@ -197,6 +197,9 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CDPPName):                             {skip, ""}, // Handled by datapath plugins
 	synced.CRDResourceName(v2alpha1.CiliumNetworkDriverNodeConfigName):    {skip, ""}, // Handled by Network Driver package
 	synced.CRDResourceName(v2alpha1.CiliumNetworkDriverClusterConfigName): {skip, ""}, // Handled by Network Driver package
+	synced.CRDResourceName(v2alpha1.CQMName):                              {skip, ""}, // Handled in pkg/qos
+	synced.CRDResourceName(v2alpha1.CQCName):                              {skip, ""}, // Handled in pkg/qos
+	synced.CRDResourceName(v2alpha1.CQPName):                              {skip, ""}, // Handled in pkg/qos
 }
 
 func GetGroupsForCiliumResources(logger *slog.Logger, ciliumResources []string) ([]string, []string) {
