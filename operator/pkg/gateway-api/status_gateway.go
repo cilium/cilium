@@ -162,17 +162,17 @@ func (m *GatewayStatusManager) SetAddressStatus(ctx context.Context, gw *gateway
 				return fmt.Errorf("unable to list nodes")
 			}
 			for _, node := range nodes.Items {
-				if len(node.Status.Addresses) == 0 {
-					continue
+				// take the first InternalIP/ExternalIP; some cloud providers
+				// (e.g. vSphere) list the Hostname first.
+				for _, a := range node.Status.Addresses {
+					if a.Type != corev1.NodeInternalIP && a.Type != corev1.NodeExternalIP {
+						continue
+					}
+					if ip, err := netip.ParseAddr(a.Address); err == nil {
+						ips = append(ips, ip.Unmap())
+						break
+					}
 				}
-				nodeAddress := node.Status.Addresses[0]
-				ip, err := netip.ParseAddr(nodeAddress.Address)
-				if err != nil {
-					// the first address is not an IP address (e.g. a hostname),
-					// skip the node instead of reporting an invalid address.
-					continue
-				}
-				ips = append(ips, ip.Unmap())
 			}
 		}
 
