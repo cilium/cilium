@@ -151,10 +151,6 @@ func (h *HeaderfileWriter) writeNodeConfig(w io.Writer, cfg *config.Config, with
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	if option.Config.EnableIPv4 {
-		cDefinesMap["ENABLE_IPV4"] = "1"
-	}
-
 	if option.Config.EnableIPv6 {
 		cDefinesMap["ENABLE_IPV6"] = "1"
 	}

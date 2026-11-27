@@ -209,7 +209,7 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple,
 	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 
 	if (CONFIG(enable_tproxy) && proxy_port && !from_host) {
-		if (is_defined(ENABLE_IPV4) && ipv4) {
+		if (CONFIG(enable_ipv4) && ipv4) {
 			__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 
 			result =
@@ -304,7 +304,7 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 		__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 		struct ipv4_ct_tuple tuple;
 
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			return DROP_UNKNOWN_L3;
 
 		ret = extract_tuple4(ctx, &tuple);

@@ -544,7 +544,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 			goto out;
 		break;
 	case bpf_htons(ETH_P_IP):
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			break;
 
 		ret = resolve_srcid_from_tunnel(ctx, proto, &src_sec_identity);
@@ -568,7 +568,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		break;
 
 	case bpf_htons(ETH_P_IP):
-		if (is_defined(ENABLE_IPV4))
+		if (CONFIG(enable_ipv4))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY, &ext_err);
 		else
 			ret = DROP_UNKNOWN_L3;

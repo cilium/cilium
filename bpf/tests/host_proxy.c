@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4			1
 
 #define NODE_IP				v4_node_one
 #define NODE_PORT			bpf_htons(50000)

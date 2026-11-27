@@ -10,7 +10,6 @@ static __u64 __now;
 
 #include "common.h"
 
-#define ENABLE_IPV4 1
 
 #include <bpf/config/node.h>
 #include "lib/common.h"

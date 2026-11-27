@@ -22,7 +22,6 @@
  * Datapath configuration settings to setup tunneling with VXLan
  */
 #define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
-#define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
 /*

@@ -6,7 +6,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4 1
 #define ENCAP_IFINDEX 1
 #define ENABLE_BPF_MASQUERADE 1
 

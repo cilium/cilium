@@ -318,7 +318,7 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid __maybe_unused)
 	case bpf_htons(ETH_P_IP): {
 		struct iphdr *ip4;
 
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			return DROP_INVALID;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -381,7 +381,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 
 	switch (nexthdr) {
 	case IPPROTO_IPIP:
-		if (!is_defined(ENABLE_IPV4)) {
+		if (!CONFIG(enable_ipv4)) {
 			ret = DROP_UNKNOWN_L3;
 			break;
 		}

@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 
 #define ENCAP_IFINDEX 42

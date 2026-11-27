@@ -8,7 +8,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4					1
 
 #define FRONTEND_IP	v4_svc_one
 #define FRONTEND_PORT	tcp_svc_one

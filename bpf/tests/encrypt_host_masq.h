@@ -6,7 +6,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4			1
 
 #define SRC_POD_V4			v4_pod_one
 #define SRC_POD_SEC_IDENTITY		(CIDR_IDENTITY_RANGE_START - 2)

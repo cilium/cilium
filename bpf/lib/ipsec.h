@@ -132,7 +132,7 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 			node_id = lookup_ip6_node_id((union v6addr *)&ip6->saddr);
 		break;
 	case bpf_htons(ETH_P_IP):
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			return CTX_ACT_OK;
 
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
@@ -193,7 +193,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IP):
-		if (!is_defined(ENABLE_IPV4))
+		if (!CONFIG(enable_ipv4))
 			return CTX_ACT_OK;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))

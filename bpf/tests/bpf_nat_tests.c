@@ -6,7 +6,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4 1
 #include <bpf/config/global.h>
 
 /* Set port ranges to have deterministic source port selection */
