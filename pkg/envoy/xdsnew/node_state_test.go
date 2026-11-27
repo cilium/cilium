@@ -60,7 +60,7 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 	state.seedResource(typeurl.Cluster, "cluster", current.Clusters["cluster"])
 	state.seedResource(typeurl.Endpoint, "endpoint", current.Endpoints["endpoint"])
 	state.seedResource(typeurl.Secret, "secret", current.Secrets["secret"])
-	changes, changedTypeURLs, inverse := state.prepareResourceMutation(ResourceMutations{Upserted: equal}, 1)
+	changes, changedTypeURLs, inverse := state.prepareResourceMutation(ResourceMutations{Upserted: equal}, resourceEntry{revision: callbacks.Generation(1).Revision()})
 	require.True(t, changedTypeURLs.Empty())
 	require.True(t, inverse.empty())
 	require.True(t, changes.empty())
@@ -88,7 +88,7 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 		"new-secret": {Name: "new-secret"},
 	}}
 
-	changes, changedTypeURLs, inverse = state.prepareResourceMutation(ResourceMutations{Removed: removed, Upserted: upserted}, 1)
+	changes, changedTypeURLs, inverse = state.prepareResourceMutation(ResourceMutations{Removed: removed, Upserted: upserted}, resourceEntry{revision: callbacks.Generation(1).Revision()})
 	require.Len(t, changes.more, 2, "three changed resources should share one overflow slice")
 	state.commitResourceMutation(changes, 1)
 	require.Equal(t, typeurl.NewSet(
@@ -96,6 +96,13 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 		typeurl.Cluster,
 		typeurl.Secret,
 	), changedTypeURLs)
+	_, hasListener := inverse.get(typeurl.Listener, "listener")
+	_, hasCluster := inverse.get(typeurl.Cluster, "cluster")
+	inverseSecret, hasSecret := inverse.get(typeurl.Secret, "new-secret")
+	require.False(t, hasListener, "removals have no inverse")
+	require.False(t, hasCluster, "removals have no inverse")
+	require.True(t, hasSecret)
+	require.True(t, inverse.hasSingleton(), "a mixed transaction with one upsert needs only a singleton inverse")
 	require.Equal(t, 1, state.typeStates[typeurl.Listener].changedResourceNames.Len())
 	require.True(t, state.typeStates[typeurl.Listener].changedResourceNames.Has("listener"))
 	require.Equal(t, 1, state.typeStates[typeurl.Cluster].changedResourceNames.Len())
@@ -105,11 +112,6 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 	require.Empty(t, state.typeStates[typeurl.Route].changedResourceNames)
 	require.Empty(t, state.typeStates[typeurl.Endpoint].changedResourceNames)
 	require.Empty(t, state.typeStates[typeurl.NetworkPolicyHosts].changedResourceNames)
-	inverseListener, _ := inverse.get(typeurl.Listener, "listener")
-	inverseCluster, _ := inverse.get(typeurl.Cluster, "cluster")
-	inverseSecret, _ := inverse.get(typeurl.Secret, "new-secret")
-	require.Equal(t, current.Listeners["listener"], inverseListener.resource)
-	require.Equal(t, current.Clusters["cluster"], inverseCluster.resource)
 	require.Nil(t, inverseSecret.resource)
 	require.Nil(t, state.getResource(typeurl.Listener, "listener"))
 	require.Nil(t, state.getResource(typeurl.Cluster, "cluster"))
@@ -126,7 +128,7 @@ func (state *nodeState) seedResourceAtGeneration(typeURL typeurl.Index, name str
 	state.seedResource(typeURL, name, resource)
 	entry := state.resources[typeURL][name]
 	entry.revision = generation.Revision()
-	entry.transaction = generation.TransactionID()
+	entry.rollbackOrigin = generation.TransactionID()
 	state.resources[typeURL][name] = entry
 	state.typeStates[typeURL].generation = max(state.typeStates[typeURL].generation, generation)
 }
@@ -136,7 +138,7 @@ func (state *nodeState) seedResourceAtGeneration(typeURL typeurl.Index, name str
 func (state *nodeState) applyUnpublishedTestResource(typeURL typeurl.Index, name string, resource cache_types.Resource) typeurl.Set {
 	var changes resourceChanges
 	generation := state.resourceGeneration + 1
-	changes.add(typeURL, name, state.resources[typeURL][name], resourceEntry{resource: resource, revision: generation.Revision(), transaction: generation.TransactionID()})
+	changes.add(typeURL, name, state.resources[typeURL][name], resourceEntry{resource: resource, revision: generation.Revision(), rollbackOrigin: generation.TransactionID()})
 	state.commitResourceMutation(changes, generation)
 	state.resourceGeneration = generation
 	state.pendingPublication = &pendingPublication{generation: generation}

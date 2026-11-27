@@ -2732,7 +2732,7 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()
-			require.ErrorIs(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil), tt.wantErr)
+			require.ErrorIs(t, server.UpdateEnvoyResources(ctx, oldResources, newResources), tt.wantErr)
 			if tt.extraListener {
 				// Listener map iteration determines which of the two upserts fails.
 				assert.ElementsMatch(t, tt.operations, mutator.operations)
@@ -2741,6 +2741,21 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLegacyDeleteEnvoyResourcesWithoutACK(t *testing.T) {
+	server := newTestXDSServer(t)
+	listener := testListenerWithPorts(8080)
+	server.upsertListener(listener.Name, listener, nil)
+	source := server.resourceConfig[ListenerTypeURL].Source
+	require.Len(t, source.GetResources(ListenerTypeURL, 0, nil).VersionedResources, 1)
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	resources := xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener}}
+	require.NoError(t, server.DeleteEnvoyResources(ctx, resources))
+	require.NoError(t, ctx.Err())
+	require.Empty(t, source.GetResources(ListenerTypeURL, 0, nil).VersionedResources)
 }
 
 func testXdsServer(t *testing.T) *xdsServer {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
+
 package envoy
 
 import (
@@ -773,112 +774,18 @@ func (s *xdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	s.localEndpointStore.removeLocalEndpoint(ep)
 }
 
-func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
-	s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
-		logfields.Resource, resources.DebugInfo())
-
-	var wg *completion.WaitGroup
-	// Listener config may fail if it refers to a cluster that has not been added yet, so we
-	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
-	// config does not fail for this reason.
-	// Enable wait before new Listeners are added if clusters are also added.
-	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
-		wg = completion.NewWaitGroup(ctx)
-	}
-	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	// Do not wait for the addition of routes, clusters, endpoints, routes,
-	// or secrets as there are no guarantees that these additions will be
-	// acked. For example, if the listener referring to was already deleted
-	// earlier, there are no references to the deleted resources anymore,
-	// in which case we could wait forever for the ACKs. This could also
-	// happen if there is no listener referring to these named
-	// resources to begin with.
-	// If both listeners and clusters are added then wait for clusters.
-	for _, r := range resources.Secrets {
-		s.logger.Debug("Envoy upsertSecret",
-			logfields.ResourceName, r.Name,
-		)
-		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil))
-	}
-	for _, r := range resources.Endpoints {
-		s.logger.Debug("Envoy upsertEndpoint",
-			logfields.ResourceName, r.ClusterName,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil))
-	}
-	for _, r := range resources.Clusters {
-		s.logger.Debug("Envoy upsertCluster",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg))
-	}
-	for _, r := range resources.Routes {
-		s.logger.Debug("Envoy upsertRoute",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil))
-	}
-	// Wait before new Listeners are added if clusters were also added above.
-	if wg != nil {
-		start := time.Now()
-		s.logger.Debug("UpsertEnvoyResources: Waiting for cluster updates to complete...")
-		err := wg.Wait()
-		s.logger.Debug("UpsertEnvoyResources: Wait time for cluster updates",
-			logfields.Duration, time.Since(start),
-			logfields.Error, err,
-		)
-
-		// revert all changes in case of failure
-		if err != nil {
-			revertFuncs.Revert()
-			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
-			return err
-		}
-		wg = nil
-	}
-	// Wait only if new Listeners are added, as they will always be acked.
-	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
-	if len(resources.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
-	}
-	for _, r := range resources.Listeners {
-		s.logger.Debug("Envoy upsertListener",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg))
-	}
-	if wg != nil {
-		start := time.Now()
-		s.logger.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
-		err := wg.Wait()
-		s.logger.Debug("UpsertEnvoyResources: Wait time for proxy updates",
-			logfields.Duration, time.Since(start),
-			logfields.Error, err,
-		)
-
-		// revert all changes in case of failure
-		if err != nil {
-			revertFuncs.Revert()
-			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
-		}
-		return err
-	}
+func (s *xdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
+	s.upsertSecret(secret.GetName(), secret, nil)
 	return nil
 }
 
 // UpdateEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is
-// needed due to the possible dependency between listeners and listeners and clusters. If resources
+// needed due to the possible dependency between listeners and clusters. If resources
 // includes listeners the caller MUST pass a context with a timeout to prevent indefinite blocking
 // in case Envoy never responds.
 // Waits for listener deletions and new clusters if 'new' contains any listeners, and for new
 // listeners, if any.
-// 'waitGroup' is intentionally not used as we need to wait to be able to revert even if the caller
-// does not need to wait.
-func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources) error {
 	waitForDelete := false
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Delete old listeners not added in 'new' or whose address configuration changed.
@@ -1101,10 +1008,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 	}
 }
 
-// DeleteEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. If
-// resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
-// blocking in case Envoy never responds.
-func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *xdsServer) DeleteEnvoyResources(_ context.Context, resources xds.Resources) error {
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
 		logfields.ResourceRoutes, len(resources.Routes),
@@ -1112,52 +1016,20 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceEndpoints, len(resources.Endpoints),
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
-	var wg *completion.WaitGroup
-	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	// Wait only if new Listeners are removed, as they will always be acked.
-	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
-	if len(resources.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
-	}
 	for _, r := range resources.Listeners {
-		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg))
+		s.deleteListener(r.Name, nil)
 	}
-
-	// Do not wait for the deletion of routes, clusters, or endpoints, as
-	// there are no guarantees that these deletions will be acked. For
-	// example, if the listener referring to was already deleted earlier,
-	// there are no references to the deleted resources anymore, in which
-	// case we could wait forever for the ACKs. This could also happen if
-	// there is no listener referring to other named resources to
-	// begin with.
 	for _, r := range resources.Routes {
-		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil))
+		s.deleteRoute(r.Name, nil)
 	}
 	for _, r := range resources.Clusters {
-		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, nil))
+		s.deleteCluster(r.Name, nil)
 	}
 	for _, r := range resources.Endpoints {
-		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, nil))
+		s.deleteEndpoint(r.ClusterName, nil)
 	}
 	for _, r := range resources.Secrets {
-		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, nil))
-	}
-
-	if wg != nil {
-		logArgs := []any{logfields.Duration, time.Since(time.Now())}
-		s.logger.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
-		err := wg.Wait()
-		if err != nil {
-			logArgs = append(logArgs, logfields.Error, err)
-		}
-		s.logger.Debug("DeleteEnvoyResources: Finished waiting for proxy updates", logArgs...)
-
-		// revert all changes in case of failure
-		if err != nil {
-			revertFuncs.Revert()
-			s.logger.Debug("DeleteEnvoyResources: Finished reverting failed xDS transactions")
-		}
-		return err
+		s.deleteSecret(r.Name, nil)
 	}
 	return nil
 }
