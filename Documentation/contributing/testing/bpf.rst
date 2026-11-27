@@ -37,6 +37,20 @@ To run a single test, specify its name without extension. For example:
 
     $ make run_bpf_tests BPF_TEST="xdp_nodeport_lb4_nat_lb"
 
+To inspect a test's maps and programs with ``bpftool``, enable pinning:
+
+.. code-block:: shell-session
+
+    $ make run_bpf_tests BPF_TEST="builtins" BPF_TEST_FLAGS="-pin-bpf -test.v"
+
+The runner exits normally and leaves maps and programs pinned for inspection.
+It prints the bpffs directory containing each test file's ``maps`` and
+``programs``, along with an ``rm -rf`` command to remove the pins when finished.
+Dots in ELF section names become hyphens. Pinning is disabled by default.
+
+``-test.v`` makes ``go test`` display the pin directory and cleanup instructions
+even when the tests pass; it is not required by ``-pin-bpf`` itself.
+
 Writing tests
 =============
 
