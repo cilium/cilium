@@ -88,7 +88,7 @@ func displayByLabels(lbls models.Labels) {
 
 func printIPcacheEntriesBrief(entries []*models.IPListEntry) {
 	if command.OutputOption() {
-		if err := command.PrintOutput(entries); err != nil {
+		if err := command.PrintOutput(formatIPListEntries(entries)); err != nil {
 			Fatalf("Unable to provide %s output: %s", command.OutputOptionString(), err)
 		}
 		return
