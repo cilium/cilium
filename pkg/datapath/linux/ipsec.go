@@ -21,7 +21,6 @@ import (
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -52,30 +51,6 @@ func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
 		return devices[0].Name
 	}
 	return ""
-}
-
-func (n *linuxNodeHandler) getLinkLocalIP(family int) (net.IP, error) {
-	iface := n.getDefaultEncryptionInterface()
-	link, err := safenetlink.LinkByName(iface)
-	if err != nil {
-		return nil, err
-	}
-	addr, err := safenetlink.AddrList(link, family)
-	if err != nil {
-		return nil, err
-	}
-	if len(addr) == 0 {
-		return nil, fmt.Errorf("error retrieving link local IP (family %d): no addresses found", family)
-	}
-	return addr[0].IPNet.IP, nil
-}
-
-func (n *linuxNodeHandler) getV4LinkLocalIP() (net.IP, error) {
-	return n.getLinkLocalIP(netlink.FAMILY_V4)
-}
-
-func (n *linuxNodeHandler) getV6LinkLocalIP() (net.IP, error) {
-	return n.getLinkLocalIP(netlink.FAMILY_V6)
 }
 
 func upsertIPsecLog(log *slog.Logger, err error, spec string, loc, rem *net.IPNet, spi uint8, nodeID uint16) error {
@@ -188,7 +163,6 @@ func (n *linuxNodeHandler) enableIPsec(oldNode, newNode *nodeTypes.Node, nodeID 
 // hosts multiple PodCIDR subnets.
 func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.Node, nodeID uint16, zeroMark, updateExisting bool, errs error) (bool, error) {
 	statesUpdated := true
-	var spi uint8
 
 	remoteCiliumInternalAddr := newNode.GetCiliumInternalIPv4()
 	if !remoteCiliumInternalAddr.IsValid() {
@@ -201,11 +175,11 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	localCiliumInternalIPNetIP := net.IP(localCiliumInternalIP.AsSlice())
 	localIP := localCiliumInternalIPNetIP
 
-	localNodeInternalIP, err := n.getV4LinkLocalIP()
-	if err != nil {
-		n.log.Error("Failed to get local IPv4 for IPsec configuration", logfields.Error, err)
-		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
+	if !n.nodeConfig.NodeIPv4.IsValid() {
+		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link"))
+		return false, errs
 	}
+	localNodeInternalIP := net.IP(n.nodeConfig.NodeIPv4.AsSlice())
 	remoteNodeInternalIP := net.IP(newNode.GetNodeIP(false).AsSlice())
 
 	// Check if we should use the NodeInternalIPs instead of the
@@ -232,7 +206,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = cidr
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
+		spi, err := n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -246,7 +220,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
+	spi, err := n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
 	params = ipsecTypes.NewParameters(template)
@@ -477,7 +451,6 @@ func (n *linuxNodeHandler) enableIPsecIPv4(oldNode, newNode *nodeTypes.Node, nod
 
 func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.Node, nodeID uint16, zeroMark, updateExisting bool, errs error) (bool, error) {
 	statesUpdated := true
-	var spi uint8
 
 	remoteCiliumInternalAddr := newNode.GetCiliumInternalIPv6()
 	if !remoteCiliumInternalAddr.IsValid() {
@@ -490,11 +463,11 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	localCiliumInternalIPNetIP := net.IP(localCiliumInternalIP.AsSlice())
 	localIP := localCiliumInternalIPNetIP
 
-	localNodeInternalIP, err := n.getV6LinkLocalIP()
-	if err != nil {
-		n.log.Error("Failed to get local IPv6 for IPsec configuration", logfields.Error, err)
-		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
+	if !n.nodeConfig.NodeIPv6.IsValid() {
+		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link"))
+		return false, errs
 	}
+	localNodeInternalIP := net.IP(n.nodeConfig.NodeIPv6.AsSlice())
 	remoteNodeInternalIP := net.IP(newNode.GetNodeIP(true).AsSlice())
 
 	// Check if we should use the NodeInternalIPs instead of the
@@ -521,7 +494,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = cidr
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
+		spi, err := n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -534,7 +507,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
+	spi, err := n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
