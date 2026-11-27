@@ -45,7 +45,7 @@ concurrency:
   # - A unique identifier depending on event type:
   #   - push: SHA
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number
+  #   - workflow_dispatch: PR number and SHA
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
@@ -55,7 +55,7 @@ concurrency:
     ${{
       (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+      (github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.PR-number, github.event.inputs.SHA))
     }}
   cancel-in-progress: true
 
@@ -116,6 +116,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        name: ['1', '2', '3', '4']
+        iteration: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
         include:
           - name: '1'
             encryption: 'disabled'
@@ -502,6 +505,16 @@ jobs:
           kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
             kubectl --context ${{ env.contextName2 }} create -f -
 
+      - name: Wait for the pods already scheduled in cluster1 to be ready
+        run: |
+          # The previous release marks the agent as ready before bpf_lxc is
+          # compiled, so the endpoints of the pods already scheduled on the nodes
+          # wait for the compilation to complete. Do not start the cluster2 agents
+          # in the meantime: their compilations would slow it down enough to make
+          # the endpoint creation time out.
+          kubectl --context ${{ env.contextName1 }} -n kube-system rollout status deployment/coredns --timeout=10m
+          kubectl --context ${{ env.contextName1 }} -n local-path-storage rollout status deployment/local-path-provisioner --timeout=10m
+
       - name: Install Cilium in cluster2
         env:
           KVSTORE_ID: 2
@@ -840,7 +853,7 @@ jobs:
         if: ${{ always() && steps.install-cilium-cluster1.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ matrix.name }}"
+          artifacts_suffix: "${{ matrix.name }}-${{ matrix.iteration }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
           capture_sysdump: false
