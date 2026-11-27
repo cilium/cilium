@@ -364,6 +364,7 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		clientEgressL7TlsHeaders{},
 		egresstoSpecificNamespace{},
 		ingressfromSpecificNamespace{},
+		networkDriverDummy{},
 	}
 	return injectTests(tests, ct)
 }

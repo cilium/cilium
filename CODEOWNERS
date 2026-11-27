@@ -298,6 +298,7 @@
 /.github/workflows/conformance-eks.yaml @cilium/aws @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-gke.yaml @cilium/gke @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-kind-proxy-embedded.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
+/.github/workflows/conformance-network-driver.yaml @cilium/network-driver @cilium/github-sec @cilium/ci-structure
 /.github/workflows/scale-test-egw.yaml @cilium/egress-gateway @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/tests-ces-migrate.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*reusable-greetings*.yml @cilium/github-sec @cilium/community 
