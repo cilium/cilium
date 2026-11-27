@@ -133,6 +133,12 @@ func (h *PortRuleHTTP) Validate() error {
 		}
 	}
 
+	if h.Host != "" {
+		if _, err := regexp.Compile(h.Host); err != nil {
+			return err
+		}
+	}
+
 	// Headers are not sanitized.
 
 	// But HeaderMatches are
