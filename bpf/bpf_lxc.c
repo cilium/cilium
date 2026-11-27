@@ -1951,6 +1951,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = false, from_tunnel = false, use_redirect_peer = false;
+	bool ingress_done = delivery_flags & CB_DELIVERY_FLAGS_INGRESS_DONE;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
 	struct ipv6hdr *ip6;
@@ -1995,9 +1996,13 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  use_redirect_peer, from_tunnel);
+		if (!do_redirect)
+			break;
+
+		if (ingress_done)
+			ctx->mark = MARK_MAGIC_INGRESS_DONE;
+		ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+				  use_redirect_peer, from_tunnel);
 		break;
 	default:
 		break;
@@ -2253,6 +2258,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = false, from_tunnel = false, use_redirect_peer = false;
+	bool ingress_done = delivery_flags & CB_DELIVERY_FLAGS_INGRESS_DONE;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
 	struct iphdr *ip4;
@@ -2306,9 +2312,13 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			break;
 		}
 
-		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  use_redirect_peer, from_tunnel);
+		if (!do_redirect)
+			break;
+
+		if (ingress_done)
+			ctx->mark = MARK_MAGIC_INGRESS_DONE;
+		ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+				  use_redirect_peer, from_tunnel);
 		break;
 	default:
 		break;
@@ -2555,6 +2565,23 @@ int cil_to_container(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
+
+	/* This program is attached to host-facing veth/netkit devices when per-
+	 * endpoint routes are enabled, specifically to enforce ingress policy
+	 * towards the destination.
+	 *
+	 * In the case of pod-to-pod traffic, it's possible this packet has
+	 * already had ingress policy enforcement applied, in the transmit path
+	 * of the source pod.
+	 *
+	 * Do not apply ingress policy a second time, because we may misclassify
+	 * traffic, specifically if NAT operations have been performed and this
+	 * skb would no longer match an existing flow in CT.
+	 */
+	if (ctx_is_ingress_done(ctx)) {
+		ctx->mark = 0;
+		return CTX_ACT_OK;
+	}
 
 	/* Fallback for when the MARK_MAGIC_PROXY_EGRESS_EPID ip rule is missing
 	 * and a per-endpoint route steers L7 LB traffic straight at the backend's

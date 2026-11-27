@@ -114,7 +114,8 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx,
 static __always_inline void
 local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 			 bool delivery_redirect, bool use_redirect_peer,
-			 bool from_host, bool from_tunnel, __u32 cluster_id)
+			 bool from_host, bool from_tunnel,
+			 bool ingress_done, __u32 cluster_id)
 {
 	__u32 delivery_flags = 0;
 
@@ -130,6 +131,8 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 		delivery_flags |= CB_DELIVERY_FLAGS_FROM_INGRESS_PROXY;
 	if (tc_index_from_egress_proxy(ctx))
 		delivery_flags |= CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY;
+	if (ingress_done)
+		delivery_flags |= CB_DELIVERY_FLAGS_INGRESS_DONE;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_DELIVERY_FLAGS, delivery_flags);
@@ -199,7 +202,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	local_delivery_fill_meta(ctx, seclabel, true, use_redirect_peer,
-				 from_host, from_tunnel, cluster_id);
+				 from_host, from_tunnel, false, cluster_id);
 	return tail_call_policy(ctx, ep->lxc_id);
 }
 

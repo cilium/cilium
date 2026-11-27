@@ -169,6 +169,11 @@ static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_EGW_DONE;
 }
 
+static __always_inline bool ctx_is_ingress_done(const struct __sk_buff *ctx)
+{
+	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_INGRESS_DONE;
+}
+
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, struct bpf_tunnel_key *key,
 		   __u32 key_size, void *opt, __u32 opt_len, __u32 flags)
