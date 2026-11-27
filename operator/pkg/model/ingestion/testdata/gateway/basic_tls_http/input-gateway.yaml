@@ -10,4 +10,6 @@ spec:
   - name: prod-web-gw
     port: 443
     protocol: TLS
+    tls:
+      mode: Passthrough
 status: {}
