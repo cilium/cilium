@@ -7,10 +7,13 @@ db/insert routes routes.yaml
 
 # Add initial k8s resources.
 k8s/add node1.yaml ciliumnode1.yaml
+
+db/cmp --timeout=10s devices devices.expected
+db/cmp --timeout=10s routes routes.expected
+db/cmp --timeout=10s node-addresses nodeaddrs.expected
+
 k8s/add policy1.yaml
 k8s/add ciliumendpoint1.yaml
-
-db/cmp --timeout=10s node-addresses nodeaddrs.expected
 
 # Check that manager realizes expected bpf map state.
  egress/policy-maps-dump policymap.actual
@@ -54,6 +57,13 @@ db/cmp --timeout=10s sysctl sysctl.expected.2
  egress/policy-maps-dump policymap.actual
  * cmp policymap.actual policymap.expected.4
 
+-- devices.expected --
+Name Index Selected Type VRFTable MTU HWAddr Flags Addresses                                            OperStatus
+eth0 1     true     veth 0        0          up    10.10.0.1, fd00::10:10:0:1, fe80::42:bdff:ec52:ab11  up
+eth1 2     true     veth 0        0          up    10.10.0.2, fd00::10:10:0:2, fe80::42:bdff:ec52:ab12  up
+-- routes.expected --
+Destination       Source Gateway LinkIndex MTU Table Type  Scope Priority
+203.0.113.10/32                  2             local local host  0
 -- nodeaddrs.expected --
 Address                   NodePort Primary DeviceName
 10.10.0.1                 false    true    *
