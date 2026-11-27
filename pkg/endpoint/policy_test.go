@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
@@ -328,6 +329,68 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	require.Same(t, live, res.NewPolicy)
 
 	live.ReleaseHold()
+}
+
+// lateFetcher returns a stale result until ready is closed, then the current one.
+type lateFetcher struct {
+	compute.PolicyRecomputer
+	stale, current compute.Result
+	ready          chan struct{}
+}
+
+func (f *lateFetcher) GetIdentityPolicyByIdentity(*identity.Identity) (compute.Result, statedb.Revision, <-chan struct{}, bool) {
+	select {
+	case <-f.ready:
+		return f.current, 0, nil, true
+	default:
+		return f.stale, 0, f.ready, true
+	}
+}
+
+// waitForPolicyComputationResult must wait for a result that arrives a few
+// seconds late, and give up once policyComputationWaitTimeout passes.
+func TestWaitForLatePolicyComputation(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	const rev = 2
+	live := computeSelectorPolicy(t, f, "live")
+
+	for _, tc := range []struct {
+		name  string
+		delay time.Duration // zero means the result never arrives
+	}{
+		{name: "arrives late", delay: 5 * time.Second},
+		{name: "never arrives"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				fetcher := &lateFetcher{
+					PolicyRecomputer: f.polComputer,
+					stale:            compute.Result{NewPolicy: live, Revision: rev - 1, CurrentAtRevision: rev - 1},
+					current:          compute.Result{NewPolicy: live, Revision: rev, CurrentAtRevision: rev},
+					ready:            make(chan struct{}),
+				}
+				if tc.delay > 0 {
+					time.AfterFunc(tc.delay, func() { close(fetcher.ready) })
+				}
+
+				ep := Endpoint{policyFetcher: fetcher, SecurityIdentity: f.podID}
+				ep.UpdateLogger(nil)
+
+				start := time.Now()
+				res, err := ep.waitForPolicyComputationResult(
+					&datapathRegenerationContext{policyRevisionToWaitFor: rev}, f.podID)
+				if tc.delay == 0 {
+					require.ErrorIs(t, err, errPolicyComputationStaleRevision)
+					require.Equal(t, policyComputationWaitTimeout, time.Since(start))
+					return
+				}
+				require.NoError(t, err)
+				require.Same(t, live, res.NewPolicy)
+				require.Equal(t, tc.delay, time.Since(start))
+				live.ReleaseHold()
+			})
+		})
+	}
 }
 
 func TestIsPolicyResultCurrent(t *testing.T) {
