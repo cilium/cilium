@@ -10,12 +10,9 @@
 Mutual Authentication (Beta)
 ****************************
 
-.. note::
+.. warning::
 
-    This is a beta feature. Please provide feedback and file a GitHub issue if
-    you experience any problems.
-
-    This feature is still incomplete, see :ref:`mutual_auth_roadmap` below for more details.
+    This feature has been deprecated and will be removed in Cilium v1.21.
 
 Mutual Authentication and mTLS Background
 #########################################
