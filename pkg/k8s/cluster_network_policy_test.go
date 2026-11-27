@@ -9,7 +9,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -31,18 +31,18 @@ var (
 		labels.NewLabel("io.cilium.k8s.policy.uid", "", labels.LabelSourceK8s),
 	}
 
-	subjectNamespacesAppSubject = policyv1alpha2.ClusterNetworkPolicySubject{
+	subjectNamespacesAppSubject = policyv1beta1.ClusterNetworkPolicySubject{
 		Namespaces: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "subject"}},
 	}
 	envProdSelector          = &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
 	envDevSelector           = &metav1.LabelSelector{MatchLabels: map[string]string{"env": "dev"}}
-	subjectNamespacesAppTest = policyv1alpha2.ClusterNetworkPolicySubject{
+	subjectNamespacesAppTest = policyv1beta1.ClusterNetworkPolicySubject{
 		Namespaces: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}},
 	}
 
-	fromNamespacesEnvDev  = []policyv1alpha2.ClusterNetworkPolicyIngressPeer{{Namespaces: envDevSelector}}
-	fromNamespacesEnvProd = []policyv1alpha2.ClusterNetworkPolicyIngressPeer{{Namespaces: envProdSelector}}
-	toNamespacesEnvProd   = []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{Namespaces: envProdSelector}}
+	fromNamespacesEnvDev  = []policyv1beta1.ClusterNetworkPolicyIngressPeer{{Namespaces: envDevSelector}}
+	fromNamespacesEnvProd = []policyv1beta1.ClusterNetworkPolicyIngressPeer{{Namespaces: envProdSelector}}
+	toNamespacesEnvProd   = []policyv1beta1.ClusterNetworkPolicyEgressPeer{{Namespaces: envProdSelector}}
 
 	subjectAppSubjectSelector = types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{namespaceLabelPrefix + "app": "subject"},
@@ -62,18 +62,18 @@ var (
 	)
 )
 
-func portNumberRule(num int32, protocol v1.Protocol) []policyv1alpha2.ClusterNetworkPolicyProtocol {
-	value := policyv1alpha2.ClusterNetworkPolicyProtocol{}
-	port := &policyv1alpha2.Port{Number: num}
+func portNumberRule(num int32, protocol v1.Protocol) []policyv1beta1.ClusterNetworkPolicyProtocol {
+	value := policyv1beta1.ClusterNetworkPolicyProtocol{}
+	port := &policyv1beta1.Port{Number: num}
 	switch protocol {
 	case v1.ProtocolTCP:
-		value.TCP = &policyv1alpha2.ClusterNetworkPolicyProtocolTCP{DestinationPort: port}
+		value.TCP = &policyv1beta1.ClusterNetworkPolicyProtocolTCP{DestinationPort: port}
 	case v1.ProtocolUDP:
-		value.UDP = &policyv1alpha2.ClusterNetworkPolicyProtocolUDP{DestinationPort: port}
+		value.UDP = &policyv1beta1.ClusterNetworkPolicyProtocolUDP{DestinationPort: port}
 	case v1.ProtocolSCTP:
-		value.SCTP = &policyv1alpha2.ClusterNetworkPolicyProtocolSCTP{DestinationPort: port}
+		value.SCTP = &policyv1beta1.ClusterNetworkPolicyProtocolSCTP{DestinationPort: port}
 	}
-	return []policyv1alpha2.ClusterNetworkPolicyProtocol{value}
+	return []policyv1beta1.ClusterNetworkPolicyProtocol{value}
 }
 
 func portRule(port string, protocol api.L4Proto) []api.PortRule {
@@ -86,7 +86,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 
 	tests := []struct {
 		name                     string
-		cnp                      *policyv1alpha2.ClusterNetworkPolicy
+		cnp                      *policyv1beta1.ClusterNetworkPolicy
 		enableNodeSelectorLabels bool
 		enableL7Proxy            bool
 		want                     types.PolicyEntries
@@ -97,10 +97,10 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "ingress rule with namespace selector",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
 					From: fromNamespacesEnvProd,
 				}},
 			},
@@ -114,10 +114,10 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "ingress rule with pod selector",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
-				Subject: policyv1alpha2.ClusterNetworkPolicySubject{
-					Pods: &policyv1alpha2.NamespacedPod{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
+				Subject: policyv1beta1.ClusterNetworkPolicySubject{
+					Pods: &policyv1beta1.NamespacedPod{
 						NamespaceSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{"ns": "subject-ns"},
 						},
@@ -126,9 +126,9 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 						},
 					},
 				},
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
-					From: []policyv1alpha2.ClusterNetworkPolicyIngressPeer{{
-						Pods: &policyv1alpha2.NamespacedPod{
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
+					From: []policyv1beta1.ClusterNetworkPolicyIngressPeer{{
+						Pods: &policyv1beta1.NamespacedPod{
 							NamespaceSelector: metav1.LabelSelector{
 								MatchLabels: map[string]string{"ns": "from-ns"},
 							},
@@ -161,10 +161,10 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "ingress rule with port number",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppTest,
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
 					From:      fromNamespacesEnvDev,
 					Protocols: portNumberRule(80, v1.ProtocolTCP),
 				}},
@@ -180,15 +180,15 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "ingress rule with port range",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppTest,
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
 					From: fromNamespacesEnvDev,
-					Protocols: []policyv1alpha2.ClusterNetworkPolicyProtocol{{
-						UDP: &policyv1alpha2.ClusterNetworkPolicyProtocolUDP{
-							DestinationPort: &policyv1alpha2.Port{
-								Range: &policyv1alpha2.PortRange{Start: 8080, End: 8090},
+					Protocols: []policyv1beta1.ClusterNetworkPolicyProtocol{{
+						UDP: &policyv1beta1.ClusterNetworkPolicyProtocolUDP{
+							DestinationPort: &policyv1beta1.Port{
+								Range: &policyv1beta1.PortRange{Start: 8080, End: 8090},
 							},
 						},
 					}},
@@ -207,12 +207,12 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "ingress rule with named port",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppTest,
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
 					From: fromNamespacesEnvDev,
-					Protocols: []policyv1alpha2.ClusterNetworkPolicyProtocol{{
+					Protocols: []policyv1beta1.ClusterNetworkPolicyProtocol{{
 						DestinationNamedPort: "http",
 					}},
 				}},
@@ -230,11 +230,11 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "ingress rule with deny action",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppTest,
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
-					Action: policyv1alpha2.ClusterNetworkPolicyRuleActionDeny,
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
+					Action: policyv1beta1.ClusterNetworkPolicyRuleActionDeny,
 					From:   fromNamespacesEnvDev,
 				}},
 			},
@@ -249,10 +249,10 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "egress rule with namespace selector",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
 					To: toNamespacesEnvProd,
 				}},
 			},
@@ -266,11 +266,11 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "egress rule with node selector",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					To: []policyv1beta1.ClusterNetworkPolicyEgressPeer{{
 						Nodes: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"kubernetes.io/hostname": "node1"},
 						},
@@ -311,11 +311,11 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "egress rule with node selector and node selector labels disabled",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					To: []policyv1beta1.ClusterNetworkPolicyEgressPeer{{
 						Nodes: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"kubernetes.io/hostname": "node1"},
 						},
@@ -327,12 +327,12 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		wantErr:                  true,
 	}, {
 		name: "egress rule with networks (CIDR)",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{
-						Networks: []policyv1alpha2.CIDR{"192.168.1.0/24", "10.0.0.0/8"},
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					To: []policyv1beta1.ClusterNetworkPolicyEgressPeer{{
+						Networks: []policyv1beta1.CIDR{"192.168.1.0/24", "10.0.0.0/8"},
 					}},
 				}},
 			},
@@ -349,13 +349,13 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "egress rule with domain names (FQDN)",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					Action: policyv1alpha2.ClusterNetworkPolicyRuleActionAccept,
-					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{
-						DomainNames: []policyv1alpha2.DomainName{"example.com", "*.another.org"},
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					Action: policyv1beta1.ClusterNetworkPolicyRuleActionAccept,
+					To: []policyv1beta1.ClusterNetworkPolicyEgressPeer{{
+						DomainNames: []policyv1beta1.DomainName{"example.com", "*.another.org"},
 					}},
 				}},
 			},
@@ -391,13 +391,13 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "egress rule with domain names (FQDN) with L7 proxy disabled",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					Action: policyv1alpha2.ClusterNetworkPolicyRuleActionAccept,
-					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{
-						DomainNames: []policyv1alpha2.DomainName{"example.com", "**.another.org"},
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					Action: policyv1beta1.ClusterNetworkPolicyRuleActionAccept,
+					To: []policyv1beta1.ClusterNetworkPolicyEgressPeer{{
+						DomainNames: []policyv1beta1.DomainName{"example.com", "**.another.org"},
 					}},
 				}},
 			},
@@ -406,11 +406,11 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		wantErr:       true,
 	}, {
 		name: "egress rule with ports and deny action",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
 				Subject: subjectNamespacesAppSubject,
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					Action:    policyv1alpha2.ClusterNetworkPolicyRuleActionDeny,
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					Action:    policyv1beta1.ClusterNetworkPolicyRuleActionDeny,
 					To:        toNamespacesEnvProd,
 					Protocols: portNumberRule(443, v1.ProtocolTCP),
 				}},
@@ -427,19 +427,19 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}, {
 		name: "combined ingress and egress rules",
-		cnp: &policyv1alpha2.ClusterNetworkPolicy{
-			Spec: policyv1alpha2.ClusterNetworkPolicySpec{
-				Subject: policyv1alpha2.ClusterNetworkPolicySubject{
+		cnp: &policyv1beta1.ClusterNetworkPolicy{
+			Spec: policyv1beta1.ClusterNetworkPolicySpec{
+				Subject: policyv1beta1.ClusterNetworkPolicySubject{
 					Namespaces: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "main"}},
 				},
-				Ingress: []policyv1alpha2.ClusterNetworkPolicyIngressRule{{
-					From: []policyv1alpha2.ClusterNetworkPolicyIngressPeer{
+				Ingress: []policyv1beta1.ClusterNetworkPolicyIngressRule{{
+					From: []policyv1beta1.ClusterNetworkPolicyIngressPeer{
 						{Namespaces: &metav1.LabelSelector{MatchLabels: map[string]string{"role": "ingress-source"}}},
 					},
 					Protocols: portNumberRule(80, v1.ProtocolTCP),
 				}},
-				Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
-					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{
+				Egress: []policyv1beta1.ClusterNetworkPolicyEgressRule{{
+					To: []policyv1beta1.ClusterNetworkPolicyEgressPeer{
 						{Namespaces: &metav1.LabelSelector{MatchLabels: map[string]string{"role": "egress-dest"}}},
 					},
 					Protocols: portNumberRule(53, v1.ProtocolUDP),

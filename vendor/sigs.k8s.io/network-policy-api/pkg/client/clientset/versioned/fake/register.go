@@ -26,6 +26,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	policyv1alpha1 "sigs.k8s.io/network-policy-api/apis/v1alpha1"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 )
 
 var scheme = runtime.NewScheme()
@@ -34,6 +35,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	policyv1alpha1.AddToScheme,
 	policyv1alpha2.AddToScheme,
+	policyv1beta1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

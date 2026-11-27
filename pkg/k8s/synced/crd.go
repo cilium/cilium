@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+	policyv1beta1 "sigs.k8s.io/network-policy-api/apis/v1beta1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
@@ -38,7 +38,7 @@ const (
 	k8sAPIGroupCRD = "CustomResourceDefinition"
 
 	// KCNPCRDName is the full name of the K8s ClusterNetworkPolicy CRD.
-	KCNPCRDName = "clusternetworkpolicies." + policyv1alpha2.GroupName
+	KCNPCRDName = "clusternetworkpolicies." + policyv1beta1.GroupName
 )
 
 func CRDResourceName(crd string) string {
