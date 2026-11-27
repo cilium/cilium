@@ -142,42 +142,6 @@ func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
 }
 
 func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint) {
-	var namedPortsChanged bool
-	defer func() {
-		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates("Named ports added or updated")
-		}
-	}()
-	var ipsAdded []string
-	if oldEndpoint != nil && oldEndpoint.Networking != nil {
-		// Delete the old IP addresses from the IP cache
-		defer func() {
-			for _, oldPair := range oldEndpoint.Networking.Addressing {
-				v4Added, v6Added := false, false
-				for _, ipAdded := range ipsAdded {
-					if ipAdded == oldPair.IPV4 {
-						v4Added = true
-					}
-					if ipAdded == oldPair.IPV6 {
-						v6Added = true
-					}
-				}
-				if !v4Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, oldEndpoint.Namespace, oldEndpoint.Name, oldEndpoint.GetPodUID())
-					if portsChanged {
-						namedPortsChanged = true
-					}
-				}
-				if !v6Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, oldEndpoint.Namespace, oldEndpoint.Name, oldEndpoint.GetPodUID())
-					if portsChanged {
-						namedPortsChanged = true
-					}
-				}
-			}
-		}()
-	}
-
 	ln, err := k.localNodeStore.Get(context.TODO())
 	if err != nil {
 		logging.Fatal(k.logger, "getLocalNode: unexpected error", logfields.Error, err)
@@ -233,6 +197,46 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 			)
 			continue
 		}
+	}
+
+	// Register the deferred cleanup only after all validation checks above
+	// have passed. Otherwise, an early return (e.g. missing or invalid NodeIP)
+	// would run the deferred cleanup with an empty ipsAdded and silently
+	// delete the still-valid old IPs from the ipcache.
+	var namedPortsChanged bool
+	defer func() {
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates("Named ports added or updated")
+		}
+	}()
+	var ipsAdded []string
+	if oldEndpoint != nil && oldEndpoint.Networking != nil {
+		// Delete the old IP addresses from the IP cache
+		defer func() {
+			for _, oldPair := range oldEndpoint.Networking.Addressing {
+				v4Added, v6Added := false, false
+				for _, ipAdded := range ipsAdded {
+					if ipAdded == oldPair.IPV4 {
+						v4Added = true
+					}
+					if ipAdded == oldPair.IPV6 {
+						v6Added = true
+					}
+				}
+				if !v4Added {
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, oldEndpoint.Namespace, oldEndpoint.Name, oldEndpoint.GetPodUID())
+					if portsChanged {
+						namedPortsChanged = true
+					}
+				}
+				if !v6Added {
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, oldEndpoint.Namespace, oldEndpoint.Name, oldEndpoint.GetPodUID())
+					if portsChanged {
+						namedPortsChanged = true
+					}
+				}
+			}
+		}()
 	}
 
 	for _, pair := range endpoint.Networking.Addressing {
