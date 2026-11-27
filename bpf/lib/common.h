@@ -208,10 +208,12 @@ struct srv6_policy_key6 {
 #define REASON_LB_REVNAT_STALE		8
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
-#define REASON_DECRYPTING			12
-#define REASON_ENCRYPTING			13
+#define REASON_RESERVED_0		11 /* was REASON_MISSED_CUSTOM_CALL */
+#define REASON_RESERVED_1		12 /* was REASON_ENCRYPTING */
+#define REASON_RESERVED_2		13 /* was REASON_DECRYPTING */
 #define REASON_LB_REVNAT_DELETE		14
 #define REASON_MTU_ERROR_MSG			15
+#define REASON_ENCRYPT			16
 
 /* Cilium metrics direction for dropping/forwarding packet */
 enum metric_dir {
