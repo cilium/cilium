@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/networkdriver/networkconfig"
 	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -77,6 +78,26 @@ func TestSerializeDevice(t *testing.T) {
 		require.Equal(t, "pool-a", serialized.LogicalPool)
 		require.Equal(t, capacity, serialized.ConsumedCapacity)
 		require.NotEmpty(t, serialized.Dev)
+	})
+
+	t.Run("static routes round-trip", func(t *testing.T) {
+		gateway := netip.MustParseAddr("10.20.0.1")
+		routes := []types.StaticRoute{
+			{Destination: netip.MustParsePrefix("10.40.0.0/16"), Gateway: &gateway},
+			{Destination: netip.MustParsePrefix("fd00:30::/48")},
+		}
+		a := allocation{
+			Device:       &trackedDevice{name: "eth0"},
+			Manager:      types.DeviceManagerTypeMock,
+			StaticRoutes: routes,
+		}
+
+		raw, err := serializeDevice(a)
+		require.NoError(t, err)
+
+		serialized, err := deserializeDevice(raw)
+		require.NoError(t, err)
+		require.Equal(t, routes, serialized.StaticRoutes)
 	})
 
 	t.Run("dummy device round-trip", func(t *testing.T) {
@@ -682,6 +703,7 @@ func TestClaimConfigModifier(t *testing.T) {
 	h := hive.New(
 		k8sClient.FakeClientCell(),
 		cell.Config(config.Config{Enabled: true}),
+		networkconfig.TableCell,
 		cell.Provide(
 			registerNetworkDriver,
 			newDeviceTable,

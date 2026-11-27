@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/netip"
 	"slices"
 	"testing"
 	"time"
@@ -894,10 +895,19 @@ func TestBuildPoolsFromTable(t *testing.T) {
 
 func buildClaimWithDeviceStatus(t *testing.T, podUID, claimUID kubetypes.UID, devName string) *resourceapi.ResourceClaim {
 	t.Helper()
-	return buildClaimWithDeviceStatusAndPool(t, podUID, claimUID, devName, "")
+	return buildClaimWithDeviceStatusAndSerializedDeviceData(t, podUID, claimUID, devName, serializedDeviceData{})
 }
 
-func buildClaimWithDeviceStatusAndPool(t *testing.T, podUID, claimUID kubetypes.UID, devName, logicalPool string) *resourceapi.ResourceClaim {
+// serializedDeviceData allows to define the values for some of the types.SerializedDevice fields.
+// These values are used in buildClaimWithDeviceStatusAndSerializedDeviceData while building the
+// status of the allocated device.
+type serializedDeviceData struct {
+	logicalPool  string
+	staticRoutes []types.StaticRoute
+}
+
+func buildClaimWithDeviceStatusAndSerializedDeviceData(t *testing.T, podUID, claimUID kubetypes.UID, devName string,
+	serializedDevData serializedDeviceData) *resourceapi.ResourceClaim {
 	t.Helper()
 
 	dev := &trackedDevice{name: devName}
@@ -905,10 +915,11 @@ func buildClaimWithDeviceStatusAndPool(t *testing.T, podUID, claimUID kubetypes.
 	require.NoError(t, err)
 
 	serialized, err := json.Marshal(types.SerializedDevice{
-		Manager:     types.DeviceManagerTypeMock,
-		Dev:         devData,
-		Config:      types.DeviceConfig{PodIfName: "eth-pod"},
-		LogicalPool: logicalPool,
+		Manager:      types.DeviceManagerTypeMock,
+		Dev:          devData,
+		Config:       types.DeviceConfig{PodIfName: "eth-pod"},
+		LogicalPool:  serializedDevData.logicalPool,
+		StaticRoutes: serializedDevData.staticRoutes,
 	})
 	require.NoError(t, err)
 
@@ -1063,7 +1074,8 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 	t.Run("restore logical pool in the claim", func(t *testing.T) {
 		driver := buildDriver(t)
 		const logicalPoolName = "pool-example"
-		claim := buildClaimWithDeviceStatusAndPool(t, prepTestPodUID, prepTestClaimUID, prepTestDev0, logicalPoolName)
+		serializedDevData := serializedDeviceData{logicalPool: logicalPoolName}
+		claim := buildClaimWithDeviceStatusAndSerializedDeviceData(t, prepTestPodUID, prepTestClaimUID, prepTestDev0, serializedDevData)
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
@@ -1076,6 +1088,25 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 		}
 		require.Len(t, rows, 1)
 		require.Equal(t, logicalPoolName, rows[0].LogicalPool)
+	})
+
+	t.Run("restore static routes in the claim", func(t *testing.T) {
+		driver := buildDriver(t)
+		gateway := netip.MustParseAddr("10.20.0.1")
+		routes := []types.StaticRoute{
+			{Destination: netip.MustParsePrefix("10.40.0.0/16"), Gateway: &gateway},
+			{Destination: netip.MustParsePrefix("fd00:30::/48")},
+		}
+		serializedDevData := serializedDeviceData{staticRoutes: routes}
+		claim := buildClaimWithDeviceStatusAndSerializedDeviceData(t, prepTestPodUID, prepTestClaimUID, prepTestDev0, serializedDevData)
+
+		wtxn := driver.db.WriteTxn(driver.allocationTable)
+		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
+		wtxn.Commit()
+
+		rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+		require.Len(t, rows, 1)
+		require.Equal(t, routes, rows[0].StaticRoutes)
 	})
 
 	t.Run("shared allocation restores its identity and capacity", func(t *testing.T) {

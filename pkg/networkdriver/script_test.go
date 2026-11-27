@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
@@ -36,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/networkdriver/networkconfig"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -142,6 +144,16 @@ func TestScript(t *testing.T) {
 					allocationTable, err := newAllocationTable(db)
 					require.NoError(t, err)
 
+					// the scripts add the network configs with db/insert, no reflector is needed
+					var netConfs statedb.Table[networkconfig.LocalResourceNetworkConfig]
+					require.NoError(t, uhive.New(
+						cell.Provide(func() *statedb.DB { return db }),
+						networkconfig.TableCell,
+						cell.Invoke(func(tbl statedb.Table[networkconfig.LocalResourceNetworkConfig]) {
+							netConfs = tbl
+						}),
+					).Populate(log))
+
 					device := noSetupDummyDevice{&dummy.DummyDevice{Name: deviceName}}
 					txn := db.WriteTxn(deviceTable)
 					_, _, err = deviceTable.Insert(txn, &DRADevice{
@@ -160,6 +172,7 @@ func TestScript(t *testing.T) {
 						db:              db,
 						deviceTable:     deviceTable,
 						allocationTable: allocationTable,
+						localNetConfs:   netConfs,
 						multiPoolMgr:    mgr,
 						ipv4Enabled:     tc.ipv4,
 						ipv6Enabled:     tc.ipv6,

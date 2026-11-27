@@ -351,6 +351,7 @@ type DRAAllocation struct {
     Manager          types.DeviceManagerType
     PreparedDevice   types.Device
     LogicalPool      string
+    StaticRoutes     []types.StaticRoute
     PodUID           kube_types.UID
     ClaimUID         kube_types.UID
     Config           types.DeviceConfig
@@ -405,7 +406,7 @@ PrepareResourceClaims (kubelet → DRA plugin)
        ├─ calls Device.Setup with Config, ShareID, and ConsumedCapacity
        ├─ receives the allocation-specific prepared device
        ├─ records ShareID in ResourceClaim.Status.Devices
-       ├─ serializes the prepared device, Config, LogicalPool, and
+       ├─ serializes the prepared device, Config, LogicalPool, StaticRoutes and
        │  ConsumedCapacity into the status entry
        ├─ after the status update, inserts a DRAAllocation keyed by
        │  LogicalPool/DeviceName/ShareID in networkdriver-dra-allocations
@@ -450,8 +451,8 @@ Agent restart
   │         └─ ResourceClaim.Status.Devices
   │              ├─ restores ShareID from AllocatedDeviceStatus
   │              ├─ DeviceManager.RestoreDevice deserializes PreparedDevice
-  │              └─ restores Config, LogicalPool, and ConsumedCapacity from
-  │                 serialized data
+  │              └─ restores Config, LogicalPool, StaticRoutes and
+  │                 ConsumedCapacity from serialized data
   │                   └─ rebuilds networkdriver-dra-allocations
   ├─ device managers rebuild networkdriver-dra-devices independently
   └─ DRA and NRI registration starts after both tables are initialized

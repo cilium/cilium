@@ -1,0 +1,137 @@
+hive start
+
+db/insert k8s-cilium-resource-netconfigs netconfig.yaml
+k8s/add claim.yaml
+driver/prepare-resource-claims default/test-claim
+
+# We should have the allocation recorded in the database.
+db/cmp networkdriver-dra-allocations allocations.table
+
+# The prefix lengths and the static routes are the ones of the network config entries containing
+# the addresses, and they are recorded in the claim status.
+k8s/get resource.k8s.io.v1.resourceclaims default/test-claim -o actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<timestamp>"' actual.yaml
+cmp actual.yaml expected.yaml
+
+driver/unprepare-resource-claims default/test-claim
+
+# Unprepare must release the allocation while retaining the device inventory.
+db/cmp networkdriver-dra-allocations allocations-empty.table
+
+hive stop
+
+-- netconfig.yaml --
+name: test-network-config
+spec:
+  ipv4:
+  - cidr: 10.30.0.0/16
+    prefixLength: 24
+    routes:
+    - destination: 10.40.0.0/16
+      gateway: 10.30.0.254
+  ipv6:
+  - cidr: fd00:30::/48
+    prefixLength: 56
+    routes:
+    - destination: fd00:40::/48
+      gateway: fd00:30::fe
+
+-- claim.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+  uid: ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+spec: {}
+status:
+  allocation:
+    devices:
+      config:
+      - source: FromClaim
+        requests:
+        - test-request
+        opaque:
+          driver: networkdriver.cilium.io
+          parameters:
+            ipv4Addr: 10.30.0.1/32
+            ipv6Addr: fd00:30::1/128
+            networkConfig: test-network-config
+      results:
+      - device: test-device
+        driver: networkdriver.cilium.io
+        pool: test-device-pool
+        request: test-request
+  reservedFor:
+  - resource: pods
+    name: test-pod
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+
+-- expected.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+spec:
+  devices:
+    requests: null
+status:
+  allocation:
+    devices:
+      config:
+      - opaque:
+          driver: networkdriver.cilium.io
+          parameters:
+            ipv4Addr: 10.30.0.1/32
+            ipv6Addr: fd00:30::1/128
+            networkConfig: test-network-config
+        requests:
+        - test-request
+        source: FromClaim
+      results:
+      - device: test-device
+        driver: networkdriver.cilium.io
+        pool: test-device-pool
+        request: test-request
+  devices:
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        ipv4Addr: 10.30.0.1/24
+        ipv6Addr: fd00:30::1/56
+        networkConfig: test-network-config
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device
+      Manager: dummy
+      staticRoutes:
+      - destination: 10.40.0.0/16
+        gateway: 10.30.0.254
+      - destination: fd00:40::/48
+        gateway: fd00:30::fe
+    device: test-device
+    driver: networkdriver.cilium.io
+    networkData:
+      interfaceName: test-device
+      ips:
+      - 10.30.0.1/24
+      - fd00:30::1/56
+    pool: test-device-pool
+  reservedFor:
+  - name: test-pod
+    resource: pods
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+-- allocations.table --
+Device        PodUID                                ClaimUID
+test-device   bec9dd67-13f9-4d4b-a3c1-76fc3e485e68  ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+
+-- allocations-empty.table --
+Device   PodUID   ClaimUID

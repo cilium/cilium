@@ -123,6 +123,7 @@ type DRAAllocation struct {
 	// against at allocation time — not the DRA ResourceSlice pool name (see
 	// allocation.LogicalPool for the full explanation).
 	LogicalPool      string
+	StaticRoutes     []types.StaticRoute
 	PodUID           kube_types.UID
 	ClaimUID         kube_types.UID
 	Config           types.DeviceConfig

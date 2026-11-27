@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
+	"github.com/cilium/cilium/pkg/networkdriver/networkconfig"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -106,8 +107,9 @@ type Driver struct {
 	configModifiers []claimConfigModifier
 
 	// RX queue flow steering is derived from these tables.
-	rxQueueFlows statedb.RWTable[*RXQueueFlows]
-	localPods    statedb.Table[k8sTables.LocalPod]
+	rxQueueFlows  statedb.RWTable[*RXQueueFlows]
+	localPods     statedb.Table[k8sTables.LocalPod]
+	localNetConfs statedb.Table[networkconfig.LocalResourceNetworkConfig]
 
 	endpoints        rxQueueEndpointLookup
 	endpointRestorer promise.Promise[endpointstate.Restorer]
@@ -125,6 +127,7 @@ type allocation struct {
 	// attribute used by DeviceClass CEL selectors, and stays fixed for the
 	// lifetime of the allocation even if pool config changes later.
 	LogicalPool      string
+	StaticRoutes     []types.StaticRoute
 	Manager          types.DeviceManagerType
 	Config           types.DeviceConfig
 	ShareID          kube_types.UID
@@ -136,6 +139,7 @@ func allocationFromRow(row *DRAAllocation) allocation {
 		Device:           row.PreparedDevice,
 		DeviceName:       row.DeviceName,
 		LogicalPool:      row.LogicalPool,
+		StaticRoutes:     row.StaticRoutes,
 		Manager:          row.Manager,
 		Config:           row.Config,
 		ShareID:          row.ShareID,
@@ -593,6 +597,7 @@ func (driver *Driver) storeAllocations(allocs []allocation, podUID, claimUID kub
 			Manager:          a.Manager,
 			PreparedDevice:   a.Device,
 			LogicalPool:      a.LogicalPool,
+			StaticRoutes:     a.StaticRoutes,
 			PodUID:           podUID,
 			ClaimUID:         claimUID,
 			Config:           a.Config,
@@ -818,6 +823,7 @@ func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatu
 		Device:           dev,
 		DeviceName:       devStatus.Device,
 		LogicalPool:      serialized.LogicalPool,
+		StaticRoutes:     serialized.StaticRoutes,
 		Config:           serialized.Config,
 		Manager:          serialized.Manager,
 		ShareID:          shareID,
@@ -901,6 +907,7 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 			Manager:          alloc.Manager,
 			PreparedDevice:   alloc.Device,
 			LogicalPool:      alloc.LogicalPool,
+			StaticRoutes:     alloc.StaticRoutes,
 			PodUID:           podUID,
 			ClaimUID:         claim.UID,
 			Config:           alloc.Config,

@@ -28,6 +28,15 @@ var Cell = cell.Group(
 	cell.ProvidePrivate(newTableAndReflector),
 )
 
+// TableCell can be used in tests for providing the table, both as a statedb.RWTable and as a
+// statedb.Table, without the associated k8s reflector.
+var TableCell = cell.Provide(
+	newTable,
+	func(t statedb.RWTable[LocalResourceNetworkConfig]) statedb.Table[LocalResourceNetworkConfig] {
+		return t
+	},
+)
+
 // LocalResourceNetworkConfig is Cilium's internal model of a CiliumResourceNetworkConfig.
 type LocalResourceNetworkConfig struct {
 	Name string            `json:"name" yaml:"name"`
@@ -38,18 +47,53 @@ type LocalResourceNetworkConfig struct {
 	UpdatedAt time.Time `json:"updatedAt" yaml:"updatedAt"`
 }
 
+// LongestPrefixSpecMatch returns the spec entry, for the provided address family, whose CIDR
+// qualifies as longest prefix match. If no entry matches, the returned boolean is set to false.
+func (c LocalResourceNetworkConfig) LongestPrefixSpecMatch(addr netip.Addr) (IPSpec, bool) {
+	var ipSpec []IPSpec
+	if addr.Is4() {
+		ipSpec = c.Spec.IPv4
+	} else {
+		ipSpec = c.Spec.IPv6
+	}
+	return longestPrefixIPSpecMatch(ipSpec, addr)
+}
+
+func longestPrefixIPSpecMatch(ipSpec []IPSpec, addr netip.Addr) (IPSpec, bool) {
+	found := false
+	var entry IPSpec
+	for i := range ipSpec {
+		spec := &ipSpec[i]
+		if spec.CIDR.Contains(addr) && (!found || spec.CIDR.Bits() > entry.CIDR.Bits()) {
+			entry = *spec
+			found = true
+		}
+	}
+	return entry, found
+}
+
 type networkConfigSpec struct {
-	IPv4 []ipNetworkConfigSpec `json:"ipv4,omitempty" yaml:"ipv4,omitempty"`
-	IPv6 []ipNetworkConfigSpec `json:"ipv6,omitempty" yaml:"ipv6,omitempty"`
+	IPv4 []IPSpec `json:"ipv4,omitempty" yaml:"ipv4,omitempty"`
+	IPv6 []IPSpec `json:"ipv6,omitempty" yaml:"ipv6,omitempty"`
 }
 
-type ipNetworkConfigSpec struct {
+type IPSpec struct {
 	CIDR         netip.Prefix        `json:"cidr" yaml:"cidr"`
-	PrefixLength *uint8              `json:"prefixLength,omitempty" yaml:"prefixLength,omitempty"`
-	Routes       []ipStaticRouteSpec `json:"routes,omitempty" yaml:"routes,omitempty"`
+	PrefixLength *int                `json:"prefixLength,omitempty" yaml:"prefixLength,omitempty"`
+	Routes       []IPStaticRouteSpec `json:"routes,omitempty" yaml:"routes,omitempty"`
 }
 
-type ipStaticRouteSpec struct {
+// GetPrefixLength returns the prefix length field value if available, and the CIDR's prefix length
+// otherwise.
+func (s *IPSpec) GetPrefixLength() int {
+	if s.PrefixLength == nil {
+		// note: the CIDR is valid, so Bits() doesn't return -1.
+		return s.CIDR.Bits()
+	}
+	return *s.PrefixLength
+}
+
+type IPStaticRouteSpec struct {
 	Destination netip.Prefix `json:"destination" yaml:"destination"`
 	Gateway     *netip.Addr  `json:"gateway,omitempty" yaml:"gateway,omitempty"`
 }
@@ -78,7 +122,7 @@ func (c LocalResourceNetworkConfig) TableRow() []string {
 // Statically check that LocalResourceNetworkConfig implements statedb.TableWritable.
 var _ statedb.TableWritable = LocalResourceNetworkConfig{}
 
-func showIPSpecs(specs []ipNetworkConfigSpec) string {
+func showIPSpecs(specs []IPSpec) string {
 	var b strings.Builder
 	for i, s := range specs {
 		if i > 0 {
@@ -89,7 +133,7 @@ func showIPSpecs(specs []ipNetworkConfigSpec) string {
 	return b.String()
 }
 
-func writeIPSpec(b *strings.Builder, s ipNetworkConfigSpec) {
+func writeIPSpec(b *strings.Builder, s IPSpec) {
 	b.WriteString(s.CIDR.String())
 	if s.PrefixLength != nil {
 		b.WriteString(" PrefixLength=")
@@ -107,7 +151,7 @@ func writeIPSpec(b *strings.Builder, s ipNetworkConfigSpec) {
 	}
 }
 
-func writeRoute(b *strings.Builder, r ipStaticRouteSpec) {
+func writeRoute(b *strings.Builder, r IPStaticRouteSpec) {
 	b.WriteString(r.Destination.String())
 	if r.Gateway != nil && r.Gateway.IsValid() {
 		b.WriteString(" via ")
@@ -180,8 +224,8 @@ func toConfig(_ statedb.ReadTxn, obj any) (LocalResourceNetworkConfig, bool) {
 	}
 
 	spec := networkConfigSpec{
-		IPv4: make([]ipNetworkConfigSpec, 0, len(cfg.Spec.IPv4)),
-		IPv6: make([]ipNetworkConfigSpec, 0, len(cfg.Spec.IPv6)),
+		IPv4: make([]IPSpec, 0, len(cfg.Spec.IPv4)),
+		IPv6: make([]IPSpec, 0, len(cfg.Spec.IPv6)),
 	}
 
 	for specIdx := range cfg.Spec.IPv4 {
@@ -207,72 +251,72 @@ func toConfig(_ statedb.ReadTxn, obj any) (LocalResourceNetworkConfig, bool) {
 	}, true
 }
 
-func parseIPv4Spec(spec *v2alpha1.IPv4NetworkConfigSpec) (ipNetworkConfigSpec, bool) {
+func parseIPv4Spec(spec *v2alpha1.IPv4NetworkConfigSpec) (IPSpec, bool) {
 	cidr, err := netip.ParsePrefix(spec.CIDR)
 	if err != nil {
-		return ipNetworkConfigSpec{}, false
+		return IPSpec{}, false
 	}
-	var prefixLength *uint8
+	var prefixLength *int
 	if spec.PrefixLength != nil {
-		prefixLength = new(*spec.PrefixLength)
+		prefixLength = new(int(*spec.PrefixLength))
 	}
 
-	routes := make([]ipStaticRouteSpec, 0, len(spec.Routes))
+	routes := make([]IPStaticRouteSpec, 0, len(spec.Routes))
 	for routeIdx := range spec.Routes {
 		route := &spec.Routes[routeIdx]
 		parsedRoute, isValid := parseRoute(route.Destination, route.Gateway)
 		if !isValid {
-			return ipNetworkConfigSpec{}, false
+			return IPSpec{}, false
 		}
 		routes = append(routes, parsedRoute)
 	}
-	return ipNetworkConfigSpec{
+	return IPSpec{
 		CIDR:         cidr,
 		PrefixLength: prefixLength,
 		Routes:       routes,
 	}, true
 }
 
-func parseIPv6Spec(spec *v2alpha1.IPv6NetworkConfigSpec) (ipNetworkConfigSpec, bool) {
+func parseIPv6Spec(spec *v2alpha1.IPv6NetworkConfigSpec) (IPSpec, bool) {
 	cidr, err := netip.ParsePrefix(spec.CIDR)
 	if err != nil {
-		return ipNetworkConfigSpec{}, false
+		return IPSpec{}, false
 	}
-	var prefixLength *uint8
+	var prefixLength *int
 	if spec.PrefixLength != nil {
-		prefixLength = new(*spec.PrefixLength)
+		prefixLength = new(int(*spec.PrefixLength))
 	}
 
-	routes := make([]ipStaticRouteSpec, 0, len(spec.Routes))
+	routes := make([]IPStaticRouteSpec, 0, len(spec.Routes))
 	for routeIdx := range spec.Routes {
 		route := &spec.Routes[routeIdx]
 		parsedRoute, isValid := parseRoute(route.Destination, route.Gateway)
 		if !isValid {
-			return ipNetworkConfigSpec{}, false
+			return IPSpec{}, false
 		}
 		routes = append(routes, parsedRoute)
 	}
-	return ipNetworkConfigSpec{
+	return IPSpec{
 		CIDR:         cidr,
 		PrefixLength: prefixLength,
 		Routes:       routes,
 	}, true
 }
 
-func parseRoute(destination string, gateway *string) (ipStaticRouteSpec, bool) {
+func parseRoute(destination string, gateway *string) (IPStaticRouteSpec, bool) {
 	dst, err := netip.ParsePrefix(destination)
 	if err != nil {
-		return ipStaticRouteSpec{}, false
+		return IPStaticRouteSpec{}, false
 	}
 
 	var gw *netip.Addr
 	if gateway != nil {
 		parsed, err := netip.ParseAddr(*gateway)
 		if err != nil {
-			return ipStaticRouteSpec{}, false
+			return IPStaticRouteSpec{}, false
 		}
 		gw = &parsed
 	}
 
-	return ipStaticRouteSpec{Destination: dst, Gateway: gw}, true
+	return IPStaticRouteSpec{Destination: dst, Gateway: gw}, true
 }

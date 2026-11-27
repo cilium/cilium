@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/netip"
 	"path"
 
@@ -17,8 +19,10 @@ import (
 	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
+	"golang.org/x/sys/unix"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
+	linuxroute "github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -30,11 +34,18 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type ipamAction string
+type addrAction int
 
 const (
-	addrAdd ipamAction = "add"
-	addrDel ipamAction = "del"
+	addrAdd addrAction = iota
+	addrDel
+)
+
+type routeAction int
+
+const (
+	routeAdd routeAction = iota
+	routeDel
 )
 
 var (
@@ -219,26 +230,32 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 			}
 
 			if err := netlink.LinkSetNsFd(l, podNs.FD()); err != nil {
-				return err
+				return fmt.Errorf("failed to move device to network namespace pinned at %s: %w",
+					nsPath, err)
 			}
 
 			if err := podNs.Do(func() error {
-				// Rename interface to custom name
+				// Rename device to custom name
 				l, err = configureIfName(l, a.Config.PodIfName)
 				if err != nil {
-					return fmt.Errorf("failed to set interface name: %w", err)
+					return fmt.Errorf("failed to set device name: %w", err)
 				}
 
 				if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-					return err
+					return fmt.Errorf("failed to configure IPs: %w", err)
 				}
 
 				if err := netlink.LinkSetUp(l); err != nil {
-					return err
+					return fmt.Errorf("failed to set device up: %w", err)
 				}
 
 				if err := driver.configureSysctl(l, a.Config); err != nil {
-					return fmt.Errorf("failed to configure sysctl for device %s: %w", l.Attrs().Name, err)
+					return fmt.Errorf("failed to configure sysctl for device %s: %w",
+						l.Attrs().Name, err)
+				}
+
+				if err := driver.configureRoutes(log, l, routeAdd, a.StaticRoutes); err != nil {
+					return fmt.Errorf("failed to configure routes: %w", err)
 				}
 
 				return nil
@@ -343,32 +360,44 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 				l, err := safenetlink.LinkByName(ifName)
 				if err != nil {
-					return err
+					log.WarnContext(ctx, "Failed to find device in the pod namespace, skipping its cleanup",
+						logfields.Device, ifName,
+						logfields.Error, err)
+					continue
+				}
+
+				if err := driver.configureRoutes(log, l, routeDel, a.StaticRoutes); err != nil {
+					log.WarnContext(ctx, "Failed to delete static routes",
+						logfields.Device, ifName,
+						logfields.Error, err)
 				}
 
 				if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-					return err
+					log.WarnContext(ctx, "Failed to delete addresses",
+						logfields.Device, ifName,
+						logfields.Error, err)
 				}
 
 				if err := netlink.LinkSetDown(l); err != nil {
-					return err
+					log.WarnContext(ctx, "Failed to set device down",
+						logfields.Device, ifName,
+						logfields.Error, err)
 				}
 
 				// Rename back to original kernel name before moving to root namespace
-				l, err = configureIfName(l, a.Device.KernelIfName())
-				if err != nil {
+				// (if it fails, the device is moved back anyway with its pod-side name)
+				if renamed, err := configureIfName(l, a.Device.KernelIfName()); err != nil {
 					driver.logger.ErrorContext(
-						ctx, "failed to restore interface name",
+						ctx, "failed to restore device name",
 						logfields.Error, err,
 					)
-
-					// we want to continue here to clean up the remaining, even if this one failed
-					continue
+				} else {
+					l = renamed
 				}
 
 				// Always try to move back to root netns
 				if err := netlink.LinkSetNsFd(l, rootNs.FD()); err != nil {
-					driver.logger.WarnContext(ctx, "Failed to move interface to root namespace",
+					driver.logger.WarnContext(ctx, "Failed to move device to root namespace",
 						logfields.Error, err,
 						logfields.Device, a.Device.KernelIfName())
 					// Log but don't return - continue with other devices
@@ -577,7 +606,7 @@ func validateInterfaceNames(alloc []allocation) error {
 	return nil
 }
 
-func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6 netip.Prefix) error {
+func (driver *Driver) configureIPs(l netlink.Link, action addrAction, ipv4, ipv6 netip.Prefix) error {
 	var (
 		addrs []netlink.Addr
 		errs  error
@@ -608,4 +637,34 @@ func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6
 	}
 
 	return errs
+}
+
+func (driver *Driver) configureRoutes(logger *slog.Logger, l netlink.Link, action routeAction, routes []types.StaticRoute) error {
+	var errs []error
+	for _, r := range routes {
+		var nextHop *net.IP
+		if gw := r.Gateway; gw != nil {
+			addr := net.IP(gw.AsSlice())
+			nextHop = &addr
+		}
+		route := linuxroute.Route{
+			Prefix:  *netipx.PrefixIPNet(r.Destination),
+			Nexthop: nextHop,
+			Device:  l.Attrs().Name,
+			Table:   unix.RT_TABLE_MAIN,
+			Proto:   unix.RTPROT_STATIC,
+		}
+
+		switch action {
+		case routeAdd:
+			if err := linuxroute.Upsert(logger, route); err != nil {
+				errs = append(errs, fmt.Errorf("failed to add static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
+			}
+		case routeDel:
+			if err := linuxroute.Delete(route); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
+			}
+		}
+	}
+	return errors.Join(errs...)
 }

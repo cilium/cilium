@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/networkdriver/networkconfig"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	node_types "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -296,7 +297,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		pod.UID, claim.UID, claim.Status.Allocation.Devices.Results, deviceCfgs,
 	); ifName != "" {
 		return kubeletplugin.PrepareResult{Err: fmt.Errorf(
-			"Pod interface %s already has an RX queue allocation", ifName)}
+			"pod interface %s already has an RX queue allocation", ifName)}
 	}
 
 	// Precompute what is already done so retries skip completed work.
@@ -628,6 +629,19 @@ func (driver *Driver) getNewAllocation(
 	}
 
 	claimNamespacedName := path.Join(claim.Namespace, claim.Name)
+
+	var netConf networkconfig.LocalResourceNetworkConfig
+	// Fail immediately if the claim specifies a network config that cannot be retrieved, regardless
+	// the fact that the claim requested for dynamic address allocation or not.
+	if cfg.HasNetworkConfig() {
+		netConf, _, found = driver.localNetConfs.Get(driver.db.ReadTxn(),
+			networkconfig.TableByNameQuery(cfg.NetworkConfig))
+		if !found {
+			return allocation{}, nil, fmt.Errorf("failed to get network config %s for claim %s",
+				cfg.NetworkConfig, claimNamespacedName)
+		}
+	}
+
 	alloc := allocation{
 		DeviceName:       result.Device,
 		Config:           cfg,
@@ -656,10 +670,20 @@ func (driver *Driver) getNewAllocation(
 		}
 	}()
 
-	// Allocate IP addresses
-	if err = driver.allocateAddrs(ctx, alloc.DeviceName, &alloc.Config); err != nil {
+	allocConfig := &alloc.Config
+
+	// Allocate IP addresses.
+	if err = driver.allocateAddrs(ctx, alloc.DeviceName, allocConfig); err != nil {
 		errMsg = "failed to allocate IP addresses"
 		return allocation{}, nil, fmt.Errorf("%s for device %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
+	}
+
+	// Apply network config, if present.
+	if allocConfig.HasNetworkConfig() {
+		if err = applyNetworkConfig(&netConf, &alloc); err != nil {
+			errMsg = "failed to apply network config"
+			return allocation{}, nil, fmt.Errorf("%s %s for claim %s: %w", errMsg, allocConfig.NetworkConfig, claimNamespacedName, err)
+		}
 	}
 
 	// Setup the device. The prepared device may differ from the advertised
@@ -687,6 +711,58 @@ func (driver *Driver) getNewAllocation(
 	}
 
 	return alloc, &built, nil
+}
+
+// applyNetworkConfig extracts information from the network config that are relevant for the
+// provided allocation, and patches it with them.
+func applyNetworkConfig(netConf *networkconfig.LocalResourceNetworkConfig, alloc *allocation) error {
+	// note: addr.IsValid() checks mean that network config is applied just for addresses that were
+	// dynamically allocated or statically specified.
+
+	if addr := &alloc.Config.IPv4Addr; addr.IsValid() {
+		if err := applyNetworkConfigForAddress(netConf, alloc, addr); err != nil {
+			return fmt.Errorf("apply network config for address %s: %w", addr, err)
+		}
+	}
+	if addr := &alloc.Config.IPv6Addr; addr.IsValid() {
+		if err := applyNetworkConfigForAddress(netConf, alloc, addr); err != nil {
+			return fmt.Errorf("apply network config for address %s: %w", addr, err)
+		}
+	}
+	return nil
+}
+
+// applyNetworkConfigForAddress extracts information from the network config that are relevant for
+// the given address, patching it and the provided allocation as needed.
+func applyNetworkConfigForAddress(netConf *networkconfig.LocalResourceNetworkConfig,
+	alloc *allocation, addr *netip.Prefix) error {
+	specMatch, found := netConf.LongestPrefixSpecMatch(addr.Addr())
+	if !found {
+		// No relevant network config: keep everything as is.
+		return nil
+	}
+
+	// Override the address prefix and accounts for any requested static route list.
+	prefixLength := specMatch.GetPrefixLength()
+	newAddr := netip.PrefixFrom(addr.Addr(), prefixLength)
+	if !newAddr.IsValid() {
+		return fmt.Errorf("invalid entry prefix length %d", prefixLength)
+	}
+
+	*addr = newAddr
+	alloc.StaticRoutes = append(alloc.StaticRoutes, buildStaticRoutes(specMatch.Routes)...)
+	return nil
+}
+
+func buildStaticRoutes(routeSpecs []networkconfig.IPStaticRouteSpec) []types.StaticRoute {
+	routes := make([]types.StaticRoute, 0, len(routeSpecs))
+	for _, spec := range routeSpecs {
+		routes = append(routes, types.StaticRoute{
+			Destination: spec.Destination,
+			Gateway:     spec.Gateway,
+		})
+	}
+	return routes
 }
 
 // reuseAllocatedDevice implements the idempotency path for a single device
@@ -895,6 +971,7 @@ func serializeDevice(a allocation) ([]byte, error) {
 		Dev:              data,
 		Config:           a.Config,
 		LogicalPool:      a.LogicalPool,
+		StaticRoutes:     a.StaticRoutes,
 		ConsumedCapacity: maps.Clone(a.ConsumedCapacity),
 	})
 }

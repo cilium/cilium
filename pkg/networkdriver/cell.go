@@ -79,6 +79,7 @@ type networkDriverParams struct {
 	AllocationTable statedb.RWTable[*DRAAllocation]
 	RXQueueFlows    statedb.RWTable[*RXQueueFlows]
 	LocalPods       statedb.Table[k8sTables.LocalPod]
+	LocalNetConfs   statedb.Table[networkconfig.LocalResourceNetworkConfig]
 	LocalNodeStore  *node.LocalNodeStore
 	MultiPoolMgr    *ipam.MultiPoolManager
 
@@ -178,6 +179,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		configModifiers: params.ConfigModifiers,
 		rxQueueFlows:    params.RXQueueFlows,
 		localPods:       params.LocalPods,
+		localNetConfs:   params.LocalNetConfs,
 
 		endpoints:        params.Endpoints,
 		endpointRestorer: params.EndpointRestorer,
