@@ -229,6 +229,7 @@ func miscSystemCommands() []string {
 		"iptables-legacy-save -c",
 		"ip6tables-legacy-save -c",
 		"ip -d rule",
+		"ip -6 -d rule",
 		"ipset list",
 		// xfrm
 		"ip -s xfrm policy",

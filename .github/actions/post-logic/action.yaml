@@ -44,7 +44,7 @@ runs:
 
     - name: Upload artifacts
       id: upload_sysdumps
-      if: ${{ always() && inputs.job_status != 'success' }}
+      if: ${{ always() && (inputs.job_status != 'success' || inputs.always_capture_sysdump == 'true') }}
       # A lost report is not worth failing a pull request over. Scheduled runs
       # dispatch with a vX-Y PR-number and keep failing hard, since they are what
       # corgi reads.
