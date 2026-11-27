@@ -21,6 +21,10 @@ nodes:
           taints: []
       - |
         kind: ClusterConfiguration
+        etcd:
+          local:
+            extraArgs:
+              unsafe-no-fsync: "true"
         apiServer:
           extraArgs:
             enable-admission-plugins: NodeRestriction,OwnerReferencesPermissionEnforcement

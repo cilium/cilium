@@ -19,6 +19,13 @@ nodes:
         kind: InitConfiguration
         nodeRegistration:
           taints: []
+      # CI clusters are disposable, so etcd skips fsync.
+      - |
+        kind: ClusterConfiguration
+        etcd:
+          local:
+            extraArgs:
+              unsafe-no-fsync: "true"
   - role: worker
 networking:
   ipFamily: ipv6
