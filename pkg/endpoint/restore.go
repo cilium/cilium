@@ -214,6 +214,14 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	// Filter the restored labels with the new daemon's filter
 	l, _ := labelsfilter.Filter(e.labels.AllLabels())
+	// Remember the identity revision the restored labels belong to. The
+	// endpoint is unlocked while we allocate the identity and wait for the
+	// regeneration fence below, which can block for a while (e.g. up to
+	// clustermesh-sync-timeout for the clustermesh synchronization). A
+	// concurrent identity resolution, e.g. InitHostEndpointLabels() refreshing
+	// the host endpoint with the current node labels, may update the labels
+	// in the meantime.
+	restoredRev := e.identityRevision
 	e.runlock()
 
 	// Getting the ep's identity while we are restoring should block the
@@ -305,6 +313,47 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		releaseNewlyAllocatedIdentity()
 		e.getLogger().Warn("Endpoint to restore has been deleted")
 		return err
+	}
+
+	// The identity labels changed while we were unlocked, so the labels read
+	// from disk are stale and the identity allocated for them is obsolete.
+	// Applying it would revert the host endpoint to the stale labels. For a
+	// changed label, nothing would correct that until the node labels change
+	// again or the agent restarts: the node labels observer only reacts to
+	// further node label changes, and the periodic resolver compares the
+	// endpoint labels against the (now equally stale) security identity labels.
+	if e.IsHost() && e.identityResolutionIsObsolete(restoredRev) {
+		currentLabels := e.labels.IdentityLabels()
+		scopedLog := e.getLogger().With(
+			logfields.OldLabels, l,
+			logfields.NewLabels, currentLabels,
+		)
+		if e.identitySet {
+			// Since the restore, the newer identity resolution that changed
+			// the labels has already set an identity. That resolution, or a
+			// later one if the labels changed again, applies the identity of
+			// the current labels, so drop ours, as identityLabelsChanged()
+			// does when it finds its resolution obsolete.
+			scopedLog.Info("Endpoint identity labels changed while restoring, skipping restored identity in favor of the newer identity resolution")
+			e.unlock()
+			releaseNewlyAllocatedIdentity()
+			return nil
+		}
+
+		// No identity has been set since the endpoint was restored: the
+		// resolution that changed the labels has not called SetIdentity() yet,
+		// or returned without calling it because the labels match the identity
+		// restored from disk. Returning here would leave the identity of the
+		// endpoint unregistered with the identity manager, so no policy would
+		// be computed for it and the regeneration in RegenerateAfterRestore()
+		// would fail. The host identity is reserved and resolved locally (see
+		// IdentityAllocationIsLocal()), so set the identity of the current
+		// labels instead. Reserved identities are not reference counted, so
+		// the restored one needs no release.
+		if hostIdentity := identity.LookupReservedIdentityByLabels(currentLabels); hostIdentity != nil {
+			scopedLog.Info("Endpoint identity labels changed while restoring, applying the identity of the current labels")
+			id = hostIdentity
+		}
 	}
 
 	e.setState(StateRestoring, "Synchronizing endpoint labels with KVStore")
