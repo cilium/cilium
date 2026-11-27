@@ -288,6 +288,7 @@ type testCommands struct {
 func (tc testCommands) cmds() map[string]script.Cmd {
 	return map[string]script.Cmd{
 		"test/update-backend-health":        tc.updateHealth(),
+		"test/set-proxy-redirect":           tc.setProxyRedirect(),
 		"test/bpfops-reset":                 tc.opsReset(),
 		"test/bpfops-summary":               tc.opsSummary(),
 		"test/bpfops-state-empty":           tc.opsStateEmpty(),
@@ -330,6 +331,39 @@ func (tc testCommands) updateHealth() script.Cmd {
 			txn.Commit()
 			return nil, nil
 		})
+}
+
+func (tc testCommands) setProxyRedirect() script.Cmd {
+	return script.Command(
+		script.CmdUsage{Summary: "Set a service's proxy redirect", Args: "service-name proxy-port"},
+		func(_ *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 2 {
+				return nil, fmt.Errorf("%w: expected service name and proxy port", script.ErrUsage)
+			}
+			var name loadbalancer.ServiceName
+			if err := name.UnmarshalText([]byte(args[0])); err != nil {
+				return nil, err
+			}
+			port, err := strconv.ParseUint(args[1], 10, 16)
+			if err != nil {
+				return nil, err
+			}
+
+			txn := tc.w.WriteTxn()
+			defer txn.Abort()
+			svc, _, found := tc.w.Services().Get(txn, loadbalancer.ServiceByName(name))
+			if !found {
+				return nil, fmt.Errorf("service %s not found", name)
+			}
+			svc = svc.Clone()
+			svc.ProxyRedirects = loadbalancer.ProxyRedirects{{ProxyPort: uint16(port)}}
+			if _, err := tc.w.UpsertService(txn, svc); err != nil {
+				return nil, err
+			}
+			txn.Commit()
+			return nil, nil
+		},
+	)
 }
 
 func (tc testCommands) opsReset() script.Cmd {

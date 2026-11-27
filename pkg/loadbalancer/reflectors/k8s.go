@@ -241,6 +241,10 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			}
 			return
 		}
+		// CEC owns service redirects. Preserve them across Kubernetes Service updates.
+		if old, _, found := p.Writer.Services().Get(txn, loadbalancer.ServiceByName(name)); found && old.Source == source.Kubernetes {
+			svc.ProxyRedirects = old.ProxyRedirects
+		}
 		p.SVCMetrics.AddService(svc)
 
 		// Sort the frontends by address
