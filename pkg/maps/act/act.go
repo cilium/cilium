@@ -108,6 +108,7 @@ func configure(cfg Config, lbCfg loadbalancer.Config, reg *registry.MapRegistry)
 
 	if err := reg.Modify(ACTMapName, func(m *registry.MapSpecPatch) {
 		m.MaxEntries = uint32(size)
+		m.Flags = bpf.GetMapMemoryFlags(ebpf.LRUHash)
 	}); err != nil {
 		return err
 	}
