@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	startReaper()
 	hiveFn := func() *hive.Hive {
 		return hive.New(cmd.Agent)
 	}
