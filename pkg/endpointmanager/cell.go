@@ -166,11 +166,11 @@ type EndpointManager interface {
 	// Returns immediately.
 	TriggerRegenerateAllEndpoints()
 
-	// RegenerateAllForPolicy regenerates all endpoints against the given policy
-	// revision. Each endpoint's regeneration waits for the compute cell to
-	// publish its identity's SelectorPolicy at waitFor before proceeding.
-	// Returns immediately.
-	RegenerateAllForPolicy(waitFor uint64)
+	// RegenerateAllForPolicy regenerates all endpoints after policy has been
+	// recomputed for all identities. Each endpoint's regeneration waits for its
+	// identity's policy to be current at the requested revision. Returns
+	// immediately.
+	RegenerateAllForPolicy()
 
 	// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
 	// this function is called to be at a given policy revision.

@@ -196,19 +196,15 @@ type ConfigModifyEventHandler struct {
 func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 	reason := strings.Join(reasons, ", ")
 
-	// We expect the policy revision to have been bumped prior to this call
-	// here. All endpoints are about to be regenerated so recompute policy
-	// for all endpoints and then trigger regeneration.
-
-	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+	// All endpoints are about to be regenerated, so bump the policy revision,
+	// recompute policy for all identities at it, and then trigger
+	// regeneration. See BumpRevision.
+	h.computer.RecomputeIdentityPolicyForAllIdentities(h.policy.BumpRevision())
+	h.endpointManager.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
 		Reason:            regeneration.ReasonDaemonConfigUpdate,
 		Message:           reason,
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
-
-		PolicyRevisionToWaitFor: h.policy.GetRevision(),
-	}
-	h.computer.RecomputeIdentityPolicyForAllIdentities(regenerationMetadata.PolicyRevisionToWaitFor)
-	h.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
+	})
 }
 
 // ConfigModifyEvents are serialized by the event queue, no need for additional locking for
@@ -280,8 +276,9 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 		}
 		// Most agent configuration changes require endpoint datapath regeneration,
 		// trigger datapath regeneration anyway in case we miss the regeneration
-		// due to a future change in BPF code.
-		h.triggerDatapathRegen(policyEnforcementChanged, "agent configuration update")
+		// due to a future change in BPF code. The regeneration recomputes
+		// policy, which also covers a PolicyEnforcement mode change.
+		h.datapathRegenTrigger.TriggerWithReason("agent configuration update")
 	}
 
 	resChan <- daemonapi.NewPatchConfigOK()
@@ -302,18 +299,6 @@ func (h *ConfigModifyEventHandler) changedOption(key string, value option.Option
 			h.l7Proxy.ChangeLogLevel(logging.GetSlogLevel(h.logger))
 		}
 	}
-	h.policy.BumpRevision() // force policy recalculation
-}
-
-// triggerDatapathRegen triggers datapath rewrite for every daemon's endpoint.
-// This is only called after agent configuration changes for now. Policy revision
-// needs to be increased on PolicyEnforcement mode change.
-func (h *ConfigModifyEventHandler) triggerDatapathRegen(force bool, reason string) {
-	if force {
-		h.logger.Debug("PolicyEnforcement mode changed, increasing policy revision to enforce policy recalculation")
-		h.policy.BumpRevision()
-	}
-	h.datapathRegenTrigger.TriggerWithReason(reason)
 }
 
 // ConfigModifyEvent is a wrapper around the parameters for configModify.
