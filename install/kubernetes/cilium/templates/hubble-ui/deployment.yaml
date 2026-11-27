@@ -32,7 +32,7 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if .Values.hubble.ui.rollOutPods }}
+        {{- if ((eq .Values.hubble.ui.rollOutPods nil) | ternary .Values.rollOutCiliumPods .Values.hubble.ui.rollOutPods) }}
         # ensure pods roll when configmap updates
         cilium.io/hubble-ui-nginx-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-ui/configmap.yaml") . | sha256sum | quote }}
         {{- end }}
