@@ -35,7 +35,7 @@ spec:
       labels:
         component: elasticsearch
     spec:
-      serviceAccount: elasticsearch
+      serviceAccountName: elasticsearch
       initContainers:
       - name: init-sysctl
         image: docker.io/library/busybox:1.31.1

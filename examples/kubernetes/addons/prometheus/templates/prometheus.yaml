@@ -45,7 +45,7 @@ spec:
           name: storage
       dnsPolicy: ClusterFirst
       restartPolicy: Always
-      serviceAccount: prometheus-k8s
+      serviceAccountName: prometheus-k8s
       volumes:
       - configMap:
           name: prometheus
