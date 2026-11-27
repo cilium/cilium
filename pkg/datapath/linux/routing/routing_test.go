@@ -54,6 +54,34 @@ func TestPrivilegedConfigure(t *testing.T) {
 	})
 }
 
+func TestPrivilegedConfigureIPv6(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+	for _, gateway := range []string{"2001:db8:1:0:ffff:ffff:ffff:fffd", "fe80:ec2::1"} {
+		t.Run(gateway, func(t *testing.T) {
+			ns := netns.NewNetNS(t)
+			ns.Do(func() error {
+				masterMAC := mac.MustParseMAC("00:11:22:33:44:55")
+				cleanup := createDummyDevice(t, masterMAC)
+				defer cleanup()
+				ri, err := NewRoutingInfo(gateway, masterMAC, "1", WithLinkState(true))
+				require.NoError(t, err)
+				address := netip.MustParseAddr("2001:db8:1::10")
+				require.NoError(t, ri.ReconcileEndpointRules(address, false))
+				rules, err := route.ListRules(netlink.FAMILY_V6, &route.Rule{From: netipx.AddrIPNet(address)})
+				require.NoError(t, err)
+				require.Len(t, rules, 1)
+				require.Equal(t, linux_defaults.RouteTableInterfacesOffset+1, rules[0].Table)
+				routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6,
+					&netlink.Route{Table: rules[0].Table}, netlink.RT_FILTER_TABLE)
+				require.NoError(t, err)
+				require.Len(t, routes, 2)
+				require.NoError(t, Delete(hivetest.Logger(t), address))
+				return nil
+			})
+		})
+	}
+}
+
 func TestPrivilegedConfigureAzureMasquerade(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 

@@ -30,8 +30,7 @@ import (
 const internalEndpointOwner = "internal"
 
 type endpointRulesManager struct {
-	enabled  bool
-	ipamMode string
+	enabled bool
 
 	logger          *slog.Logger
 	db              *statedb.DB
@@ -69,7 +68,6 @@ type endpointRulesManagerParams struct {
 
 func newEndpointRulesManager(p endpointRulesManagerParams) *endpointRulesManager {
 	manager := &endpointRulesManager{
-		ipamMode:        p.DaemonConfig.IPAMMode(),
 		logger:          p.Logger,
 		db:              p.DB,
 		table:           p.Table,
@@ -80,14 +78,6 @@ func newEndpointRulesManager(p endpointRulesManagerParams) *endpointRulesManager
 
 	if p.DaemonConfig.DryMode || !isCloudIPAMMode(p.DaemonConfig.IPAMMode()) {
 		return manager
-	}
-
-	if p.DaemonConfig.IPAMMode() == ipamOption.IPAMAlibabaCloud && p.DaemonConfig.EnableIPv6 {
-		// AlibabaCloud only supplies IPv4 routing metadata. Keep the manager
-		// enabled to reconcile IPv4, while rejecting actual IPv6 endpoints.
-		p.Logger.Error("AlibabaCloud IPv6 endpoint routing reconciliation is not supported",
-			logfields.Error, errors.New("routing metadata for IPv6 is not supported by AlibabaCloud IPAM"),
-		)
 	}
 
 	manager.enabled = true
@@ -192,9 +182,6 @@ func (mgr *endpointRulesManager) WaitForEndpointRouting(ctx context.Context, ep 
 
 	owner := endpointRulesOwner(ep)
 	for _, address := range endpointAddrs(ep) {
-		if mgr.ipamMode == ipamOption.IPAMAlibabaCloud && address.Is6() {
-			return fmt.Errorf("AlibabaCloud IPAM does not support IPv6 endpoint routing for %s", address)
-		}
 		if err := mgr.waitForRules(ctx, address, owner); err != nil {
 			return err
 		}
@@ -244,16 +231,6 @@ func (mgr *endpointRulesManager) handleEvent(
 	owner string,
 	deleted bool,
 ) {
-	if mgr.ipamMode == ipamOption.IPAMAlibabaCloud {
-		filtered := make([]netip.Addr, 0, len(addresses))
-		for _, address := range addresses {
-			if address.Is4() {
-				filtered = append(filtered, address)
-			}
-		}
-		addresses = filtered
-	}
-
 	if len(addresses) == 0 {
 		return
 	}

@@ -330,6 +330,12 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		}
 	}
 
+	if option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+		if err := addIPv6ENIRules(); err != nil {
+			return fmt.Errorf("unable to install ipv6 ip rule for ENI multi-node NodePort: %w", err)
+		}
+	}
+
 	// Any code that relies on sysctl settings being applied needs to be called after this.
 	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
 		return err

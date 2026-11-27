@@ -37,6 +37,7 @@ var poolAccessor = ipam.PoolSpecAccessors{
 				prefix := netip.PrefixFrom(address.PrivateIpAddress.Addr, 32)
 				cidrs = append(cidrs, iputil.PrefixFrom(prefix))
 			}
+			cidrs = append(cidrs, eni.IPv6Prefixes...)
 		}
 
 		slices.SortFunc(cidrs, func(a, b iputil.Prefix) int {

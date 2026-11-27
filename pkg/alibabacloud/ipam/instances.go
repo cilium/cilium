@@ -28,11 +28,12 @@ type AlibabaCloudAPI interface {
 	GetVPC(ctx context.Context, vpcID string) (*ipamTypes.VirtualNetwork, error)
 	GetVPCs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
-	CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *types.ENI, error)
+	CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string, allocateIPv6 bool) (string, *types.ENI, error)
 	AttachNetworkInterface(ctx context.Context, instanceID, eniID string) error
 	WaitENIAttached(ctx context.Context, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllocate int) ([]string, error)
+	AssignENIIPv6Prefix(ctx context.Context, eniID string) error
 	UnassignPrivateIPAddresses(ctx context.Context, eniID string, addresses []string) error
 }
 

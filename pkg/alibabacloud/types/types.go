@@ -137,6 +137,11 @@ type ENI struct {
 	// +optional
 	PrivateIPSets []PrivateIPSet `json:"private-ipsets,omitempty"`
 
+	// IPv6Prefixes is the list of IPv6 /80 prefixes delegated to this ENI.
+	//
+	// +optional
+	IPv6Prefixes []iputil.Prefix `json:"ipv6-prefixes,omitempty"`
+
 	// Tags is the tags on this ENI
 	//
 	// +optional
