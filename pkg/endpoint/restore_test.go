@@ -13,16 +13,25 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	fqdnrestore "github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -310,3 +319,100 @@ func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
 }
 
 var _ EndpointParser = &fakeParser{}
+
+func TestSyncEndpointHeaderFilePersistsCiliumEndpointUID(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode string
+	}{
+		{
+			name: "sync_after_trigger_initialized",
+			mode: "after",
+		},
+		{
+			name: "sync_before_trigger_initialized",
+			mode: "before",
+		},
+		{
+			name: "sync_concurrent_with_trigger_init",
+			mode: "concurrent",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			tmpDir := t.TempDir()
+			origStateDir := option.Config.StateDir
+			option.Config.StateDir = tmpDir
+			t.Cleanup(func() {
+				option.Config.StateDir = origStateDir
+			})
+
+			idmgr := identitymanager.NewIDManager(logger)
+			repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+			p := createEndpointParams(t, &fakeendpoint.FakeOrchestrator{}, repo, nil)
+			model := newTestEndpointModel(256, StateWaitingForIdentity)
+			ep, err := NewEndpointFromChangeModel(p, &fakeDNSRulesAPI{}, &FakeEndpointProxy{}, model, nil)
+			require.NoError(t, err)
+			ep.Start(uint16(model.ID))
+			t.Cleanup(func() {
+				ep.SetState(StateDisconnecting, "test")
+				ep.Stop()
+			})
+			stateDir := ep.StateDirectoryPath()
+			require.NoError(t, os.MkdirAll(stateDir, 0o777))
+
+			// Persist initial CEP UID ("cep-uid-1") to ep_config.json on disk.
+			ep.SetCiliumEndpointUID(types.UID("cep-uid-1"))
+			require.NoError(t, ep.writeHeaderfile(stateDir))
+
+			// Simulate CEP recreation updating CiliumEndpointUID to "cep-uid-2" and syncing header file.
+			switch tc.mode {
+			case "before":
+				ep.SetCiliumEndpointUID(types.UID("cep-uid-2"))
+				ep.SyncEndpointHeaderFile()
+				ep.initDNSHistoryTrigger()
+			case "after":
+				ep.initDNSHistoryTrigger()
+				ep.SetCiliumEndpointUID(types.UID("cep-uid-2"))
+				ep.SyncEndpointHeaderFile()
+			case "concurrent":
+				ep.SetCiliumEndpointUID(types.UID("cep-uid-2"))
+				start := make(chan struct{})
+				var wg sync.WaitGroup
+				wg.Add(2)
+				go func() {
+					defer wg.Done()
+					<-start
+					ep.SyncEndpointHeaderFile()
+				}()
+				go func() {
+					defer wg.Done()
+					<-start
+					ep.initDNSHistoryTrigger()
+				}()
+				close(start)
+				wg.Wait()
+			}
+
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				eps, _ := ReadEPsFromDirNames(
+					t.Context(),
+					logger,
+					&fakeParser{p: p},
+					tmpDir,
+					[]string{ep.DirectoryPath()},
+				)
+				if assert.Len(c, eps, 1) {
+					assert.Equal(c, types.UID("cep-uid-2"), eps[ep.ID].GetCiliumEndpointUID())
+				}
+			}, 2*time.Second, 20*time.Millisecond)
+		})
+	}
+}
+
+type fakeDNSRulesAPI struct{}
+
+func (f *fakeDNSRulesAPI) GetDNSRules(_ uint16) fqdnrestore.DNSRules { return nil }
+func (f *fakeDNSRulesAPI) RestoreDNSRules(_ uint16, _ fqdnrestore.DNSRules) {
+}
+func (f *fakeDNSRulesAPI) RemoveRestoredDNSRules(_ uint16) {}
