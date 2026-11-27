@@ -831,6 +831,7 @@ suricate
 svc
 syscall
 sysctl
+sysctlfix
 sysctls
 sysdump
 systemd
