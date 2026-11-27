@@ -9,14 +9,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // DeleteByName deletes the interface with the name ifName.
@@ -102,30 +99,10 @@ type LinkCache struct {
 	indexToName map[int]string
 }
 
-var Cell = cell.Module(
-	"link-cache",
-	"Provides a cache of link names to ifindex mappings",
-
-	cell.Provide(newLinkCache),
-)
-
-type linkCacheParams struct {
-	cell.In
-	JobGroup job.Group
-}
-
 func NewLinkCache() *LinkCache {
 	return &LinkCache{
 		indexToName: make(map[int]string),
 	}
-}
-
-func newLinkCache(params linkCacheParams) *LinkCache {
-	lc := NewLinkCache()
-
-	params.JobGroup.Add(job.Timer("sync", lc.SyncCache, 15*time.Second))
-
-	return lc
 }
 
 func (c *LinkCache) SyncCache(_ context.Context) error {

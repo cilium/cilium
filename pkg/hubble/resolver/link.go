@@ -6,31 +6,36 @@ package resolver
 import (
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hubble/resolver/types"
 )
 
-// LinkGetter implements types.LinkGetter using the datapath link cache.
+// LinkGetter implements types.LinkGetter using the devices table.
 type LinkGetter struct {
-	cache *link.LinkCache
+	db      *statedb.DB
+	devices statedb.Table[*tables.Device]
 }
 
-func NewLinkGetter(linkCache *link.LinkCache) types.LinkGetter {
-	return &LinkGetter{cache: linkCache}
+func NewLinkGetter(db *statedb.DB, devices statedb.Table[*tables.Device]) types.LinkGetter {
+	return &LinkGetter{db: db, devices: devices}
 }
 
 // GetIfNameCached implements types.LinkGetter.
 func (g *LinkGetter) GetIfNameCached(ifIndex int) (string, bool) {
-	if g.cache == nil {
+	dev, _, found := g.devices.Get(g.db.ReadTxn(), tables.DeviceByIndex(ifIndex))
+	// A device seen only through address or route updates has no name yet.
+	if !found || dev.Name == "" {
 		return "", false
 	}
-	return g.cache.GetIfNameCached(ifIndex)
+	return dev.Name, true
 }
 
 // Name implements types.LinkGetter.
 func (g *LinkGetter) Name(ifIndex uint32) string {
-	if g.cache == nil {
-		return strconv.FormatUint(uint64(ifIndex), 10)
+	if name, ok := g.GetIfNameCached(int(ifIndex)); ok {
+		return name
 	}
-	return g.cache.Name(ifIndex)
+	return strconv.FormatUint(uint64(ifIndex), 10)
 }

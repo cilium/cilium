@@ -75,6 +75,10 @@ Informational Notes
   ``operator.unmanagedPodWatcher.selector`` defaults to ``k8s-app=kube-dns``,
   so this remains the default behavior if you have not explicitly configured
   the option.
+* Hubble now resolves interface names from the devices table instead of a
+  link cache refreshed every 15 seconds. New interfaces get their name in
+  flows right away. Once an interface is deleted, flows show its ifindex
+  instead of its name right away, rather than up to 15 seconds later.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
