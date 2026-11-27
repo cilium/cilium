@@ -208,6 +208,9 @@
         "disableExternalIPMitigation": {
           "type": "boolean"
         },
+        "disableTimerMigration": {
+          "type": "boolean"
+        },
         "distributedLRU": {
           "properties": {
             "enabled": {

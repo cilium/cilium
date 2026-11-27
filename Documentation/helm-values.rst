@@ -164,6 +164,10 @@
      - Disable ExternalIP mitigation (CVE-2020-8554)
      - bool
      - ``false``
+   * - :spelling:ignore:`bpf.disableTimerMigration`
+     - Set kernel.timer_migration to 0 on datapath initialization. Set to false to leave the sysctl unchanged, for example on nodes with isolated CPUs.
+     - bool
+     - ``true``
    * - :spelling:ignore:`bpf.distributedLRU`
      - Control to use a distributed per-CPU backend memory for the core BPF LRU maps which Cilium uses. This improves performance significantly, but it is also recommended to increase BPF map sizing along with that.
      - object

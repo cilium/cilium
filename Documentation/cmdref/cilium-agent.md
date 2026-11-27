@@ -103,6 +103,7 @@ cilium-agent [flags]
       --disable-envoy-version-check[=true|false]                             Do not perform Envoy version check
       --disable-external-ip-mitigation[=true|false]                          Disable ExternalIP mitigation (CVE-2020-8554, default false)
       --disable-iptables-feeder-rules strings                                Chains to ignore when installing feeder rules.
+      --disable-timer-migration[=true|false]                                 Set kernel.timer_migration to 0 on datapath initialization. If false, Cilium leaves the sysctl unchanged, for example for nodes with isolated CPUs (default true)
       --dns-max-ips-per-restored-rule int                                    Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --dns-policy-unload-on-shutdown[=true|false]                           Unload DNS policy rules on graceful shutdown
       --dnsproxy-concurrency-limit int                                       Limit concurrency of DNS message processing

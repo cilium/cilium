@@ -1409,6 +1409,10 @@ data:
   disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
 {{- end }}
 
+{{- if not .Values.bpf.disableTimerMigration }}
+  disable-timer-migration: "false"
+{{- end }}
+
 {{- if .Values.ciliumEndpointSlice.enabled }}
   enable-cilium-endpoint-slice: "true"
   {{- if .Values.ciliumEndpointSlice.rateLimits }}

@@ -270,6 +270,26 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *regist
 	return nil
 }
 
+// baseSysctls returns the sysctl settings that Reinitialize applies.
+func baseSysctls(cfg loaderConfig) []tables.Sysctl {
+	sysSettings := []tables.Sysctl{
+		{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
+		{Name: []string{"net", "ipv4", "conf", "all", "rp_filter"}, Val: "0", IgnoreErr: false},
+		{Name: []string{"net", "ipv4", "fib_multipath_use_neigh"}, Val: "1", IgnoreErr: true},
+		{Name: []string{"kernel", "unprivileged_bpf_disabled"}, Val: "1", IgnoreErr: true},
+	}
+
+	// Timer migration causes spinlock contention on TCP retransmit timer
+	// resets on large servers. It is opt-out because on nodes with isolated
+	// CPUs it keeps unpinned timers on the isolated CPUs.
+	if cfg.DisableTimerMigration {
+		sysSettings = append(sysSettings,
+			tables.Sysctl{Name: []string{"kernel", "timer_migration"}, Val: "0", IgnoreErr: true})
+	}
+
+	return sysSettings
+}
+
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 	_, _, err := setupBaseDevice(l.logger, l.sysctl, mtu)
 	if err != nil {
@@ -284,13 +304,7 @@ func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Config) error {
-	sysSettings := []tables.Sysctl{
-		{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
-		{Name: []string{"net", "ipv4", "conf", "all", "rp_filter"}, Val: "0", IgnoreErr: false},
-		{Name: []string{"net", "ipv4", "fib_multipath_use_neigh"}, Val: "1", IgnoreErr: true},
-		{Name: []string{"kernel", "unprivileged_bpf_disabled"}, Val: "1", IgnoreErr: true},
-		{Name: []string{"kernel", "timer_migration"}, Val: "0", IgnoreErr: true},
-	}
+	sysSettings := baseSysctls(l.cfg)
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	l.compilationLock.Lock()

@@ -67,6 +67,7 @@ cilium-agent hive dot-graph [flags]
       --direct-routing-device string                              Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-envoy-version-check[=true|false]                  Do not perform Envoy version check
       --disable-iptables-feeder-rules strings                     Chains to ignore when installing feeder rules.
+      --disable-timer-migration[=true|false]                      Set kernel.timer_migration to 0 on datapath initialization. If false, Cilium leaves the sysctl unchanged, for example for nodes with isolated CPUs (default true)
       --dns-max-ips-per-restored-rule int                         Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --dnsproxy-concurrency-processing-grace-period duration     Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing
       --dynamic-lifecycle-config string                           List of dynamic lifecycle features and their configuration including the dependencies (default "[]")

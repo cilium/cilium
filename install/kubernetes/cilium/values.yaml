@@ -749,6 +749,9 @@ bpf:
   # -- (bool) Disable ExternalIP mitigation (CVE-2020-8554)
   # @default -- `false`
   disableExternalIPMitigation: false
+  # -- (bool) Set kernel.timer_migration to 0 on datapath initialization. Set
+  # to false to leave the sysctl unchanged, for example on nodes with isolated CPUs.
+  disableTimerMigration: true
   # -- (bool) Attach endpoint programs using tcx instead of legacy tc hooks on
   # supported kernels.
   # @default -- `true`
