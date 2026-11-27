@@ -29,7 +29,7 @@ jobs:
     name: Build Go Caches
     # A pull request can run its own workflow under the cleaner's name.
     if: github.event_name != 'workflow_run' || contains(fromJSON('["schedule", "workflow_dispatch"]'), github.event.workflow_run.event)
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 20
     strategy:
       matrix:
