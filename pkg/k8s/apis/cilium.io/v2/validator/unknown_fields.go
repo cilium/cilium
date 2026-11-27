@@ -244,15 +244,21 @@ func (r *reporter) PushStep(ps cmp.PathStep) {
 
 func (r *reporter) Report(rs cmp.Result) {
 	if !rs.Equal() {
-		// The below call returns two values of the diff, vx & xy. In our case,
-		// vx represents a "missing" value (-) in the diff, and vy represents
-		// an "extra" value (+) in the diff. We ignore vx because it is not
-		// possible to have "missing" values, because the validator will catch
-		// "missing" or "required" values earlier on. We only care about
-		// "extra" values here.
-		_, vy := r.path.Last().Values()
-		if vy.IsValid() {
+		// The below call returns the two values of the diff, vx & vy. vx is
+		// the value from the expected fields (the first argument to
+		// cmp.Equal) and vy is the value from the given fields (the second
+		// argument). Normally the offending field is only present on the
+		// given side (vy), i.e. it is an unknown field. However, it can also
+		// be present only on the expected side (vx), for example when the
+		// round-trip through the typed API injects a field that the given
+		// policy does not contain. Report the offending path in both cases
+		// so that the resulting error never has an empty list of fields.
+		vx, vy := r.path.Last().Values()
+		switch {
+		case vy.IsValid():
 			r.extras = append(r.extras, vy.String())
+		case vx.IsValid():
+			r.extras = append(r.extras, vx.String())
 		}
 	}
 }

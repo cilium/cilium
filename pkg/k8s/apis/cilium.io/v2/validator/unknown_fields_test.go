@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 )
 
@@ -180,5 +182,48 @@ func Test_getFields(t *testing.T) {
 		slices.Sort(tt.expected) // Must sort to check slice equality
 		slices.Sort(got)
 		require.Equal(t, tt.expected, got)
+	}
+}
+
+func Test_reporterExtras(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected []string
+		given    []string
+		extras   []string
+	}{
+		{
+			name:     "extra element on the given side",
+			expected: []string{"metadata.name"},
+			given:    []string{"foo", "metadata.name"},
+			extras:   []string{"foo"},
+		},
+		{
+			name:     "extra element on the expected side",
+			expected: []string{"metadata.name", "spec.listener.priority"},
+			given:    []string{"metadata.name"},
+			extras:   []string{"spec.listener.priority"},
+		},
+		{
+			name:     "no difference",
+			expected: []string{"metadata.name"},
+			given:    []string{"metadata.name"},
+			extras:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var r reporter
+			cmp.Equal(
+				tt.expected,
+				tt.given,
+				cmp.Reporter(&r),
+				cmpopts.SortSlices(func(o, n string) bool {
+					return o < n
+				}),
+			)
+			require.Equal(t, tt.extras, r.extras)
+		})
 	}
 }
