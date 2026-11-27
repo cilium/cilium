@@ -545,7 +545,7 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 				},
 			},
 			ciliumPods: 10,
-			expected:   72,
+			expected:   54,
 		},
 		{
 			configMap: &corev1.ConfigMap{
@@ -559,7 +559,7 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 				},
 			},
 			ciliumPods: 10,
-			expected:   108,
+			expected:   81,
 		},
 		{
 			configMap: &corev1.ConfigMap{
@@ -573,7 +573,7 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 				},
 			},
 			ciliumPods: 10,
-			expected:   108,
+			expected:   81,
 		},
 	}
 

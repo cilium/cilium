@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -378,6 +379,13 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		return statesUpdated, errs
 	}
 
+	// The tunnel outer header is of a single family. Skip the underlay
+	// rules when the underlay is the other one, even if the node happens
+	// to have addresses of this family.
+	if n.datapathConfig.UnderlayProtocol == tunnel.IPv6 {
+		return statesUpdated, errs
+	}
+
 	if !n.nodeConfig.NodeIPv4.IsValid() {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil local internal IP")
 		return false, errs
@@ -667,6 +675,13 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	if !n.nodeConfig.EnableEncapsulation {
+		return statesUpdated, errs
+	}
+
+	// The tunnel outer header is of a single family. Skip the underlay
+	// rules when the underlay is the other one, even if the node happens
+	// to have addresses of this family.
+	if n.datapathConfig.UnderlayProtocol == tunnel.IPv4 {
 		return statesUpdated, errs
 	}
 
