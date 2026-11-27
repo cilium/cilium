@@ -1290,7 +1290,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace:  Namespace,
 			Name:       "endpoint_propagation_delay_seconds",
 			Help:       "CiliumEndpoint roundtrip propagation delay in seconds",
-			Buckets:    []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
+			Buckets:    []float64{.05, .1, 1, 5, 10, 15, 20, 30, 60, 120, 240, 300, 600},
 		}, []string{}),
 
 		NodeHealthConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
