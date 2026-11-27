@@ -42,6 +42,7 @@ type MTU interface {
 	IsEnableRouteMTUForCNIChaining() bool
 	// PacketizationLayerPMTUDMode returns valid plpmtud mode as string (empty means: do not set).
 	PacketizationLayerPMTUDMode() string
+	PacketizationLayerPMTUDProbeFloor() int
 }
 
 type mtuParams struct {
@@ -69,18 +70,27 @@ type Config struct {
 	MTU                          int
 	// PacketizationLayerPMTUDMode configures kernel packetization layer path mtu discovery on Pod netns.
 	PacketizationLayerPMTUDMode string
+	// PacketizationLayerPMTUDProbeFloor configures packetization layer path mtu discovery probe floor on Pod netns.
+	PacketizationLayerPMTUDProbeFloor int
 }
 
+const (
+	// Based on recommendation in https://datatracker.ietf.org/doc/html/rfc4821.
+	defaultMTUProbeFloor = 48
+)
+
 var defaultConfig = Config{
-	EnableRouteMTUForCNIChaining: false,
-	MTU:                          0,
-	PacketizationLayerPMTUDMode:  plpmtudModeDisabled.String(),
+	EnableRouteMTUForCNIChaining:      false,
+	MTU:                               0,
+	PacketizationLayerPMTUDMode:       plpmtudModeDisabled.String(),
+	PacketizationLayerPMTUDProbeFloor: defaultMTUProbeFloor,
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-route-mtu-for-cni-chaining", c.EnableRouteMTUForCNIChaining, "Enable route MTU for pod netns when CNI chaining is used")
 	flags.Int("mtu", c.MTU, "Overwrite auto-detected MTU of underlying network")
 	flags.String("packetization-layer-pmtud-mode", plpmtudModeBlackhole.String(), "Enables kernel packetization layer path mtu discovery on Pod netns (if empty will use host setting)")
+	flags.Int("packetization-layer-pmtud-probe-floor", c.PacketizationLayerPMTUDProbeFloor, "Configures packetization layer path mtu discovery probe floor on Pod netns")
 }
 
 type plpmtudMode int
@@ -204,20 +214,22 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	})
 
 	return &LatestMTUGetter{
-		tbl:                            p.MTUTable,
-		db:                             p.DB,
-		isEnableRouteMTUForCNIChaining: cc.EnableRouteMTUForCNIChaining,
-		packetizationLayerPMTUDMode:    plpmtudMode,
+		tbl:                               p.MTUTable,
+		db:                                p.DB,
+		isEnableRouteMTUForCNIChaining:    cc.EnableRouteMTUForCNIChaining,
+		packetizationLayerPMTUDMode:       plpmtudMode,
+		packetizationLayerPMTUDProbeFloor: cc.PacketizationLayerPMTUDProbeFloor,
 	}, nil
 }
 
 var _ MTU = (*LatestMTUGetter)(nil)
 
 type LatestMTUGetter struct {
-	tbl                            statedb.Table[RouteMTU]
-	db                             *statedb.DB
-	isEnableRouteMTUForCNIChaining bool
-	packetizationLayerPMTUDMode    string
+	tbl                               statedb.Table[RouteMTU]
+	db                                *statedb.DB
+	isEnableRouteMTUForCNIChaining    bool
+	packetizationLayerPMTUDMode       string
+	packetizationLayerPMTUDProbeFloor int
 }
 
 func (m *LatestMTUGetter) GetDeviceMTU() int {
@@ -238,4 +250,8 @@ func (m *LatestMTUGetter) IsEnableRouteMTUForCNIChaining() bool {
 
 func (m *LatestMTUGetter) PacketizationLayerPMTUDMode() string {
 	return m.packetizationLayerPMTUDMode
+}
+
+func (m *LatestMTUGetter) PacketizationLayerPMTUDProbeFloor() int {
+	return m.packetizationLayerPMTUDProbeFloor
 }
