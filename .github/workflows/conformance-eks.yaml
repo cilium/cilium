@@ -760,7 +760,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
-          job_status: "${{ job.status }}"
+          job_status: "failure"
           capture_features_tested: false
 
       # Surface quarantined failures. continue-on-error makes the job (and thus
