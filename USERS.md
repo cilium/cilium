@@ -341,6 +341,11 @@ Users (Alphabetically)
       L: https://github.com/evocloud-dev/evocloud-paas
       Q: @geanttechnology, @escapevelocity17321
 
+    * N: Exaqube
+      D: Exaqube is using Cilium as the CNI for its production Kubernetes clusters running Talos Linux on Hetzner Cloud
+      U: CNI, Kube-proxy replacement, Network Policies, Egress Gateway
+      L: https://exaqube.com
+
     * N: Exoscale
       D: Exoscale is offering Cilium as a CNI option on its managed Kubernetes service named SKS (Scalable Kubernetes Service)
       U: CNI, Networking
