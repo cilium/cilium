@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"context"
+	"iter"
 	"maps"
 	"net/netip"
 	"slices"
@@ -301,13 +302,31 @@ func (p *policyWatcher) clearCNPForService(key resource.Key, svcID loadbalancer.
 	}
 }
 
-// specHasMatchingToServices returns true if the rule contains a ToServices rule which
+// egressCommonRules iterates over the EgressCommonRule of every Egress and
+// EgressDeny rule in the spec. ToServices can appear in both, so all code
+// that inspects or translates ToServices must consider both rule types.
+func egressCommonRules(spec *api.Rule) iter.Seq[*api.EgressCommonRule] {
+	return func(yield func(*api.EgressCommonRule) bool) {
+		for i := range spec.Egress {
+			if !yield(&spec.Egress[i].EgressCommonRule) {
+				return
+			}
+		}
+		for i := range spec.EgressDeny {
+			if !yield(&spec.EgressDeny[i].EgressCommonRule) {
+				return
+			}
+		}
+	}
+}
+
+// hasMatchingToServices returns true if the rule contains a ToServices rule which
 // matches the provided service svcID/svc
 func hasMatchingToServices(spec *api.Rule, ev serviceEvent) bool {
 	if spec == nil {
 		return false
 	}
-	for _, egress := range spec.Egress {
+	for egress := range egressCommonRules(spec) {
 		for _, toService := range egress.ToServices {
 			if sel := toService.K8sServiceSelector; sel != nil {
 				if serviceSelectorMatches(sel, ev) {
@@ -337,7 +356,7 @@ func specHasToServices(spec *api.Rule) bool {
 	if spec == nil {
 		return false
 	}
-	for _, egress := range spec.Egress {
+	for egress := range egressCommonRules(spec) {
 		if len(egress.ToServices) > 0 {
 			return true
 		}
@@ -439,34 +458,31 @@ func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]
 	*toEndpoints = append(*toEndpoints, newEndpointSelectorForServiceSelector(namespace, svcSelector))
 }
 
-// processRule parses the ToServices selectors in the provided rule and translates it to:
+// processRule parses the ToServices selectors in the provided rule's Egress and
+// EgressDeny rules and translates them to:
 // - ToCIDRSet entries for services without selector
 // - ToEndpoints entries for services with selector
 func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 	if rule == nil {
 		return
 	}
-	for i, egress := range rule.Egress {
+	for egress := range egressCommonRules(rule) {
 		for _, toService := range egress.ToServices {
+			var matches bool
 			if sel := toService.K8sServiceSelector; sel != nil {
-				if serviceSelectorMatches(sel, s) {
-					if len(s.svc.Selector) == 0 {
-						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
-					} else {
-						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
-					}
-					numMatches++
-				}
+				matches = serviceSelectorMatches(sel, s)
 			} else if ref := toService.K8sService; ref != nil {
-				if serviceRefMatches(ref, s.svc.Name) {
-					if len(s.svc.Selector) == 0 {
-						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
-					} else {
-						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
-					}
-					numMatches++
-				}
+				matches = serviceRefMatches(ref, s.svc.Name)
 			}
+			if !matches {
+				continue
+			}
+			if len(s.svc.Selector) == 0 {
+				appendEndpoints(&egress.ToCIDRSet, s.backendPrefixes())
+			} else {
+				appendSelector(&egress.ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
+			}
+			numMatches++
 		}
 	}
 	return numMatches
