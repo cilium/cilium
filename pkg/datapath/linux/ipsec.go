@@ -31,7 +31,7 @@ import (
 
 var (
 	exactMatchMaskIPv4 = net.IPv4Mask(255, 255, 255, 255)
-	exactMatchMaskIPv6 = net.CIDRMask(0, 128)
+	exactMatchMaskIPv6 = net.CIDRMask(128, 128)
 	wildcardIP         = net.ParseIP(wildcardIPv4)
 	wildcardCIDR       = &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 	wildcardIP6        = net.ParseIP(wildcardIPv6)
@@ -699,8 +699,8 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 
 	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
-	params.SourceSubnet = wildcardCIDR
-	params.DestSubnet = wildcardCIDR
+	params.SourceSubnet = wildcardCIDR6
+	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteUnderlayIP
 	params.DestTunnelIP = &localUnderlayIP
 	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
@@ -717,7 +717,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(oldNode, newNode *nodeTypes.Node, nod
 	var spi uint8
 
 	errs = errors.Join(errs, ipsec.IPsecDefaultDropPolicy(true))
-	errs = errors.Join(errs, upsertIPsecLog(n.log, errs, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi, 0))
+	errs = errors.Join(errs, upsertIPsecLog(n.log, errs, "default-drop IPv6", wildcardCIDR6, wildcardCIDR6, spi, 0))
 
 	var addedCIDRs, removedCIDRs []netip.Prefix
 	if oldNode != nil {
