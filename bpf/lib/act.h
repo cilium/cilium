@@ -24,7 +24,7 @@ struct {
 	__type(value, struct lb_act_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 65536);
-	__uint(map_flags, LRU_MEM_FLAVOR);
+	__uint(map_flags, 0);
 } cilium_lb_act __section_maps_btf;
 
 static __always_inline void _lb_act_conn_closed(__u16 svc_id, __u8 zone)
