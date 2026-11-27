@@ -248,6 +248,10 @@ kubeadmConfigPatches:
     kind: ClusterConfiguration
     metadata:
       name: config
+    etcd:
+      local:
+        extraArgs:
+          unsafe-no-fsync: "true"
     apiServer:
       extraArgs:
         "v": "3"
