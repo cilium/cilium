@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - name: Set initial commit status
-        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        uses: cilium/actions/set-commit-status@079219db27301da70306eb5c0a038dc21c59781b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -153,7 +153,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go for agnhost
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: kubernetes/.go-version
           cache: false
