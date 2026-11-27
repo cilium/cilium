@@ -517,7 +517,7 @@ func TestApplySourceIPVerificationFromAnnotation(t *testing.T) {
 			ep.Options.SetValidated(option.SourceIPVerification, tt.initialOptionValue)
 
 			// Apply the annotation with namespace permission check
-			changed := ep.ApplySourceIPVerificationFromAnnotation(tt.podAnnotations, tt.nsAnnotations)
+			changed := ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation, tt.podAnnotations, tt.nsAnnotations)
 
 			// Verify the return value (whether value changed)
 			require.Equal(t, tt.expectedChanged, changed,
@@ -569,7 +569,7 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 	nsNoAllowAnno := map[string]string{}
 
 	// Step 1: With namespace permission, apply annotation to disable SIP verification
-	changed := ep.ApplySourceIPVerificationFromAnnotation(
+	changed := ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{annotation.DisableSourceIPVerification: "true"},
 		nsAllowAnno,
 	)
@@ -578,7 +578,7 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 		"Annotation should have disabled SIP verification")
 
 	// Step 2: Remove pod annotation - should reset to global default
-	changed = ep.ApplySourceIPVerificationFromAnnotation(
+	changed = ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{},
 		nsAllowAnno,
 	)
@@ -588,7 +588,7 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 
 	// Step 3: Set to disabled, then remove namespace permission - pod annotation should be ignored
 	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
-	changed = ep.ApplySourceIPVerificationFromAnnotation(
+	changed = ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{annotation.DisableSourceIPVerification: "true"},
 		nsNoAllowAnno, // No namespace permission
 	)
@@ -598,13 +598,104 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 
 	// Step 4: With invalid pod annotation value, should reset to global default
 	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
-	changed = ep.ApplySourceIPVerificationFromAnnotation(
+	changed = ep.ApplyDelegatedAnnotation(SourceIPVerificationAnnotation,
 		map[string]string{annotation.DisableSourceIPVerification: "invalid-value"},
 		nsAllowAnno,
 	)
 	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (global default)")
 	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
 		"Invalid annotation should reset to global default (Enabled)")
+}
+
+// TestApplyExtendedIPProtocolsFromAnnotation tests that the pod annotation only takes
+// effect when the namespace delegates it, and otherwise the global default applies.
+func TestApplyExtendedIPProtocolsFromAnnotation(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	nsAllow := map[string]string{annotation.DelegateExtendedIPProtocols: "true"}
+	podOn := map[string]string{annotation.EnableExtendedIPProtocols: "true"}
+	podOff := map[string]string{annotation.EnableExtendedIPProtocols: "false"}
+
+	tests := []struct {
+		name            string
+		globalValue     option.OptionSetting
+		initialValue    option.OptionSetting
+		podAnnotations  map[string]string
+		nsAnnotations   map[string]string
+		expectedChanged bool
+		expectedValue   option.OptionSetting
+	}{
+		{"ns allows + pod=true enables", option.OptionDisabled, option.OptionDisabled, podOn, nsAllow, true, option.OptionEnabled},
+		{"ns allows + pod=true already enabled", option.OptionDisabled, option.OptionEnabled, podOn, nsAllow, false, option.OptionEnabled},
+		{"ns allows + pod=false overrides global enabled", option.OptionEnabled, option.OptionEnabled, podOff, nsAllow, true, option.OptionDisabled},
+		{"ns allows + no pod annotation uses global", option.OptionDisabled, option.OptionDisabled, nil, nsAllow, false, option.OptionDisabled},
+		{"ns allows + invalid pod value resets to global", option.OptionDisabled, option.OptionEnabled,
+			map[string]string{annotation.EnableExtendedIPProtocols: "bogus"}, nsAllow, true, option.OptionDisabled},
+		{"no ns annotation ignores pod=true", option.OptionDisabled, option.OptionDisabled, podOn, nil, false, option.OptionDisabled},
+		{"ns=false ignores pod=true", option.OptionDisabled, option.OptionDisabled, podOn,
+			map[string]string{annotation.DelegateExtendedIPProtocols: "false"}, false, option.OptionDisabled},
+		{"ns revoked resets previously enabled pod", option.OptionDisabled, option.OptionEnabled, podOn, nil, true, option.OptionDisabled},
+		{"ns SIP delegation does not delegate extended protocols", option.OptionDisabled, option.OptionDisabled, podOn,
+			map[string]string{annotation.DelegateSourceIPVerification: "true"}, false, option.OptionDisabled},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalValue := option.Config.Opts.GetValue(option.ExtendedIPProtocols)
+			defer option.Config.Opts.SetValidated(option.ExtendedIPProtocols, originalValue)
+			option.Config.Opts.SetValidated(option.ExtendedIPProtocols, tt.globalValue)
+
+			model := newTestEndpointModel(100, StateWaitingForIdentity)
+			p := EndpointParams{
+				Logger:          logger,
+				EPBuildQueue:    &MockEndpointBuildQueue{},
+				Orchestrator:    s.orchestrator,
+				IdentityManager: identitymanager.NewIDManager(logger),
+				PolicyRepo:      s.repo,
+				Allocator:       testidentity.NewMockIdentityAllocator(nil),
+				CTMapGC:         ctmap.NewFakeGCRunner(),
+				WgConfig:        fakewireguard.Config{},
+				IPSecConfig:     fakeipsec.Config{},
+			}
+			ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
+			require.NoError(t, err)
+			ep.Options.SetValidated(option.ExtendedIPProtocols, tt.initialValue)
+
+			changed := ep.ApplyDelegatedAnnotation(ExtendedIPProtocolsAnnotation, tt.podAnnotations, tt.nsAnnotations)
+			require.Equal(t, tt.expectedChanged, changed)
+			require.Equal(t, tt.expectedValue, ep.Options.GetValue(option.ExtendedIPProtocols))
+		})
+	}
+}
+
+// TestDelegatedAnnotationsTable checks that every entry of DelegatedAnnotations is
+// well formed, so that adding a new setting to the table cannot silently break
+// the pod watcher, the namespace updater or the metadata resolver that rely on it.
+func TestDelegatedAnnotationsTable(t *testing.T) {
+	endpointOptions := option.GetEndpointMutableOptionLibrary()
+	keys := map[string]struct{}{}
+	for _, da := range DelegatedAnnotations {
+		require.NotEmpty(t, da.Name)
+		require.Contains(t, endpointOptions, da.Option, "%s: option is not an endpoint option", da.Name)
+		require.NotEqual(t, da.OnTruthy, da.OnFalsy, "%s: truthy and falsy values must differ", da.Name)
+		for _, k := range []string{da.NamespaceKey, da.PodKey} {
+			require.NotEmpty(t, k, da.Name)
+			require.NotContains(t, keys, k, "%s: annotation key used twice", da.Name)
+			keys[k] = struct{}{}
+		}
+	}
+
+	// The filter must return a copy and keep the shared table untouched.
+	n := len(DelegatedAnnotations)
+	none := FilterDelegatedAnnotations(func(DelegatedAnnotation) bool { return false })
+	require.Empty(t, none)
+	require.Len(t, DelegatedAnnotations, n)
+	all := FilterDelegatedAnnotations(func(DelegatedAnnotation) bool { return true })
+	require.Equal(t, DelegatedAnnotations, all)
+	only := FilterDelegatedAnnotations(func(da DelegatedAnnotation) bool { return da.Option == option.SourceIPVerification })
+	require.Equal(t, []DelegatedAnnotation{SourceIPVerificationAnnotation}, only)
+	require.Len(t, DelegatedAnnotations, n)
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {

@@ -133,3 +133,54 @@ Then, deploy the pod with the annotation:
 
 Both annotations are required. If the namespace annotation is missing or
 set to a falsy value, the pod annotation is ignored.
+
+.. _enable_extended_ip_protocols_pod:
+
+Enable Extended IP Protocols for a Pod
+######################################
+
+Extended IP protocols (for example VRRP, IGMP, GRE, ESP and AH) are protocols
+without transport-layer ports. They are enabled cluster-wide with
+``--enable-extended-ip-protocols``, which is disabled by default. Cilium can
+also enable them on a per-pod basis, using the same two-layer mechanism as
+:ref:`disable_source_ip_verification`: a **namespace annotation** set by a
+cluster administrator must delegate the behavior before a **pod annotation**
+can activate it.
+
+Namespace annotation (administrator-controlled):
+  ``config.cilium.io/delegate-extended-ip-protocols``
+
+  Delegates extended IP protocol control for pods in this namespace to the
+  namespace owner. Must be set to a truthy value (``"true"``, ``"1"``, ``"t"``)
+  before any pod annotation takes effect.
+
+Pod annotation:
+  ``config.cilium.io/enable-extended-ip-protocols``
+
+  ``"true"`` enables extended IP protocols for the pod, ``"false"`` disables
+  them (overriding a global ``--enable-extended-ip-protocols=true``). Only
+  effective when the namespace annotation above is truthy.
+
+When neither annotation is set, when the namespace annotation is falsy, or when
+the pod annotation is not a valid boolean, pods inherit the global daemon
+configuration.
+
+.. code-block:: shell-session
+
+    $ kubectl annotate namespace my-namespace config.cilium.io/delegate-extended-ip-protocols=true
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      annotations:
+        config.cilium.io/enable-extended-ip-protocols: "true"
+      name: vrrp-router
+      namespace: my-namespace
+
+.. note::
+
+   This setting only affects the pod's datapath. Network policy rules that
+   use extended protocols without a port are still validated against the
+   global ``--enable-extended-ip-protocols`` flag.

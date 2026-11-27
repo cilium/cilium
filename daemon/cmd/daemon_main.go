@@ -998,6 +998,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 	option.Config.Opts.SetBool(option.SourceIPVerification, option.Config.EnableSourceIPVerification)
+	option.Config.Opts.SetBool(option.ExtendedIPProtocols, option.Config.EnableExtendedIPProtocols)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
 	if err != nil {

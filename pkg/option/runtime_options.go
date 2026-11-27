@@ -16,6 +16,7 @@ const (
 	PolicyAuditMode      = "PolicyAuditMode"
 	MonitorAggregation   = "MonitorAggregationLevel"
 	SourceIPVerification = "SourceIPVerification"
+	ExtendedIPProtocols  = "ExtendedIPProtocols"
 	AlwaysEnforce        = "always"
 	NeverEnforce         = "never"
 	DefaultEnforcement   = "default"
@@ -63,5 +64,9 @@ var (
 
 	specSourceIPVerification = Option{
 		Description: "Enable the check of the source IP on pod egress",
+	}
+
+	specExtendedIPProtocols = Option{
+		Description: "Allow traffic with extended IP protocols (no transport-layer ports)",
 	}
 )

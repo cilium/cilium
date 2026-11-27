@@ -14,6 +14,7 @@ import (
 	"net/netip"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -1801,71 +1802,146 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 	return nil
 }
 
-// ApplySourceIPVerificationFromAnnotation applies source IP verification setting
-// from pod annotation to this endpoint. Returns true if the option value was actually
-// changed (requiring datapath regeneration), false otherwise.
+// DelegatedAnnotation describes an endpoint option that a pod can override
+// through an annotation, provided that its namespace delegates that decision
+// through a namespace annotation.
+//
+// Security model: the namespace annotation acts as a permission gate that only
+// cluster administrators should be able to set. Without it, the pod annotation
+// is ignored and the global default applies.
+type DelegatedAnnotation struct {
+	// Name describes the setting in logs and regeneration reasons.
+	Name string
+	// Option is the endpoint option controlled by the pod annotation.
+	Option string
+	// NamespaceKey is the namespace annotation that delegates the decision.
+	NamespaceKey string
+	// PodKey is the pod annotation selecting the option value.
+	PodKey string
+	// OnTruthy and OnFalsy are the option values selected by a truthy or a
+	// falsy pod annotation, respectively.
+	OnTruthy, OnFalsy option.OptionSetting
+}
+
+var (
+	// SourceIPVerificationAnnotation lets a pod disable source IP verification.
+	SourceIPVerificationAnnotation = DelegatedAnnotation{
+		Name:         "source IP verification",
+		Option:       option.SourceIPVerification,
+		NamespaceKey: annotation.DelegateSourceIPVerification,
+		PodKey:       annotation.DisableSourceIPVerification,
+		OnTruthy:     option.OptionDisabled,
+		OnFalsy:      option.OptionEnabled,
+	}
+
+	// ExtendedIPProtocolsAnnotation lets a pod enable extended IP protocols.
+	ExtendedIPProtocolsAnnotation = DelegatedAnnotation{
+		Name:         "extended IP protocols",
+		Option:       option.ExtendedIPProtocols,
+		NamespaceKey: annotation.DelegateExtendedIPProtocols,
+		PodKey:       annotation.EnableExtendedIPProtocols,
+		OnTruthy:     option.OptionEnabled,
+		OnFalsy:      option.OptionDisabled,
+	}
+
+	// DelegatedAnnotations lists all the settings that follow the
+	// namespace delegation model.
+	DelegatedAnnotations = []DelegatedAnnotation{
+		SourceIPVerificationAnnotation,
+		ExtendedIPProtocolsAnnotation,
+	}
+)
+
+// FilterDelegatedAnnotations returns the delegated annotations for which keep
+// returns true.
+func FilterDelegatedAnnotations(keep func(DelegatedAnnotation) bool) []DelegatedAnnotation {
+	return slices.DeleteFunc(slices.Clone(DelegatedAnnotations), func(da DelegatedAnnotation) bool {
+		return !keep(da)
+	})
+}
+
+// ApplyDelegatedAnnotations applies each of the given delegated annotations to
+// this endpoint and returns those whose option value actually changed
+// (requiring datapath regeneration).
+func (e *Endpoint) ApplyDelegatedAnnotations(das []DelegatedAnnotation, podAnnotations, nsAnnotations map[string]string) []DelegatedAnnotation {
+	var changed []DelegatedAnnotation
+	for _, da := range das {
+		if e.ApplyDelegatedAnnotation(da, podAnnotations, nsAnnotations) {
+			changed = append(changed, da)
+		}
+	}
+	return changed
+}
+
+// ApplyDelegatedAnnotation resolves the endpoint option of da from the global
+// default, the namespace annotation and the pod annotation. Returns true if the
+// option value was actually changed (requiring datapath regeneration), false
+// otherwise.
 //
 // This method handles locking internally for thread safety.
 //
-// Security model:
-// The namespace annotation (DelegateSourceIPVerification) acts as a permission
-// gate. Only when the namespace grants permission can pod annotations take effect.
-//
 // Logic:
-//  1. If namespace DelegateSourceIPVerification is not truthy: ignore pod
-//     annotation, use global default
-//  2. If namespace allows:
-//     - Pod annotation is "true"/"1"/"TRUE" etc: disable SIP verification
-//     - Pod annotation is "false"/"0"/"FALSE" etc: enable SIP verification
-//     - Pod annotation not exists or invalid: use global default
+//  1. If the namespace annotation is not truthy: ignore the pod annotation, use
+//     the global default
+//  2. If the namespace delegates:
+//     - Pod annotation is truthy ("true"/"1"/"TRUE" etc): da.OnTruthy
+//     - Pod annotation is falsy ("false"/"0"/"FALSE" etc): da.OnFalsy
+//     - Pod annotation does not exist or is invalid: use the global default
 //
 // Uses strconv.ParseBool for robust boolean parsing (accepts: 1, t, T, TRUE, true, True,
 // 0, f, F, FALSE, false, False). Whitespace is trimmed before parsing.
-func (e *Endpoint) ApplySourceIPVerificationFromAnnotation(podAnnotations, nsAnnotations map[string]string) bool {
+func (e *Endpoint) ApplyDelegatedAnnotation(da DelegatedAnnotation, podAnnotations, nsAnnotations map[string]string) bool {
 	// Start with global default setting
-	globalSetting := option.Config.Opts.GetValue(option.SourceIPVerification)
-	finalSetting := globalSetting
+	finalSetting := option.Config.Opts.GetValue(da.Option)
 
 	// Check namespace permission gate first
 	nsAllowed := false
-	if nsValue, ok := nsAnnotations[annotation.DelegateSourceIPVerification]; ok {
-		trimmedNsValue := strings.TrimSpace(nsValue)
-		if b, err := strconv.ParseBool(trimmedNsValue); err == nil && b {
+	if nsValue, ok := nsAnnotations[da.NamespaceKey]; ok {
+		if b, err := strconv.ParseBool(strings.TrimSpace(nsValue)); err == nil && b {
 			nsAllowed = true
 		}
 	}
 
-	// Only process pod annotation if namespace allows
-	if nsAllowed {
-		if value, ok := podAnnotations[annotation.DisableSourceIPVerification]; ok {
-			trimmedValue := strings.TrimSpace(value)
+	if podValue, ok := podAnnotations[da.PodKey]; ok {
+		if nsAllowed {
+			trimmedValue := strings.TrimSpace(podValue)
 			if b, err := strconv.ParseBool(trimmedValue); err == nil {
 				if b {
-					finalSetting = option.OptionDisabled // Annotation truthy: disable SIP verification
+					finalSetting = da.OnTruthy
 				} else {
-					finalSetting = option.OptionEnabled // Annotation falsy: enable SIP verification
+					finalSetting = da.OnFalsy
 				}
 			} else if trimmedValue != "" {
 				e.getLogger().Warn(
-					"Invalid DisableSourceIPVerification annotation value, resetting to global default",
-					logfields.Value, value)
+					"Invalid pod annotation value, resetting to global default",
+					logfields.Annotations, da.PodKey,
+					logfields.Value, podValue)
 			}
+		} else {
+			// Log at Debug level to avoid noise in high-frequency reconciliation paths
+			e.getLogger().Debug(
+				"Pod annotation ignored: namespace does not delegate it",
+				logfields.Annotations, da.PodKey)
 		}
-	} else if _, ok := podAnnotations[annotation.DisableSourceIPVerification]; ok {
-		// Pod has the annotation but namespace doesn't grant permission - log at Debug level
-		// to avoid noise in high-frequency reconciliation paths
-		e.getLogger().Debug(
-			"Pod DisableSourceIPVerification annotation ignored: namespace does not have DelegateSourceIPVerification=true")
 	}
 
 	e.unconditionalLock()
 	defer e.unlock()
 
-	if currentSetting := e.Options.GetValue(option.SourceIPVerification); currentSetting != finalSetting {
-		e.Options.SetValidated(option.SourceIPVerification, finalSetting)
+	if currentSetting := e.Options.GetValue(da.Option); currentSetting != finalSetting {
+		e.Options.SetValidated(da.Option, finalSetting)
 		return true
 	}
 	return false
+}
+
+// RegenerateDatapathIfAlive queues a datapath regeneration of this endpoint for
+// the given reason. See RegenerateIfAlive for the returned channel.
+func (e *Endpoint) RegenerateDatapathIfAlive(reason string) <-chan bool {
+	return e.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+		Reason:            reason,
+		RegenerationLevel: regeneration.RegenerateWithDatapath,
+	})
 }
 
 // metadataResolver will resolve the endpoint's metadata from a metadata
@@ -1958,12 +2034,14 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		}
 	}
 
-	// Handle DisableSourceIPVerification annotation.
-	// This must happen before UpdateLabels so we can track if SIP setting changed
-	// and ensure datapath regeneration is triggered if labels don't change.
-	sipChanged := e.ApplySourceIPVerificationFromAnnotation(pod.Annotations, k8sMetadata.NamespaceAnnotations)
-	if sipChanged {
-		e.Logger(resolveLabels).Info("Source IP verification setting changed from pod annotation")
+	// Handle delegated pod annotations (source IP verification, extended IP
+	// protocols, ...). This must happen before UpdateLabels so we can track if
+	// any setting changed and ensure datapath regeneration is triggered if
+	// labels don't change.
+	changedAnnotations := e.ApplyDelegatedAnnotations(DelegatedAnnotations, pod.Annotations, k8sMetadata.NamespaceAnnotations)
+	for _, da := range changedAnnotations {
+		e.Logger(resolveLabels).Info("Endpoint setting changed from pod annotation",
+			logfields.Option, da.Option)
 	}
 
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
@@ -1976,13 +2054,13 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	}
 	regenTriggered = e.UpdateLabels(ctx, source, controllerBaseLabels, k8sMetadata.InfoLabels, blocking)
 
-	// If SIP setting changed but UpdateLabels did not trigger regeneration (e.g., during
+	// If a setting changed but UpdateLabels did not trigger regeneration (e.g., during
 	// endpoint restore or when identity labels are unchanged), we must explicitly trigger
-	// a datapath regeneration to apply the new SIP setting to the BPF datapath.
-	if sipChanged && !regenTriggered {
-		e.Logger(resolveLabels).Info("Triggering datapath regeneration for source IP verification change")
+	// a datapath regeneration to apply the new setting to the BPF datapath.
+	if len(changedAnnotations) > 0 && !regenTriggered {
+		e.Logger(resolveLabels).Info("Triggering datapath regeneration for pod annotation change")
 		regenMetadata := &regeneration.ExternalRegenerationMetadata{
-			Reason:            "source IP verification annotation applied",
+			Reason:            "delegated pod annotations applied",
 			RegenerationLevel: regeneration.RegenerateWithDatapath,
 		}
 		if regen, _ := e.SetRegenerateStateIfAlive(regenMetadata); regen {

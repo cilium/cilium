@@ -27,6 +27,7 @@ var (
 		PolicyAuditMode:      &specPolicyAuditMode,
 		MonitorAggregation:   &specMonitorAggregation,
 		SourceIPVerification: &specSourceIPVerification,
+		ExtendedIPProtocols:  &specExtendedIPProtocols,
 	}
 )
 

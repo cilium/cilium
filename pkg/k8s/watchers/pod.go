@@ -436,8 +436,10 @@ func (k *K8sPodWatcher) reconcilePodEndpoints(oldK8sPod, newK8sPod *slim_corev1.
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
 	annoChangedFIBTableID := option.Config.EnableFibTableIDAnnotation &&
 		!k8s.AnnotationsEqual([]string{annotation.FIBTableID}, oldAnno, newAnno)
-	annoChangedDisableSIP := !k8s.AnnotationsEqual([]string{annotation.DisableSourceIPVerification}, oldAnno, newAnno)
-	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack || annoChangedFIBTableID || annoChangedDisableSIP
+	changedDelegated := endpoint.FilterDelegatedAnnotations(func(da endpoint.DelegatedAnnotation) bool {
+		return !k8s.AnnotationsEqual([]string{da.PodKey}, oldAnno, newAnno)
+	})
+	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack || annoChangedFIBTableID || len(changedDelegated) > 0
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
@@ -531,26 +533,24 @@ func (k *K8sPodWatcher) reconcilePodEndpoints(oldK8sPod, newK8sPod *slim_corev1.
 				}
 			}
 
-			// Handle source IP verification annotation.
-			if annoChangedDisableSIP {
+			// Handle delegated annotations (source IP verification, extended IP protocols, ...).
+			if len(changedDelegated) > 0 {
 				// Get namespace annotations for permission check
 				nsAnno := k.getNamespaceAnnotations(newK8sPod.Namespace)
-				// ApplySourceIPVerificationFromAnnotation returns true only if the value actually changed
-				sipValueChanged := podEP.ApplySourceIPVerificationFromAnnotation(newAnno, nsAnno)
-				if sipValueChanged {
+				// Only the annotations whose value actually changed require a regeneration.
+				applied := podEP.ApplyDelegatedAnnotations(changedDelegated, newAnno, nsAnno)
+				for _, da := range applied {
 					scopedLog.Warn(
-						"Source IP verification security control modified via annotation",
-						logfields.Value, newAnno[annotation.DisableSourceIPVerification],
+						"Endpoint security setting modified via annotation",
+						logfields.Option, da.Option,
+						logfields.Value, newAnno[da.PodKey],
 						logfields.K8sUID, newK8sPod.UID)
-					regenMetadata := &regeneration.ExternalRegenerationMetadata{
-						Reason:            "source IP verification annotation updated",
-						RegenerationLevel: regeneration.RegenerateWithDatapath,
-					}
-					if regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata); regen {
-						podEP.Regenerate(regenMetadata)
-					}
 				}
-			} else if !annoChangedFIBTableID {
+				if len(applied) > 0 {
+					podEP.RegenerateDatapathIfAlive("delegated pod annotations updated")
+				}
+			}
+			if len(changedDelegated) == 0 && !annoChangedFIBTableID {
 				realizePodAnnotationUpdate(podEP)
 			}
 		}

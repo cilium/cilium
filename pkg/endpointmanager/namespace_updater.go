@@ -12,8 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpoint"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/labels"
@@ -26,7 +25,7 @@ import (
 func registerNamespaceUpdater(log *slog.Logger, jg job.Group, db *statedb.DB, namespaces statedb.Table[k8sTables.Namespace], em EndpointManager) {
 	nsUpdater := namespaceUpdater{
 		oldIdtyLabels:   make(map[string]labels.Labels),
-		oldSIPAllowAnno: make(map[string]string),
+		oldDelegations:  make(map[string]map[string]string),
 		endpointManager: em,
 		log:             log,
 		db:              db,
@@ -40,7 +39,7 @@ func registerNamespaceUpdater(log *slog.Logger, jg job.Group, db *statedb.DB, na
 
 type namespaceUpdater struct {
 	oldIdtyLabels   map[string]labels.Labels
-	oldSIPAllowAnno map[string]string // Track DelegateSourceIPVerification annotation per namespace
+	oldDelegations  map[string]map[string]string // Track the delegation annotations (see endpoint.DelegatedAnnotations) per namespace
 	endpointManager EndpointManager
 	log             *slog.Logger
 	db              *statedb.DB
@@ -73,7 +72,7 @@ func (u *namespaceUpdater) run(ctx context.Context, health cell.Health) error {
 			if change.Deleted {
 				// Clean up tracking maps when namespace is deleted
 				delete(u.oldIdtyLabels, change.Object.Name)
-				delete(u.oldSIPAllowAnno, change.Object.Name)
+				delete(u.oldDelegations, change.Object.Name)
 			} else {
 				u.update(change.Object)
 			}
@@ -93,15 +92,16 @@ func (u *namespaceUpdater) update(newNS k8sTables.Namespace) error {
 	oldIdtyLabels := u.oldIdtyLabels[newNS.Name]
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 
-	// Check if the DelegateSourceIPVerification annotation changed
-	newSIPAllowAnno := newNS.Annotations[annotation.DelegateSourceIPVerification]
-	oldSIPAllowAnno := u.oldSIPAllowAnno[newNS.Name]
-	sipAllowAnnoChanged := newSIPAllowAnno != oldSIPAllowAnno
+	// Check which delegation annotations (e.g. DelegateSourceIPVerification) changed
+	oldDelegations := u.oldDelegations[newNS.Name]
+	changedDelegated := endpoint.FilterDelegatedAnnotations(func(da endpoint.DelegatedAnnotation) bool {
+		return newNS.Annotations[da.NamespaceKey] != oldDelegations[da.NamespaceKey]
+	})
 
 	labelsChanged := !oldIdtyLabels.DeepEqual(&newIdtyLabels)
 
-	// Do not perform any operations if neither labels nor SIP annotation changed.
-	if !labelsChanged && !sipAllowAnnoChanged {
+	// Do not perform any operations if neither labels nor delegation annotations changed.
+	if !labelsChanged && len(changedDelegated) == 0 {
 		return nil
 	}
 
@@ -120,8 +120,9 @@ func (u *namespaceUpdater) update(newNS k8sTables.Namespace) error {
 			}
 		}
 
-		// Handle SIP permission annotation change - re-evaluate all endpoints in this namespace
-		if sipAllowAnnoChanged {
+		// Handle delegation annotation changes - re-evaluate all endpoints in this namespace
+		if len(changedDelegated) > 0 {
+			changed := false
 			// Get pod annotations from the endpoint's cached pod
 			pod := ep.GetPod()
 			var podAnno map[string]string
@@ -129,21 +130,18 @@ func (u *namespaceUpdater) update(newNS k8sTables.Namespace) error {
 				podAnno = pod.Annotations
 			}
 
-			// Re-apply SIP verification setting with new namespace annotations
-			if ep.ApplySourceIPVerificationFromAnnotation(podAnno, newNS.Annotations) {
-				u.log.Info("Namespace DelegateSourceIPVerification annotation changed, regenerating endpoint",
+			// Re-apply the settings with the new namespace annotations
+			for _, da := range ep.ApplyDelegatedAnnotations(changedDelegated, podAnno, newNS.Annotations) {
+				u.log.Info("Namespace delegation annotation changed, regenerating endpoint",
 					logfields.K8sNamespace, newNS.Name,
 					logfields.EndpointID, ep.ID,
-					logfields.Value, newSIPAllowAnno)
-
-				// Trigger datapath regeneration if the setting changed
-				regenMetadata := &regeneration.ExternalRegenerationMetadata{
-					Reason:            "namespace DelegateSourceIPVerification annotation changed",
-					RegenerationLevel: regeneration.RegenerateWithDatapath,
-				}
-				if regen, _ := ep.SetRegenerateStateIfAlive(regenMetadata); regen {
-					ep.Regenerate(regenMetadata)
-				}
+					logfields.Option, da.Option,
+					logfields.Value, newNS.Annotations[da.NamespaceKey])
+				changed = true
+			}
+			// Trigger datapath regeneration if any setting changed
+			if changed {
+				ep.RegenerateDatapathIfAlive("namespace delegation annotation changed")
 			}
 		}
 	}
@@ -151,6 +149,10 @@ func (u *namespaceUpdater) update(newNS k8sTables.Namespace) error {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
 	u.oldIdtyLabels[newNS.Name] = newIdtyLabels
-	u.oldSIPAllowAnno[newNS.Name] = newSIPAllowAnno
+	newDelegations := make(map[string]string, len(endpoint.DelegatedAnnotations))
+	for _, da := range endpoint.DelegatedAnnotations {
+		newDelegations[da.NamespaceKey] = newNS.Annotations[da.NamespaceKey]
+	}
+	u.oldDelegations[newNS.Name] = newDelegations
 	return nil
 }
