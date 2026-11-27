@@ -10,6 +10,7 @@ import (
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -24,7 +25,10 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	rules, err := k8s.ParseClusterNetworkPolicy(p.log, clusterName, k8sCNP)
+	rules, err := k8s.ParseClusterNetworkPolicy(p.log, clusterName, k8sCNP,
+		k8s.WithFQDNPolicyDNSServerConfig(p.fqdnPolicyDNSServerConfig),
+		k8s.WithServiceResolver(p.serviceResolver),
+	)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFail).Inc()
 		p.log.Error(
@@ -34,6 +38,15 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 			logfields.K8sClusterNetworkPolicy, k8sCNP,
 		)
 		return err
+	}
+
+	// Remember policies with domainNames peers, so that they can be recomputed
+	// when the backends of the DNS server service change.
+	key := resource.Key{Name: k8sCNP.ObjectMeta.Name, Namespace: k8sCNP.ObjectMeta.Namespace}
+	if kcnpHasDomainNames(k8sCNP) {
+		p.fqdnKCNPs[key] = k8sCNP
+	} else {
+		delete(p.fqdnKCNPs, key)
 	}
 
 	if dc != nil {
@@ -73,6 +86,9 @@ func (p *policyWatcher) deleteK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Clu
 		return errors.New("provided ClusterNetworkPolicy is nil, so cannot delete it")
 	}
 
+	key := resource.Key{Name: k8sCNP.ObjectMeta.Name, Namespace: k8sCNP.ObjectMeta.Namespace}
+	delete(p.fqdnKCNPs, key)
+
 	if dc != nil {
 		p.kcnpSyncPending.Add(1)
 	}
@@ -95,4 +111,16 @@ func (p *policyWatcher) deleteK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Clu
 		logfields.Labels, labels,
 	)
 	return nil
+}
+
+// kcnpHasDomainNames returns true if any egress peer of the policy selects domain names.
+func kcnpHasDomainNames(kcnp *policyv1alpha2.ClusterNetworkPolicy) bool {
+	for _, rule := range kcnp.Spec.Egress {
+		for _, peer := range rule.To {
+			if len(peer.DomainNames) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }

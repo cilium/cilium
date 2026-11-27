@@ -107,6 +107,57 @@ The KCNP API uses tiers as top-level groupings for policy evaluation. Policy rul
 
 A Kubernetes ClusterNetworkPolicy can be assigned to either the Admin or Baseline tier. Rules in the Admin tier take precedence over all policies at the NetworkPolicy tier level, including CiliumClusterwideNetworkPolicy, CiliumNetworkPolicy, and standard NetworkPolicy resources and cannot be overridden by them. Keep this in mind when migrating from CiliumClusterwideNetworkPolicy to Kubernetes ClusterNetworkPolicy.
 
+.. _ClusterNetworkPolicy_domain_names:
+
+Domain Names
+------------
+
+.. note::
+
+    ``domainNames`` peers are an experimental feature of the KCNP API and
+    require the experimental-channel CRD.
+
+Egress rules can select destinations by domain name with ``domainNames``
+peers. Cilium implements them with :ref:`DNS based <DNS based>` policies: DNS
+traffic from the selected pods is sent through the DNS proxy, which learns the
+IPs of the allowed names. For this to work, Cilium must know which DNS servers
+the pods use. Configure them with the following Helm values:
+
+- ``dnsProxy.dnsServerService``: the Kubernetes Service of the DNS servers,
+  in the form ``namespace/name``, for example ``kube-system/kube-dns``.
+- ``dnsProxy.dnsServerIPs``: a list of IP addresses of DNS servers.
+- ``dnsProxy.dnsServerPorts``: a list of DNS server ports. Defaults to ``53``.
+
+If neither ``dnsProxy.dnsServerService`` nor ``dnsProxy.dnsServerIPs`` is set,
+Cilium does not allow any DNS traffic for ``domainNames`` peers, and the
+selected pods cannot resolve the names.
+
+For ``dnsProxy.dnsServerService``, the configured ports are Service ports.
+Cilium enforces policy after Service translation, so it translates them to the
+backend ports of the Service, and allows DNS traffic to the pods selected by
+the Service. Other ports of the Service, such as a metrics port, are not
+allowed. For a Service without a selector, Cilium allows the backend IPs
+instead.
+
+For ``dnsProxy.dnsServerIPs``, the configured ports are used as they are. The
+IPs are matched as CIDRs, so they only match DNS servers outside the cluster.
+They do not match pods, nodes, or node-local addresses such as the address of
+a node-local DNS cache. Use ``dnsProxy.dnsServerService`` for DNS servers that run
+in the cluster.
+
+Port ranges are not supported, since DNS rules cannot be applied to port
+ranges. The configuration is validated when the Cilium Agent starts, and the
+Cilium Agent fails to start if it is not valid.
+
+For example, to use the cluster DNS service:
+
+.. parsed-literal::
+
+    helm upgrade cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --reuse-values \\
+      --set dnsProxy.dnsServerService=kube-system/kube-dns
+
 .. _CiliumNetworkPolicy:
 
 CiliumNetworkPolicy

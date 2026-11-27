@@ -11,6 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -84,13 +86,68 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 	logger := slog.Default()
 	clusterName := "testCluster"
 
+	// Fixtures for the DNS server configuration cases.
+	fqdnKCNP := &policyv1alpha2.ClusterNetworkPolicy{
+		Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+			Subject: subjectNamespacesAppSubject,
+			Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{{
+				Action: policyv1alpha2.ClusterNetworkPolicyRuleActionAccept,
+				To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{{
+					DomainNames: []policyv1alpha2.DomainName{"example.com"},
+				}},
+			}},
+		},
+	}
+	fqdnEntry := &types.PolicyEntry{
+		Tier:    types.Admin,
+		Ingress: false,
+		Subject: subjectAppSubjectSelector,
+		L3:      types.Selectors{types.ToSelector(api.FQDNSelector{MatchName: "example.com"})},
+		Labels:  commonPolicyLabels,
+	}
+	dnsPorts := func(port string) []api.PortProtocol {
+		return []api.PortProtocol{
+			{Port: port, Protocol: api.ProtoUDP},
+			{Port: port, Protocol: api.ProtoTCP},
+		}
+	}
+	dnsEntry := func(l3 types.Selectors, ports []api.PortProtocol) *types.PolicyEntry {
+		return &types.PolicyEntry{
+			Tier:    types.Admin,
+			Ingress: false,
+			Subject: subjectAppSubjectSelector,
+			L3:      l3,
+			L4: api.PortRules{{
+				Ports: ports,
+				Rules: &api.L7Rules{DNS: api.PortRulesDNS{{MatchName: "example.com"}}},
+			}},
+			Labels: commonPolicyLabels,
+		}
+	}
+	dnsPodSelectors := types.ToSelectors(api.NewESFromK8sLabelSelector(
+		labels.LabelSourceK8sKeyPrefix,
+		&slim_metav1.LabelSelector{
+			MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+				k8sConst.PodNamespaceLabel:  slim_metav1.NamespaceSystem,
+				k8sConst.PolicyLabelCluster: clusterName,
+				"k8s-app":                   "kube-dns",
+			},
+		},
+	))
+	dnsIPSelectors := types.Selectors{
+		types.ToSelector(api.CIDR("10.0.0.10")),
+		types.ToSelector(api.CIDR("10.0.0.11")),
+	}
+
 	tests := []struct {
 		name                     string
 		cnp                      *policyv1alpha2.ClusterNetworkPolicy
 		enableNodeSelectorLabels bool
 		enableL7Proxy            bool
-		want                     types.PolicyEntries
-		wantErr                  bool
+		// fqdnCfg overrides the default DNS server configuration of the test.
+		fqdnCfg *fqdnconfig.FQDNPolicyDNSServerConfig
+		want    types.PolicyEntries
+		wantErr bool
 	}{{
 		name:    "nil CNP",
 		cnp:     nil,
@@ -365,11 +422,22 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
-			L3:      types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("k8s-app=kube-dns"))),
+			L3: types.ToSelectors(
+				api.NewESFromK8sLabelSelector(
+					labels.LabelSourceK8sKeyPrefix,
+					&slim_metav1.LabelSelector{
+						MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+							k8sConst.PodNamespaceLabel:  slim_metav1.NamespaceSystem,
+							k8sConst.PolicyLabelCluster: clusterName,
+							"k8s-app":                   "kube-dns",
+						},
+					},
+				),
+			),
 			L4: api.PortRules{{
 				Ports: []api.PortProtocol{
-					{Port: "dns"},
-					{Port: "dns-tcp"},
+					{Port: "53", Protocol: api.ProtoUDP},
+					{Port: "53", Protocol: api.ProtoTCP},
 				},
 				Rules: &api.L7Rules{
 					DNS: api.PortRulesDNS{
@@ -389,6 +457,38 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 			Labels: commonPolicyLabels,
 		}},
+	}, {
+		name:          "egress rule with domain names (FQDN) and DNS server IPs",
+		cnp:           fqdnKCNP,
+		enableL7Proxy: true,
+		fqdnCfg: &fqdnconfig.FQDNPolicyDNSServerConfig{
+			FQDNPolicyDNSServerIPs:   []string{"10.0.0.10", "10.0.0.11"},
+			FQDNPolicyDNSServerPorts: []string{"53", "5353"},
+		},
+		want: types.PolicyEntries{
+			dnsEntry(dnsIPSelectors, append(dnsPorts("53"), dnsPorts("5353")...)),
+			fqdnEntry,
+		},
+	}, {
+		name:          "egress rule with domain names (FQDN) and DNS server service and IPs",
+		cnp:           fqdnKCNP,
+		enableL7Proxy: true,
+		fqdnCfg: &fqdnconfig.FQDNPolicyDNSServerConfig{
+			FQDNPolicyDNSServerService: "kube-system/kube-dns",
+			FQDNPolicyDNSServerIPs:     []string{"10.0.0.10", "10.0.0.11"},
+			FQDNPolicyDNSServerPorts:   []string{"53"},
+		},
+		want: types.PolicyEntries{
+			dnsEntry(dnsPodSelectors, dnsPorts("53")),
+			dnsEntry(dnsIPSelectors, dnsPorts("53")),
+			fqdnEntry,
+		},
+	}, {
+		name:          "egress rule with domain names (FQDN) without DNS server configuration",
+		cnp:           fqdnKCNP,
+		enableL7Proxy: true,
+		fqdnCfg:       &fqdnconfig.DefaultFQDNPolicyDNSServerConfig,
+		want:          types.PolicyEntries{fqdnEntry},
 	}, {
 		name: "egress rule with domain names (FQDN) with L7 proxy disabled",
 		cnp: &policyv1alpha2.ClusterNetworkPolicy{
@@ -475,11 +575,36 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		}},
 	}}
 
+	mockResolver := fqdnconfig.ServiceResolver(func(ns, name string, _ []uint16) fqdnconfig.ServiceBackends {
+		if ns == "kube-system" && name == "kube-dns" {
+			return fqdnconfig.ServiceBackends{
+				PodSelector: map[string]string{"k8s-app": "kube-dns"},
+				Ports: []api.PortProtocol{
+					{Port: "53", Protocol: api.ProtoUDP},
+					{Port: "53", Protocol: api.ProtoTCP},
+				},
+			}
+		}
+		return fqdnconfig.ServiceBackends{}
+	})
+
+	fqdnCfg := fqdnconfig.FQDNPolicyDNSServerConfig{
+		FQDNPolicyDNSServerService: "kube-system/kube-dns",
+		FQDNPolicyDNSServerPorts:   []string{"53"},
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			option.Config.EnableNodeSelectorLabels = tt.enableNodeSelectorLabels
 			option.Config.EnableL7Proxy = tt.enableL7Proxy
-			got, err := ParseClusterNetworkPolicy(logger, clusterName, tt.cnp)
+			cfg := fqdnCfg
+			if tt.fqdnCfg != nil {
+				cfg = *tt.fqdnCfg
+			}
+			got, err := ParseClusterNetworkPolicy(logger, clusterName, tt.cnp,
+				WithFQDNPolicyDNSServerConfig(cfg),
+				WithServiceResolver(mockResolver),
+			)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
