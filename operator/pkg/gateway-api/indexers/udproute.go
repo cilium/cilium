@@ -11,7 +11,6 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // GenerateIndexerUDPRoutebyBackendService takes a single UDPRoute and returns all referenced
@@ -24,20 +23,15 @@ func GenerateIndexerUDPRoutebyBackendService(logger *slog.Logger, resourceConfig
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
-				if err != nil {
-					logger.Error("Failed to get backend service name",
-						logfields.LogSubsys, logfields.UDPRoute,
-						logfields.UDPRoute, client.ObjectKeyFromObject(rawObj),
-						logfields.Error, err)
-					continue
+				backendServiceName, found := helpers.GetBackendServiceName(namespace, backend.BackendObjectReference, resourceConfig)
+				if found {
+					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+							Name:      backendServiceName,
+						}.String(),
+					)
 				}
-				backendServices = append(backendServices,
-					types.NamespacedName{
-						Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-						Name:      backendServiceName,
-					}.String(),
-				)
 			}
 		}
 

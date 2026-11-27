@@ -6,26 +6,25 @@ package helpers
 import (
 	"crypto/sha256"
 	"encoding/base32"
-	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func GetBackendServiceName(namespace string, backendObjectReference gatewayv1.BackendObjectReference, resourceConfig ResourceConfig) (string, error) {
+func GetBackendServiceName(namespace string, backendObjectReference gatewayv1.BackendObjectReference, resourceConfig ResourceConfig) (string, bool) {
 	switch {
 	case IsService(backendObjectReference):
-		return string(backendObjectReference.Name), nil
+		return string(backendObjectReference.Name), true
 
 	case resourceConfig.IncludeServiceImports && IsServiceImport(backendObjectReference):
-		return derivedName(types.NamespacedName{Name: string(backendObjectReference.Name), Namespace: namespace}), nil
+		return derivedName(types.NamespacedName{Name: string(backendObjectReference.Name), Namespace: namespace}), true
 
 	case resourceConfig.IncludeInferencePools && IsInferencePool(backendObjectReference):
-		return ShadowServiceName(string(backendObjectReference.Name)), nil
+		return ShadowServiceName(string(backendObjectReference.Name)), true
 
 	default:
-		return "", fmt.Errorf("unsupported backend kind %s", *backendObjectReference.Kind)
+		return "", false
 	}
 }
 
