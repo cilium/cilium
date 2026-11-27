@@ -518,7 +518,7 @@ func (a *Agent) restoreFinished() error {
 	return nil
 }
 
-func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error {
+func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP, nodeOwned ...netip.Prefix) error {
 	// To avoid running into a deadlock, we need to lock the IPCache before
 	// calling a.Lock(), because IPCache might try to call into
 	// OnIPIdentityCacheChange concurrently
@@ -601,6 +601,13 @@ func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 				peer.queueAllowedIPsInsert(ipn)
 			}
 		}
+	}
+
+	// In native routing mode (or when falling back to tracking all IPs), also
+	// keep health/ingress/podCIDR prefixes from the CiliumNode in AllowedIPs.
+	// IPCache-driven updates alone do not reliably learn these prefixes today.
+	if a.needsIPCache() {
+		peer.syncNodeOwnedAllowedIPs(nodeOwned)
 	}
 
 	ep := ""
@@ -990,6 +997,30 @@ type peerConfig struct {
 	allowedIPs         set.Set[netip.Prefix]
 	needsInsert        set.Set[netip.Prefix]
 	needsRemove        set.Set[netip.Prefix]
+	// nodeOwnedIPs tracks health/ingress/podCIDR prefixes pushed from the
+	// CiliumNode object so they can be removed when the node definition changes.
+	nodeOwnedIPs set.Set[netip.Prefix]
+}
+
+// syncNodeOwnedAllowedIPs inserts desired node-owned prefixes and queues removal
+// of previously tracked prefixes that are no longer desired.
+func (p *peerConfig) syncNodeOwnedAllowedIPs(desired []netip.Prefix) {
+	next := set.NewSet[netip.Prefix](desired...)
+	for old := range p.nodeOwnedIPs.Members() {
+		if next.Has(old) {
+			continue
+		}
+		p.queueAllowedIPsRemove(old)
+	}
+	for _, pfx := range desired {
+		if !pfx.IsValid() {
+			continue
+		}
+		if !p.hasAllowedIP(pfx) {
+			p.queueAllowedIPsInsert(pfx)
+		}
+	}
+	p.nodeOwnedIPs = next
 }
 
 // queueAllowedIPsInsert adds ip to the list of IPs that need to be inserted
