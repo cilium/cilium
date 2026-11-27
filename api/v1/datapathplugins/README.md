@@ -515,6 +515,8 @@ go at this hook point relative to other plugins&#39; hooks.
 | UNKNOWN | 0 |  |
 | BEFORE | 1 |  |
 | AFTER | 2 |  |
+| FIRST | 3 |  |
+| LAST | 4 |  |
 
 
  
