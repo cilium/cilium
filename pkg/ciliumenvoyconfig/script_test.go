@@ -73,6 +73,19 @@ func TestScript(t *testing.T) {
 		}
 		var lns *node.LocalNodeStore
 
+		bindRetry := slices.Contains(args, "--bind-retry")
+		if bindRetry {
+			fakeEnvoy.beforeUpdate = func(_ context.Context, _, resources xds.Resources) error {
+				for _, listener := range resources.Listeners {
+					// Reject the first port assigned by MockPortAllocator.
+					if listener.GetAddress().GetSocketAddress().GetPortValue() == 1025 {
+						return &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "cannot bind: address already in use"}
+					}
+				}
+				return nil
+			}
+		}
+
 		h := hive.New(
 			k8sClient.FakeClientCell(),
 			synced.Cell,
@@ -116,7 +129,12 @@ func TestScript(t *testing.T) {
 			cell.Group(
 				cell.Provide(
 					newCECResourceParser,
-					func(log *slog.Logger) PortAllocator { return staticPortAllocator{log} },
+					func(log *slog.Logger) PortAllocator {
+						if bindRetry {
+							return NewMockPortAllocator()
+						}
+						return staticPortAllocator{log}
+					},
 					func() FeatureMetrics {
 						return mockFeatureMetrics{}
 					},

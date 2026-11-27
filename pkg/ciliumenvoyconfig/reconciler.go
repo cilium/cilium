@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/hive/job"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"google.golang.org/protobuf/proto"
@@ -351,28 +352,30 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 		// for the associated services.
 		if res.Redirects.Len() > 0 || res.ReconciledRedirects.Len() > 0 {
 			wtxn := ops.writer.WriteTxn()
-			orphanRedirects := res.ReconciledRedirects
-			for name, redirects := range res.Redirects.All() {
+			var applied part.Set[loadbalancer.ServiceName]
+			for name, targets := range res.Redirects.All() {
+				redirects := targets.resolve(&resources)
 				svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
 				if found && !svc.ProxyRedirects.Equal(redirects) {
 					svc = svc.Clone()
 					svc.ProxyRedirects = redirects
 					ops.writer.UpsertService(wtxn, svc)
 				}
-				orphanRedirects = orphanRedirects.Delete(name)
+				applied = applied.Set(name)
 			}
-			for name := range orphanRedirects.All() {
-				if _, found := res.Redirects.Get(name); !found {
-					svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
-					if found {
-						svc = svc.Clone()
-						svc.ProxyRedirects = nil
-						ops.writer.UpsertService(wtxn, svc)
-					}
+			for name := range res.ReconciledRedirects.All() {
+				if applied.Has(name) {
+					continue
+				}
+				svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
+				if found {
+					svc = svc.Clone()
+					svc.ProxyRedirects = nil
+					ops.writer.UpsertService(wtxn, svc)
 				}
 			}
 			wtxn.Commit()
-			res.ReconciledRedirects = res.Redirects
+			res.ReconciledRedirects = applied
 		}
 	}
 	return err

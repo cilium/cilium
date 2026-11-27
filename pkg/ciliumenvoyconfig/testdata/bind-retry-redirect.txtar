@@ -1,0 +1,47 @@
+#! --bind-retry
+# Add the CEC after initialization, with no restored redirects.
+hive start
+db/initialized envoy-resources
+k8s/add service.yaml cec.yaml
+
+# Envoy rejects port 1025. The service must follow the retry on 1026.
+db/cmp services services.table
+db/cmp frontends frontends.table
+lb/maps-dump lb.out
+grep '10.96.50.104:80/TCP.*L7Proxy=1026' lb.out
+
+-- services.table --
+Name          Flags
+test/gateway  ProxyRedirects=1026 (ports: [80])
+
+-- frontends.table --
+Address               Type       ServiceName   PortName   Status
+10.96.50.104:80/TCP   ClusterIP  test/gateway  http       Done
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: test
+spec:
+  type: ClusterIP
+  clusterIP: 10.96.50.104
+  ports:
+  - { name: http, port: 80, protocol: TCP }
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: gateway-cec
+  namespace: test
+spec:
+  services:
+  - name: gateway
+    namespace: test
+    listener: listener
+    ports: [80]
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: listener

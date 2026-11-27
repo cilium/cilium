@@ -369,7 +369,7 @@ spec:
       "k": "test/echo",
       "v": [
         {
-          "ProxyPort": 1000,
+          "Listener": "test/envoy-lb-listener/envoy-lb-listener",
           "Ports": [
             80
           ]
@@ -378,17 +378,7 @@ spec:
     }
   ],
   "ReconciledRedirects": [
-    {
-      "k": "test/echo",
-      "v": [
-        {
-          "ProxyPort": 1000,
-          "Ports": [
-            80
-          ]
-        }
-      ]
-    }
+    "test/echo"
   ],
   "ReferencedServices": [
     "test/echo"
