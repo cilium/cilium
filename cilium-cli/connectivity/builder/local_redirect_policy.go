@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 var (
@@ -28,9 +27,6 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 	lrpFrontendIPSkipRedirectV6 := "fd00::169:254:169:248"
 
 	lrpTest := newTest("local-redirect-policy", ct).
-		WithCondition(func() bool {
-			return ct.IsSocketLBFull() || versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion)
-		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher-v4",
