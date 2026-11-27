@@ -148,6 +148,36 @@ For example:
         matchLabels:
           "io.kubernetes.service.namespace": "tenant-a"
 
+Security considerations
+-----------------------
+
+Users who can create or modify Service objects can set Service labels. If a
+pool's ``.spec.serviceSelector`` matches only labels that tenants can modify,
+tenants can add matching labels to request IP addresses from the pool.
+Selectors based only on labels that tenants can modify do not provide a
+security boundary between tenants.
+
+A request for a specific IP address through ``.spec.loadBalancerIP`` or the
+``lbipam.cilium.io/ips`` annotation remains unsatisfied if another service
+holds the address and the services cannot share the address. LB IPAM
+retries pending requests when addresses are released, without guaranteeing
+request order. If a service is deleted and recreated, another tenant's
+service can receive the released address if the pool selects that service.
+The recreated service has no priority to reclaim its previous IP address.
+
+Anyone who can read a Service can read its
+``lbipam.cilium.io/sharing-key`` annotation. Setting
+``lbipam.cilium.io/sharing-cross-namespace`` to ``*`` permits otherwise
+compatible services in any namespace to share the IP address. Sharing
+across namespaces also requires the same nonempty sharing key, mutual namespace
+permission, and the compatibility conditions described in
+:ref:`lb_ipam_sharing_keys`. Leave sharing across namespaces disabled unless
+needed. If you enable sharing across namespaces, explicitly allow only trusted
+namespaces instead of ``*``.
+
+To isolate IP pools between tenants in separate namespaces, restrict pools
+using the ``io.kubernetes.service.namespace`` special selector field.
+
 Conflicts
 ---------
 
