@@ -731,7 +731,7 @@ var (
 	// This error originates from vendored client-go code and is retried by its leader election loop.
 	vendoredLeaderElectionLeaseLockError = regexMatcher{regexp.MustCompile(`vendor/k8s\.io/client-go/tools/leaderelection/leaderelection\.go:\d+.*msg="Error retrieving lease lock"`)}
 	// Cf. https://github.com/cilium/cilium/issues/35803
-	endpointMapDeleteFailed = regexMatcher{regexp.MustCompile(`Ignoring error while deleting endpoint.*from map cilium_\w+: delete: key does not exist`)}
+	endpointMapDeleteFailed = regexMatcher{regexp.MustCompile(`Ignoring error while deleting (?:Cilium health )?endpoint.*from map cilium_\w+: delete: key does not exist`)}
 	// envoyTLSWarningTemplate is the legitimate warning log for negative TLS SNI test case
 	// This is a template string as we need to replace %s for external target flag
 	envoyTLSWarningTemplate = "cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*%s.*and raw socket is not allowed"
