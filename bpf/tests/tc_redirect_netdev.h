@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
+/* This file was not reviewed by a human before submission */
 
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
 #include "scapy.h"
+
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
 
 /* Define an endpoint ID that we'll use as index into policy maps. */
 #define TEST_LXC_ID_LOCAL 233
@@ -140,12 +144,19 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 	return CTX_ACT_DROP;
 }
 
-ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
+ASSIGN_CONFIG(bool, enable_ipv4, true)
+ASSIGN_CONFIG(bool, enable_ipv6, true)
 
 /* Set our host interface index */
 ASSIGN_CONFIG(__u32, interface_ifindex, TEST_HOST_IFACE)
 
-/* Deal with testing netkit or veth. */
+/* Deal with all configuration permutations that affect the operation of
+ * the local_delivery code paths:
+ *
+ * - Datapath driver
+ * - BPF host routing
+ * - Per-endpoint routes
+ */
 #ifdef __CONFIG_ENABLE_NETKIT
 #define TEST_DRIVER_NAME "netkit"
 ASSIGN_CONFIG(bool, enable_netkit, true)
@@ -153,17 +164,49 @@ ASSIGN_CONFIG(bool, enable_netkit, true)
 #define TEST_DRIVER_NAME "veth"
 ASSIGN_CONFIG(bool, enable_netkit, false)
 #endif
-
+#ifdef __CONFIG_ENABLE_BPF_HOST_ROUTING
+#define TEST_ROUTING_NAME "+bpf"
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
+#else
+#define TEST_ROUTING_NAME "+legacy"
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, false)
+#endif
 #ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
+#define TEST_EPROUTES_NAME "+epr"
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 #else
+#define TEST_EPROUTES_NAME ""
 ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
 #endif
+
+#define TEST_CONFIG_NAME TEST_DRIVER_NAME TEST_ROUTING_NAME TEST_EPROUTES_NAME
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 #include "lib/policy.h"
+
+/* Test 1 ---------------------------------------------------------------------------------
+ *
+ * Covers delivery of a packet from ingress on physical netdev -> local pod.
+ *
+ * Packet enters via cil_from_netdev (TC ingress on the physical netdev),
+ * not via cil_from_host. With from_host=false and ingress_ifindex > 0 the
+ * datapath must reach the target Pod via ctx_redirect_peer() on both veth
+ * and netkit - that's the behavior the runtime arm of should_redirect_peer
+ * encodes (and what 210b5866e0 inadvertently broke for netkit).
+ *
+ * Both veth and netkit must take the redirect_peer() path here.
+ * ingress_ifindex > 0 makes the runtime arm true on netkit, an
+ * !enable_netkit makes the loadtime arm true on veth
+ */
+#ifdef __CONFIG_ENABLE_BPF_HOST_ROUTING
+#define TEST1_EXPECTED_RETURN CTX_ACT_REDIRECT
+#define TEST1_EXPECTED_CALLS { 1, 0, 1 }
+#else
+#define TEST1_EXPECTED_RETURN CTX_ACT_OK
+#define TEST1_EXPECTED_CALLS { 0, 0, 0 }
+#endif
 
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py (reused from the host
  * test - same external -> local Pod shape).
@@ -180,12 +223,6 @@ const __u8 tc_redirect_netdev_ipv4_post[] = {
  * +--------External--------+    +----------Pod 1---------+
  * | v4_ext_one:high-port   | -> | v4_pod_one:tcp_svc_one |
  * +------------------------+    +------------------------+
- *
- * Packet enters via cil_from_netdev (TC ingress on the physical netdev),
- * not via cil_from_host. With from_host=false and ingress_ifindex > 0 the
- * datapath must reach the target Pod via ctx_redirect_peer() on both veth
- * and netkit - that's the behavior the runtime arm of should_redirect_peer
- * encodes (and what 210b5866e0 inadvertently broke for netkit).
  */
 PKTGEN(PROG_TYPE, "tc_redirect_netdev_ipv4")
 int tc_redirect_netdev_ipv4_pktgen(struct __ctx_buff *ctx)
@@ -222,11 +259,7 @@ int tc_redirect_netdev_ipv4_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "tc_redirect_netdev_ipv4")
 int tc_redirect_netdev_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	/* Both veth and netkit must take the redirect_peer() path here:
-	 * ingress_ifindex > 0 makes the runtime arm true on netkit, and
-	 * !enable_netkit makes the loadtime arm true on veth.
-	 */
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
+	const unsigned int expected[RECORD__MAX] = TEST1_EXPECTED_CALLS;
 	void *data;
 	void *data_end;
 	__u32 *status_code;
@@ -242,109 +275,20 @@ int tc_redirect_netdev_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST1_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST1_EXPECTED_RETURN, *status_code);
 
-	test_log(TEST_DRIVER_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
+	test_log(TEST_CONFIG_NAME ": netdev %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
-
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of tail calls");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of bpf_redirect() calls")
 	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect_peer() calls")
-
-	test_finish();
-}
-
-/* Pod -> local Pod simulation:
- *
- * In production this enters via bpf_lxc's cil_from_container (a different
- * compilation unit we can't link in here), but the discriminator the fix
- * cares about is the value of ctx_get_ingress_ifindex() in
- * should_redirect_peer(). Reuse cil_from_netdev as the vehicle and force
- * the mock to return 0, which is what netkit's ns crossing scrubs the
- * field to on TC egress. On netkit this must NOT take redirect_peer(); on
- * veth the loadtime !enable_netkit arm still folds true so redirect_peer()
- * is the right answer (and matches the existing tc_redirect_lxc_veth_*
- * expectations).
- */
-PKTGEN(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
-int tc_redirect_pod_egress_ipv4_pktgen(struct __ctx_buff *ctx)
-{
-	struct pktgen builder;
-
-	pktgen__init(&builder, ctx);
-
-	scapy_push_data(&builder, tc_redirect_netdev_ipv4_pre,
-			sizeof(tc_redirect_netdev_ipv4_pre));
-
-	pktgen__finish(&builder);
-
-	return 0;
-}
-
-SETUP(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
-int tc_redirect_pod_egress_ipv4_setup(struct __ctx_buff *ctx)
-{
-	/* Pod-egress on netkit: ns crossing scrubs ingress_ifindex to 0 */
-	mock_ingress_ifindex = 0;
-
-	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
-	endpoint_v4_add_entry(v4_pod_one, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0, 0,
-			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
-
-	clear_records();
-	return netdev_receive_packet(ctx);
-}
-
-CHECK(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
-int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-#ifdef __CONFIG_ENABLE_NETKIT
-	/* netkit + ingress_ifindex==0: predicate is false on both arms,
-	 * so should_redirect_peer() returns false and the tail-called
-	 * mock_tail_policy uses ctx_redirect() (which on netkit lets the
-	 * primary's xmit handle the ns switch).
-	 */
-	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
-#else
-	/* veth + ingress_ifindex==0: !CONFIG(enable_netkit) folds true at
-	 * load time so should_redirect_peer() still returns true. veth Pod
-	 * -> Pod uses redirect_peer() and matches tc_redirect_lxc_veth_*.
-	 */
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
-#endif
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
-	test_init();
-
-	endpoint_v4_del_entry(v4_pod_one);
-
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
-
-	test_log(TEST_DRIVER_NAME ": pod num %u/%u/%u (tc/r/rp)",
-		 num_calls[RECORD_TAILCALL],
-		 num_calls[RECORD_REDIRECT],
-		 num_calls[RECORD_REDIRECT_PEER]);
-
-	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": pod bad tail count");
-	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": pod bad redirect count")
-	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": pod bad redirect_peer count")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of bpf_redirect_peer() calls")
 
 	test_finish();
 }
@@ -391,7 +335,7 @@ int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "tc_redirect_netdev_ipv6")
 int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
+	const unsigned int expected[RECORD__MAX] = TEST1_EXPECTED_CALLS;
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 	void *data;
 	void *data_end;
@@ -408,19 +352,130 @@ int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST1_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST1_EXPECTED_RETURN, *status_code);
 
-	test_log(TEST_DRIVER_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
+	test_log(TEST_CONFIG_NAME ": netdev %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
-
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of tail calls");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of bpf_redirect() calls")
 	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect_peer() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of bpf_redirect_peer() calls")
+
+	test_finish();
+}
+
+/* Test 2 ---------------------------------------------------------------------------------
+ *
+ * Pod -> local Pod simulation:
+ *
+ * In production this enters via bpf_lxc's cil_from_container (a different
+ * compilation unit we can't link in here), but the discriminator the fix
+ * cares about is the value of ctx_get_ingress_ifindex() in
+ * should_redirect_peer(). Reuse cil_from_netdev as the vehicle and force
+ * the mock to return 0, which is what netkit's ns crossing scrubs the
+ * field to on TC egress. On netkit this must NOT take redirect_peer(); on
+ * veth the loadtime !enable_netkit arm still folds true so redirect_peer()
+ * is the right answer (and matches the existing tc_redirect_lxc_veth_*
+ * expectations).
+ */
+#ifdef __CONFIG_ENABLE_NETKIT
+/* netkit + ingress_ifindex==0: predicate is false on both arms,
+ * so should_redirect_peer() returns false and the tail-called
+ * mock_tail_policy uses ctx_redirect() (which on netkit lets the
+ * primary's xmit handle the ns switch).
+ */
+#define TEST2_EXPECTED_CALLS {1, 1, 0}
+#define TEST2_EXPECTED_RETURN CTX_ACT_REDIRECT
+#elif defined(__CONFIG_ENABLE_BPF_HOST_ROUTING)
+/* veth + bpf_host_routing + ingress_ifindex==0: !CONFIG(enable_netkit)
+ * folds true at load time so should_redirect_peer() still returns true.
+ * veth Pod -> Pod uses redirect_peer() and matches tc_redirect_lxc_veth_*.
+ */
+#define TEST2_EXPECTED_CALLS {1, 0, 1}
+#define TEST2_EXPECTED_RETURN CTX_ACT_REDIRECT
+#else
+/* veth + !bpf_host_routing + ingress_ifindex==0: CONFIG(bpf_host_routing)
+ * folds false at load time so should_redirect_peer() should always return
+ * false.
+ *
+ * In this permutation, this test still enters via cil_from_netdev, which
+ * returns CTX_ACT_OK before reaching local_delivery code. Therefore, these
+ * zero helper counts only verify pass-through to the stack. They do not
+ * exercise the pod-egress redirect path in bpf_lxc - see tc_redirect_lxc
+ * for that.
+ */
+#define TEST2_EXPECTED_CALLS {0, 0, 0}
+#define TEST2_EXPECTED_RETURN CTX_ACT_OK
+#endif
+
+PKTGEN(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
+int tc_redirect_pod_egress_ipv4_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, tc_redirect_netdev_ipv4_pre,
+			sizeof(tc_redirect_netdev_ipv4_pre));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
+int tc_redirect_pod_egress_ipv4_setup(struct __ctx_buff *ctx)
+{
+	/* Pod-egress on netkit: ns crossing scrubs ingress_ifindex to 0 */
+	mock_ingress_ifindex = 0;
+
+	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
+	endpoint_v4_add_entry(v4_pod_one, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0, 0,
+			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
+
+	clear_records();
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
+int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	const unsigned int expected[RECORD__MAX] = TEST2_EXPECTED_CALLS;
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	endpoint_v4_del_entry(v4_pod_one);
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	if (*status_code != TEST2_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST2_EXPECTED_RETURN, *status_code);
+
+	test_log(TEST_CONFIG_NAME ": pod %u/%u/%u (tc/r/rp)",
+		 num_calls[RECORD_TAILCALL],
+		 num_calls[RECORD_REDIRECT],
+		 num_calls[RECORD_REDIRECT_PEER]);
+	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
+		test_fatal(TEST_CONFIG_NAME ": pod bad tail count");
+	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
+		test_fatal(TEST_CONFIG_NAME ": pod bad redirect count")
+	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
+		test_fatal(TEST_CONFIG_NAME ": pod bad redirect_peer count")
 
 	test_finish();
 }
@@ -459,11 +514,7 @@ int tc_redirect_pod_egress_ipv6_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "tc_redirect_pod_egress_ipv6")
 int tc_redirect_pod_egress_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#ifdef __CONFIG_ENABLE_NETKIT
-	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
-#else
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
-#endif
+	const unsigned int expected[RECORD__MAX] = TEST2_EXPECTED_CALLS;
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 	void *data;
 	void *data_end;
@@ -480,19 +531,20 @@ int tc_redirect_pod_egress_ipv6_check(__maybe_unused const struct __ctx_buff *ct
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	if (*status_code != TEST2_EXPECTED_RETURN)
+		test_fatal(TEST_CONFIG_NAME ": Incorrect status: exp %u, got %u",
+			   TEST2_EXPECTED_RETURN, *status_code);
 
-	test_log(TEST_DRIVER_NAME ": pod num %u/%u/%u (tc/r/rp)",
+	test_log(TEST_CONFIG_NAME ": pod %u/%u/%u (tc/r/rp)",
 		 num_calls[RECORD_TAILCALL],
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
-
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": pod bad tail count");
+		test_fatal(TEST_CONFIG_NAME ": pod bad tail count");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": pod bad redirect count")
+		test_fatal(TEST_CONFIG_NAME ": pod bad redirect count")
 	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": pod bad redirect_peer count")
+		test_fatal(TEST_CONFIG_NAME ": pod bad redirect_peer count")
 
 	test_finish();
 }
