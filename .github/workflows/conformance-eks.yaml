@@ -762,6 +762,7 @@ jobs:
           artifacts_suffix: "eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
+          always_capture_sysdump: true
 
       # Surface quarantined failures. continue-on-error makes the job (and thus
       # the workflow) succeed even when a step failed, so without this the
