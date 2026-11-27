@@ -11,6 +11,7 @@ import (
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -29,6 +30,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(
 		cfg *option.DaemonConfig,
 		tunnelCfg tunnel.Config,
+		lbConfig loadbalancer.Config,
 		ipsecCfg ipsec.Config,
 		wgConfig wgTypes.Config,
 		kprCfg kpr.KPRConfig,
@@ -36,6 +38,7 @@ var Cell = cell.Module(
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
 			TunnelPort:                      tunnelCfg.Port(),
+			EnableTunneledDSR:               lbConfig.LoadBalancerUsesDSR() && lbConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve,
 			NodeIpsetNeeded:                 cfg.NodeIpsetNeeded(),
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
 			IptablesMasqueradingIPv6Enabled: cfg.IptablesMasqueradingIPv6Enabled(),
@@ -100,6 +103,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	TunnelingEnabled                bool
 	TunnelPort                      uint16
+	EnableTunneledDSR               bool
 	NodeIpsetNeeded                 bool
 	IptablesMasqueradingIPv4Enabled bool
 	IptablesMasqueradingIPv6Enabled bool

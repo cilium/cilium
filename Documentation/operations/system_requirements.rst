@@ -474,6 +474,9 @@ network firewalling. In such scenarios, the flows listed in the section :ref:`fi
 should also be allowed directly on the nodes.
 Tunneling (VXLAN and Geneve) and Encryption are exempt from connection tracking, so
 when the policy for the FILTER table is set to drop, those flows must be explicitly allowed.
+This also applies to the Geneve tunnel port when DSR with Geneve dispatch
+(``loadBalancer.dsrDispatch=geneve``) is used in native routing mode, since the
+tunnel then carries the DSR return traffic.
 The following iptables rules can be used as a reference:
 
 VXLAN Tunnel (default port):
