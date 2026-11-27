@@ -1848,3 +1848,47 @@ func TestComputeCIDRLabelsAfterRestore(t *testing.T) {
 	require.Equal(t, podIP, restoredEP.IPv4)
 	require.Equal(t, expected, restoredEP.computeCIDRLabelsRLocked())
 }
+
+func TestSkipMasqueradeAfterEndpointRestore(t *testing.T) {
+	tests := []struct {
+		name             string
+		skipMasqueradeV4 bool
+		skipMasqueradeV6 bool
+	}{
+		{name: "none"},
+		{name: "v4", skipMasqueradeV4: true},
+		{name: "v6", skipMasqueradeV6: true},
+		{name: "v4 and v6", skipMasqueradeV4: true, skipMasqueradeV6: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+			p := createEndpointParams(t, nil, do.repo, do.fetcher)
+
+			model := newTestEndpointModel(12345, StateReady)
+			if tt.skipMasqueradeV4 {
+				model.Properties[endpoint.PropertySkipMasqueradeV4] = true
+			}
+			if tt.skipMasqueradeV6 {
+				model.Properties[endpoint.PropertySkipMasqueradeV6] = true
+			}
+
+			ep, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
+			require.NoError(t, err)
+			require.Equal(t, tt.skipMasqueradeV4, ep.SkipMasqueradeV4())
+			require.Equal(t, tt.skipMasqueradeV6, ep.SkipMasqueradeV6())
+
+			ep.unconditionalRLock()
+			epJSON, err := json.Marshal(ep)
+			ep.runlock()
+			require.NoError(t, err)
+
+			restoredEP, err := ParseEndpoint(p, nil, nil, epJSON, nil)
+			require.NoError(t, err)
+			require.Equal(t, tt.skipMasqueradeV4, restoredEP.SkipMasqueradeV4())
+			require.Equal(t, tt.skipMasqueradeV6, restoredEP.SkipMasqueradeV6())
+		})
+	}
+}
