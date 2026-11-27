@@ -210,6 +210,150 @@ icmp4_err_revnat_egress_post_sctp = (
     Raw(default_data)
 )
 
+# IPv4 ICMP error packets embedding UDP (issue #48723).
+#
+# Two independent egress flows are used so the zero-csum variant gets its own
+# SNAT mapping: pod:33440 -> ext:22331 with a valid checksum, and
+# pod:44550 -> ext:33441 with a zero checksum. Both source ports are above
+# NODEPORT_PORT_MIN_NAT, so the SNAT reuses the source port.
+
+# Plain IPv4 UDP packet used to establish SNAT state.
+icmp4_err_revnat_egress_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+    UDP(sport=tcp_src_two, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+# Post-masquerade: saddr rewritten to node IP, UDP checksum updated for the
+# pseudo-header address change. Ports are unchanged.
+icmp4_err_revnat_egress_post_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+    UDP(sport=tcp_src_two, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+# Same as above, but with a zero UDP checksum. The checksum must remain zero:
+# masquerading does not compute a checksum for a packet that never had one.
+icmp4_err_revnat_egress_udp_zerocsum = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+    UDP(sport=tcp_src_three, dport=tcp_dst_two, chksum=0) /
+    Raw(default_data)
+)
+
+icmp4_err_revnat_egress_post_udp_zerocsum = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+    UDP(sport=tcp_src_three, dport=tcp_dst_two, chksum=0) /
+    Raw(default_data)
+)
+
+# Full inner UDP header + data payload, ingress/revNAT: router -> host,
+# quoting the NATed node -> external packet.
+icmp4_err_revnat_full_udp = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, flags="DF", proto="udp") /
+    UDPerror(sport=tcp_src_two, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+# After revSNAT: outer daddr -> pod, inner saddr -> pod. The inner UDP
+# checksum is updated for the pseudo-header address change.
+icmp4_err_revnat_full_udp_after = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, flags="DF", proto="udp") /
+    UDPerror(sport=tcp_src_two, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+# Zero-csum variant: the inner UDP checksum must remain zero after revSNAT.
+icmp4_err_revnat_full_udp_zerocsum = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, flags="DF", proto="udp") /
+    UDPerror(sport=tcp_src_three, dport=tcp_dst_two, chksum=0) /
+    Raw(default_data)
+)
+
+icmp4_err_revnat_full_udp_zerocsum_after = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, flags="DF", proto="udp") /
+    UDPerror(sport=tcp_src_three, dport=tcp_dst_two, chksum=0) /
+    Raw(default_data)
+)
+
+# Plain IPv4 UDP packets for the SNAT (egress ICMP error) direction:
+# external -> node as sent by the peer, and external -> pod as delivered
+# to the pod after revSNAT. The pod's ICMP error quotes the latter.
+icmp4_udp_ingress = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    UDP(sport=tcp_dst_one, dport=tcp_src_two) /
+    Raw(default_data)
+)
+
+icmp4_udp_ingress_post_revnat = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    UDP(sport=tcp_dst_one, dport=tcp_src_two) /
+    Raw(default_data)
+)
+
+icmp4_udp_ingress_zerocsum = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    UDP(sport=tcp_dst_two, dport=tcp_src_three, chksum=0) /
+    Raw(default_data)
+)
+
+icmp4_udp_ingress_zerocsum_post_revnat = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    UDP(sport=tcp_dst_two, dport=tcp_src_three, chksum=0) /
+    Raw(default_data)
+)
+
+# ICMP error sent by the pod, quoting the packet as the pod saw it
+# (external -> pod). On the way out, SNAT rewrites the outer saddr and the
+# inner daddr to the node IP, and updates the inner UDP checksum.
+icmp4_err_nat_full_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(icmp4_udp_ingress_post_revnat[IP]))
+)
+
+icmp4_err_nat_full_udp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(icmp4_udp_ingress[IP]))
+)
+
+# Zero-csum variant: the inner UDP checksum must remain zero after SNAT.
+icmp4_err_nat_full_udp_zerocsum = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(icmp4_udp_ingress_zerocsum_post_revnat[IP]))
+)
+
+icmp4_err_nat_full_udp_zerocsum_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(icmp4_udp_ingress_zerocsum[IP]))
+)
+
 # Shared header layers for the IPv6 egress flow, pre- and post-masquerade.
 _ip6_hdr_egress = IPv6(src=v6_pod_one, dst=v6_ext_node_one)
 _udp_hdr_egress = UDP(sport=tcp_src_two, dport=tcp_dst_one)
