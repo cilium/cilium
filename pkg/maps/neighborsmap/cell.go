@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/kpr"
 	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
@@ -48,16 +48,11 @@ func newNeighborsMap(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig
 }
 
 func configure(reg *mapregistry.MapRegistry, daemonConfig *option.DaemonConfig) error {
-	var flags uint32
-	if daemonConfig.BPFDistributedLRU {
-		flags = unix.BPF_F_NO_COMMON_LRU
-	}
-
 	for _, name := range []string{map4Name, map6Name} {
 		if err := reg.Modify(name, func(m *mapregistry.MapSpecPatch) {
 			m.MaxEntries = uint32(daemonConfig.NeighMapEntriesGlobal)
 			// Registry patches also replace the flags from the compiled map.
-			m.Flags = flags
+			m.Flags = bpf.GetMapMemoryFlags(ebpf.LRUHash)
 		}); err != nil {
 			return fmt.Errorf("configure neighbor map %s: %w", name, err)
 		}
