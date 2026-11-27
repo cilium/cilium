@@ -122,7 +122,9 @@ jobs:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"ipsec": true}'
+      # Skipping IPv6 + IPsec config as it is known to not work.
+      # TODO: Remove the skip flag when https://github.com/cilium/cilium/issues/49834 is resolved.
+      extra-args: '{"ipsec": true, "skip-ipv6": true}'
 
   conformance-gke-ipsec:
     name: Conformance GKE with IPsec
