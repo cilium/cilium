@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/getter"
 	"helm.sh/helm/v4/pkg/release"
@@ -24,7 +25,11 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 	if k.params.ListVersions {
 		return k.listVersions()
 	}
-	if err := k.preinstall(ctx); err != nil {
+	releaseValues, err := k.reusedReleaseValues(k8sClient.HelmActionConfig)
+	if err != nil {
+		return err
+	}
+	if err := k.preinstall(ctx, releaseValues); err != nil {
 		return err
 	}
 
@@ -90,4 +95,21 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 	fmt.Println("♻️  Force restarted Cilium pods")
 
 	return err
+}
+
+// reusedReleaseValues returns the user-supplied values of the current release if
+// they are going to be reused by the upgrade, and nil otherwise.
+func (k *K8sInstaller) reusedReleaseValues(actionConfig *action.Configuration) (map[string]any, error) {
+	if k.params.HelmResetValues || (!k.params.HelmReuseValues && !k.params.HelmResetThenReuseValues) {
+		return nil, nil
+	}
+	lastRel, err := actionConfig.Releases.Last(k.params.HelmReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	v1rel, ok := lastRel.(*v1release.Release)
+	if !ok {
+		return nil, fmt.Errorf("unsupported release type: %T", lastRel)
+	}
+	return v1rel.Config, nil
 }
