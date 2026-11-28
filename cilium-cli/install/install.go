@@ -13,6 +13,7 @@ import (
 	"github.com/blang/semver/v4"
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/chart"
+	chartutil "helm.sh/helm/v4/pkg/chart/common/util"
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/cli/values"
 	"helm.sh/helm/v4/pkg/getter"
@@ -204,12 +205,11 @@ func (k *K8sInstaller) listVersions() error {
 	return err
 }
 
-func (k *K8sInstaller) preinstall(ctx context.Context) error {
-	// TODO (ajs): Note that we have our own implementation of helm MergeValues at internal/helm/MergeValues, used
-	//  e.g. in hubble.go. Does using the upstream HelmOpts.MergeValues here create inconsistencies with which
-	//  parameters take precedence? Test and determine which we should use here for expected behavior.
-	// Get Helm values to check if ipv4NativeRoutingCIDR value is specified via a Helm flag.
-	helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
+// preinstall auto-detects and validates the installation parameters. releaseValues
+// are the values of the previous release that are going to be reused by an upgrade,
+// if any: they are taken into account to determine whether a value is already set.
+func (k *K8sInstaller) preinstall(ctx context.Context, releaseValues map[string]any) error {
+	helmValues, err := k.autodetectionValues(releaseValues)
 	if err != nil {
 		return err
 	}
@@ -255,6 +255,20 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 	return nil
 }
 
+// autodetectionValues returns the Helm values specified via flags, merged on top of
+// the given release values, so that auto-detection does not override them.
+func (k *K8sInstaller) autodetectionValues(releaseValues map[string]any) (map[string]any, error) {
+	// TODO (ajs): Note that we have our own implementation of helm MergeValues at internal/helm/MergeValues, used
+	//  e.g. in hubble.go. Does using the upstream HelmOpts.MergeValues here create inconsistencies with which
+	//  parameters take precedence? Test and determine which we should use here for expected behavior.
+	// Get Helm values to check if ipv4NativeRoutingCIDR value is specified via a Helm flag.
+	helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
+	if err != nil {
+		return nil, err
+	}
+	return chartutil.CoalesceTables(helmValues, releaseValues), nil
+}
+
 func (k *K8sInstaller) spireAgentScheduleAffinity() []string {
 	if versioncheck.MustCompile(">=1.21.0-0")(k.chartVersion) {
 		return defaults.SpireAgentScheduleAffinity
@@ -266,7 +280,7 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Clien
 	if k.params.ListVersions {
 		return k.listVersions()
 	}
-	if err := k.preinstall(ctx); err != nil {
+	if err := k.preinstall(ctx, nil); err != nil {
 		return err
 	}
 	vals, err := k.getHelmValues()
