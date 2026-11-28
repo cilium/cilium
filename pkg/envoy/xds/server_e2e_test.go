@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
@@ -18,11 +19,14 @@ import (
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	xdsresource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/cilium/cilium/pkg/completion"
 )
 
 const (
@@ -140,6 +144,204 @@ func (*spyAckObserver) MarkRestorePending() {}
 func (*spyAckObserver) MarkRestoreCompleted() {}
 
 func (*spyAckObserver) WaitForFirstAck(ctx context.Context, node string, typeURL string) {}
+
+func TestWaitAfterNACK(t *testing.T) {
+	t.Run("SotW", func(t *testing.T) { testWaitAfterNACK(t, false) })
+	t.Run("Delta", func(t *testing.T) { testWaitAfterNACK(t, true) })
+}
+
+func testWaitAfterNACK(t *testing.T, delta bool) {
+	const nackDetail = "rejected initial configuration"
+	tests := []struct {
+		name       string
+		typeURL    string
+		resource   proto.Message
+		newer      proto.Message
+		resend     bool
+		lateNACK   bool
+		nackOther  bool
+		detail     string
+		expectNACK bool
+	}{
+		{
+			name:       "NACK before registration",
+			typeURL:    xdsresource.ListenerType,
+			resource:   &envoy_config_listener.Listener{Name: "example"},
+			detail:     nackDetail,
+			expectNACK: true,
+		},
+		{
+			name:       "NACK without detail before registration",
+			typeURL:    xdsresource.ClusterType,
+			resource:   &envoy_config_cluster.Cluster{Name: "example"},
+			expectNACK: true,
+		},
+		{
+			name:     "newer version",
+			typeURL:  xdsresource.ClusterType,
+			resource: &envoy_config_cluster.Cluster{Name: "example"},
+			newer:    &envoy_config_cluster.Cluster{Name: "another"},
+			detail:   nackDetail,
+		},
+		{
+			name:     "same version resent",
+			typeURL:  xdsresource.ListenerType,
+			resource: &envoy_config_listener.Listener{Name: "example"},
+			resend:   true,
+			detail:   nackDetail,
+		},
+		{
+			name:     "NACK from older stream after resend",
+			typeURL:  xdsresource.ListenerType,
+			resource: &envoy_config_listener.Listener{Name: "example"},
+			lateNACK: true,
+			detail:   nackDetail,
+		},
+		{
+			name:      "NACK for another resource",
+			typeURL:   xdsresource.ListenerType,
+			resource:  &envoy_config_listener.Listener{Name: "example"},
+			nackOther: true,
+			detail:    nackDetail,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
+				logger := hivetest.Logger(t)
+				metrics := newMockMetrics()
+				cache := NewCache(logger)
+				mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+				server := NewServer(logger, map[string]*ResourceTypeConfiguration{
+					tt.typeURL: {Source: cache, AckObserver: mutator},
+				}, nil, metrics)
+				nodeIDs := []string{node0}
+				mutator.Upsert(tt.typeURL, "example", tt.resource, nodeIDs, nil)
+
+				var names []string
+				if tt.nackOther {
+					mutator.Upsert(tt.typeURL, "another", &envoy_config_listener.Listener{Name: "another"}, nodeIDs, nil)
+					names = []string{"another"}
+				}
+
+				openStream := func(lastAccepted string, names []string) (context.CancelFunc, string, func(*status.Status) error) {
+					ctx, cancel := context.WithCancel(ctx)
+					t.Cleanup(cancel)
+					if delta {
+						stream := NewMockDeltaStream(ctx, 1, 1, StreamTimeout)
+						go func() {
+							assert.NoError(t, server.HandleDeltaRequestStream(ctx, stream, tt.typeURL, ""))
+						}()
+						require.NoError(t, stream.SendRequest(&envoy_service_discovery.DeltaDiscoveryRequest{
+							Node:                   nodes[node0],
+							ResourceNamesSubscribe: names,
+						}))
+						response, err := stream.RecvResponse()
+						require.NoError(t, err)
+						return cancel, response.GetSystemVersionInfo(), func(detail *status.Status) error {
+							return stream.SendRequest(&envoy_service_discovery.DeltaDiscoveryRequest{
+								ResponseNonce: response.GetNonce(),
+								ErrorDetail:   detail,
+							})
+						}
+					}
+
+					stream := NewMockStream(ctx, 1, 1, StreamTimeout)
+					go func() {
+						assert.NoError(t, server.HandleRequestStream(ctx, stream, tt.typeURL, ""))
+					}()
+					require.NoError(t, stream.SendRequest(&envoy_service_discovery.DiscoveryRequest{
+						Node:          nodes[node0],
+						VersionInfo:   lastAccepted,
+						ResourceNames: names,
+					}))
+					response, err := stream.RecvResponse()
+					require.NoError(t, err)
+					return cancel, response.GetVersionInfo(), func(detail *status.Status) error {
+						version := response.GetVersionInfo()
+						if detail != nil {
+							version = lastAccepted
+						}
+						return stream.SendRequest(&envoy_service_discovery.DiscoveryRequest{
+							VersionInfo:   version,
+							ResponseNonce: response.GetNonce(),
+							ResourceNames: names,
+							ErrorDetail:   detail,
+						})
+					}
+				}
+
+				// SotW reconnects can advertise a version ahead of the restored cache.
+				// The server assigns a newer wire version to the first response.
+				closeStream, rejected, reply := openStream("20", names)
+				if !delta {
+					require.Equal(t, "21", rejected)
+				}
+				replyToOriginal := reply
+				if tt.lateNACK {
+					var version string
+					_, version, reply = openStream("", nil)
+					require.Equal(t, rejected, version)
+				}
+				require.NoError(t, replyToOriginal(&status.Status{Message: tt.detail}))
+				synctest.Wait()
+				require.Equal(t, 1, metrics.nack[tt.typeURL])
+
+				if tt.newer != nil || tt.resend || tt.lateNACK || tt.nackOther {
+					closeStream()
+				}
+				if tt.resend {
+					var version string
+					_, version, reply = openStream("", nil)
+					require.Equal(t, rejected, version)
+				}
+				if tt.newer != nil {
+					// Leave the newer version unsent when registering the wait.
+					mutator.Upsert(tt.typeURL, "another", tt.newer, nodeIDs, nil)
+				}
+
+				wg := completion.NewWaitGroup(ctx)
+				mutator.Upsert(tt.typeURL, "example", tt.resource, nodeIDs, wg)
+				result := make(chan error, 1)
+				go func() { result <- wg.Wait() }()
+				synctest.Wait()
+				if tt.expectNACK {
+					select {
+					case err := <-result:
+						require.Equal(t, &ProxyError{Err: ErrNackReceived, Detail: tt.detail}, err)
+					default:
+						t.Fatal("waiter missed the NACK")
+					}
+					return
+				}
+
+				select {
+				case err := <-result:
+					t.Fatalf("wait completed before the new response was ACKed: %v", err)
+				default:
+				}
+				if tt.newer != nil || tt.nackOther {
+					var version string
+					_, version, reply = openStream("", nil)
+					if tt.newer != nil {
+						require.NotEqual(t, rejected, version)
+					} else {
+						require.Equal(t, rejected, version)
+					}
+				}
+				require.NoError(t, reply(nil))
+				synctest.Wait()
+				select {
+				case err := <-result:
+					require.NoError(t, err)
+				default:
+					t.Fatal("waiter missed the ACK")
+				}
+			})
+		})
+	}
+}
 
 func TestRequestAllResources(t *testing.T) {
 	logger := hivetest.Logger(t)

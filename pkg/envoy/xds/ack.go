@@ -121,6 +121,11 @@ type AckingResourceMutatorWrapper struct {
 	// e.g. "127.0.0.1" for the host proxy.
 	ackedVersions map[string]uint64
 
+	// responses tracks the latest delivery per node for the registered TypeURL.
+	// Production waiters use wildcard LDS, CDS and NPDS subscriptions.
+	// Named EDS, RDS and SDS updates do not register waits.
+	responses map[string]responseState
+
 	// ackedNodes has a channel for each node for which someone is waiting for the first ACK to
 	// be received. The channel is closed after the first ACK has been received, and set to
 	// 'nil' to avoid closing the channel more than once.
@@ -140,6 +145,18 @@ type AckingResourceMutatorWrapper struct {
 	restoring bool
 
 	metrics Metrics
+}
+
+type responseState struct {
+	version  uint64
+	streamID uint64
+	nack     *responseNACK // Set when Envoy rejects this delivery.
+}
+
+type responseNACK struct {
+	detail string
+	// A wildcard Delta response can omit unchanged names.
+	names []string
 }
 
 type nackRemoval struct {
@@ -378,12 +395,20 @@ func (m *AckingResourceMutatorWrapper) upsert(typeURL string, resourceName strin
 	}
 
 	if !updated {
-		// Add a completion object for the current version so that the caller may
-		// wait for the N/ACK even when this particular resource is unchanged.
-		// This still matters for callers that reuse the low-level mutator
-		// directly and want an ACK for the current published version without
-		// changing the bytes stored under this resource name.
+		// Wait for the current version even when this resource is unchanged.
+		// Envoy can reject the first response before reconciliation registers
+		// a wait for the resources added during startup.
 		if wait {
+			if len(m.responses) > 0 {
+				for _, nodeIP := range nodeIDs {
+					response := m.responses[nodeIP]
+					if response.nack != nil && response.version == m.version && m.ackedVersions[nodeIP] < m.version &&
+						slices.Contains(response.nack.names, resourceName) {
+						wg.AddCompletion(nil).Complete(&ProxyError{Err: ErrNackReceived, Detail: response.nack.detail})
+						return func() {}
+					}
+				}
+			}
 			m.addCurrentVersionCompletion(typeURL, nodeIDs, wg)
 		}
 		return func() {}
@@ -491,11 +516,29 @@ func (m *AckingResourceMutatorWrapper) deleteResourceLocked(typeURL, resourceNam
 	return updated, revert
 }
 
+func (m *AckingResourceMutatorWrapper) recordResponse(nodeIP string, version, streamID uint64) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	if m.responses == nil {
+		m.responses = make(map[string]responseState)
+	}
+	// A same-version resend supersedes the previous delivery and its NACK, if any.
+	// A delayed response from an older version must not displace it.
+	if version >= m.responses[nodeIP].version {
+		m.responses[nodeIP] = responseState{version: version, streamID: streamID}
+	}
+}
+
 // ackVersion is the last version accepted by the client. responseVersion is
 // the version of the response being ACKed or NACKed. The explicit nack flag is
 // needed because subscription changes can produce a NACK without advancing the
 // cache version, making ackVersion and responseVersion equal.
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(nodeIP string, ackVersion uint64, responseVersion uint64, isNACK bool, errorDetail string, typeURL string, resourceNames []string) {
+	m.handleResourceVersionAck(nodeIP, ackVersion, responseVersion, isNACK, errorDetail, typeURL, resourceNames, 0)
+}
+
+func (m *AckingResourceMutatorWrapper) handleResourceVersionAck(nodeIP string, ackVersion uint64, responseVersion uint64, isNACK bool, errorDetail string, typeURL string, resourceNames []string, streamID uint64) {
 	scopedLogger := m.logger.With(
 		logfields.XDSAckedVersion, ackVersion,
 		logfields.XDSVersion, responseVersion,
@@ -505,6 +548,17 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(nodeIP string, a
 
 	m.locker.Lock()
 	defer m.locker.Unlock()
+
+	if len(m.responses) > 0 {
+		if response, ok := m.responses[nodeIP]; ok {
+			if !isNACK && ackVersion >= response.version {
+				delete(m.responses, nodeIP)
+			} else if isNACK && response.streamID == streamID && response.version == responseVersion {
+				response.nack = &responseNACK{detail: errorDetail, names: resourceNames}
+				m.responses[nodeIP] = response
+			}
+		}
+	}
 
 	// Settle opt-in recovery before waking callers. Unlike pendingCompletions,
 	// this state remains actionable after a caller stops waiting, and only the
