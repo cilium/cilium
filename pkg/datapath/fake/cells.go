@@ -74,6 +74,7 @@ var Cell = cell.Module(
 		func() lxcmap.Map { return nil },
 		func() bigtcp.Config { return &fakebigtcp.Config{} },
 		func() iptables.Manager { return fakeiptables.NewManager() },
+		func() iptables.Runner { return &fakeiptables.Runner{} },
 		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
 		func() ipsec.Agent { return &fakeipsec.Agent{} },
 		func() ipsec.Config { return &fakeipsec.Config{} },

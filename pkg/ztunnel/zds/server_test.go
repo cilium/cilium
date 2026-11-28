@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	apimachineryTypes "k8s.io/apimachinery/pkg/types"
 
+	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -42,6 +43,7 @@ func setupZDSTestSuite(t *testing.T) *Server {
 		ZDSUnixAddr: zdsTestUnixAddress,
 		Lifecycle:   hivetest.Lifecycle(t),
 		Logger:      logger,
+		IPTables:    &fakeiptables.Runner{},
 	})
 	require.NotNil(t, server.Server)
 	require.NotNil(t, server.Server.l, "server listener should be initialized")

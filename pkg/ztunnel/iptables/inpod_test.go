@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -40,7 +39,7 @@ func TestPrivilegedCreateInPodRules(t *testing.T) {
 			}
 		}
 
-		err = CreateInPodRules(slog.Default(), true, true)
+		err = CreateInPodRules(slog.Default(), execRunner{t}, true, true)
 		require.NoError(t, err)
 
 		// Verify IPv4 rules
@@ -89,15 +88,15 @@ func TestPrivilegedCreateInPodRulesIdempotency(t *testing.T) {
 		require.NoError(t, netlink.LinkSetUp(link))
 
 		// First call - creates all rules, routes, and chains
-		err = CreateInPodRules(slog.Default(), true, true)
+		err = CreateInPodRules(slog.Default(), execRunner{t}, true, true)
 		require.NoError(t, err, "First call to CreateInPodRules should succeed")
 
 		// Second call - should handle existing rules/routes/chains without error
-		err = CreateInPodRules(slog.Default(), true, true)
+		err = CreateInPodRules(slog.Default(), execRunner{t}, true, true)
 		require.NoError(t, err, "Second call to CreateInPodRules should succeed (idempotency)")
 
 		// Third call - verify it's truly idempotent
-		err = CreateInPodRules(slog.Default(), true, true)
+		err = CreateInPodRules(slog.Default(), execRunner{t}, true, true)
 		require.NoError(t, err, "Third call to CreateInPodRules should succeed (idempotency)")
 
 		return nil
@@ -115,20 +114,14 @@ func TestPrivilegedAddExistingChains(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
-		ipt4, err := iptables.New()
-		require.NoError(t, err)
-
-		ipt6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-		require.NoError(t, err)
-
-		rm := ruleManager{logger: slog.Default(), ipt4: ipt4, ipt6: ipt6}
+		rm := ruleManager{families: families(execRunner{t}, true, true)}
 
 		// Create chains first time
-		err = rm.createChains(true, true)
+		err = rm.createChains()
 		require.NoError(t, err, "First call to createChains should succeed")
 
 		// Create chains second time - should not error
-		err = rm.createChains(true, true)
+		err = rm.createChains()
 		require.NoError(t, err, "Second call to createChains should succeed")
 
 		// Verify chains exist
@@ -242,22 +235,16 @@ func TestPrivilegedAddExistingIPTablesRules(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
-		ipt4, err := iptables.New()
-		require.NoError(t, err)
-		ipt6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-		require.NoError(t, err)
-
-		// Create chains first
-		rm := ruleManager{logger: slog.Default(), ipt4: ipt4, ipt6: ipt6}
-		err = rm.createChains(true, true)
+		rm := ruleManager{families: families(execRunner{t}, true, true)}
+		err = rm.createChains()
 		require.NoError(t, err)
 
 		// Install rules first time
-		err = addInPodRules(slog.Default(), true, true)
+		err = addInPodRules(execRunner{t}, true, true)
 		require.NoError(t, err, "First call to addInPodRules should succeed")
 
 		// Install rules second time - should not error (rules already exist)
-		err = addInPodRules(slog.Default(), true, true)
+		err = addInPodRules(execRunner{t}, true, true)
 		require.NoError(t, err, "Second call to addInPodRules should succeed")
 
 		// Verify that rules weren't duplicated
@@ -288,7 +275,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		require.NoError(t, netlink.LinkSetUp(link))
 
 		// First create all rules
-		err = CreateInPodRules(slog.Default(), true, true)
+		err = CreateInPodRules(slog.Default(), execRunner{t}, true, true)
 		require.NoError(t, err, "CreateInPodRules should succeed")
 
 		// Verify rules exist before deletion
@@ -296,7 +283,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		requireRule(t, natRulesV4Before, "-A", "PREROUTING", "-j", InpodPreroutingChain)
 
 		// Delete all rules
-		err = DeleteInPodRules(slog.Default(), true, true)
+		err = DeleteInPodRules(execRunner{t}, true, true)
 		require.NoError(t, err, "DeleteInPodRules should succeed")
 
 		// Verify iptables chains are deleted (IPv4)
@@ -361,15 +348,15 @@ func TestPrivilegedDeleteInPodRulesIdempotency(t *testing.T) {
 		require.NoError(t, netlink.LinkSetUp(link))
 
 		// Create rules
-		err = CreateInPodRules(slog.Default(), true, true)
+		err = CreateInPodRules(slog.Default(), execRunner{t}, true, true)
 		require.NoError(t, err, "CreateInPodRules should succeed")
 
 		// First deletion - should succeed
-		err = DeleteInPodRules(slog.Default(), true, true)
+		err = DeleteInPodRules(execRunner{t}, true, true)
 		require.NoError(t, err, "First call to DeleteInPodRules should succeed")
 
 		// Second deletion - should handle non-existent rules gracefully
-		err = DeleteInPodRules(slog.Default(), true, true)
+		err = DeleteInPodRules(execRunner{t}, true, true)
 		require.NoError(t, err, "Second call to DeleteInPodRules should succeed (idempotency)")
 
 		return nil
@@ -495,7 +482,7 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 		require.NoError(t, netlink.LinkSetUp(link))
 
 		// Create chains and add some rules
-		err = addInPodRules(slog.Default(), true, true)
+		err = addInPodRules(execRunner{t}, true, true)
 		require.NoError(t, err, "addInPodRules should succeed")
 
 		// Verify chains exist before deletion
@@ -510,7 +497,7 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 		}
 
 		// Delete chains
-		err = deleteInPodChains(slog.Default(), true, true)
+		err = deleteInPodChains(execRunner{t}, true, true)
 		require.NoError(t, err, "deleteInPodChains should succeed")
 
 		// Verify chains are deleted (IPv4)
@@ -554,4 +541,26 @@ func requireRule(t *testing.T, rules []string, expected ...string) {
 		}
 	}
 	require.Failf(t, "Rule not found", "rule containing '%s' not found in ruleset:\n%s", expectedRule, strings.Join(rules, "\n"))
+}
+
+// execRunner is an iptables.Runner that runs the iptables binaries
+// found in PATH. Like the agent's runner, its errors wrap *exec.ExitError.
+type execRunner struct {
+	t *testing.T
+}
+
+func (r execRunner) RunIPv4(args ...string) (string, error) {
+	return r.run("iptables", args)
+}
+
+func (r execRunner) RunIPv6(args ...string) (string, error) {
+	return r.run("ip6tables", args)
+}
+
+func (r execRunner) run(prog string, args []string) (string, error) {
+	out, err := runIPTablesCommand(r.t, prog, append([]string{"-w"}, args...)...)
+	if err != nil {
+		return "", fmt.Errorf("%s %s: %w", prog, strings.Join(args, " "), err)
+	}
+	return string(out), nil
 }

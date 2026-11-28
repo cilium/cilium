@@ -41,3 +41,16 @@ func (m *Manager) AddNoTrackHostPorts(namespace, name string, ports []string) {
 
 func (m *Manager) RemoveNoTrackHostPorts(namespace, name string) {
 }
+
+var _ iptables.Runner = (*Runner)(nil)
+
+// Runner is a fake iptables.Runner that runs nothing.
+type Runner struct{}
+
+func (r *Runner) RunIPv4(args ...string) (string, error) {
+	return "", nil
+}
+
+func (r *Runner) RunIPv6(args ...string) (string, error) {
+	return "", nil
+}
