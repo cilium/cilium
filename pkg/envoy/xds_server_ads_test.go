@@ -1012,11 +1012,12 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 func TestStartAdsGRPCServerRestoration(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
+		initialize          bool
 		promise             bool
 		restoreErr          error
 		cancelBeforeResolve bool
 	}{
-		{name: "restored", promise: true},
+		{name: "restored", promise: true, initialize: true},
 		{name: "restore-deadline", promise: true, restoreErr: context.DeadlineExceeded},
 		{name: "restore-canceled", promise: true, restoreErr: context.Canceled},
 		{name: "no-restorer"},
@@ -1029,8 +1030,15 @@ func TestStartAdsGRPCServerRestoration(t *testing.T) {
 			}
 			server, _ := newADSServerFixture(t, restorer)
 			server.config.policyRestoreTimeout = 5 * time.Second
+			server.config.serving = make(chan struct{})
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
+			initial := xds.NewResources()
+			if tc.initialize {
+				initial.Listeners["initial"] = &envoy_config_listener.Listener{Name: "initial"}
+				require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), initial, nil))
+			}
+
 			done := make(chan error, 1)
 			go func() { done <- server.startAdsGRPCServer(ctx) }()
 			if tc.cancelBeforeResolve {
@@ -1040,6 +1048,11 @@ func TestStartAdsGRPCServerRestoration(t *testing.T) {
 			}
 			if tc.cancelBeforeResolve || errors.Is(tc.restoreErr, context.Canceled) {
 				require.ErrorIs(t, <-done, context.Canceled)
+				select {
+				case <-server.config.serving:
+					t.Fatal("xDS reported serving after restoration was canceled")
+				default:
+				}
 				return
 			}
 			// WaitForReady tolerates dialing before socket creation, bounded by ctx.
@@ -1054,7 +1067,25 @@ func TestStartAdsGRPCServerRestoration(t *testing.T) {
 			response, err := stream.Recv()
 			require.NoError(t, err)
 			require.Equal(t, ListenerTypeURL, response.TypeUrl)
-			require.Empty(t, response.Resources)
+			require.Len(t, response.Resources, len(initial.Listeners))
+			select {
+			case <-server.config.serving:
+			default:
+				t.Fatal("xDS did not report serving before replying")
+			}
+			if tc.initialize {
+				wg := completion.NewWaitGroup(ctx)
+				defer wg.Cancel()
+				require.NoError(t, server.UpdateEnvoyResources(ctx, initial, initial, wg))
+				waiting := waitForADSCompletion(t, wg)
+				requireADSCompletionPending(t, waiting)
+				require.NoError(t, stream.Send(&envoy_service_discovery.DiscoveryRequest{
+					TypeUrl:       ListenerTypeURL,
+					VersionInfo:   response.GetVersionInfo(),
+					ResponseNonce: response.GetNonce(),
+				}))
+				require.NoError(t, <-waiting)
+			}
 			cancel()
 			require.NoError(t, <-done)
 			require.NotNil(t, server.stopFunc)

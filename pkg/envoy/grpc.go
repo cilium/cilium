@@ -94,6 +94,9 @@ func (s *xdsServer) runXDSGRPCServer(ctx context.Context, config map[string]*xds
 		}
 	}()
 
+	if s.config.serving != nil {
+		close(s.config.serving)
+	}
 	if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 		s.logger.Error("Envoy: Failed to serve xDS gRPC API",
 			logfields.Error, err,

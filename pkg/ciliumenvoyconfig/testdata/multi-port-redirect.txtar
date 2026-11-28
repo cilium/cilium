@@ -1,3 +1,4 @@
+#! --reject-listener=test/gateway-cec/rejected-listener
 # Test handling of CiliumEnvoyConfig with multiple proxy redirects to different
 # ports on the same service. This validates the fix for the bug where the second
 # ServiceListener entry for the same service would overwrite the first, leaving
@@ -25,13 +26,24 @@ db/cmp ciliumenvoyconfigs cec.table
 db/cmp services services_redirected.table
 
 # Check BPF maps. Port 80 gets proxy port 1000, port 443 gets proxy port 2000.
+db/cmp frontends frontends.table
 lb/maps-dump lbmaps.out
-* grep '10.96.50.104:80/TCP.*L7Proxy=1000' lbmaps.out
-* grep '10.96.50.104:443/TCP.*L7Proxy=2000' lbmaps.out
+grep '10.96.50.104:80/TCP.*L7Proxy=1000' lbmaps.out
+grep '10.96.50.104:443/TCP.*L7Proxy=2000' lbmaps.out
 
-# Remove the CEC and verify redirects are cleared.
+# The update removes both desired redirects, but its replacement listener is
+# rejected. The two previously reconciled redirects are still installed.
+k8s/update cec-no-redirects.yaml
+db/cmp --grep '^cec:test/gateway-cec' envoy-resources rejected.table
+db/cmp services services_redirected.table
+
+# Delete the CEC before the update succeeds. Deletion must clear both redirects.
 k8s/delete cec.yaml
+* envoy/empty
 db/cmp services services.table
+db/cmp frontends frontends.table
+lb/maps-dump lbmaps.out
+! grep 'L7Proxy=' lbmaps.out
 
 # ---------------------------------------------
 
@@ -83,6 +95,25 @@ spec:
         socket_address:
           address: 127.0.0.1
           port_value: 2000
+
+-- rejected.table --
+Name                   Listeners                               Status
+cec:test/gateway-cec   test/gateway-cec/rejected-listener      Error
+
+-- cec-no-redirects.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: gateway-cec
+  namespace: test
+spec:
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: rejected-listener
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: 3000
 
 -- service.yaml --
 apiVersion: v1

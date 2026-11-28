@@ -1,0 +1,58 @@
+#! --lb-test-fault-probability=0.0
+
+hive start
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends before.table
+
+# Apply the redirect through the same writer as CEC, then wait for the map write.
+test/set-proxy-redirect test/echo 1000
+db/cmp frontends before.table
+lb/maps-dump
+stdout '^SVC: .*ADDR=10\.96\.50\.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 '
+
+# Wait for the renamed port to be reconciled before checking the maps. Both
+# names select the same backend, and no CEC controller is running to repair a
+# cleared redirect.
+sed 'name: http' 'name: web' service.yaml
+k8s/update service.yaml
+db/cmp frontends after.table
+lb/maps-dump
+stdout '^SVC: .*ADDR=10\.96\.50\.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 '
+
+-- before.table --
+Address               Type        ServiceName   PortName   Backends            Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP   Done
+
+-- after.table --
+Address               Type        ServiceName   PortName   Backends            Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     web        10.244.1.1:80/TCP   Done
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  type: ClusterIP
+  clusterIP: 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: echo
+  namespace: test
+  labels:
+    kubernetes.io/service-name: echo
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+ports:
+- port: 80
+  protocol: TCP

@@ -96,26 +96,25 @@ func registerCECController(params cecControllerParams) {
 	params.JobGroup.Add(job.OneShot("controller", c.processLoop))
 }
 
-func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *loadbalancer.ProxyRedirect {
-	var port uint16
+// getServiceRedirect returns a serviceRedirect with the qualified listener name.
+// For allocator-managed listeners, per-resource reconciliation resolves the
+// name to the proxy port acknowledged by Envoy.
+func getServiceRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *serviceRedirect {
+	var listener string
 	if svcl.Listener != "" {
-		// Listener names are qualified after parsing, so qualify the listener reference as well for it to match
-		svcListener, _ := api.ResourceQualifiedName(
+		// Listener names are qualified during parsing.
+		listener, _ = api.ResourceQualifiedName(
 			cec.Name.Namespace, cec.Name.Name, svcl.Listener, api.ForceNamespace)
-		port, _ = cec.Listeners.Get(svcListener)
 	} else {
-		for _, p := range cec.Listeners.All() {
-			port = p
+		for name := range cec.Listeners.All() {
+			listener = name
 			break
 		}
 	}
-	if port == 0 {
+	if port, _ := cec.Listeners.Get(listener); port == 0 {
 		return nil
 	}
-	return &loadbalancer.ProxyRedirect{
-		ProxyPort: port,
-		Ports:     svcl.Ports,
-	}
+	return &serviceRedirect{Listener: listener, Ports: svcl.Ports}
 }
 
 func (c *cecController) processLoop(ctx context.Context, health cell.Health) error {
@@ -321,12 +320,12 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 	ws := statedb.NewWatchSet()
 	ws.Add(watch)
 
-	var redirects part.Map[loadbalancer.ServiceName, loadbalancer.ProxyRedirects]
+	var redirects part.Map[loadbalancer.ServiceName, serviceRedirects]
 	for _, l := range cec.Spec.Services {
-		pr := getProxyRedirect(cec, l)
-		if pr != nil {
+		redirect := getServiceRedirect(cec, l)
+		if redirect != nil {
 			existing, _ := redirects.Get(l.ServiceName())
-			redirects = redirects.Set(l.ServiceName(), append(existing, *pr))
+			redirects = redirects.Set(l.ServiceName(), append(existing, *redirect))
 		}
 
 		// Watch changes for each of the referenced services to make sure we reprocess the CEC

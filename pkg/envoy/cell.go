@@ -88,17 +88,22 @@ type runnableXDSServer interface {
 	run(ctx context.Context) error
 }
 
-func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
+// XDSServing is closed once the server can process requests and wait for ACKs.
+type XDSServing <-chan struct{}
+
+func newEnvoyXDSServer(params xdsServerParams) (XDSServer, XDSServing, error) {
 	// Validate also applies the default value if empty.
 	if err := params.EnvoyProxyConfig.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Override the default value before bootstrap is created for embedded envoy, or
 	// the xDS ConfigSource is used for CEC/CCEC.
 	SetXDSConfigSourceInitialFetchTimeout(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
 
+	serving := make(chan struct{})
 	xdsCfg := xdsServerConfig{
+		serving:                       serving,
 		envoySocketDir:                util.GetSocketDir(option.Config.RunDir),
 		proxyGID:                      int(params.EnvoyProxyConfig.ProxyGID),
 		httpRequestTimeout:            int(params.EnvoyProxyConfig.HTTPRequestTimeout),
@@ -131,7 +136,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			params.RestorerPromise,
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		xdsServer = newXDSServer(
@@ -145,7 +150,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	if !option.Config.EnableL7Proxy {
 		params.Logger.Debug("L7 proxies are disabled - not starting Envoy xDS server")
-		return xdsServer, nil
+		return xdsServer, nil, nil
 	}
 
 	params.JobGroup.Add(job.OneShot("xds-server", func(ctx context.Context, _ cell.Health) error {
@@ -183,10 +188,10 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 				return starter.stopStandaloneEnvoy()
 			},
 		})
-		return starter, nil
+		return starter, serving, nil
 	}
 
-	return xdsServer, nil
+	return xdsServer, serving, nil
 }
 
 func newEnvoyAdminClient(logger *slog.Logger, envoyProxyConfig config.ProxyConfig) *EnvoyAdminClient {

@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/envoy"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/hive"
@@ -73,6 +74,36 @@ func TestScript(t *testing.T) {
 			store: resourceStore{},
 		}
 		var lns *node.LocalNodeStore
+		gateServing := slices.Contains(args, "--gate-xds")
+		serving := make(chan struct{})
+		if !gateServing {
+			close(serving)
+		}
+
+		bindRetry := slices.Contains(args, "--bind-retry")
+		if bindRetry {
+			fakeEnvoy.beforeUpdate = func(_ context.Context, _, resources xds.Resources) error {
+				for _, listener := range resources.Listeners {
+					// Reject the first port assigned by MockPortAllocator.
+					if listener.GetAddress().GetSocketAddress().GetPortValue() == 1025 {
+						return &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "cannot bind: address already in use"}
+					}
+				}
+				return nil
+			}
+		}
+
+		for _, arg := range args {
+			if listener, ok := strings.CutPrefix(arg, "--reject-listener="); ok {
+				fakeEnvoy.beforeUpdate = func(_ context.Context, _, resources xds.Resources) error {
+					if _, found := resources.Listeners[listener]; found {
+						return &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "listener rejected"}
+					}
+					return nil
+				}
+				break
+			}
+		}
 
 		h := hive.New(
 			k8sClient.FakeClientCell(),
@@ -92,6 +123,7 @@ func TestScript(t *testing.T) {
 			lbcell.Cell,
 
 			cell.Provide(
+				func() envoy.XDSServing { return serving },
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
 				source.NewSources,
@@ -118,7 +150,12 @@ func TestScript(t *testing.T) {
 			cell.Group(
 				cell.Provide(
 					newCECResourceParser,
-					func(log *slog.Logger) PortAllocator { return staticPortAllocator{log} },
+					func(log *slog.Logger) PortAllocator {
+						if bindRetry {
+							return NewMockPortAllocator()
+						}
+						return staticPortAllocator{log}
+					},
 					func() FeatureMetrics {
 						return mockFeatureMetrics{}
 					},
@@ -171,6 +208,17 @@ func TestScript(t *testing.T) {
 		require.NoError(t, err, "ScriptCommands")
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 
+		cmds["envoy/empty"] = script.Command(
+			script.CmdUsage{Summary: "Check that Envoy has no resources"},
+			func(*script.State, ...string) (script.WaitFunc, error) {
+				fakeEnvoy.Lock()
+				defer fakeEnvoy.Unlock()
+				if n := len(fakeEnvoy.store); n != 0 {
+					return nil, fmt.Errorf("%d Envoy resources remain", n)
+				}
+				return nil, nil
+			},
+		)
 		cmds["envoy/cmp"] = script.Command(
 			script.CmdUsage{
 				Summary: "Compare Envoy resources",
@@ -234,6 +282,15 @@ func TestScript(t *testing.T) {
 				return nil, err
 			},
 		)
+		if gateServing {
+			cmds["envoy/serve"] = script.Command(
+				script.CmdUsage{Summary: "Unblock per-resource reconciliation"},
+				func(*script.State, ...string) (script.WaitFunc, error) {
+					close(serving)
+					return nil, nil
+				},
+			)
+		}
 		cmds["set-node-labels"] = script.Command(
 			script.CmdUsage{Summary: "Set local node labels", Args: "key=value..."},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {

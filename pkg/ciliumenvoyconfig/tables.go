@@ -187,20 +187,20 @@ type EnvoyResource struct {
 	// AllocatedListeners is copied from the parsed CEC and remains immutable.
 	AllocatedListeners set.Set[string] `json:"-" yaml:"-"`
 
-	// ReconciledResources are the last resources that were successfully reconciled.
-	// Used when updating or deleting to compute the delta.
+	// ReconciledResources are the last resources submitted to xDS. This
+	// includes resources initialized before xDS starts serving.
 	ReconciledResources *xds.Resources
 
 	// ReconciledAllocatedListeners identifies allocator-managed listeners in
 	// ReconciledResources. It is immutable and carried across desired-resource updates.
 	ReconciledAllocatedListeners set.Set[string] `json:"-" yaml:"-"`
 
-	// Redirects are the proxy redirects to set. Redirection of services is performed after
-	// the resources have been reconciled to Envoy.
-	Redirects part.Map[loadbalancer.ServiceName, loadbalancer.ProxyRedirects]
+	// Resolve redirects against the submitted listeners because a bind retry
+	// can change the listener port during reconciliation.
+	Redirects part.Map[loadbalancer.ServiceName, serviceRedirects]
 
-	// ReconciledRedirects are the redirects that were successfully set.
-	ReconciledRedirects part.Map[loadbalancer.ServiceName, loadbalancer.ProxyRedirects]
+	// ReconciledRedirects lists the services whose redirects were reconciled.
+	ReconciledRedirects part.Set[loadbalancer.ServiceName]
 
 	ReferencedServices part.Set[loadbalancer.ServiceName]
 
@@ -208,6 +208,30 @@ type EnvoyResource struct {
 	// used to keep track of how many CECs refer to a "backendsync" resource (via service name).
 	// When no references remain the "backendsync" resource is deleted.
 	ClusterReferences clusterReferences `json:"-"`
+}
+
+// serviceRedirect stores the listener name so it can follow proxy port changes
+// after a bind retry. The reconciler resolves the name to a port when building
+// loadbalancer.ProxyRedirects.
+type serviceRedirect struct {
+	Listener string
+	Ports    []uint16
+}
+
+type serviceRedirects []serviceRedirect
+
+func (r serviceRedirects) resolve(resources *xds.Resources) loadbalancer.ProxyRedirects {
+	redirects := make(loadbalancer.ProxyRedirects, 0, len(r))
+	for _, redirect := range r {
+		port := resources.Listeners[redirect.Listener].GetAddress().GetSocketAddress().GetPortValue()
+		if port != 0 {
+			redirects = append(redirects, loadbalancer.ProxyRedirect{
+				ProxyPort: uint16(port),
+				Ports:     redirect.Ports,
+			})
+		}
+	}
+	return redirects
 }
 
 func (r *EnvoyResource) ClusterServiceName() loadbalancer.ServiceName {
