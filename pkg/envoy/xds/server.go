@@ -92,7 +92,8 @@ type ResourceTypeConfiguration struct {
 	Source ResourceSource
 
 	// AckObserver is called back whenever a node acknowledges having applied a
-	// version of the resources of this type.
+	// version of the resources of this type. An AckingResourceMutatorWrapper
+	// registered here serves a single TypeURL.
 	AckObserver ResourceVersionAckObserver
 }
 
@@ -181,14 +182,14 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 		}
 	}(reqStreamLog)
 
-	return s.processRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL, afterTypeURL)
+	return s.processRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL, afterTypeURL, streamID)
 }
 
 // perTypeStreamState is the common state maintained per resource type for each
 // xDS stream.
 type perTypeStreamState struct {
-	// typeURL identifies the resource type.
-	typeURL string
+	typeURL     string
+	ackObserver ResourceVersionAckObserver
 
 	// pendingWatchCancel is a pending watch on this resource type.
 	// If nil, no watch is pending.
@@ -223,6 +224,26 @@ type perSotwTypeStreamState struct {
 	// A pending watch may hold a read-only reference to this slice, so this
 	// must not be mutated until the pending watch has finished.
 	requestedResourceNames []string
+
+	// Only the nonce of the latest response can record a NACK for late waiters.
+	lastResponseVersion uint64
+}
+
+// recordResponse clears any superseded rejection before the send can reach Envoy.
+func (state *perTypeStreamState) recordResponse(nodeIP string, version, streamID uint64) {
+	if mutator, ok := state.ackObserver.(*AckingResourceMutatorWrapper); ok {
+		mutator.recordResponse(nodeIP, version, streamID)
+	}
+}
+
+// reportResponseOutcome forwards the ACK or NACK to the observer. streamID
+// must be zero if the request does not match the stream's latest response.
+func (state *perTypeStreamState) reportResponseOutcome(nodeIP string, ackVersion, responseVersion uint64, isNACK bool, detail string, names []string, streamID uint64) {
+	if mutator, ok := state.ackObserver.(*AckingResourceMutatorWrapper); ok {
+		mutator.handleResourceVersionAck(nodeIP, ackVersion, responseVersion, isNACK, detail, state.typeURL, names, streamID)
+	} else {
+		state.ackObserver.HandleResourceVersionAck(nodeIP, ackVersion, responseVersion, isNACK, detail, state.typeURL, names)
+	}
 }
 
 func (state *perTypeStreamState) cancelPendingWatch() {
@@ -277,7 +298,7 @@ func (s *perSotwTypeStreamState) updateRequestedResources(current []string) bool
 
 // processRequestStream processes the requests in an xDS stream from a channel.
 func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logger, stream Stream,
-	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL, afterTypeURL string,
+	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL, afterTypeURL string, streamID uint64,
 ) error {
 	// The request state for every type URL.
 	typeStates := make([]perSotwTypeStreamState, len(s.sources))
@@ -321,7 +342,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 	for typeURL := range s.sources {
 		typeStates[i] = perSotwTypeStreamState{
 			perTypeStreamState: perTypeStreamState{
-				typeURL: typeURL,
+				typeURL:     typeURL,
+				ackObserver: s.ackObservers[typeURL],
 			},
 		}
 
@@ -465,18 +487,19 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 
 			// We want to trigger HandleResourceVersionAck even for NACKs
 			if state.clientReceivedFirstResponse {
-				ackObserver := s.ackObservers[typeURL]
-				if ackObserver != nil {
+				if state.ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
+					ackVersion := lastAckedVersion
 					if !state.responseAcked {
-						// If we haven't received any ACK, it means that lastAppliedVersion
-						// is stale and we can't ACK anything.
-						// Also we can't send lastAppliedVersion as it would incorrectly be cached
-						// as last acked version.
-						ackObserver.HandleResourceVersionAck(nodeIP, 0, lastReceivedVersion, isNACK, detail, typeURL, state.resourceNames)
-					} else {
-						ackObserver.HandleResourceVersionAck(nodeIP, lastAckedVersion, lastReceivedVersion, isNACK, detail, typeURL, state.resourceNames)
+						// The version reported before this stream's first ACK can
+						// come from a previous connection.
+						ackVersion = 0
 					}
+					var responseStreamID uint64
+					if lastReceivedVersion != 0 && lastReceivedVersion == state.lastResponseVersion {
+						responseStreamID = streamID
+					}
+					state.reportResponseOutcome(nodeIP, ackVersion, lastReceivedVersion, isNACK, detail, state.resourceNames, responseStreamID)
 				} else {
 					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
@@ -574,6 +597,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				logfields.Resources, len(resp.VersionedResources),
 			)
 
+			state.lastResponseVersion = resp.Version
+			state.recordResponse(nodeIP, resp.Version, streamID)
 			err = stream.Send(out)
 			if err != nil {
 				return err
@@ -639,7 +664,7 @@ func (s *Server) HandleDeltaRequestStream(ctx context.Context, stream DeltaStrea
 		}
 	}(reqStreamLog)
 
-	return s.processDeltaRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL, afterTypeURL)
+	return s.processDeltaRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL, afterTypeURL, streamID)
 }
 
 func getDeltaRequestFields(req *envoy_service_discovery.DeltaDiscoveryRequest) []any {
@@ -691,7 +716,7 @@ type perDeltaTypeStreamState struct {
 
 // processDeltaRequestStream processes the requests in an xDS stream from a channel.
 func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.Logger, stream DeltaStream,
-	reqCh <-chan *envoy_service_discovery.DeltaDiscoveryRequest, defaultTypeURL, afterTypeURL string,
+	reqCh <-chan *envoy_service_discovery.DeltaDiscoveryRequest, defaultTypeURL, afterTypeURL string, streamID uint64,
 ) error {
 	// The request state for every type URL.
 	typeStates := make([]perDeltaTypeStreamState, len(s.sources))
@@ -735,7 +760,8 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 	for typeURL := range s.sources {
 		typeStates[i] = perDeltaTypeStreamState{
 			perTypeStreamState: perTypeStreamState{
-				typeURL: typeURL,
+				typeURL:     typeURL,
+				ackObserver: s.ackObservers[typeURL],
 			},
 		}
 
@@ -944,14 +970,13 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				// response is now accepted, a new request may be sent
 				state.nonce = ""
 
-				ackObserver := s.ackObservers[typeURL]
-				if ackObserver != nil {
+				if state.ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
 					var observerNames []string
 					for i := range ackedResponse.VersionedResources {
 						observerNames = append(observerNames, ackedResponse.VersionedResources[i].Name)
 					}
-					ackObserver.HandleResourceVersionAck(nodeIP, state.lastAckedVersion, lastReceivedVersion, errorDetail != nil, detail, typeURL, observerNames)
+					state.reportResponseOutcome(nodeIP, state.lastAckedVersion, lastReceivedVersion, errorDetail != nil, detail, observerNames, streamID)
 				} else {
 					requestLog.Info("ACK or NACK received but no observers are waiting for ACKs")
 				}
@@ -1065,6 +1090,7 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				logfields.Resources, len(out.Resources),
 			)
 
+			state.recordResponse(nodeIP, resp.Version, streamID)
 			err = stream.Send(out)
 			if err != nil {
 				return err

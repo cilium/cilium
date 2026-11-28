@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"testing/synctest"
 
 	"github.com/cilium/hive/hivetest"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -224,6 +225,145 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 			resource, err := response.GetResources()[0].UnmarshalNew()
 			require.NoError(t, err)
 			require.True(t, proto.Equal(test.updated, resource), "resubscribing must return the latest resource")
+		})
+	}
+}
+
+func TestADSWaitAfterNACK(t *testing.T) {
+	const detail = "rejected listener"
+	tests := []struct {
+		name               string
+		firstResponse      bool
+		newer              bool
+		resend             bool
+		lateNACK           bool
+		expectNACK         bool
+		changeSubscription bool
+		detail             string
+		wildcard           []string
+	}{
+		{name: "retry initial rejection", firstResponse: true, detail: detail},
+		{name: "NACK before registration", expectNACK: true, detail: detail},
+		{name: "NACK without detail before registration", expectNACK: true, wildcard: []string{"*"}},
+		{name: "newer version", newer: true, detail: detail},
+		{name: "same version resent", resend: true, detail: detail},
+		{name: "NACK from older stream after resend", lateNACK: true, detail: detail},
+		{name: "same version on subscription change", changeSubscription: true, detail: detail},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{}, nil, nil)
+				client := newTestADSClient(t, server)
+				ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+				defer cancel()
+				resources := xds.Resources{Listeners: map[string]*listener.Listener{"example": {Name: "example"}}}
+				require.NoError(t, server.UpdateEnvoyResources(ctx, xds.Resources{}, resources, nil))
+
+				type adsStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+				receive := func(stream adsStream, typeURL string) *discovery.DiscoveryResponse {
+					response, err := stream.Recv()
+					require.NoError(t, err)
+					require.Equal(t, typeURL, response.GetTypeUrl())
+					return response
+				}
+				open := func() (adsStream, context.CancelFunc, *discovery.DiscoveryResponse) {
+					streamCtx, closeStream := context.WithCancel(ctx)
+					t.Cleanup(closeStream)
+					stream, err := client.StreamAggregatedResources(streamCtx)
+					require.NoError(t, err)
+					require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+						Node:          &core.Node{Id: localNodeID},
+						TypeUrl:       ListenerTypeURL,
+						ResourceNames: tt.wildcard,
+					}))
+					response := receive(stream, ListenerTypeURL)
+					require.NotEmpty(t, response.GetResources())
+					return stream, closeStream, response
+				}
+				reply := func(stream adsStream, response *discovery.DiscoveryResponse, rejection *status.Status, names ...string) {
+					if len(names) == 0 {
+						names = tt.wildcard
+					}
+					request := &discovery.DiscoveryRequest{
+						TypeUrl: ListenerTypeURL, ResponseNonce: response.GetNonce(), ResourceNames: names,
+					}
+					if rejection != nil {
+						request.ErrorDetail = rejection.Proto()
+					} else {
+						request.VersionInfo = response.GetVersionInfo()
+					}
+					require.NoError(t, stream.Send(request))
+					synctest.Wait()
+				}
+
+				stream, closeStream, rejected := open()
+				if !tt.firstResponse {
+					// ACK the initial update to settle its rollback. Envoy can
+					// reject the same version after reconnecting, leaving the
+					// cached value available for a later no-op update.
+					reply(stream, rejected, nil)
+					closeStream()
+					acceptedVersion := rejected.GetVersionInfo()
+					stream, closeStream, rejected = open()
+					require.Equal(t, acceptedVersion, rejected.GetVersionInfo())
+				}
+				retryStream := stream
+				var retry *discovery.DiscoveryResponse
+				if tt.lateNACK {
+					retryStream, _, retry = open()
+					require.Equal(t, rejected.GetVersionInfo(), retry.GetVersionInfo())
+				}
+				var newNames []string
+				if tt.changeSubscription {
+					newNames = []string{"example"}
+				}
+				reply(stream, rejected, status.New(codes.InvalidArgument, tt.detail), newNames...)
+				switch {
+				case tt.firstResponse:
+					corrective := receive(stream, ListenerTypeURL)
+					require.NotEqual(t, rejected.GetVersionInfo(), corrective.GetVersionInfo())
+					require.Empty(t, corrective.GetResources())
+					reply(stream, corrective, nil)
+				case tt.changeSubscription:
+					retry = receive(stream, ListenerTypeURL)
+					require.Equal(t, rejected.GetVersionInfo(), retry.GetVersionInfo())
+				default:
+					// The NACK has been processed. With no cache change, the
+					// next response must be CDS, leaving the LDS watch open.
+					require.NoError(t, stream.Send(&discovery.DiscoveryRequest{TypeUrl: ClusterTypeURL}))
+					receive(stream, ClusterTypeURL)
+				}
+				if tt.resend {
+					closeStream()
+					retryStream, _, retry = open()
+					require.Equal(t, rejected.GetVersionInfo(), retry.GetVersionInfo())
+				}
+				if tt.newer {
+					more := xds.Resources{Listeners: map[string]*listener.Listener{"another": {Name: "another"}}}
+					require.NoError(t, server.UpsertEnvoyResources(ctx, more, nil))
+				}
+				if tt.firstResponse {
+					requireNoCachedResource(t, server.cache, localNodeID, ListenerTypeURL, "example")
+				}
+
+				wg := completion.NewWaitGroup(ctx)
+				require.NoError(t, server.UpdateEnvoyResources(ctx, resources, resources, wg))
+				if tt.expectNACK {
+					require.EqualError(t, wg.Wait(), fmt.Sprintf("NACK from %s for %s version %s: %s",
+						localNodeID, ListenerTypeURL, rejected.GetVersionInfo(), tt.detail))
+					return
+				}
+				done := waitForADSCompletion(t, wg)
+				synctest.Wait()
+				requireADSCompletionPending(t, done)
+				if retry == nil {
+					retry = receive(retryStream, ListenerTypeURL)
+					require.NotEqual(t, rejected.GetVersionInfo(), retry.GetVersionInfo())
+				}
+				reply(retryStream, retry, nil, newNames...)
+				require.NoError(t, <-done)
+			})
 		})
 	}
 }
