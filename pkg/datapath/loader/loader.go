@@ -48,6 +48,7 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
+	cfg                 loaderConfig
 	sysctl              sysctl.Sysctl
 	prefilter           prefilter.PreFilter
 	compilationLock     types.CompilationLock
@@ -76,6 +77,7 @@ type Params struct {
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
 	BIGTCPConfig       bigtcp.Config
+	Config             loaderConfig
 
 	// Force map initialisation before loader.
 	bpf.MapGroup
@@ -93,6 +95,7 @@ func newLoader(p Params) *loader {
 		logger:              p.Logger,
 		templateCache:       newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
 		registry:            p.MapRegistry,
+		cfg:                 p.Config,
 		sysctl:              p.Sysctl,
 		hostDpInitialized:   make(chan struct{}),
 		prefilter:           p.Prefilter,
