@@ -309,7 +309,6 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
-			allocator.WithPrefixMask(idpool.ID(m.clusterInfo.ID << m.clusterInfo.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())

@@ -103,10 +103,6 @@ type Allocator struct {
 	// allocate an ID greater than this value.
 	max idpool.ID
 
-	// prefixMask if set, will be ORed to all selected IDs prior to
-	// allocation
-	prefixMask idpool.ID
-
 	// localKeys contains all keys including their reference count for keys
 	// which have been allocated and are in local use
 	localKeys *localKeys
@@ -393,14 +389,6 @@ func WithMax(id idpool.ID) AllocatorOption {
 	return func(a *Allocator) { a.max = id }
 }
 
-// WithPrefixMask sets the prefix used for all ID allocations. If set, the mask
-// will be ORed to all selected IDs prior to allocation. It is the
-// responsibility of the caller to ensure that the mask is not conflicting with
-// min..max.
-func WithPrefixMask(mask idpool.ID) AllocatorOption {
-	return func(a *Allocator) { a.prefixMask = mask }
-}
-
 // WithMasterKeyProtection will watch for delete events on master keys and
 // re-created them if local usage suggests that the key is still in use
 func WithMasterKeyProtection() AllocatorOption {
@@ -480,16 +468,13 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 }
 
 // selectAvailableID selects an available ID.
-// Returns a triple of the selected ID ORed with prefixMask, the ID string and
-// the originally selected ID.
-func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
+// Returns the selected ID and its string representation.
+func (a *Allocator) selectAvailableID() (idpool.ID, string) {
 	if id := a.idPool.LeaseAvailableID(); id != idpool.NoID {
-		unmaskedID := id
-		id |= a.prefixMask
-		return id, id.String(), unmaskedID
+		return id, id.String()
 	}
 
-	return 0, "", 0
+	return 0, ""
 }
 
 // AllocatorKey is the interface to implement in order for a type to be used as
@@ -592,7 +577,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	}
 
 	a.logger.Debug("Allocating new master ID", logfields.Key, k)
-	id, strID, unmaskedID := a.selectAvailableID()
+	id, strID := a.selectAvailableID()
 	if id == 0 {
 		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
 	}
@@ -601,12 +586,12 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	releaseKeyAndID := func() {
 		a.localKeys.release(k)
-		a.idPool.Release(unmaskedID) // This returns this ID to be re-used for other keys
+		a.idPool.Release(id) // This returns this ID to be re-used for other keys
 	}
 
 	oldID, firstUse, err := a.localKeys.allocate(k, key, id)
 	if err != nil {
-		a.idPool.Release(unmaskedID)
+		a.idPool.Release(id)
 		return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %w", k, err)
 	}
 
@@ -641,7 +626,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	}
 
 	// Notify pool that leased ID is now in-use.
-	a.idPool.Use(unmaskedID)
+	a.idPool.Use(id)
 
 	if err = a.backend.AcquireReference(ctx, id, key, lock); err != nil {
 		// We will leak the master key here as the key has already been

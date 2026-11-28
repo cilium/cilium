@@ -263,39 +263,18 @@ func TestSelectID(t *testing.T) {
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val, unmaskedID := a.selectAvailableID()
+		id, val := a.selectAvailableID()
 		require.NotEqual(t, idpool.NoID, id)
 		require.Equal(t, id.String(), val)
-		require.Equal(t, unmaskedID, id)
 		a.mainCache.mutex.Lock()
 		a.mainCache.cache[id] = TestAllocatorKey(fmt.Sprintf("key-%d", i))
 		a.mainCache.mutex.Unlock()
 	}
 
 	// we should be out of IDs
-	id, val, unmaskedID := a.selectAvailableID()
+	id, val := a.selectAvailableID()
 	require.Equal(t, idpool.ID(0), id)
-	require.Equal(t, unmaskedID, id)
 	require.Empty(t, val)
-}
-
-func TestPrefixMask(t *testing.T) {
-	minID, maxID := idpool.ID(1), idpool.ID(5)
-	backend := newDummyBackend()
-	a, err := NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithPrefixMask(1<<16))
-	require.NoError(t, err)
-	require.NotNil(t, a)
-
-	// allocate all available IDs
-	for i := minID; i <= maxID; i++ {
-		id, val, unmaskedID := a.selectAvailableID()
-		require.NotEqual(t, idpool.NoID, id)
-		require.Equal(t, idpool.ID(1), id>>16)
-		require.NotEqual(t, unmaskedID, id)
-		require.Equal(t, id.String(), val)
-	}
-
-	a.Delete()
 }
 
 func testAllocator(t *testing.T, maxID idpool.ID) {
