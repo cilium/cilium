@@ -5,10 +5,12 @@ package xdsnew
 
 import (
 	"fmt"
+	"slices"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
@@ -60,6 +62,7 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 	}
 
 	var recovery *nackRecovery
+	var watchVersion string
 	err := cb.nackHandler.HandleNACK(nodeID, func(revert RevertBatch) error {
 		cb.mutex.Lock()
 		// The stream may have closed or progressed while acquiring the cache
@@ -69,6 +72,15 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 			(stream.responses[typeURL].pendingNonce == "" || stream.responses[typeURL].pendingNonce != req.GetResponseNonce())) {
 			cb.mutex.Unlock()
 			return nil
+		}
+		response := &stream.responses[typeURL]
+		if req.GetResponseNonce() != "" && response.coverage != nil {
+			lastNames, names := response.coverage.requested, req.GetResourceNames()
+			// The cache normalizes wildcard requests to an empty list.
+			if slices.Equal(lastNames, names) || (len(lastNames) == 0 && slices.Contains(names, "*")) ||
+				set.NewSet(lastNames...).Equal(set.NewSet(names...)) {
+				watchVersion = response.pendingVersion
+			}
 		}
 		recovery = cb.handleNACKLocked(streamID, req, stream, typeURL, cb.ensureTypeURLState(nodeID, typeURL))
 		cb.mutex.Unlock()
@@ -87,6 +99,12 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 	})
 	if recovery != nil {
 		recovery.complete()
+	}
+	if err == nil && watchVersion != "" {
+		// go-control-plane reuses this request to open the next watch. Use the
+		// rejected version there so an unchanged snapshot waits for a change.
+		// NACK recovery above used Envoy's actual last accepted version.
+		req.VersionInfo = watchVersion
 	}
 	return err
 }
