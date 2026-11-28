@@ -209,6 +209,10 @@ type Endpoint struct {
 	// information of the endpoint has changed
 	identityRevision int
 
+	// labelsModifiedSeq is incremented each time identity labels are modified
+	// via ModifyIdentityLabels (such as from the pod watcher).
+	labelsModifiedSeq uint64
+
 	// bps is the egress rate of the endpoint
 	bps uint64
 
@@ -1901,6 +1905,12 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 
 	ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 
+	if err := e.lockAlive(); err != nil {
+		return false, err
+	}
+	initialLabelsModifiedSeq := e.labelsModifiedSeq
+	e.unlock()
+
 	pod, k8sMetadata, err := resolveMetadata(ns, podName, e.K8sUID, !restoredEndpoint)
 	if err != nil {
 		if restoredEndpoint && k8sErrors.IsNotFound(err) {
@@ -1937,15 +1947,6 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 
 	e.SetPod(pod)
 	e.SetK8sMetadata(k8sMetadata.NamedPorts)
-	e.UpdateNoTrackRules(func() string {
-		value, _ := annotation.Get(pod, annotation.NoTrack, annotation.NoTrackAlias)
-		return value
-	}())
-	e.UpdateBandwidthPolicy(
-		pod.Annotations[bandwidth.EgressBandwidth],
-		pod.Annotations[bandwidth.IngressBandwidth],
-		pod.Annotations[bandwidth.Priority],
-	)
 	if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
 		if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
 			e.SetRTInfo(uint32(tidInt), endpoint.RTInfoFIB)
@@ -1970,11 +1971,16 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	// labels from k8s. Thus, we should only replace the labels that have their
 	// source as 'k8s' otherwise we will risk on replacing other labels that
 	// were added from other sources.
+	//
+	// Apply labels before UpdateNoTrackRules and UpdateBandwidthPolicy, which
+	// enqueue events on e.eventQueue and block until processed. Also skip the
+	// label update if ModifyIdentityLabels concurrently updated labels after
+	// metadata resolution started so newer pod watcher updates are preserved.
 	source := labels.LabelSourceK8s
 	if len(baseLabels) != 0 {
 		source = labels.LabelSourceAny
 	}
-	regenTriggered = e.UpdateLabels(ctx, source, controllerBaseLabels, k8sMetadata.InfoLabels, blocking)
+	regenTriggered = e.updateLabelsIfUnchanged(ctx, source, controllerBaseLabels, k8sMetadata.InfoLabels, blocking, initialLabelsModifiedSeq)
 
 	// If SIP setting changed but UpdateLabels did not trigger regeneration (e.g., during
 	// endpoint restore or when identity labels are unchanged), we must explicitly trigger
@@ -1990,6 +1996,16 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 			regenTriggered = true
 		}
 	}
+
+	e.UpdateNoTrackRules(func() string {
+		value, _ := annotation.Get(pod, annotation.NoTrack, annotation.NoTrackAlias)
+		return value
+	}())
+	e.UpdateBandwidthPolicy(
+		pod.Annotations[bandwidth.EgressBandwidth],
+		pod.Annotations[bandwidth.IngressBandwidth],
+		pod.Annotations[bandwidth.Priority],
+	)
 
 	return regenTriggered, nil
 }
@@ -2125,6 +2141,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 		e.setState(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
 
 		e.identityRevision++
+		e.labelsModifiedSeq++
 	}
 	e.unlock()
 
@@ -2220,6 +2237,36 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 		return false
 	}
 
+	return e.updateLabelsLocked(ctx, sourceFilter, identityLabels, infoLabels, blocking)
+}
+
+func (e *Endpoint) updateLabelsIfUnchanged(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool, expectedModifiedSeq uint64) bool {
+	e.getLogger().Debug(
+		"Refreshing labels of endpoint",
+		logfields.SourceFilter, sourceFilter,
+		logfields.IdentityLabels, map[string]labels.Label(identityLabels),
+		logfields.InfoLabels, map[string]labels.Label(infoLabels),
+	)
+
+	if err := e.lockAlive(); err != nil {
+		e.logDisconnectedMutexAction(err, "when trying to refresh endpoint labels")
+		return false
+	}
+
+	if e.labelsModifiedSeq != expectedModifiedSeq {
+		e.unlock()
+		e.Logger(resolveLabels).Debug(
+			"Skipping metadata resolver label update because endpoint labels were concurrently modified",
+			logfields.IdentityLabels, map[string]labels.Label(identityLabels),
+		)
+		return false
+	}
+
+	return e.updateLabelsLocked(ctx, sourceFilter, identityLabels, infoLabels, blocking)
+}
+
+// updateLabelsLocked must be called with e.lockAlive() held and releases the lock before returning.
+func (e *Endpoint) updateLabelsLocked(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
 	e.replaceInformationLabels(sourceFilter, infoLabels)
 	// replace identity labels and update the identity if labels have changed
 	// UpdateLabels keeps all generated source labels.

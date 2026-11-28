@@ -1663,6 +1663,99 @@ func TestMetadataResolver(t *testing.T) {
 	}
 }
 
+func TestMetadataResolverConcurrentPodLabelUpdate(t *testing.T) {
+	logger := hivetest.Logger(t)
+	idmgr := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	fetcher := testcompute.InstantiateCellForTesting(t, logger, "endpoint", "TestMetadataResolverConcurrentPodLabelUpdate", repo, idmgr)
+	require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""))
+
+	newTestEP := func(t *testing.T) *Endpoint {
+		t.Helper()
+		model := newTestEndpointModel(101, StateWaitingForIdentity)
+		p := createEndpointParams(t, &fakeendpoint.FakeOrchestrator{}, repo, fetcher)
+		ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			ep.controllers.RemoveAllAndWait()
+			ep.Stop()
+		})
+
+		ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
+		ep.UpdateLabels(t.Context(), labels.LabelSourceK8s, labels.NewLabelsFromSortedList("k8s:mode=a;"), nil, false)
+		return ep
+	}
+
+	t.Run("concurrent pod label update during metadata resolution preserves newer labels", func(t *testing.T) {
+		ep := newTestEP(t)
+
+		resolveStarted := make(chan struct{})
+		podUpdated := make(chan struct{})
+
+		resolveMetadata := func(ns, podName, uid string, newPod bool) (*corev1.Pod, *K8sMetadata, error) {
+			close(resolveStarted)
+			<-podUpdated
+			return &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      podName,
+						UID:       k8sTypes.UID(uid),
+					},
+				}, &K8sMetadata{
+					IdentityLabels: labels.NewLabelsFromSortedList("k8s:mode=a;"),
+				}, nil
+		}
+
+		resolverErrCh := make(chan error, 1)
+		go func() {
+			_, err := ep.metadataResolver(t.Context(), true, false, nil, resolveMetadata)
+			resolverErrCh <- err
+		}()
+
+		<-resolveStarted
+		err := ep.UpdateLabelsFrom(
+			map[string]string{"mode": "a"},
+			map[string]string{"mode": "b"},
+			labels.LabelSourceK8s,
+		)
+		require.NoError(t, err)
+		close(podUpdated)
+
+		require.NoError(t, <-resolverErrCh)
+
+		ep.unconditionalLock()
+		modeLbl, ok := ep.labels.IdentityLabels()["mode"]
+		ep.unlock()
+		require.True(t, ok)
+		require.Equal(t, "b", modeLbl.Value)
+	})
+
+	t.Run("normal restore without concurrent update applies resolved labels", func(t *testing.T) {
+		ep := newTestEP(t)
+
+		resolveMetadata := func(ns, podName, uid string, newPod bool) (*corev1.Pod, *K8sMetadata, error) {
+			return &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      podName,
+						UID:       k8sTypes.UID(uid),
+					},
+				}, &K8sMetadata{
+					IdentityLabels: labels.NewLabelsFromSortedList("k8s:mode=b;"),
+				}, nil
+		}
+
+		_, err := ep.metadataResolver(t.Context(), true, false, nil, resolveMetadata)
+		require.NoError(t, err)
+
+		ep.unconditionalLock()
+		modeLbl, ok := ep.labels.IdentityLabels()["mode"]
+		ep.unlock()
+		require.True(t, ok)
+		require.Equal(t, "b", modeLbl.Value)
+	})
+}
+
 func newTestEndpointModel(id int, state State) *models.EndpointChangeRequest {
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),
