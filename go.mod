@@ -32,7 +32,6 @@ require (
 	github.com/cloudflare/cfssl v1.7.1
 	github.com/containerd/nri v0.12.5
 	github.com/containernetworking/cni v1.3.1
-	github.com/coreos/go-iptables v0.8.0
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/envoyproxy/go-control-plane v0.14.0

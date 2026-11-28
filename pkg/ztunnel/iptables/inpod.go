@@ -9,12 +9,13 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/exec"
 	"slices"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 )
 
@@ -45,7 +46,7 @@ const (
 //
 // Note that this function is supposed to be called from within the pods
 // network namespace.
-func CreateInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
+func CreateInPodRules(logger *slog.Logger, runner iptables.Runner, ipv4Enabled, ipv6Enabled bool) error {
 	if err := addLoopbackRoute(logger, ipv4Enabled, ipv6Enabled); err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func CreateInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error 
 		return err
 	}
 
-	if err := addInPodRules(logger, ipv4Enabled, ipv6Enabled); err != nil {
+	if err := addInPodRules(runner, ipv4Enabled, ipv6Enabled); err != nil {
 		return err
 	}
 
@@ -125,6 +126,62 @@ func addInPodMarkRule(ipv4Enabled, ipv6Enabled bool) error {
 	return nil
 }
 
+// family runs the iptables commands of one IP family.
+type family struct {
+	ipv6 bool
+	run  func(args ...string) (string, error)
+}
+
+// families returns the IP families to program with runner.
+func families(runner iptables.Runner, ipv4Enabled, ipv6Enabled bool) []family {
+	var fs []family
+	if ipv4Enabled {
+		fs = append(fs, family{ipv6: false, run: runner.RunIPv4})
+	}
+	if ipv6Enabled {
+		fs = append(fs, family{ipv6: true, run: runner.RunIPv6})
+	}
+	return fs
+}
+
+func (f family) String() string {
+	if f.ipv6 {
+		return "ip6tables"
+	}
+	return "iptables"
+}
+
+// isNotFound reports whether err is iptables exiting with status 1, which is
+// how "-C" and "-S <chain>" report that the rule or chain does not exist.
+func isNotFound(err error) bool {
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
+	return ok && exitErr.ExitCode() == 1
+}
+
+func (f family) ruleExists(table, chain string, ruleSpec []string) (bool, error) {
+	_, err := f.run(append([]string{"-t", table, "-C", chain}, ruleSpec...)...)
+	switch {
+	case err == nil:
+		return true, nil
+	case isNotFound(err):
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
+func (f family) chainExists(table, chain string) (bool, error) {
+	_, err := f.run("-t", table, "-S", chain)
+	switch {
+	case err == nil:
+		return true, nil
+	case isNotFound(err):
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
 type rule struct {
 	ipv4       string
 	ipv6       string
@@ -133,11 +190,17 @@ type rule struct {
 	parameters []string
 }
 
+// spec returns the rule parameters for the given IP family.
+func (r rule) spec(ipv6 bool) []string {
+	if ipv6 {
+		return replaceIPPlaceholder(r.parameters, r.ipv6)
+	}
+	return replaceIPPlaceholder(r.parameters, r.ipv4)
+}
+
 type ruleManager struct {
-	rules  []rule
-	logger *slog.Logger
-	ipt4   *iptables.IPTables
-	ipt6   *iptables.IPTables
+	rules    []rule
+	families []family
 }
 
 func (m *ruleManager) add(table, chain string, parameters ...string) {
@@ -161,71 +224,38 @@ func replaceIPPlaceholder(args []string, ip string) []string {
 	return res
 }
 
-func (m *ruleManager) install(ipv4Enabled, ipv6Enabled bool) error {
+func (m *ruleManager) install() error {
 	for _, rule := range m.rules {
-		if ipv4Enabled {
-			ruleSpec := replaceIPPlaceholder(rule.parameters, rule.ipv4)
-			// Check if rule exists
-			exists, err := m.ipt4.Exists(rule.table, rule.chain, ruleSpec...)
+		for _, f := range m.families {
+			ruleSpec := rule.spec(f.ipv6)
+			exists, err := f.ruleExists(rule.table, rule.chain, ruleSpec)
 			if err != nil {
-				return fmt.Errorf("failed to check iptables rule existence: %w", err)
+				return fmt.Errorf("failed to check %s rule existence: %w", f, err)
 			}
-			if !exists {
-				// Rule doesn't exist, add it
-				if err := m.ipt4.Append(rule.table, rule.chain, ruleSpec...); err != nil {
-					return fmt.Errorf("failed to insert iptables rule (%s %s %v): %w", rule.table, rule.chain, ruleSpec, err)
-				}
+			if exists {
+				continue
 			}
-		}
-
-		if ipv6Enabled && m.ipt6 != nil {
-			ruleSpec := replaceIPPlaceholder(rule.parameters, rule.ipv6)
-			// Check if rule exists
-			exists, err := m.ipt6.Exists(rule.table, rule.chain, ruleSpec...)
-			if err != nil {
-				return fmt.Errorf("failed to check ip6tables rule existence: %w", err)
-			}
-			if !exists {
-				// Rule doesn't exist, add it
-				if err := m.ipt6.Append(rule.table, rule.chain, ruleSpec...); err != nil {
-					return fmt.Errorf("failed to insert ip6tables rule (%s %s %v): %w", rule.table, rule.chain, ruleSpec, err)
-				}
+			if _, err := f.run(append([]string{"-t", rule.table, "-A", rule.chain}, ruleSpec...)...); err != nil {
+				return fmt.Errorf("failed to insert %s rule (%s %s %v): %w", f, rule.table, rule.chain, ruleSpec, err)
 			}
 		}
 	}
 	return nil
 }
 
-func (m *ruleManager) createChains(ipv4Enabled, ipv6Enabled bool) error {
+func (m *ruleManager) createChains() error {
 	for _, table := range []string{"mangle", "nat"} {
 		for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-			if ipv4Enabled {
-				// Check if chain exists first
-				chainExists, err := m.ipt4.ChainExists(table, chain)
+			for _, f := range m.families {
+				exists, err := f.chainExists(table, chain)
 				if err != nil {
-					return fmt.Errorf("failed to check iptables chain existence: %w", err)
+					return fmt.Errorf("failed to check %s chain existence: %w", f, err)
 				}
-
-				if !chainExists {
-					// Chain doesn't exist, create it
-					if err := m.ipt4.NewChain(table, chain); err != nil {
-						return fmt.Errorf("failed to create iptables chain %s: %w", chain, err)
-					}
+				if exists {
+					continue
 				}
-			}
-
-			if ipv6Enabled && m.ipt6 != nil {
-				// Check if chain exists first
-				chainExists, err := m.ipt6.ChainExists(table, chain)
-				if err != nil {
-					return fmt.Errorf("failed to check ip6tables chain existence: %w", err)
-				}
-
-				if !chainExists {
-					// Chain doesn't exist, create it
-					if err := m.ipt6.NewChain(table, chain); err != nil {
-						return fmt.Errorf("failed to create ip6tables chain %s: %w", chain, err)
-					}
+				if _, err := f.run("-t", table, "-N", chain); err != nil {
+					return fmt.Errorf("failed to create %s chain %s: %w", f, chain, err)
 				}
 			}
 		}
@@ -257,31 +287,10 @@ func (m *ruleManager) createChains(ipv4Enabled, ipv6Enabled bool) error {
 // The rules are created in custom chains (CILIUM_PREROUTING, CILIUM_OUTPUT) that are jumped
 // to from the standard PREROUTING and OUTPUT chains in both the mangle and nat tables.
 // This makes it easier to identify and manage Cilium-created rules.
-func addInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
-	var ipt4, ipt6 *iptables.IPTables
-	var err error
+func addInPodRules(runner iptables.Runner, ipv4Enabled, ipv6Enabled bool) error {
+	rm := ruleManager{families: families(runner, ipv4Enabled, ipv6Enabled)}
 
-	if ipv4Enabled {
-		ipt4, err = iptables.New()
-		if err != nil {
-			return fmt.Errorf("failed to initialize iptables: %w", err)
-		}
-	}
-
-	if ipv6Enabled {
-		ipt6, err = iptables.NewWithProtocol(iptables.ProtocolIPv6)
-		if err != nil {
-			return fmt.Errorf("failed to initialize ip6tables: %w", err)
-		}
-	}
-
-	rm := ruleManager{
-		logger: logger,
-		ipt4:   ipt4,
-		ipt6:   ipt6,
-	}
-
-	if err := rm.createChains(ipv4Enabled, ipv6Enabled); err != nil {
+	if err := rm.createChains(); err != nil {
 		return err
 	}
 
@@ -361,15 +370,15 @@ func addInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
 		"--to-ports", fmt.Sprintf("%d", ZtunnelOutboundPort),
 	)
 
-	return rm.install(ipv4Enabled, ipv6Enabled)
+	return rm.install()
 }
 
 // DeleteInPodRules removes the iptables rules for ztunnels inpod mode.
 //
 // Note that this function is supposed to be called from within the pods
 // network namespace.
-func DeleteInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
-	if err := deleteInPodChains(logger, ipv4Enabled, ipv6Enabled); err != nil {
+func DeleteInPodRules(runner iptables.Runner, ipv4Enabled, ipv6Enabled bool) error {
+	if err := deleteInPodChains(runner, ipv4Enabled, ipv6Enabled); err != nil {
 		return err
 	}
 
@@ -454,23 +463,8 @@ func deleteInPodMarkRule(ipv4Enabled, ipv6Enabled bool) error {
 	return nil
 }
 
-func deleteInPodChains(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
-	var ipt4, ipt6 *iptables.IPTables
-	var err error
-
-	if ipv4Enabled {
-		ipt4, err = iptables.New()
-		if err != nil {
-			return fmt.Errorf("failed to initialize iptables: %w", err)
-		}
-	}
-
-	if ipv6Enabled {
-		ipt6, err = iptables.NewWithProtocol(iptables.ProtocolIPv6)
-		if err != nil {
-			return fmt.Errorf("failed to initialize ip6tables: %w", err)
-		}
-	}
+func deleteInPodChains(runner iptables.Runner, ipv4Enabled, ipv6Enabled bool) error {
+	fs := families(runner, ipv4Enabled, ipv6Enabled)
 
 	// First, delete the jump rules from the main chains to our custom chains
 	for _, table := range []string{"mangle", "nat"} {
@@ -480,13 +474,9 @@ func deleteInPodChains(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error
 		}
 
 		for mainChain, customChain := range jumpRules {
-			if ipv4Enabled {
+			for _, f := range fs {
 				// Ignore errors - rule may not exist
-				_ = ipt4.Delete(table, mainChain, "-j", customChain)
-			}
-			if ipv6Enabled {
-				// Ignore errors - rule may not exist
-				_ = ipt6.Delete(table, mainChain, "-j", customChain)
+				_, _ = f.run("-t", table, "-D", mainChain, "-j", customChain)
 			}
 		}
 	}
@@ -494,20 +484,19 @@ func deleteInPodChains(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error
 	// Then flush and delete the custom chains
 	for _, table := range []string{"mangle", "nat"} {
 		for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-			if ipv4Enabled {
-				if err := ipt4.ClearChain(table, chain); err != nil {
-					return fmt.Errorf("failed to flush iptables chain %s: %w", chain, err)
+			for _, f := range fs {
+				exists, err := f.chainExists(table, chain)
+				if err != nil {
+					return fmt.Errorf("failed to check %s chain existence: %w", f, err)
 				}
-				if err := ipt4.DeleteChain(table, chain); err != nil {
-					return fmt.Errorf("failed to delete iptables chain %s: %w", chain, err)
+				if !exists {
+					continue
 				}
-			}
-			if ipv6Enabled {
-				if err := ipt6.ClearChain(table, chain); err != nil {
-					return fmt.Errorf("failed to flush ip6tables chain %s: %w", chain, err)
+				if _, err := f.run("-t", table, "-F", chain); err != nil {
+					return fmt.Errorf("failed to flush %s chain %s: %w", f, chain, err)
 				}
-				if err := ipt6.DeleteChain(table, chain); err != nil {
-					return fmt.Errorf("failed to delete ip6tables chain %s: %w", chain, err)
+				if _, err := f.run("-t", table, "-X", chain); err != nil {
+					return fmt.Errorf("failed to delete %s chain %s: %w", f, chain, err)
 				}
 			}
 		}

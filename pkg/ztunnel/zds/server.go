@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -24,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
-	"github.com/cilium/cilium/pkg/ztunnel/iptables"
+	ztunnelIptables "github.com/cilium/cilium/pkg/ztunnel/iptables"
 	"github.com/cilium/cilium/pkg/ztunnel/pb"
 )
 
@@ -144,6 +145,7 @@ type serverParams struct {
 	Metrics   *Metrics
 
 	EndpointManager endpointmanager.EndpointManager
+	IPTables        iptables.Runner
 
 	// ZDSUnixAddr overrides the default ZDS unix socket address.
 	// If empty, config.DefaultZtunnelUnixAddress is used.
@@ -176,6 +178,7 @@ type Server struct {
 	updates               chan zdsUpdate // updates to send to ztunnel
 	initialSnapshotSeeded chan struct{}
 	metrics               *Metrics
+	iptables              iptables.Runner
 }
 
 type zdsUpdate struct {
@@ -201,6 +204,7 @@ func newZDSServer(p serverParams) serverOut {
 		endpointCache:         make(map[uint16]*endpoint.Endpoint),
 		initialSnapshotSeeded: make(chan struct{}),
 		metrics:               p.Metrics,
+		iptables:              p.IPTables,
 	}
 
 	zdsUnixAddr := defaultZDSUnixAddress
@@ -364,7 +368,7 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 	defer ns.Close()
 
 	if err = ns.Do(func() error {
-		return iptables.CreateInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
+		return ztunnelIptables.CreateInPodRules(s.logger, s.iptables, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	}); err != nil {
 		s.metrics.EnrollmentFailures.WithLabelValues("iptables_failed").Inc()
 		return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)
@@ -424,7 +428,7 @@ func (s *Server) removeInPodRules(ep *endpoint.Endpoint) error {
 	defer ns.Close()
 
 	if err := ns.Do(func() error {
-		return iptables.DeleteInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
+		return ztunnelIptables.DeleteInPodRules(s.iptables, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	}); err != nil {
 		return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
 	}
@@ -514,7 +518,7 @@ func (s *Server) sendInitialSnapshot(zc *ztunnelConn) error {
 		}
 
 		if err = ns.Do(func() error {
-			return iptables.CreateInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
+			return ztunnelIptables.CreateInPodRules(s.logger, s.iptables, option.Config.EnableIPv4, option.Config.EnableIPv6)
 		}); err != nil {
 			ns.Close()
 			return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)

@@ -120,10 +120,6 @@ type ipt struct {
 	mode     string
 }
 
-func (ipt *ipt) initLogger(logger *slog.Logger) {
-	ipt.logger = logger
-}
-
 func (ipt *ipt) initArgs(ctx context.Context, waitSeconds int) {
 	v, err := ipt.getVersion(ctx)
 	if err == nil {
@@ -438,7 +434,14 @@ type Manager interface {
 	RemoveNoTrackHostPorts(namespace, name string)
 }
 
-func newManager(p params) Manager {
+type managerOut struct {
+	cell.Out
+
+	Manager Manager
+	Runner  Runner
+}
+
+func newManager(p params) managerOut {
 	iptMgr := &manager{
 		logger:    p.Logger,
 		sysctl:    p.Sysctl,
@@ -460,8 +463,8 @@ func newManager(p params) Manager {
 		cniConfigManager: p.CNIConfigManager,
 	}
 
-	ip4tables := &ipt{prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
-	ip6tables := &ipt{prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
+	ip4tables := &ipt{logger: p.Logger, prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
+	ip6tables := &ipt{logger: p.Logger, prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
 
 	iptMgr.ip4tables = ip4tables
 	iptMgr.ip6tables = ip6tables
@@ -484,9 +487,6 @@ func newManager(p params) Manager {
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			defer initDone()
-			ip4tables.initLogger(p.Logger)
-			ip6tables.initLogger(p.Logger)
-
 			ip4tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
 			if p.SharedCfg.EnableIPv6 {
 				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
@@ -525,7 +525,10 @@ func newManager(p params) Manager {
 	// between closing and draining the channels.
 	p.Lifecycle.Append(iptMgr)
 
-	return iptMgr
+	return managerOut{
+		Manager: iptMgr,
+		Runner:  runner{ip4tables: ip4tables, ip6tables: ip6tables},
+	}
 }
 
 // Start initializes the iptables manager and checks for iptables kernel modules availability.
