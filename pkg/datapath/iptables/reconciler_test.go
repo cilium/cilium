@@ -5,6 +5,7 @@ package iptables
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net/netip"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
+	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -33,6 +35,9 @@ import (
 func TestReconciliationLoop(t *testing.T) {
 	defer testutils.GoleakVerifyNone(t)
 
+	const dnsPort, newDNSPort = uint16(5353), uint16(5354)
+	unconfirmedProxy := proxyInfo{name: "unconfirmed-proxy", port: 9093}
+	replacedProxy := proxyInfo{name: "proxy-test-2", port: 9092}
 	var (
 		clock   = baseclocktest.NewFakeClock(time.Now())
 		db      *statedb.DB
@@ -40,6 +45,14 @@ func TestReconciliationLoop(t *testing.T) {
 		store   *node.LocalNodeStore
 		health  cell.Health
 		params  *reconcilerParams
+		mgr     = manager{
+			restoredProxyPorts: map[string]uint16{
+				"proxy-test-1":          9090,
+				proxytypes.DNSProxyName: dnsPort,
+				unconfirmedProxy.name:   unconfirmedProxy.port,
+				replacedProxy.name:      replacedProxy.port,
+			},
+		}
 	)
 	h := hive.New(
 		cell.Provide(
@@ -72,23 +85,37 @@ func TestReconciliationLoop(t *testing.T) {
 	)
 
 	var (
-		state desiredState
-		mu    lock.Mutex
+		state               desiredState
+		failNextFullRebuild bool
+		mu                  lock.Mutex
 	)
 
-	updateFunc := func(newState desiredState, firstInit bool) error {
+	updateFunc := func(newState desiredState) error {
 		mu.Lock()
 		defer mu.Unlock()
+
+		if failNextFullRebuild {
+			failNextFullRebuild = false
+			state = desiredState{}
+			return errors.New("lost rules during full reconciliation")
+		}
 
 		// copy newState to avoid a race with the reconciler mutating it
 		// and the test asserting the expected values with Eventually
 		state = newState.deepCopy()
+		for proxy := range newState.proxyRules {
+			state.proxies[proxy.name] = proxy
+		}
 
 		return nil
 	}
 	updateProxyFunc := func(proxyPort uint16, name string) error {
 		mu.Lock()
 		defer mu.Unlock()
+		if name == replacedProxy.name {
+			failNextFullRebuild = true
+			return errors.New("force full reconciliation for replacement port")
+		}
 		state.proxies[name] = proxyInfo{
 			name: name,
 			port: proxyPort,
@@ -141,6 +168,16 @@ func TestReconciliationLoop(t *testing.T) {
 		state.noTrackHostPorts = currentState.exclude(pod)
 		assert.NotContains(t, state.noTrackHostPorts, pod)
 		return nil
+	}
+
+	acknowledgeProxy := func(info proxyInfo) {
+		updated := make(chan struct{})
+		params.proxies <- reconciliationRequest[proxyInfo]{info: info, updated: updated}
+		select {
+		case <-updated:
+		case <-time.After(time.Second):
+			t.Errorf("confirming port %d for %s did not complete", info.port, info.name)
+		}
 	}
 
 	testCases := []struct {
@@ -228,15 +265,10 @@ func TestReconciliationLoop(t *testing.T) {
 			},
 		},
 		{
-			name: "add first proxy",
+			name: "confirm restored proxy",
 			action: func() {
-				params.proxies <- reconciliationRequest[proxyInfo]{
-					info: proxyInfo{
-						name: "proxy-test-1",
-						port: 9090,
-					},
-					updated: make(chan struct{}),
-				}
+				acknowledgeProxy(proxyInfo{name: "proxy-test-1", port: 9090})
+				acknowledgeProxy(proxyInfo{name: proxytypes.DNSProxyName, port: dnsPort})
 			},
 			expected: desiredState{
 				installRules: true,
@@ -255,8 +287,10 @@ func TestReconciliationLoop(t *testing.T) {
 			},
 		},
 		{
-			name: "add second proxy",
+			name: "replace restored proxy port",
 			action: func() {
+				// An early full rebuild must still replay the startup rules.
+				clock.Step(29 * time.Minute)
 				params.proxies <- reconciliationRequest[proxyInfo]{
 					info: proxyInfo{
 						name: "proxy-test-2",
@@ -463,6 +497,20 @@ func TestReconciliationLoop(t *testing.T) {
 		},
 	}
 
+	// During the grace period a startup rule fills in for each listener
+	// without an acknowledged port.
+	for i := range testCases {
+		expected := &testCases[i].expected
+		if expected.proxies == nil {
+			expected.proxies = make(map[string]proxyInfo)
+		}
+		for name, port := range mgr.restoredProxyPorts {
+			if _, acknowledged := expected.proxies[name]; !acknowledged {
+				expected.proxies[name] = proxyInfo{name: name, port: port}
+			}
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -472,13 +520,17 @@ func TestReconciliationLoop(t *testing.T) {
 	// apply initial state
 	testCases[0].action()
 
+	startupPorts := maps.Collect(mgr.RestoredProxyPorts())
+
 	// start the reconciliation loop
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
 		errs <- reconciliationLoop(
 			ctx, tlog, health, true,
-			params, updateFunc, updateProxyFunc,
+			params,
+			mgr.restoredProxyPorts,
+			updateFunc, updateProxyFunc,
 			installNoTrackFunc, removeNoTrackFunc,
 			setNoTrackHostPortsFunc, removeNoTrackHostPortsFunc,
 		)
@@ -519,13 +571,21 @@ func TestReconciliationLoop(t *testing.T) {
 		})
 	}
 
-	// Manually reset the current state, and assert that it eventually converges
-	// back to the desired one thanks to the periodic refresh logic.
-	updateFunc(desiredState{}, false)
+	replacementDNS := proxyInfo{name: proxytypes.DNSProxyName, port: newDNSPort}
+	acknowledgeProxy(replacementDNS)
+	mu.Lock()
+	assert.Equal(t, replacementDNS, state.proxies[proxytypes.DNSProxyName])
+	mu.Unlock()
+
+	// Simulate losing the current rules. The periodic rebuild should restore
+	// the acknowledged ports and leave the unconfirmed startup port out.
+	updateFunc(desiredState{})
 	clock.Step(30 * time.Minute)
 
 	// wait for reconciler to react to the update
-	expected := testCases[len(testCases)-1].expected
+	expected := testCases[len(testCases)-1].expected.deepCopy()
+	delete(expected.proxies, unconfirmedProxy.name)
+	expected.proxies[proxytypes.DNSProxyName] = replacementDNS
 	assert.Eventuallyf(t, func() bool {
 		// Advance the clock, to trigger the ticker responsible to perform the update.
 		clock.Step(200 * time.Millisecond)
@@ -538,6 +598,21 @@ func TestReconciliationLoop(t *testing.T) {
 		}
 		return true
 	}, 10*time.Second, 10*time.Millisecond, "expected state not reached. %v", expected)
+	assert.Equal(t, startupPorts, maps.Collect(mgr.RestoredProxyPorts()),
+		"replacing or expiring a rule must leave the startup hints intact")
+
+	t.Run("duplicate proxy requests complete", func(t *testing.T) {
+		info := proxyInfo{name: "proxy-test-1", port: 9090}
+		for range 2 {
+			updated := make(chan struct{})
+			params.proxies <- reconciliationRequest[proxyInfo]{info: info, updated: updated}
+			select {
+			case <-updated:
+			case <-time.After(time.Second):
+				t.Fatal("duplicate proxy request did not complete")
+			}
+		}
+	})
 
 	assert.NoError(t, h.Stop(tlog, ctx))
 
@@ -563,8 +638,7 @@ func assertIptablesState(current, expected desiredState) error {
 		return fmt.Errorf("expected local node info to be %v, found %v",
 			expected.localNodeInfo, current.localNodeInfo)
 	}
-	if len(current.proxies) != 0 && len(expected.proxies) != 0 &&
-		!assert.ObjectsAreEqual(expected.proxies, current.proxies) {
+	if !maps.Equal(expected.proxies, current.proxies) {
 		return fmt.Errorf("expected proxies info to be %v, found %v",
 			expected.proxies, current.proxies)
 	}

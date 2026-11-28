@@ -6,6 +6,7 @@ package iptables
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"strings"
@@ -156,80 +157,6 @@ func TestRenameCustomChainIPv6Error(t *testing.T) {
 	require.ErrorIs(t, err, errRename)
 	require.NoError(t, mockIp4tables.checkExpectations())
 	require.NoError(t, mockIp6tables.checkExpectations())
-}
-
-func TestCopyProxyRulesv4(t *testing.T) {
-	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
-	mockIp4tables.expectations = []expectation{
-		{
-			args: "-t mangle -S",
-			out: []byte(
-				`-P PREROUTING ACCEPT
--P INPUT ACCEPT
--P FORWARD ACCEPT
--P OUTPUT ACCEPT
--P POSTROUTING ACCEPT
--N OLD_CILIUM_POST_mangle
--N OLD_CILIUM_PRE_mangle
--N KUBE-KUBELET-CANARY
--N KUBE-PROXY-CANARY
--A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j OLD_CILIUM_PRE_mangle
--A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j OLD_CILIUM_POST_mangle
--A OLD_CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-random-proxy proxy" -j TPROXY --on-port 43499 --on-ip 0.0.0.0 --tproxy-mark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
-`),
-		}, {
-			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff",
-		}, {
-			args: "-t mangle -A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff",
-		},
-	}
-
-	// Copies DNS proxy rules from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
-	mockManager.doCopyProxyRules(mockIp4tables, "mangle", tproxyMatch, "cilium-dns-egress", "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
-	err := mockIp4tables.checkExpectations()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCopyProxyRulesv6(t *testing.T) {
-	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
-	mockIp6tables.expectations = []expectation{
-		{
-			args: "-t mangle -S",
-			out: []byte(
-				`-P PREROUTING ACCEPT
--P INPUT ACCEPT
--P FORWARD ACCEPT
--P OUTPUT ACCEPT
--P POSTROUTING ACCEPT
--N OLD_CILIUM_POST_mangle
--N OLD_CILIUM_PRE_mangle
--N KUBE-KUBELET-CANARY
--N KUBE-PROXY-CANARY
--A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j OLD_CILIUM_PRE_mangle
--A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j OLD_CILIUM_POST_mangle
--A OLD_CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-random-proxy proxy" -j TPROXY --on-port 43499 --on-ip :: --tproxy-mark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
-`),
-		}, {
-			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff",
-		}, {
-			args: "-t mangle -A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff",
-		},
-	}
-
-	// Copies DNS proxy rules from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
-	mockManager.doCopyProxyRules(mockIp6tables, "mangle", tproxyMatch, "cilium-dns-egress", "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
-	err := mockIp6tables.checkExpectations()
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestAddProxyRulesv4(t *testing.T) {
@@ -432,7 +359,7 @@ func TestAddProxyRulesv4(t *testing.T) {
 	}
 }
 
-func TestGetProxyPorts(t *testing.T) {
+func TestRestoredProxyPorts(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
@@ -482,6 +409,30 @@ TPROXY     udp  --  0.0.0.0/0            0.0.0.0/0            mark match 0xd7a90
 	if err := mockIp4tables.checkExpectations(); err != nil {
 		t.Fatal(err)
 	}
+
+	const listProxyRules = "-t mangle -n -L CILIUM_PRE_mangle"
+	v4 := &mockIptables{t: t, prog: "iptables", expectations: []expectation{{
+		args: listProxyRules,
+		out: []byte("/* cilium: TPROXY to host ns/cec/listener proxy */ TPROXY redirect 127.0.0.1:43479 mark\n" +
+			"/* cilium: TPROXY to host cilium-dns-egress proxy */ TPROXY redirect 127.0.0.1:5353 mark"),
+	}}}
+	v6 := &mockIptables{t: t, prog: "ip6tables", expectations: []expectation{{
+		args: listProxyRules,
+		out: []byte("/* cilium: TPROXY to host ns/cec/listener proxy */ TPROXY redirect ::1:43480 mark\n" +
+			"/* cilium: TPROXY to host ns/cec/ipv6-only proxy */ TPROXY redirect ::1:43481 mark"),
+	}}}
+	mgr := manager{
+		ip4tables: v4,
+		ip6tables: v6,
+		sharedCfg: SharedConfig{EnableIPv4: true, EnableIPv6: true},
+	}
+	mgr.restoredProxyPorts = mgr.readPreviousProxyPorts()
+	want := map[string]uint16{"ns/cec/listener": 43479, "ns/cec/ipv6-only": 43481, "cilium-dns-egress": 5353}
+	ports := mgr.RestoredProxyPorts()
+	require.Equal(t, want, maps.Collect(ports))
+	require.Equal(t, want, maps.Collect(ports))
+	require.NoError(t, v4.checkExpectations())
+	require.NoError(t, v6.checkExpectations())
 }
 
 func TestAddProxyRulesv6(t *testing.T) {

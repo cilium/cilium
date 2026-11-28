@@ -6,6 +6,8 @@ package proxy
 import (
 	"context"
 	"errors"
+	"iter"
+	"maps"
 	"os"
 	"testing"
 
@@ -39,7 +41,9 @@ func (d *recordingProxyDatapath) InstallProxyRules(port uint16, name string) {
 	d.rules[name] = port
 }
 
-func (d *recordingProxyDatapath) GetProxyPorts() map[string]uint16 { return d.rules }
+func (d *recordingProxyDatapath) RestoredProxyPorts() iter.Seq2[string, uint16] {
+	return maps.All(d.rules)
+}
 
 func proxyForTest(t *testing.T, envoyIntegration *envoyProxyIntegration) (*Proxy, *recordingProxyDatapath) {
 	var drm *reconciler.DesiredRouteManager

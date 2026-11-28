@@ -25,9 +25,33 @@ type desiredState struct {
 
 	devices          sets.Set[string]
 	localNodeInfo    localNodeInfo
-	proxies          map[string]proxyInfo
+	proxies          map[string]proxyInfo // Acknowledged ports.
 	noTrackPods      sets.Set[noTrackPodInfo]
 	noTrackHostPorts noTrackHostPortsByPod
+
+	// Replay the immutable startup snapshot during the grace period so a
+	// failed rebuild cannot lose the only copy of a restored rule.
+	restoredProxyPorts map[string]uint16
+}
+
+// proxyRules yields the rules for a full rebuild. During the startup grace
+// period, it also replays rules from the previous agent. An acknowledged port
+// takes precedence over a restored port for the same proxy name.
+func (s *desiredState) proxyRules(yield func(proxyInfo) bool) {
+	for name, port := range s.restoredProxyPorts {
+		_, acknowledged := s.proxies[name]
+		if acknowledged || port == 0 {
+			continue
+		}
+		if !yield(proxyInfo{name: name, port: port}) {
+			return
+		}
+	}
+	for _, proxy := range s.proxies {
+		if !yield(proxy) {
+			return
+		}
+	}
 }
 
 type localNodeInfo struct {
@@ -93,7 +117,8 @@ func reconciliationLoop(
 	health cell.Health,
 	installIptRules bool,
 	params *reconcilerParams,
-	updateRules func(state desiredState, firstInit bool) error,
+	restoredProxyPorts map[string]uint16,
+	updateRules func(state desiredState) error,
 	updateProxyRules func(proxyPort uint16, name string) error,
 	installNoTrackRules func(addr netip.Addr, port uint16) error,
 	removeNoTrackRules func(addr netip.Addr, port uint16) error,
@@ -117,6 +142,8 @@ func reconciliationLoop(
 		proxies:          make(map[string]proxyInfo),
 		noTrackPods:      sets.New[noTrackPodInfo](),
 		noTrackHostPorts: make(noTrackHostPortsByPod),
+
+		restoredProxyPorts: restoredProxyPorts,
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -151,9 +178,27 @@ func reconciliationLoop(
 
 	firstInit := true
 
+	// reconcileRules wraps the given updateRules to manage restored proxy ports.
+	var restoredPortsExpireAt time.Time
+	reconcileRules := func() error {
+		// Clear out restored proxy ports once the grace period has passed.
+		if !restoredPortsExpireAt.IsZero() && !params.clock.Now().Before(restoredPortsExpireAt) {
+			state.restoredProxyPorts = nil
+			restoredPortsExpireAt = time.Time{}
+		}
+		if err := updateRules(state); err != nil {
+			return err
+		}
+		// Set up the restored ports grace pediod after the first successful update.
+		if firstInit && len(state.restoredProxyPorts) != 0 {
+			restoredPortsExpireAt = params.clock.Now().Add(fullReconciliationInterval)
+		}
+		return nil
+	}
+
 	// Run an initial full reconciliation before listening on partial reconciliation
 	// request channels (like proxies and no track rules).
-	if err := updateRules(state, firstInit); err != nil {
+	if err := reconcileRules(); err != nil {
 		health.Degraded("iptables rules update failed", err)
 		// Keep stateChanged=true and firstInit=true to try again on the next tick.
 	} else {
@@ -193,6 +238,14 @@ stop:
 				break stop
 			}
 			if info, ok := state.proxies[req.info.name]; ok && info == req.info {
+				// Dropping a duplicate leaves its InstallProxyRules caller
+				// blocked on req.updated. Let a pending rebuild close it,
+				// or close it here if the rule is already current.
+				if stateChanged {
+					updatedChs = append(updatedChs, req.updated)
+				} else {
+					close(req.updated)
+				}
 				continue
 			}
 
@@ -325,7 +378,7 @@ stop:
 				continue
 			}
 
-			if err := updateRules(state, firstInit); err != nil {
+			if err := reconcileRules(); err != nil {
 				if fullLogLimiter.Allow() {
 					log.Error("iptables rules full reconciliation failed, will retry another one later", logfields.Error, err)
 				}
